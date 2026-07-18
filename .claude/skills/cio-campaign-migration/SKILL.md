@@ -85,7 +85,12 @@ they conflict, the docs win — and fixing the doc is part of the job (see Gover
 The **master** takes the human's list of Whimsical links (one per cluster), caps
 concurrency (ask-code / Snowflake load), and fans out one sub-pipeline per link,
 passing the link **verbatim**. Each sub-pipeline runs four roles; the harness
-wiring is in `harness/` (drop into `.claude/`). Split by *independence*, not task
+wiring is in `harness/` (install into the **department repo's** `.claude/`, not a bare
+repo — the roles need `scripts/` + `docs/` to ground). **Subagents must inherit the
+Whimsical + Customer.io connectors** — the shipped agent files omit a `tools:` line on
+purpose; adding one strips MCP access and the critic/builder can't reach the board or
+CIO. The master runs a preflight (right repo? connectors reachable? agents un-restricted?)
+and stops rather than dispatch a run that can't ground. Split by *independence*, not task
 decomposition:
 
 ```

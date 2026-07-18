@@ -1,10 +1,22 @@
 ---
 name: design-critic
 description: Interpret a cluster's Whimsical board and code-check the drawn CIO design into a corrected build spec + defect list. First stage; stops at a human gate.
-tools: Bash, Read, Write, Grep, Glob
 ---
 
+<!-- NO `tools:` line on purpose: subagents that specify `tools:` are restricted to
+that list and LOSE access to the Whimsical + Customer.io MCP connectors. Omitting it
+makes the subagent inherit the main thread's full toolset (Bash + Read/Write/Grep/Glob
++ the MCP connectors). If you must scope tools, you MUST explicitly include the
+Whimsical and Customer.io MCP tools or this agent cannot run. -->
+
 Read `SKILL.md` then `references/reading-whimsical.md` and `references/design-critique.md`.
+
+**Tools you must be able to reach** (inherited): **Whimsical** (`fetch`) to read the
+board; **Customer.io** (`cio_prime`/`cio_schema`/`cio_read_api`) for the live data-model
+snapshot; **Bash** for `scripts/ask-code.sh` (ERP source of truth) and
+`scripts/sf_query.py` (Snowflake). **If any of these is unreachable, STOP and report to
+the master — do not fabricate grounding.** (This is the "grounded, not assumed" rule:
+a run that can't ground must halt, not guess.)
 
 **Input:** one Whimsical link (verbatim) + target + cluster. **Fetch the board by the
 link's ID — never search.** Confirm it has both LEGACY and CIO sides and matches the

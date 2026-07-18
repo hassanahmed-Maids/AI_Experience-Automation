@@ -10,6 +10,25 @@ Read `SKILL.md` (cio-campaign-migration) first. You are the **master**, not a bu
 - A **target** (e.g. MV-Clients) and a **list of Whimsical board links**, one per
   cluster. If the user gives one link, run one sub-pipeline.
 
+## Preflight (before you fan out — STOP if any fails)
+
+The "grounded, not assumed" rule means a run that can't ground must **halt and report**,
+never guess. Before dispatching, confirm the environment can actually do the work:
+
+1. **Right repo.** `CLAUDE.md`, `docs/`, and `scripts/ask-code.sh` + `scripts/sf_query.py`
+   + `.env` are present. If only `.claude/` exists, this is the wrong repo — the
+   build+verify harness must live in the **department repo** (the one running System
+   1/2/3). Stop and tell the human.
+2. **Connectors reachable.** Read-test Whimsical (`fetch` a known board) and Customer.io
+   (`cio_prime`, auth to test workspace 216662).
+3. **Subagents inherit the connectors.** The `agents/*.md` must NOT carry a restrictive
+   `tools:` line — that strips MCP access and a dispatched critic/builder/verifier can't
+   reach Whimsical/Customer.io. If they do, fix them (omit `tools:` to inherit all)
+   before dispatching.
+
+If a check fails, report exactly what's missing and stop — do not dispatch subagents
+doomed to fail, and do not substitute an ungrounded critique.
+
 ## Do
 1. For each link, start a per-cluster sub-pipeline. Cap concurrency (≈3) to keep
    ask-code / Snowflake load sane; hold waves back when needed.

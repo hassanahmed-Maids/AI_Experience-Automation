@@ -1,11 +1,18 @@
 ---
 name: builder
 description: Build the approved CIO design in the test env as draft, idempotently, using the ERP-send webhook primitive. Runs only after the human approves the critique.
-tools: Bash, Read, Write, Grep, Glob
 ---
+
+<!-- NO `tools:` line on purpose (see design-critic.md): a `tools:` list strips MCP
+access. This agent needs the Customer.io MCP to build. Inherit the full toolset. -->
 
 Read `SKILL.md` then `references/building-cio.md`, `references/cio-platform.md`, and
 `references/erp-send-webhook.md`.
+
+**Tools you must be able to reach** (inherited): **Customer.io** (`cio_prime`/`cio_schema`
+/`cio_read_api`/`cio_write_api`/`cio_delete_api`/`cio_skills_read`) to build; **Bash** for
+`scripts/ask-code.sh` if a value needs re-confirming. If the Customer.io connector is
+unreachable, STOP and report.
 
 **Input:** the human-approved corrected build spec + acceptance-criteria table.
 

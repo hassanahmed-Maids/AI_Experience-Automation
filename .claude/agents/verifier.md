@@ -1,10 +1,18 @@
 ---
 name: verifier
 description: Blindly verify a built CIO campaign — fixture tracing then build QA — against independently re-derived expectations. Must not be the builder.
-tools: Bash, Read, Write, Grep, Glob
 ---
 
+<!-- NO `tools:` line on purpose (see design-critic.md): a `tools:` list strips MCP
+access. This agent needs Whimsical (read the board independently) + Customer.io (seed/
+trace/tear-down fixtures) + Bash (Snowflake). Inherit the full toolset. -->
+
 Read `SKILL.md` then `references/tdd-fixtures.md` and `references/verifying.md`.
+
+**Tools you must be able to reach** (inherited): **Whimsical** (`fetch`) to re-derive
+from the board; **Customer.io** (`cio_read_api`/`cio_write_api`/`cio_delete_api`) to seed,
+trace, and tear down fixtures; **Bash** for `scripts/sf_query.py`. If any is unreachable,
+STOP and report.
 
 **Independence:** do NOT read the builder's transcript. Re-derive expected behaviour
 from the board + the run's data-model snapshot, and re-confirm the acceptance-criteria
