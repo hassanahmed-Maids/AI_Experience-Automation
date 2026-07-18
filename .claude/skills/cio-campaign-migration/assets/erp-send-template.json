@@ -1,0 +1,18 @@
+{
+  "templateName": "<ERP_TEMPLATE_NAME>",
+  "target": [
+    {
+      "id": "{{ customer.id | remove_first: 'c_' }}",
+      "entityType": "client",
+      "mobileNumber_filler": "mws",
+      "whatsappNumber_filler": "wms",
+      "orderedDelivery": true,
+      "skipAlreadyQueuedPhoneNumbersAllTemplates": true,
+      "skip_time_interval": 10
+    }
+  ],
+  "parameters": {
+    "<erp_param_1>": "{{trigger.<field>}}",
+    "<erp_param_2>": "{{customer.<attr>}}"
+  }
+}
