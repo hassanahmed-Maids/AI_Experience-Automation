@@ -7,8 +7,11 @@ description: Build + verify CIO campaigns from Whimsical links (master fan-out)
 Read `SKILL.md` (cio-campaign-migration) first. You are the **master**, not a builder.
 
 ## Input
-- A **target** (e.g. MV-Clients) and a **list of Whimsical board links**, one per
-  cluster. If the user gives one link, run one sub-pipeline.
+- A **target** (e.g. MV-Clients) and either:
+  - a **list of Whimsical board links** (one per cluster — the normal path), or
+  - **no link but named templates** (`--templates A,B,C`) → **board-less mode**: the
+    design-critic derives the flow from ERP code (`references/derive-from-code.md`).
+  If a link is given, use it; never mix (a link always wins over `--templates`).
 
 ## Preflight (before you fan out — STOP if any fails)
 
@@ -33,6 +36,9 @@ doomed to fail, and do not substitute an ungrounded critique.
 1. For each link, start a per-cluster sub-pipeline. Cap concurrency (≈3) to keep
    ask-code / Snowflake load sane; hold waves back when needed.
 2. Pass each link **verbatim** to its `design-critic`. Never search/browse for a board.
+   In **board-less mode** (no link, `--templates` given) tell the critic to derive from
+   code — and confirm ask-the-code is reachable in preflight, since it's the only source
+   of truth without a board.
 3. Chain the stages as each lands via completion notifications:
    `design-critic` → **STOP for the human gate** (present defects + corrected spec) →
    on approval, `builder` → `verifier` (blind) → **STOP for the human publish gate**.

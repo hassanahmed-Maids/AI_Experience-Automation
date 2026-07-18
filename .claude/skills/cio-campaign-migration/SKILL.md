@@ -30,7 +30,9 @@ reconciles it to cutover.
 **This skill is the build+verify layer between them.** Per cluster it:
 
 1. **Interprets & critiques** the drawn CIO design into an unambiguous, *code-checked*
-   build spec (`references/design-critique.md` + `references/reading-whimsical.md`).
+   build spec (`references/design-critique.md` + `references/reading-whimsical.md`) — or,
+   when **no board exists**, derives the flow from ERP code as a fallback
+   (`references/derive-from-code.md`).
 2. **Builds** it in the CIO **test env**, as draft, following our conventions and
    the ERP-send webhook primitive (`references/building-cio.md`).
 3. **Verifies** it behaves as specified — seeded-fixture tracing first, then shadow
@@ -52,6 +54,10 @@ they conflict, the docs win — and fixing the doc is part of the job (see Gover
   by ID. **Never** title-search or folder-browse for it — the workspace has
   multiple draft copies of every journey (`Customer IO - MV Clients` and
   `MV Client Messages V2` are old drafts to ignore). See `references/reading-whimsical.md`.
+  **Board-less exception:** if **no** board is provided and templates are named instead
+  (`--templates A,B,C`), derive the flow from ERP code (`references/derive-from-code.md`)
+  — this is a lower-assurance fallback that stands in for System 1; prefer a board whenever
+  one exists.
 - **Naming (required):** `CIO - <MV|CC> - <Clients|Housemaids> - Cluster <N> - <Journey> (<Owner>)`.
   Example: `CIO - MV - Clients - Cluster 13 - Ansari Salary Statement Delivery (Abdullah)`.
   The two other in-workspace schemes are legacy — do not create new campaigns with them.

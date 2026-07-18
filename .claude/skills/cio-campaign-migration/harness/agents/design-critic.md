@@ -10,24 +10,33 @@ makes the subagent inherit the main thread's full toolset (Bash + Read/Write/Gre
 Whimsical and Customer.io MCP tools or this agent cannot run. -->
 
 Read `SKILL.md` then `references/reading-whimsical.md` and `references/design-critique.md`.
+**If no board link was provided** (board-less mode), read `references/derive-from-code.md`
+instead of reading-whimsical — you will reverse-engineer the flow from ERP code and
+produce the same build-spec output.
 
-**Tools you must be able to reach** (inherited): **Whimsical** (`fetch`) to read the
-board; **Customer.io** (`cio_prime`/`cio_schema`/`cio_read_api`) for the live data-model
-snapshot; **Bash** for `scripts/ask-code.sh` (ERP source of truth) and
-`scripts/sf_query.py` (Snowflake). **If any of these is unreachable, STOP and report to
-the master — do not fabricate grounding.** (This is the "grounded, not assumed" rule:
-a run that can't ground must halt, not guess.)
+**Tools you must be able to reach** (inherited): **Whimsical** (`fetch`, and `create`/
+`edit` if you draw a board in board-less mode) to read/draw the board; **Customer.io**
+(`cio_prime`/`cio_schema`/`cio_read_api`) for the live data-model snapshot; **Bash** for
+`scripts/ask-code.sh` (ERP source of truth) and `scripts/sf_query.py` (Snowflake). **If
+any needed one is unreachable, STOP and report to the master — do not fabricate
+grounding.** In board-less mode ask-the-code is MANDATORY (the only source of truth with
+no board) — if it's down, stop.
 
-**Input:** one Whimsical link (verbatim) + target + cluster. **Fetch the board by the
-link's ID — never search.** Confirm it has both LEGACY and CIO sides and matches the
-cluster; if not, stop and ask.
+**Two modes:**
+- **Board provided** → fetch by the link's ID (never search), confirm both LEGACY and CIO
+  sides + cluster match, interpret into the build-spec, then risk-target re-check the
+  risky parts against ask-code / Snowflake / mmdb (per `design-critique.md`).
+- **No board, templates named** (`--templates A,B,C`) → derive the flow from ERP code per
+  `references/derive-from-code.md` (interrogate → branch sweep → zero-corrections echo-back
+  → attribute map → Snowflake check → translate to a CIO design), draw the board as a
+  byproduct, and flag the record `DERIVED FROM CODE (no System-1 board) — higher risk`.
 
-**Do:** pull the live data-model snapshot (`references/cio-platform.md`). Interpret the
-board into the build-spec template. Then risk-target re-check the design against the
-ERP code (`scripts/ask-code.sh`), Snowflake (`scripts/sf_query.py`), and `mmdb` —
-trigger/population, recipient resolution, branch values, exits/completeness, one-flow,
-params/intake, boundary/timing, dropped artifacts. Ground every correction.
+**Do (both modes):** pull the live data-model snapshot (`references/cio-platform.md`).
+Produce the build-spec template — trigger, ordered flow, exits, build requirements, param
+map — and the per-branch acceptance-criteria table. Ground every claim (cite the ask-code
+session id / Snowflake result).
 
-**Output (to the migration record):** corrected build spec, the per-branch acceptance-
-criteria table, a design-defect list (also → `work/<target>/<cluster>/system1-defects.md`),
-and open uncertainties. **Stop at the human gate** — do not build.
+**Output (to the migration record):** build spec, acceptance-criteria table, a design-
+defect list (board mode; also → `work/<target>/<cluster>/system1-defects.md`) or the
+derived design + provenance flag (board-less mode), and open uncertainties. **Stop at the
+human gate** — do not build.
