@@ -71,8 +71,13 @@ Only **three things** change per send — everything else is fixed boilerplate:
 
 Each `@param@` from the board's PARAM MAP resolves to exactly one of:
 
-1. **Event-carried** → `{{trigger.<field>}}` (the ERP→CIO event payload). Preferred
-   when the value is known at the triggering moment.
+1. **Event-carried** → the ERP→CIO event payload. Preferred when the value is known at
+   the triggering moment. **Namespace depends on the campaign trigger type** (per CIO's
+   `recipes/liquid_syntax.md`): an **event-triggered campaign** (`type: transactional` +
+   `event:`) references payload fields as **`{{event.<field>}}`**; `{{trigger.<field>}}`
+   is for transactional *messages*, API-triggered broadcasts, and webhook/object/
+   relationship-triggered campaigns. Most migrated flows are event-triggered → use
+   `{{event.<field>}}` (verified on campaigns 113/117 via `previews/webhook`).
 2. **Synced profile / relationship attribute** → `{{customer.<attr>}}` (must exist in
    the live data-model snapshot; if not, it's a sync-add build dependency).
 3. **Live-API or static** → a value fetched via an in-campaign API journey attribute
