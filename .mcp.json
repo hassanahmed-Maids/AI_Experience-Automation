@@ -2,7 +2,7 @@
   "mcpServers": {
     "ask-code": {
       "type": "sse",
-      "url": "https://sami-team.app.n8n.cloud/mcp/ask-code/sse",
+      "url": "https://sami-team.app.n8n.cloud/mcp/ask-the-code/sse",
       "headers": {
         "Authorization": "Bearer ${ASK_CODE_MCP_TOKEN}"
       }
