@@ -73,6 +73,10 @@ Step 2  reconcile → system3-reconciler → system3/reconciliation-<date>.md
 
 Key rules: **accuracy = CIO-correctness vs DB ground truth** (ERP is fallible; ERP mistakes logged separately, excluded from the score), **per template rolled to cluster**, match = **same person + same template + same Dubai day**, honor Snowflake's **~2h ingestion lag** (exclude the last ~2h from "miss" calls; `sent_date` is trusted). Run via `/system3 <target> <cluster> <step>` (step = `validate | reconcile`). **Connector pending** — designed against an assumed CustomerIO connector; enhance to its real API when Moe confirms it.
 
+## Audit checks (Police & Control Dept.) — separate subsystem
+
+Not part of the migration pipeline. Lives in `checks/`. Each **audit check** is a recurring data-integrity check: an n8n flow does the deterministic maths and raises **red flags**; a scheduled Claude worker reads the check's skill (**the law**) and investigates every flag live against the ERP to separate genuine issues from legitimate exceptions, attaching primary evidence + a clickable ERP link to each verdict. File convention (see `checks/README.md`): `audit-check-skill.template.md` (standard template), `<check-id>.skill.md` (the law), `<check-id>.task.md` (the paste-ready recurring-task operator prompt). First check: **Same Day Recruitment Fee (SDRF)** — `checks/same-day-recruitment-fee.skill.md` + `checks/sdrf-audit-worker.task.md`. **Runtime:** must run where `erpbackendpro.maids.cc` + the n8n host are reachable with a live token (Claude Code as runner). **Absolute rule — the ERP RATE LAW:** the payments `advancesearch` endpoint once disabled the ERP account, so every check obeys sequential-only, ≥350 ms between calls, ≤500 calls/run, circuit-breaker-on-first-error. Never bypass it.
+
 ## Fixing the system (governance)
 
 A correction isn't done until it's written into the file that caused it. Wrong flow logic → agent playbook; wrong CIO taste → customerio-conventions.md; wrong drawing → whimsical-standards.md; wrong domain understanding → glossary.md. Log every judgment call in `docs/decisions.md`.
