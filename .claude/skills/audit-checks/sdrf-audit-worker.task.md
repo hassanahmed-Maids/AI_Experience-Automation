@@ -8,7 +8,7 @@ investigate each one live against the ERP, and write back verdicts.
 are reachable, with a live ERP token — i.e. Claude Code as the runner, or a worker
 with HTTP/MCP tools to both. A public claude.ai task cannot reach the internal ERP.
 
-**Source of truth for the logic:** [`checks/same-day-recruitment-fee.skill.md`](./same-day-recruitment-fee.skill.md).
+**Source of truth for the logic:** [`.claude/skills/audit-checks/same-day-recruitment-fee.skill.md`](./same-day-recruitment-fee.skill.md).
 This prompt is the *operator*; the skill is the *law*. If they ever disagree, the
 skill wins — read it at the start of every run.
 
@@ -20,7 +20,7 @@ skill wins — read it at the start of every run.
 {{WRITEBACK_ENDPOINT}}   where verdicts are posted back
 {{ERP_TOKEN_SOURCE}}     how to obtain the live Bearer token + device (env var, secret store, refresh flow)
 {{SCHEDULE}}             e.g. 06:00 Asia/Dubai on the 1st of each month
-{{SKILL_PATH}}           checks/same-day-recruitment-fee.skill.md   (resolved — this repo)
+{{SKILL_PATH}}           .claude/skills/audit-checks/same-day-recruitment-fee.skill.md   (resolved — this repo)
 ```
 
 ## Your role
