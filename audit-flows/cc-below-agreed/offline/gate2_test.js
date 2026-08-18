@@ -47,3 +47,36 @@ run([{json:{clients:{content:real.clients.content,size:100,totalPages:1,last:tru
 run(walk(full, TOTAL-40*(full-1), TOTAL+10), 'total grew 10 mid-walk (concurrent change)  <- MUST PASS');
 run(walk(full, TOTAL-40*(full-1), TOTAL+200),'declared 200 higher than collected  <- must block');
 run([{json:{status:500,message:'SecurityException: Access denied.'}}], 'ERP error body  <- must block');
+
+// ---- the status sweep at the size it now actually runs (2000, server clamp) -------
+// 43,727 rows = 21 full pages of 2000 + a 1,727-row tail. Under the old hardcoded
+// `< 40` short-page test the 1,727 tail did not read as short and gate 2 threw on a
+// COMPLETE sweep. Reconciliation now carries the proof.
+function statusWalk(size,total){
+  const pages=[]; let left=total;
+  while(left>0){ const n=Math.min(size,left);
+    pages.push({json:{content:new Array(n).fill(0).map((_,i)=>({id:i})),totalElements:total,totalPages:Math.ceil(total/size)}});
+    left-=n; }
+  return pages;
+}
+function runStatus(pop,statusPages,label){
+  const validated={audit_month:'2026-07',range_start:'2026-07-01',range_end:'2026-07-31',
+    params:{},persistence_windows:[{key:'2026-07',from:'2026-07-01',to:'2026-07-31',node:'Get Month Payments'},
+      {key:'2026-06',from:'2026-06-01',to:'2026-06-30',node:'Get Payments (M-1)'},
+      {key:'2026-05',from:'2026-05-01',to:'2026-05-31',node:'Get Payments (M-2)'}]};
+  const pay=[{json:{payments:[{contractID:'c0',contractType:'CC',paymentAmount:1,paymentDate:'2026-07-05',paymentType:'Monthly Payment',paymentId:1}]}}];
+  const nodes={'Validate Inputs':[{json:validated}],'Get CC Contract Population':pop,
+    'Get Month Payments':pay,'Get Payments (M-1)':pay,'Get Payments (M-2)':pay,
+    'Get Payment Statuses':statusPages,
+    'Get Terminated Contracts':[{json:{clients:{content:[]},total:0}}]};
+  const $=(n)=>{ if(!(n in nodes)) throw new Error('unexpected $('+n+')');
+    const a=nodes[n]; return {all:()=>a, first:()=>a[0]}; };
+  try{ new Function('$input','$','console',SRC)({all:()=>[]},$,{log:()=>{}});
+       console.log('PASSED GATE  '+label); return true; }
+  catch(e){ console.log('BLOCKED      '+label+'\n               -> '+e.message.split('.')[0].slice(0,100)); return false; }
+}
+const fullPop=walk(Math.ceil(TOTAL/40), TOTAL-40*(Math.ceil(TOTAL/40)-1), TOTAL);
+console.log();
+runStatus(fullPop, statusWalk(2000,43727), 'status sweep at size 2000, 1727-row tail  <- MUST PASS');
+runStatus(fullPop, statusWalk(40,43727),   'status sweep at size 40, 7-row tail       <- MUST PASS');
+runStatus(fullPop, statusWalk(2000,40000).slice(0,10), 'status walk truncated to 10 of 20 pages   <- must block');

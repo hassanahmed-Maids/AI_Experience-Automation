@@ -187,7 +187,7 @@ for (const w of WINDOWS) {
 
 // ------------------------------------------------------- 3. the status sweep
 const statusPages = pages('Get Payment Statuses');
-let statusRows = 0, lastPageShort = false, statusDeclaredTotal = null;
+let statusRows = 0, lastPageShort = false, statusDeclaredTotal = null, maxStatusPageSeen = 0;
 for (const p of statusPages) {
   if (!Array.isArray(p.content)) {
     if (erpErrorBody(p)) {
@@ -200,7 +200,14 @@ for (const p of statusPages) {
       Object.keys(p).join(','));
   }
   statusRows += p.content.length;
-  lastPageShort = p.content.length < 40;
+  // The short-page test must compare against the page size ACTUALLY IN USE, never a
+  // hardcoded 40. Measured 2026-08-18: advancesearch honours `size` up to a server
+  // clamp of 2,000, and per-page latency is ~flat at ~22-25s whatever the size - so
+  // the sweep runs at size 2000 (23 requests) rather than 40 (1,094 requests, 6.8
+  // HOURS). With a hardcoded 40, the final 1,727-row page would not read as short,
+  // gate 2 would declare the walk truncated and throw on a complete sweep.
+  maxStatusPageSeen = Math.max(maxStatusPageSeen, p.content.length);
+  lastPageShort = p.content.length < maxStatusPageSeen;
   // THIS SWEEP IS RECONCILABLE TOO, corrected 2026-08-18. The note this gate carried
   // said advancesearch "returns no top-level total and its nested totalElements caps
   // at 40". Measured live: totalElements = 43,727 and totalPages = 1,094 CONSTANT
@@ -227,10 +234,15 @@ if (statusDeclaredTotal !== null) {
   }
   statusReconciled = true;
 }
-if (!lastPageShort) {
+// THE RECONCILIATION IS THE PROOF; the short-page test is only a FALLBACK for when
+// the envelope declared no total. Running both unconditionally is what made the page
+// size load-bearing: a reconciled sweep is complete by arithmetic, whatever shape its
+// last page happened to be, and throwing on it would reject a correct run.
+if (!statusReconciled && !lastPageShort) {
   throw new Error('GATE 2: the payment-status sweep ended on a FULL page (' + statusRows + ' rows over ' +
-    statusPages.length + ' page(s)), so it hit the page cap rather than the end of the data. Raise ' +
-    'options.pagination.maxRequests on Get Payment Statuses.');
+    statusPages.length + ' page(s)) AND declared no totalElements to reconcile against, so there is no ' +
+    'evidence the walk reached the end of the data. Raise options.pagination.maxRequests on Get Payment ' +
+    'Statuses, or restore the envelope.');
 }
 
 const stats = {
@@ -257,6 +269,7 @@ const stats = {
   payment_rows: Object.keys(perWindow).reduce(function (a, k) { return a + perWindow[k]; }, 0),
   status_rows: statusRows,
   status_pages: statusPages.length,
+  status_page_size_seen: maxStatusPageSeen,
   status_declared_total: statusDeclaredTotal,
   status_sweep_reconciled: statusReconciled,
   status_sweep_note: statusReconciled

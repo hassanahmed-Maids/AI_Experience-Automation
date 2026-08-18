@@ -161,3 +161,66 @@ pages, the walk would collect far more rows than `total` and pass silently.
 `Build Cohort` dedupes by `contract_id`, so this is not a false clearance — the cohort
 stays correct — but it would burn an hour invisibly. The long-direction check belongs
 in gate 2 and is not there yet.
+
+## 10. Why execution 92265 really took 136 minutes — and a 45x fix
+
+**It was not hung, not loaded, and not a memory problem. It was doing a ~6.8 hour job.**
+
+Measured 2026-08-18 on SUCCESSFUL advancesearch pages:
+
+| page size | secs/page | pages for 43,727 rows | whole sweep |
+|---|---|---|---|
+| 40 (as built) | ~22.5 | 1,094 | **6.8 hours** |
+| 500 | ~24.0 | 88 | 35 min |
+| 1000 | ~25.2 | 44 | 18.5 min |
+| **2000 (server clamp)** | ~24.9 | **23** | **~9 min** |
+
+Per-page cost is ~flat: the work is per ROW on the server, not per request. Window
+width makes no difference either — a ONE-month window (15,129 rows) costs the same
+~22s per page as three months. So the only lever is fewer requests, and the server
+clamps `size` at 2,000 (ask 5,000, get 2,000 with totalPages 22).
+
+**The estimate that hid this was mine, and it was wrong by ~25x.** The 0.65 s/page
+figure came from the very first advancesearch probe — the one that returned HTTP 500 on
+a literal `sort=null`. Error responses are fast. I never timed a successful page until
+after the run was abandoned, and every runtime projection in this file's earlier
+sections was derived from that number.
+
+Fixed: `size` 40 → 2000, terminator's short-page test tracks the size, `maxRequests`
+2500 → 60 so a runaway is caught in minutes rather than days.
+
+**Also fixed, because raising the size would otherwise have broken gate 2:** the
+short-page proof hardcoded `< 40`, so a complete sweep's final 1,727-row page would not
+have read as short and the gate would have thrown on a correct run. The test now
+compares against the largest page actually seen AND is only a fallback — a sweep that
+reconciles against `totalElements` is complete by arithmetic whatever its last page
+looked like. Covered by three new cases in `offline/gate2_test.js`.
+
+### Revised runtime estimate, from verified per-page costs
+
+| sweep | requests | secs each | total |
+|---|---|---|---|
+| population | 136 | ~4.9 | ~11 min |
+| terminated | 24 | ~20.5 | ~8 min |
+| payments x3 | 3 | ~2.8 | <1 min |
+| statuses | 23 | ~24.9 | ~9 min |
+| **sweeps total** | **186** | | **~29 min** |
+
+Down from ~1,256 requests and ~7 hours. The check is runnable for the first time.
+
+## 11. On staging the sweeps out of WF-A
+
+Still worth doing, but it is a MEMORY and OBSERVABILITY fix, not a runtime one — and
+the runtime fix above is what actually unblocked the check. Retention is unchanged by
+it: WF-A still holds ~100k payment rows (~23 MB), 43,727 status rows, 5,393 population
+rows and 949 terminated rows until it ends, which is why execution 92265 became
+unreadable ~35 minutes in.
+
+The highest-value staging target is the THREE PAYMENT SWEEPS, not the status sweep:
+**80% of those rows are MV** (26,439 of 33,213 in July) and are discarded immediately
+in `Attach Month Payments`. A sub-workflow returning CC rows only, projected to the
+seven fields actually read, cuts ~23 MB to ~4.6 MB.
+
+Recommended order: run the flow now that it is ~29 minutes, and stage out only if
+observability is still lost. Stacking a large refactor on top of an untested runtime
+fix means building twice and having no clean signal about which change did what.
