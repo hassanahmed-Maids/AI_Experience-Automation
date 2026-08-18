@@ -10,8 +10,14 @@
 //                                route it replaced returned a bare array with no
 //                                envelope at all, and is access-denied on this
 //                                account regardless.)
-//   Get Month Payments / M-1 / M-2   no paging envelope; one call each. "Zero rows"
-//                                is the failure to catch: it is not "nobody paid".
+//   Get Month Payments / M-1 / M-2   RECONCILABLE SINCE 2026-08-18, though not by an
+//                                envelope - this route still has none. Each is now a
+//                                sub-workflow call that returns CC rows only and
+//                                declares the RAW count it filtered from, so the gate
+//                                checks that raw count against a floor, balances
+//                                cc + dropped against it, and separately requires CC
+//                                to be present. Unstaged, the only detectable failure
+//                                is zero rows, and "zero rows" is never "nobody paid".
 //   Get Payment Statuses         RECONCILABLE, corrected 2026-08-18. This gate used
 //                                to say it has "no top-level total" and that
 //                                "totalElements caps at 40". Measured live: 43,727
@@ -20,13 +26,18 @@
 //                                an over-range page returns 0 rows. Nothing caps at 40
 //                                but the page size.
 //
-// This gate is STATUS: PENDING TECHNICAL on the rule row, and what it is pending on
-// has NARROWED - worth restating rather than leaving the old reason standing. Both
-// PAGED sweeps now reconcile against a server-declared total. What remains
-// unreconcilable is the three BULK payment sweeps, which return no envelope of any
-// kind: for those, "zero rows" is the only detectable failure and a partial response
-// is still invisible. That is the residue Hassan's sign-off now covers, not the
-// population read. It still fails CLOSED.
+// This gate is STATUS: PENDING TECHNICAL on the rule row, and what it is pending on has
+// NARROWED TWICE in one day - worth restating rather than leaving either old reason
+// standing. Both PAGED sweeps reconcile against a server-declared total. The three BULK
+// payment sweeps were the stated residue; staging them into a sub-workflow closed most of
+// that too, because the sub-workflow can declare its pre-filter row count even though ERP
+// declares nothing.
+//
+// WHAT IS GENUINELY LEFT, and it is narrow: the bulk route still returns no total of its
+// own, so a truncated response that is above the 10,000-row floor would pass. The floor
+// and the CC/MV balance are proxies, not a server reconciliation. That residue is what a
+// sign-off covers - not the population read, and no longer the whole payment pull. It
+// still fails CLOSED.
 //
 // WHY IT MATTERS MORE THAN IT LOOKS: a short population is a FALSE GREEN BY
 // OMISSION. A contract missing from the cohort is never audited, and no later gate
@@ -158,10 +169,30 @@ if (popRows < POPULATION_FLOOR) {
 }
 
 // -------------------------------------------------- 2. the three payment sweeps
+// RECONCILABLE SINCE 2026-08-18, by a route nobody planned for. Those three sweeps now
+// run in a sub-workflow ('CC Below Agreed - 0-Sweep Payments') that returns CC ROWS ONLY
+// - about 20% of the pull - and hands back the RAW count it filtered from as `_raw_rows`.
+// So a gate that could previously ask only "did anything come back at all" can now ask
+// three separate questions:
+//   was the window actually swept?   _raw_rows against a floor
+//   did the CC filter behave?        cc + dropped === raw, exactly
+//   was CC itself present?           cc_rows > 0
+// The old test could not tell a failed call from a CC-quiet month, because the sum was
+// all it ever saw. This is STRONGER than what it replaced, which matters: filtering
+// upstream of a completeness gate is normally exactly how you blind one, so the raw
+// count is carried across the boundary specifically so the gate does not lose sight of it.
+//
+// THE RAW FLOOR IS PER WINDOW AND DELIBERATELY LOW. Measured on the live July 2026 pull:
+// 33,213 rows across both populations, 6,774 of them CC (20.4%). A window returning under
+// 10,000 rows IN TOTAL is a truncated or wrong-window pull, not a quiet month. As with the
+// population floor, it is never lowered to make a run pass.
+const PAYMENT_RAW_FLOOR = 10000;
 const perWindow = {};
+const perWindowRaw = {};
+let stagedWindows = 0, legacyWindows = 0, ccDropped = 0, ccUntyped = 0;
 for (const w of WINDOWS) {
   const pgs = pages(w.node);
-  let rows = 0;
+  let rows = 0, raw = null, dropped = 0, untyped = 0;
   for (const p of pgs) {
     if (!Array.isArray(p.payments)) {
       if (erpErrorBody(p)) {
@@ -174,15 +205,67 @@ for (const w of WINDOWS) {
         Object.keys(p).join(','));
     }
     rows += p.payments.length;
+    const r = Number(p._raw_rows);
+    if (Number.isFinite(r)) {
+      raw = (raw === null ? 0 : raw) + r;
+      dropped += Number(p._dropped_non_cc) || 0;
+      untyped += Number(p._rows_missing_contract_type) || 0;
+    }
   }
-  // A window returning zero rows is NOT "nobody paid" - it is very likely a wrong
-  // window or a failed call, and scoring it would report the whole book as short.
+
+  if (raw === null) {
+    // THE UNSTAGED SHAPE: a plain HTTP node with no provenance, which is what this node
+    // saw before the sweeps were staged out. Keep the only test that shape permits, and
+    // record that the weaker one ran - a green gate must never imply a check it skipped.
+    legacyWindows++;
+    if (rows === 0) {
+      throw new Error('GATE 2: ' + w.node + ' returned ZERO rows for ' + w.key + ' (' + w.from + ' to ' +
+        w.to + '). A real month carries tens of thousands of rows (33,213 in July 2026). Treat it as a ' +
+        'wrong window or a failed call, not as a quiet month.');
+    }
+    perWindow[w.key] = rows;
+    perWindowRaw[w.key] = null;
+    continue;
+  }
+
+  stagedWindows++;
+  if (raw === 0) {
+    throw new Error('GATE 2: ' + w.node + ' swept ' + w.key + ' (' + w.from + ' to ' + w.to + ') and got ' +
+      'ZERO rows before any filtering. A real month carries tens of thousands (33,213 in July 2026), so ' +
+      'this is a wrong window or a failed call, never a quiet month.');
+  }
+  if (raw < PAYMENT_RAW_FLOOR) {
+    throw new Error('GATE 2: ' + w.node + ' swept only ' + raw + ' raw rows for ' + w.key + ', below the ' +
+      'floor of ' + PAYMENT_RAW_FLOOR + ' (July 2026 measured 33,213 across both populations). A partial ' +
+      'response on this route is otherwise invisible - it has no paging envelope - so the floor is the ' +
+      'only thing standing between a truncated pull and a book-wide false shortfall. It is never lowered ' +
+      'to match a run.');
+  }
+  if (rows + dropped !== raw) {
+    throw new Error('GATE 2: ' + w.node + ' does not add up - ' + rows + ' CC rows + ' + dropped +
+      ' dropped = ' + (rows + dropped) + ', but ' + raw + ' rows were swept. Every row is either CC or ' +
+      'not, so the difference of ' + Math.abs(raw - rows - dropped) + ' means the CC filter in the ' +
+      'sub-workflow lost rows silently. Auditing an under-counted population passes every later gate.');
+  }
   if (rows === 0) {
-    throw new Error('GATE 2: ' + w.node + ' returned ZERO rows for ' + w.key + ' (' + w.from + ' to ' +
-      w.to + '). A real month carries tens of thousands of rows (33,195 in July 2026). Treat it as a ' +
-      'wrong window or a failed call, not as a quiet month.');
+    throw new Error('GATE 2: ' + w.node + ' swept ' + raw + ' rows for ' + w.key + ' and NONE of them ' +
+      'were CC. CC is 20.4% of this route by row count (6,774 of 33,213 in July 2026), so a CC-silent ' +
+      'month is a contractType shape change or a wrong population, not a quiet month. The whole cohort ' +
+      'would score as unpaid.');
   }
   perWindow[w.key] = rows;
+  perWindowRaw[w.key] = raw;
+  ccDropped += dropped;
+  ccUntyped += untyped;
+}
+// A window in each shape means someone half-reverted the staging, and the two halves
+// are not comparable: one window's count is CC-only and another's is CC+MV, which
+// silently changes what the persistence test in gate 18 is comparing across months.
+if (stagedWindows > 0 && legacyWindows > 0) {
+  throw new Error('GATE 2: ' + stagedWindows + ' payment window(s) came back staged (CC-only, with a raw ' +
+    'count) and ' + legacyWindows + ' unstaged (CC+MV, no provenance). Gate 18 compares months against ' +
+    'each other, so mixing the two shapes compares a CC-only month with a CC+MV one. Stage all three or ' +
+    'none.');
 }
 
 // ------------------------------------------------------- 3. the status sweep
@@ -266,6 +349,18 @@ const stats = {
   contracts_collected: popRows,
   contracts_declared_total: declaredTotal,
   payment_rows_per_window: perWindow,
+  payment_raw_rows_per_window: perWindowRaw,
+  payment_sweeps_staged: stagedWindows,
+  payment_sweeps_unstaged: legacyWindows,
+  payment_rows_dropped_non_cc: ccDropped,
+  payment_rows_missing_contract_type: ccUntyped,
+  payment_sweep_note: stagedWindows === WINDOWS.length
+    ? 'RECONCILED: each window declared its pre-filter row count, checked against the floor of ' +
+      PAYMENT_RAW_FLOOR + ', and cc + dropped balanced exactly against it. payment_rows counts CC ' +
+      'ROWS ONLY - the ~80% MV rows are dropped in the sub-workflow and never reach this run.'
+    : 'NOT reconciled on ' + legacyWindows + ' window(s): an unstaged HTTP sweep declares no ' +
+      'pre-filter count, so for those the only detectable failure is zero rows and a partial ' +
+      'response stays invisible. Those counts include MV rows.',
   payment_rows: Object.keys(perWindow).reduce(function (a, k) { return a + perWindow[k]; }, 0),
   status_rows: statusRows,
   status_pages: statusPages.length,

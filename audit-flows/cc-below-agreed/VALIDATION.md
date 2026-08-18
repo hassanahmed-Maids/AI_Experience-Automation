@@ -346,3 +346,65 @@ sweeps. `code` is snake_cased and would match nothing.
 **Priority note.** This outranks the memory staging. A crash is loud and costs a run;
 this was silent and would have put wrong numbers in front of a reviewer. The staging
 work is still outstanding.
+
+## 14. Both stagings done — the retention ledger, and a gate made stronger by the change
+
+Executions 89604 (94m44s) and 92433 (22m35s) both died of retention, not of logic. Both
+sweeps named in §12 are now staged into sub-workflows. Neither WF-A consumer changed:
+each caller node keeps the name its consumers reach for and each sub-workflow returns the
+same envelope key.
+
+| sweep | before | after | mechanism |
+|---|---|---|---|
+| `Get Payment Statuses` | 44.1 MB | **20.4 MB** | WF-S `D1mCMJuN9lMURJHb`, field projection (1,056 → 489 B/row) |
+| `Get Month Payments` ×3 | 22.4 MB | **4.6 MB** | WF-P `M79KcC9vaHte5Ibi`, CC filter (20.4% of rows kept) |
+| population | 9.2 MB | 9.2 MB | not staged |
+| terminated | 1.5 MB | 1.5 MB | not staged |
+| | **~77 MB** | **~36 MB** | |
+
+Two things about those figures, said plainly rather than left to be discovered:
+
+- **The status number is 44.1 MB, not the 59.1 MB in §12's table.** 59.1 came from
+  dividing the pretty-printed probe file by its row count (1,418 B/row). Re-measured
+  minified — which is what n8n retains — a row is 1,056 B. §12's table is on the
+  pretty-printed basis throughout, so every figure in it runs ~30% high. The *ratios* in
+  §12 stand; the absolute totals do not.
+- **The payments row-count reduction is real but the per-row projection is nil.** The DTO
+  carries exactly seven fields and `Attach Month Payments` reads all seven. There is
+  nothing to trim per row, so the whole 4.9x is the CC filter — 79.6% of rows are MV and
+  were being carried the length of the run to be discarded on the first line of the
+  consumer.
+
+**No run has yet completed end to end**, so ~36 MB is a projection from measured
+per-row costs, not an observed figure. It is below the observed healthy band (44–61 MB),
+which is the point; the next live run is what turns it into evidence.
+
+### Gate 2 got stronger, which is not what usually happens here
+
+Moving the CC filter upstream of a completeness gate is textbook blinding: after the
+filter, a failed call and a CC-quiet month look identical, and gate 2's only payment test
+was `payments.length > 0`. So WF-P carries the **pre-filter** count across the boundary
+and gate 2 now asks three questions where it asked one:
+
+| question | test | previously |
+|---|---|---|
+| was the window swept? | `_raw_rows >= 10,000` (July measured 33,213) | inferred from the filtered sum |
+| did the filter behave? | `cc + dropped === raw`, exactly | not askable |
+| was CC present at all? | `cc_rows > 0` | conflated with the above |
+
+It also refuses a **half**-staged run: gate 18 compares months against each other, so a
+CC-only month beside a CC+MV month would silently change what the persistence test is
+measuring. Stage all three windows or none.
+
+`offline/gate2_payments_test.js` — 8/8, each case stating its expectation before running:
+the healthy case; raw below floor; `cc + dropped` not balancing; raw healthy with zero CC;
+raw zero; mixed shapes; all-unstaged (passes, and the stats say the weaker test ran); and
+unstaged-empty. The pre-existing suites still pass unchanged: `gate2_test` 10/10,
+`harness` 13/13, `attach_payments_test` 6/6, `cohort_test` 7 cases.
+
+### What is left unreconciled, narrowed twice in one day
+
+The bulk route still declares no total of its own, so a truncated response **above** the
+10,000-row floor would pass. The floor and the CC/MV balance are proxies, not a server
+reconciliation. That — not the population read, and no longer the whole payment pull — is
+the residue a sign-off covers. The gate still fails closed.
