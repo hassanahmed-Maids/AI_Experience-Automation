@@ -97,3 +97,42 @@ silently swallow every payload-carrying run.
 The 10 endpoints in `erp-access-probe-handover.md`, diffed against the 2026-08-17
 baseline. Endpoint 1 (the dynamic-API population pull) is the only true blocker and
 decides whether the enrichment sweep is ~5,000 calls or ~10,000.
+
+---
+
+# Live findings (2026-08-18, no ERP token required)
+
+Executed the price-card reader (`1kX3isU27HfmPMU0`, execution 92102, manual, success).
+
+### 4. Live price-card checksum: PASSED
+
+49 windows across 5 cohorts, 0 rejected rows. Cohort split matches the pinned
+card exactly: livein Filipina 11 / Other 14 / Ethiopian 15, liveout Filipina 5 /
+Other 4. This satisfies the "price card checksum asserted at 49/5 in a live run"
+item in build-handover §11.
+
+### 5. Credentials are NOT visible on read-back — the traps file is wrong here
+
+The traps file says to wire credentials via `addNode` and "verify by reading the
+node back". On this instance `get_workflow_details` **never returns a
+`credentials` key**, whether or not one is bound — the working card reader shows
+none, and it demonstrably authenticates against Google Sheets.
+
+So read-back cannot distinguish "credential missing" from "credential hidden",
+and the traps file's verification step gives false negatives. **The only valid
+check is asserting the credential inside a run.** Correction to file against the
+traps document.
+
+### 6. The `=TODAY()` drift is real and observable
+
+The live read returns trailing window end dates of `8/18/2026`; the pinned card
+captured `8/17/2026`. The end date genuinely moves every day.
+
+`drift-check.js` proves this cannot change a verdict: the pinned card, a card
+drifted by one day, one drifted by a year, one with the trailing end date blank,
+and one carrying the live float noise (`4150.650000000001` vs `4150.65`) all
+produce identical states, verdicts and gaps. The open-ended-window rule is
+load-bearing — had the final window been treated as a hard bound, every contract
+would have fallen out of the card the day after capture and scored unpriceable.
+
+Run it with `node drift-check.js` (exit 1 on divergence).
