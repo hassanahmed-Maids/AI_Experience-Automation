@@ -408,3 +408,107 @@ The bulk route still declares no total of its own, so a truncated response **abo
 10,000-row floor would pass. The floor and the CC/MV balance are proxies, not a server
 reconciliation. That — not the population read, and no longer the whole payment pull — is
 the residue a sign-off covers. The gate still fails closed.
+
+## 15. Execution 92534 — the staging worked, and the wall moved to enrichment
+
+Run 92534, 2026-08-18 16:24:05 → 17:02:41 UTC (38m36s), status `crashed`. First run with
+both sweeps staged. **The staging did what it claimed and the run died somewhere else.**
+
+### What is proven, from the sub-executions
+
+Sub-workflows get their own execution records, so this part is evidence rather than
+inference:
+
+| execution | workflow | window | result |
+|---|---|---|---|
+| 92551 | WF-P | 2026-07 | success, 3.6s — **33,213 raw → 6,774 CC, 26,439 dropped**, projection 360 ms |
+| 92552 | WF-P | 2026-06 | success, 1.8s |
+| 92553 | WF-P | 2026-05 | success, 1.7s |
+| 92554 | WF-S | 3-month span | success, **7m34s** |
+
+The audited-month numbers are exactly the offline measurement (6,774 of 33,213), and the
+status sweep that was heading for 6.8 hours at size 40 finished in 7m34s. **No WF-B
+execution exists**, so WF-A never reached `Launch Verifier`.
+
+### The timeline, and the 17 minutes that matter
+
+| elapsed | what |
+|---|---|
+| 16:24:05 → 16:37:56 (13m51s) | validate + the population walk |
+| 16:37:56 → 16:38:07 (11s) | all three payment windows |
+| 16:38:09 → 16:45:44 (7m34s) | the status sweep |
+| 16:45:44 → 17:02:41 (**16m57s**) | everything after the sweeps — no sub-executions, no WF-B |
+
+The population walk is confirmed independently: re-probed today, `contract/search/page`
+answers in **5.03s per 40-row page** against a `total` of **5,405**, so 136 pages is
+11–14 minutes. It is capped at 40 rows however large a `size` you ask for, so there is no
+page-size lever here — unlike the status sweep, this one is genuinely 136 round trips.
+
+### What the missing 17 minutes was doing
+
+`Attach Month Payments` sets `needs_enrichment = received_anything`. Measured on the real
+July pull: **5,651 distinct CC contracts, 5,632 of them received a positive amount.** So
+the enrichment gate excludes 19 contracts out of 5,651 — it reads like a narrowing and is
+effectively none.
+
+Each survivor triggers two per-item HTTP nodes, both `batchSize 15 / batchInterval 500ms`.
+Re-probed today for real latency:
+
+| call | measured | per candidate |
+|---|---|---|
+| `get-client-details?type=CONTRACT_DETAILS` | 200, **3,851 B** minified, **1.80s** | 1 |
+| `replacement/page/contract/{id}` | **401** (permission still missing), 185 B, 1.11s | 1 |
+
+- **11,264 ERP calls** for one run — against a spec budget of ~500. My earlier
+  "~186 requests" figure counted the sweeps only and was wrong for the whole run.
+- **376 batches per node.** At the measured latencies that is ~14 min for the plan call
+  and ~10 min for the replacement call, ~24 min total. The run had 16m57s before it died,
+  so it crashed **part way through enrichment** — most likely still inside
+  `Get Contract Plan`.
+- **~22.7 MB of raw bodies** if it had finished (5,632 × 3,851 B, plus 1.0 MB of 401s).
+
+### Why it crashed, stated as the inference it is
+
+`crashed` means the worker process died, as in 92433 and 89604. The execution record
+cannot be retrieved through the n8n MCP at all — three attempts, each failing with a
+transport error, while the same call against a 1.27 MB sub-execution succeeded. That is
+consistent with a record too large to transfer, and it is corroboration rather than proof:
+**no error message from this run has been read.**
+
+The arithmetic that makes memory the leading explanation:
+
+| retained at crash | MB |
+|---|---|
+| staged sweeps (statuses 20.4 + payments 4.6) | 25.0 |
+| population + terminated | ~10.7 |
+| ~5,650 case objects, copied at each retained node output down the enrichment chain (6–8 copies × ~6.8 MB) | ~45 |
+| enrichment bodies accumulated before the crash | ~15 |
+| | **~95** |
+
+Against the measured kill band of 100.6–142.6 MB. **The staging removed 41 MB and the
+enrichment fan-out put most of it back** — and the dominant term is no longer a sweep, it
+is the case objects multiplied by the number of nodes the enrichment chain retains.
+
+### What to do about it, in order
+
+1. **Stage enrichment into a sub-workflow, in chunks.** Same mechanism that worked twice
+   today: WF-E takes a chunk of candidates, makes both calls inside its own execution, and
+   returns only the scalars the scorer reads. That deletes the ~22.7 MB of raw bodies and
+   collapses four retained node outputs into one. It must be chunked — one sub-execution
+   holding all 5,632 responses would OOM by itself.
+2. **Attack the fan-out, which is the real cost.** 11,264 calls exist because `expected`
+   comes only from the per-contract plan read. The population route does **not** carry the
+   contract's monthly rate — checked: its only money-shaped field is
+   `workerSalaryMonthlyTip`, which is the maid's salary, not the client's fee. So the
+   question for ask-the-code is whether ANY bulk or paged route returns the contract's
+   monthly payment. If one exists, `expected` is known for all 5,405 contracts in the walk
+   we already do, and enrichment narrows from 5,632 contracts to the few hundred that
+   actually look short. If none exists, ~11k reads per run is the honest cost and needs a
+   decision, not a workaround.
+3. **The replacement call is still 401** on every one of those candidates. It is 376
+   batches spent to collect nothing, and until the permission lands it could be skipped
+   entirely rather than called 5,632 times — the declared confidence gap is unchanged
+   either way.
+
+Even fixed for memory, the run at this shape is ~14 min population + 8 min sweeps + ~24 min
+enrichment ≈ **46 minutes**. Item 2 is what makes it a short run rather than a survivable one.
