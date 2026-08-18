@@ -12,14 +12,21 @@
 //                                account regardless.)
 //   Get Month Payments / M-1 / M-2   no paging envelope; one call each. "Zero rows"
 //                                is the failure to catch: it is not "nobody paid".
-//   Get Payment Statuses         no top-level total, nested totalElements caps at
-//                                40, so a short walk passes in silence. Declared
-//                                unreconciled and terminated on a short page.
+//   Get Payment Statuses         RECONCILABLE, corrected 2026-08-18. This gate used
+//                                to say it has "no top-level total" and that
+//                                "totalElements caps at 40". Measured live: 43,727
+//                                totalElements over 1,094 totalPages, both CONSTANT
+//                                across pages, `last` correctly false-then-true, and
+//                                an over-range page returns 0 rows. Nothing caps at 40
+//                                but the page size.
 //
-// This gate is STATUS: PENDING TECHNICAL on the rule row - it waits on Hassan's
-// sign-off for the substitute guard, because the proper fix is an ERP change that
-// makes the population read countable. Until then this is the mitigation, and it
-// fails CLOSED.
+// This gate is STATUS: PENDING TECHNICAL on the rule row, and what it is pending on
+// has NARROWED - worth restating rather than leaving the old reason standing. Both
+// PAGED sweeps now reconcile against a server-declared total. What remains
+// unreconcilable is the three BULK payment sweeps, which return no envelope of any
+// kind: for those, "zero rows" is the only detectable failure and a partial response
+// is still invisible. That is the residue Hassan's sign-off now covers, not the
+// population read. It still fails CLOSED.
 //
 // WHY IT MATTERS MORE THAN IT LOOKS: a short population is a FALSE GREEN BY
 // OMISSION. A contract missing from the cohort is never audited, and no later gate
@@ -222,8 +229,7 @@ if (statusDeclaredTotal !== null) {
 }
 if (!lastPageShort) {
   throw new Error('GATE 2: the payment-status sweep ended on a FULL page (' + statusRows + ' rows over ' +
-    statusPages.length + ' page(s)), so it hit the page cap rather than the end of the data. This ' +
-    'endpoint has no total to reconcile against, so a truncated walk is invisible - raise ' +
+    statusPages.length + ' page(s)), so it hit the page cap rather than the end of the data. Raise ' +
     'options.pagination.maxRequests on Get Payment Statuses.');
 }
 

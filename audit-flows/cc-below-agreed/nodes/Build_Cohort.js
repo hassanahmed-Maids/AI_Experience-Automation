@@ -3,15 +3,15 @@
 //
 // SOURCE A - the CC population sweep. contract/search/page since 2026-08-18 (the
 //   dynamic route is access-denied on this account - see the block on source A), so
-//   identity costs no extra call. THE START DATE IS `startDate` - not
-//   `startOfContract` (that is contract/search/page's spelling) and not
-//   `contractStartDate` (which exists nowhere). It must come from HERE:
+//   identity still costs no extra call. THE START DATE IS `startOfContract` on this
+//   route and `startDate` on the dynamic one; BOTH are read, and never
+//   `contractStartDate`, which exists nowhere. It must come from the population row:
 //   startOfContract came back NULL on CONTRACT_DETAILS for all three pro-rate test
 //   contracts, so sourcing it from the plan read would silently switch pro-rating
 //   off - and 408 of the 984 July shortfalls are legitimately pro-rated first
-//   months. There is NO pagination envelope: the server applies .getContent() and
-//   strips totalElements and totalPages, so completeness rests on the empty-page
-//   terminator alone plus gate 2's floor.
+//   months. This route DOES carry a pagination envelope, but three of its fields
+//   lie (totalPages, last, size - see the block on source A), so completeness rests
+//   on the empty-page terminator plus gate 2's reconciliation against `total`.
 //
 // SOURCE B - the contract stub embedded on this month's payment rows. Free, and it
 //   is how contracts that terminated mid-month get back in: source A returns only
@@ -351,6 +351,8 @@ const stats = {
   cohort_cap: capped ? cohortCap : null,
   pipeline_test: capped,
   population_rows_seen: popRows,
+  population_rows_nested_shape: popNested,
+  population_rows_flat_shape: popFlat,
   payment_stubs_seen: stubSeen,
   payment_rows_without_contract: stubNoContract,
   terminated_pages_seen: termPages,
