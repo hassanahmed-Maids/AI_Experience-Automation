@@ -284,3 +284,65 @@ these by node name — need no changes at all.
 Note the gate-2 fix from §10 is what makes this safe: returning all rows as one item
 gives `maxStatusPageSeen == lastPage`, which the OLD hardcoded short-page test would
 have rejected. Reconciliation against `totalElements` now carries the proof instead.
+
+## 13. A false-clearance generator, found while deriving the status projection
+
+Looking up which fields the status sweep's consumers actually read — in order to
+project the rows and cut the 59 MB — turned up a field-name bug with a worse
+consequence than the memory problem it was found in service of.
+
+**`Attach Month Payments` read the payment type from `typeOfPayment.label ||
+typeOfPayment.value`. Neither key exists.** Measured 2026-08-18: the advancesearch DTO
+carries `typeOfPayment: { code, id, name }`. The fallback, `r.paymentType`, is the BULK
+feed's spelling and does not exist here either. So `type` was `''` on **every**
+advancesearch row.
+
+That alone would be a labelling problem. It is not, because **a status row OVERRIDES
+the bulk row for the same `payment_id`** — deliberately, so a payment advancesearch
+calls DELETED stops counting. The override discarded the correctly-typed bulk row along
+with everything else.
+
+Consequence chain, all three from an empty type:
+
+    isMonthlyType('')      -> false   never counted as a Monthly Payment
+    refundKind('')         -> null    never detected as a refund
+    countsTowardActual('') -> TRUE    counted as OTHER received
+
+So `monthly_net` collapsed toward zero, the money moved into `other_received`, and
+**refunds were counted as income.**
+
+### Proved, not inferred
+
+The same six tests were run against a copy differing ONLY in that one read:
+
+| case | pre-fix | fixed |
+|---|---|---|
+| Monthly Payment in both sweeps | `monthly 0, other 5000` | `monthly 5000, other 0` |
+| **MP-reversing refund** | **`monthly 0, other 15000, refundMp 0`** | `monthly 5000, refundMp 5000` |
+| split collection (2,252 + 2,200) | `monthly 0, other 4452` | `monthly 2252, other 2200` |
+
+The refund row is the false clearance: a 10,000 monthly with a 5,000 refund reported
+**15,000 received instead of 5,000 net** — money returned to the client inflating what
+they appeared to pay. And it defeated the gate-80 leftover test added earlier the same
+day, because with everything labelled "other" there is no monthly to start from.
+
+Fixed by reading `typeOfPayment.name`, which matches the bulk feed's `paymentType`
+vocabulary EXACTLY (zero advancesearch-only values), so one allowlist serves both
+sweeps. `code` is snake_cased and would match nothing.
+
+### Two further field mismatches, one benign and one declared
+
+- `paymentMethod` does not exist either; it is `methodOfPayment`. Nothing decides on
+  `method`, so this cost nothing. Corrected so the column stops lying.
+- **`replacementForId` / `REPLACEMENT_FOR_ID` do not exist on this route at all** (0 of
+  40 rows), so the replacement de-duplication has never fired. Those names belong to
+  the Snowflake table, not this API — which is also where the "PAYMENT_WAS_REPLACED is
+  true on 112,458 of 112,458 rows" note came from. It is NOT a hole here: only
+  `status === 'RECEIVED'` counts toward actual, and the live sample ran RECEIVED 28 /
+  DELETED 10 / BOUNCED 2 with the two `replaced: true` rows not RECEIVED. The status
+  override is what removes them. Left wired for the day the field appears, with
+  `replaced` now carried so the assumption is measurable instead of invisible.
+
+**Priority note.** This outranks the memory staging. A crash is loud and costs a run;
+this was silent and would have put wrong numbers in front of a reviewer. The staging
+work is still outstanding.
