@@ -77,22 +77,46 @@ When the grant lands, the change is small and testable in a single run:
 
 Step 3 is a one-word change. Steps 1–2 are the part that needs a real run.
 
-## Pagination verification, pending
+## Pagination — VERIFIED 2026-08-18
 
-A probe script has been handed to the colleague who holds the grant. It answers
-four things before any population code is written:
+Probed from the granted session. All four questions answered:
 
-| Test | Decides |
+| Test | Result |
 |---|---|
-| `size` 20 / 100 / 500 at page 0 | whether `context.size` is honoured or clamped |
-| 50th id of `page0@100` vs 1st id of `page1@50` | whether offset is really `page × size`, i.e. whether rows fall between pages |
-| page 200 / 5000 | whether an out-of-range page returns an empty array to terminate the loop |
-| `{page, size}` outside `context` | whether the documented silent fallback to page 0 size 20 is real |
+| `context.size` = 20 / 100 / 500 | **honoured exactly** — 20, 100, 500 rows |
+| `page0@100`[50] vs `page1@50`[0] | **both 1102962 — offsets align** |
+| page 200 / 5000 | **`[]`** — clean loop terminator |
+| `{page, size}` outside `context` | **20 rows when 100 was asked for — the trap is real** |
 
-The second is the one that matters: it is the exact failure mode
-`contract/search/page` exhibited, where pages advanced by the requested size
-while returning only 40 rows, skipping 80% of the population behind a healthy
-HTTP 200.
+**Offset is genuinely `page × size` and no contract falls between pages.** This is
+the property `contract/search/page` fails: there, pages advance by the requested
+size while returning only 40 rows, silently skipping 80% of the population behind
+a healthy HTTP 200. The dynamic API does not have that defect.
+
+**`size` is honoured well past the 1..100 bound the notes claimed.** At 500 the
+full population is **11 pages instead of 135**, taking Stage 1's pull from ~15
+minutes to well under two. That removes the 2400 s execution ceiling as the
+binding constraint on the population stage.
+
+**The flattened-body trap is confirmed and must be guarded.** Asking for
+`{"page":"0","size":"100"}` *outside* `context` returned 20 rows — the documented
+silent fallback to page 0 size 20, with HTTP 200 throughout. Any population node
+must nest inside `context` **and assert the returned row count equals the
+requested size**, treating a mismatch as a short read rather than trusting the
+status code.
+
+### Consequences for the build
+
+- Population becomes a single node at `size: 500`, terminating on the first empty
+  array, with a per-page row-count assertion.
+- The existing population guard still applies, but there is no `total` field on
+  this route — completeness must be proven by the empty-page terminator plus the
+  per-page count assertion, and cross-checked once against
+  `contract/search/page`'s `total` (~5,395).
+- Stage 2's chunking may become unnecessary for the population, though the
+  per-contract enrichment still needs it *if* any per-contract calls remain.
+  With `maidNationality` and `maidLiveOut` inline and the rate the only remaining
+  per-contract read, that is worth re-costing before rebuilding.
 
 ## Expectation to set before that run
 
