@@ -224,3 +224,63 @@ seven fields actually read, cuts ~23 MB to ~4.6 MB.
 Recommended order: run the flow now that it is ~29 minutes, and stage out only if
 observability is still lost. Stacking a large refactor on top of an untested runtime
 fix means building twice and having no clean signal about which change did what.
+
+## 12. Execution 92433 — the runtime fix worked, and it exposed the memory wall
+
+Re-run at 14:48 UTC with the size-2000 sweep, same shape as 92265 (July 2026,
+`cohort_cap: 25`, `batch_size: 10`).
+
+**CRASHED at 22m35s.** Not a throw, not a gate rejection — n8n killed the process, the
+same `crashed` status as 89604.
+
+That is a clean result, not a disappointment. The runtime fix did exactly what it
+claimed: the sweeps that took >136 minutes (and were heading for ~6.8 hours) finished
+in ~22. Removing the time barrier exposed the wall underneath, and reached it 4x
+sooner than 89604 did at 94m44s. Same wall, found faster.
+
+### Retention, measured per row from probe responses on disk
+
+| sweep | bytes/row | rows | retained | share |
+|---|---|---|---|---|
+| **Get Payment Statuses** | 1,418 | 43,727 | **59.1 MB** | **64%** |
+| payments x3 (all types) | 235 | ~100k | 22.4 MB | 24% |
+| population | 1,781 | 5,393 | 9.2 MB | 10% |
+| terminated | 1,672 | 949 | 1.5 MB | 2% |
+| | | | **~92 MB** | |
+
+Against the measured healthy band (44-61 MB) and kill band (100.6-142.6 MB), ~92 MB
+plus scoring overhead is the crash.
+
+**`cohort_cap` cannot help here** — it caps the cohort AFTER `Build Cohort`, so all four
+sweeps are already resident by then. That is why a capped run crashes too.
+
+### Correction to §11 of this file
+
+§11 recommended staging the PAYMENT sweeps first, on the reasoning that 80% of their
+rows are MV and discarded. That was a guess at relative size and it was wrong: the
+status sweep retains 2.6x more (59.1 MB vs 22.4 MB) because each row is a
+PaymentReportDto carrying 22 fields including a 9-key nested contract. **Stage the
+status sweep first.** The payments projection is still worth doing second.
+
+### The projection each sweep needs
+
+A status row is 1,418 B; downstream reads only: `id`, `amountOfPayment`,
+`dateOfPayment`, `status`, `methodOfPayment`, `typeOfPayment`, and from `contract`:
+`id`, `status`, `dateOfTermination`, `startOfContract`, `client{id,name}`,
+`housemaid{id,label,nationality}`, `contractProspectType{code}`. That is ~350 B/row,
+so **59.1 MB becomes ~15 MB**. With CC-only payments (22.4 -> 4.6 MB) and a projected
+population (9.2 -> ~2 MB), total retention lands near 23 MB — well inside the healthy
+band with room for scoring.
+
+### Mechanism
+
+A sub-workflow per sweep, called with `waitForSubWorkflow: true`, doing its own paging
+and returning ONLY the projection. The sub-execution holds the raw rows and dies with
+them; WF-A retains kilobytes-to-megabytes. Keep the CALLING NODE'S NAME identical
+(`Get Payment Statuses` etc.) and return the SAME ENVELOPE SHAPE, so
+`Verify Bulk Pulls`, `Build Cohort` and `Attach Month Payments` — which all reach for
+these by node name — need no changes at all.
+
+Note the gate-2 fix from §10 is what makes this safe: returning all rows as one item
+gives `maxStatusPageSeen == lastPage`, which the OLD hardcoded short-page test would
+have rejected. Reconciliation against `totalElements` now carries the proof instead.
