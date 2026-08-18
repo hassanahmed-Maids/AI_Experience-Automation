@@ -512,3 +512,17 @@ is the case objects multiplied by the number of nodes the enrichment chain retai
 
 Even fixed for memory, the run at this shape is ~14 min population + 8 min sweeps + ~24 min
 enrichment ≈ **46 minutes**. Item 2 is what makes it a short run rather than a survivable one.
+
+### Footnote to §15 — the bearer dies at a fixed hour, which bounds when a run may start
+
+Asking the code about a bulk contract-rate route (fix item 2) hit a hard stop: both tokens
+in play expired at **1787090400 = 22:00 UTC / 02:00 Dubai**, and ask-the-code answered
+`500 "Token not valid, {Token is expired}"`. Decoding three tokens shows ERP tokens do not
+last 24h from login — every token issued in a day expires at that same wall-clock moment
+(two tokens minted four minutes apart shared an identical `exp`; the previous day's `exp`
+was exactly 86,400 s earlier). Written up in `docs/code-llm-api.md`.
+
+For this check that is an operational constraint, not a footnote: a full run is ~45 minutes
+and carries the bearer as a runtime payload, so **a run started after ~21:15 UTC loses its
+token mid-flight** and every remaining ERP call 401s. Run 92534 finished at 17:02 UTC, well
+clear, so this did not contribute to that crash.

@@ -4,6 +4,33 @@ The ONLY source of truth for how templates are sent. The ERP codebase is NOT ava
 
 Base URL: `https://erpbackendpro.maids.cc`
 
+## Token lifetime: a FIXED DAILY EXPIRY, not 24h from issue (measured 2026-08-18)
+
+Three tokens observed in one day, decoded:
+
+| issued (`iat`) | expires (`exp`) |
+|---|---|
+| 1787044378 (17:12 UTC) | 1787090400 |
+| 1787044584 (17:16 UTC) | 1787090400 |
+| — (previous day) | 1787004000 |
+
+`1787090400 - 1787004000 = 86400` exactly, and two tokens issued four minutes apart share
+the same `exp`. So an ERP token does **not** last 24h from login: every token issued during
+a day dies at the same wall-clock moment — **22:00 UTC / 02:00 Dubai** — and a token minted
+at 21:50 UTC is good for ten minutes.
+
+Consequences worth planning around:
+
+- A submit answers `500` with `message: "Token not valid, {Token is expired}"`. That is an
+  expiry, NOT a permission problem and NOT a server fault — do not go looking for a
+  pagecode or a grant.
+- Anything long-running that carries a bearer as a runtime payload (the audit flows do,
+  and a full run is ~45 min) must not be started in the last hour before 22:00 UTC. Every
+  ERP call after the cutover 401s mid-run, which reads like an access failure rather than
+  a clock.
+- Decode `exp` before a long run rather than trusting "it worked a minute ago":
+  `python3 -c "import base64,json;p=TOKEN.split('.')[1];p+='='*(-len(p)%4);print(json.loads(base64.urlsafe_b64decode(p)))"`
+
 ## Flow (submit → poll → read)
 
 1. **Submit** — `POST /lowcode/c2d/query/async` with the question. Response contains `request_id` and `data.conversation_id`. NOTE: `success` may be `false` even on success — the request succeeded iff `data.conversation_id` is present.
