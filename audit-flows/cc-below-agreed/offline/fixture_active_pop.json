@@ -1,0 +1,2462 @@
+{
+ "total": 5392,
+ "clients": {
+  "content": [
+   {
+    "id": 900000,
+    "housemaid": {
+     "id": 900000,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-04-28 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900000,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 7,
+    "clientComplaints": 36,
+    "maidComplaints": 32,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900000,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 8014,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 544478,
+       "label": "544478",
+       "startOfContract": "2018-04-28",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Sherif Nassrat Louis Louka",
+       "contractEndDate": "2033-04-27",
+       "adjustedEndDate": "2032-03-13",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2033-01-24",
+       "specialCase": true,
+       "correctedBalance": null,
+       "clientId": 6318,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 6318,
+       "label": "Sherif Nassrat Louis Louka"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900001,
+    "housemaid": {
+     "id": 900001,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-05-25 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900001,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 78,
+    "clientComplaints": 150,
+    "maidComplaints": 31,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900001,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 25652,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": "REDACTED",
+      "client": {
+       "id": 3011,
+       "label": "Naoufal Rahhouti"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900002,
+    "housemaid": {
+     "id": 900002,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-01 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900002,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 25,
+    "clientComplaints": 59,
+    "maidComplaints": 30,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900002,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 1156,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": "REDACTED",
+      "client": {
+       "id": 54145,
+       "label": "Nessrine Mohamad Omran"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900003,
+    "housemaid": {
+     "id": 900003,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-02 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900003,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 7,
+    "clientComplaints": 17,
+    "maidComplaints": 6,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900003,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 6504,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 999452,
+       "label": "999452",
+       "startOfContract": "2018-11-02",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Malak Elmasry",
+       "contractEndDate": "2031-06-01",
+       "adjustedEndDate": "2031-06-01",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-09-01",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 54194,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 54194,
+       "label": "Malak Elmasry"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900004,
+    "housemaid": {
+     "id": 900004,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-03 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900004,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 11,
+    "clientComplaints": 21,
+    "maidComplaints": 23,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900004,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900005,
+    "housemaid": {
+     "id": 900005,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-08 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900005,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 26,
+    "clientComplaints": 92,
+    "maidComplaints": 41,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900005,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 18958,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 999531,
+       "label": "999531",
+       "startOfContract": "2018-11-08",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Natalia  Worrall",
+       "contractEndDate": "2031-04-07",
+       "adjustedEndDate": "2031-04-07",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-09-07",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 54537,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 54537,
+       "label": "Natalia  Worrall"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900006,
+    "housemaid": {
+     "id": 900006,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-09 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900006,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 2,
+    "clientComplaints": 15,
+    "maidComplaints": 19,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900006,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 6549,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": "REDACTED",
+      "client": {
+       "id": 22524,
+       "label": "Dima Jamal Al Bashiti"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900007,
+    "housemaid": {
+     "id": 900007,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-18 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900007,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 10,
+    "clientComplaints": 53,
+    "maidComplaints": 36,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900007,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900008,
+    "housemaid": {
+     "id": 900008,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-20 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900008,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 6,
+    "clientComplaints": 17,
+    "maidComplaints": 15,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900008,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 23855,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": "REDACTED",
+      "client": {
+       "id": 54993,
+       "label": "Souvik Goswami"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900009,
+    "housemaid": {
+     "id": 900009,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-21 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900009,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 37,
+    "clientComplaints": 75,
+    "maidComplaints": 4,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900009,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900010,
+    "housemaid": {
+     "id": 900010,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-29 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900010,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 22,
+    "clientComplaints": 150,
+    "maidComplaints": 42,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900010,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 20277,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": "REDACTED",
+      "client": {
+       "id": 2907,
+       "label": "Laiyla Rita Sahawneh"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 2,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900011,
+    "housemaid": {
+     "id": 900011,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-11-29 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900011,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 22,
+    "clientComplaints": 65,
+    "maidComplaints": 20,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900011,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 2,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900012,
+    "housemaid": {
+     "id": 900012,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-02 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900012,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 9,
+    "clientComplaints": 30,
+    "maidComplaints": 3,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900012,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900013,
+    "housemaid": {
+     "id": 900013,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-04 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900013,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 9,
+    "clientComplaints": 22,
+    "maidComplaints": 5,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900013,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900014,
+    "housemaid": {
+     "id": 900014,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-04 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900014,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 4,
+    "clientComplaints": 21,
+    "maidComplaints": 19,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900014,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900015,
+    "housemaid": {
+     "id": 900015,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-07 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900015,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 6,
+    "clientComplaints": 30,
+    "maidComplaints": 13,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900015,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 9881,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 999846,
+       "label": "999846",
+       "startOfContract": "2018-12-07",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Stefano Marturano",
+       "contractEndDate": "2028-12-06",
+       "adjustedEndDate": "2028-12-06",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-09-06",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 55241,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 55241,
+       "label": "Stefano Marturano"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900016,
+    "housemaid": {
+     "id": 900016,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-08 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900016,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 15,
+    "clientComplaints": 39,
+    "maidComplaints": 97,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900016,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900017,
+    "housemaid": {
+     "id": 900017,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-12 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900017,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 15,
+    "clientComplaints": 82,
+    "maidComplaints": 27,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900017,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900018,
+    "housemaid": {
+     "id": 900018,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-24 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900018,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 6,
+    "clientComplaints": 27,
+    "maidComplaints": 14,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900018,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900019,
+    "housemaid": {
+     "id": 900019,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2018-12-22 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900019,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 24,
+    "clientComplaints": 53,
+    "maidComplaints": 40,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900019,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900020,
+    "housemaid": {
+     "id": 900020,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-06 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900020,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 23,
+    "clientComplaints": 48,
+    "maidComplaints": 23,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900020,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 428,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": "REDACTED",
+      "client": {
+       "id": 19383,
+       "label": "Amardeep Singh Bhopal"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900021,
+    "housemaid": {
+     "id": 900021,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-02 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900021,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 6,
+    "clientComplaints": 13,
+    "maidComplaints": 5,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900021,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 5600,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 1000097,
+       "label": "1000097",
+       "startOfContract": "2019-01-02",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Brian charles gambin",
+       "contractEndDate": "2031-06-01",
+       "adjustedEndDate": "2031-06-01",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-09-01",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 56371,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 56371,
+       "label": "Brian charles gambin"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900022,
+    "housemaid": {
+     "id": 900022,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-04 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900022,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 5,
+    "clientComplaints": 26,
+    "maidComplaints": 3,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900022,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 1670,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900023,
+    "housemaid": {
+     "id": 900023,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-12 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900023,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 4,
+    "clientComplaints": 51,
+    "maidComplaints": 27,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900023,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 2,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900024,
+    "housemaid": {
+     "id": 900024,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-03 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900024,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 30,
+    "clientComplaints": 82,
+    "maidComplaints": 73,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900024,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 19586,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 1000175,
+       "label": "1000175",
+       "startOfContract": "2019-01-03",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Ihsan ichtay",
+       "contractEndDate": "2031-06-02",
+       "adjustedEndDate": "2031-06-02",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-09-02",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 54321,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 54321,
+       "label": "Ihsan ichtay"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900025,
+    "housemaid": {
+     "id": 900025,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-17 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900025,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 26,
+    "clientComplaints": 81,
+    "maidComplaints": 12,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900025,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 20429,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": "REDACTED",
+      "client": {
+       "id": 19636,
+       "label": "Mohammad Sahyouni"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900026,
+    "housemaid": {
+     "id": 900026,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-24 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900026,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 15,
+    "clientComplaints": 64,
+    "maidComplaints": 13,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900026,
+     "vip": true,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 9769,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 1000313,
+       "label": "1000313",
+       "startOfContract": "2019-01-24",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Ghada Abbas",
+       "contractEndDate": "2029-05-31",
+       "adjustedEndDate": "2029-05-31",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-08-31",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 18413,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 18413,
+       "label": "Ghada Abbas"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900027,
+    "housemaid": {
+     "id": 900027,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-01-25 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900027,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 1,
+    "clientComplaints": 16,
+    "maidComplaints": 23,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900027,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900028,
+    "housemaid": {
+     "id": 900028,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-03 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900028,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 3,
+    "clientComplaints": 19,
+    "maidComplaints": 21,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900028,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900029,
+    "housemaid": {
+     "id": 900029,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-15 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900029,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 14,
+    "clientComplaints": 62,
+    "maidComplaints": 35,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900029,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900030,
+    "housemaid": {
+     "id": 900030,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-05 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900030,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 2,
+    "clientComplaints": 12,
+    "maidComplaints": 18,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900030,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900031,
+    "housemaid": {
+     "id": 900031,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-05 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900031,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 8,
+    "clientComplaints": 22,
+    "maidComplaints": 29,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900031,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900032,
+    "housemaid": {
+     "id": 900032,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-04 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900032,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 7,
+    "clientComplaints": 40,
+    "maidComplaints": 21,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900032,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900033,
+    "housemaid": {
+     "id": 900033,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-06 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900033,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 11,
+    "clientComplaints": 20,
+    "maidComplaints": 11,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900033,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900034,
+    "housemaid": {
+     "id": 900034,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-05 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900034,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 19,
+    "clientComplaints": 49,
+    "maidComplaints": 26,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900034,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 4789,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 1000487,
+       "label": "1000487",
+       "startOfContract": "2019-02-05",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Amanzeb Khan Jahanzeb Khan",
+       "contractEndDate": "2031-06-04",
+       "adjustedEndDate": "2031-06-04",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-09-04",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 57715,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 57715,
+       "label": "Amanzeb Khan Jahanzeb Khan"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900035,
+    "housemaid": {
+     "id": 900035,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-15 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900035,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 6,
+    "clientComplaints": 61,
+    "maidComplaints": 13,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900035,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 2,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900036,
+    "housemaid": {
+     "id": 900036,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-13 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900036,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 17,
+    "clientComplaints": 34,
+    "maidComplaints": 11,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900036,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   },
+   {
+    "id": 900037,
+    "housemaid": {
+     "id": 900037,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-03-29 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900037,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 4,
+    "clientComplaints": 37,
+    "maidComplaints": 8,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900037,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900038,
+    "housemaid": {
+     "id": 900038,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-17 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900038,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 8,
+    "clientComplaints": 37,
+    "maidComplaints": 16,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900038,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 727,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": "REDACTED",
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": "REDACTED"
+    }
+   },
+   {
+    "id": 900039,
+    "housemaid": {
+     "id": 900039,
+     "label": "REDACTED",
+     "travelAssist": false,
+     "liveOut": false
+    },
+    "startOfContract": "2019-02-23 00:00:00",
+    "scheduledDateOfTermination": "",
+    "liveOut": false,
+    "contractProspectType": {
+     "id": 900039,
+     "code": "maids.cc_prospect",
+     "name": "REDACTED"
+    },
+    "deletedFromApp": false,
+    "dateOfTermination": "",
+    "longTermPackage": false,
+    "visaRenewalDeclined": false,
+    "clientReplacments": 15,
+    "clientComplaints": 30,
+    "maidComplaints": 18,
+    "workerSalaryMonthlyTip": "REDACTED",
+    "status": "ACTIVE",
+    "client": {
+     "id": 900039,
+     "vip": false,
+     "vVip": false,
+     "gcc": false,
+     "name": "REDACTED",
+     "spouseName": "REDACTED",
+     "city": {
+      "id": 1683,
+      "label": "REDACTED"
+     },
+     "blocked": false,
+     "lastBlockLog": {
+      "id": 17619,
+      "version": 0,
+      "creationDate": "REDACTED",
+      "creatorId": "REDACTED",
+      "creator": "REDACTED",
+      "lastModificationDate": "REDACTED",
+      "lastModifier": "REDACTED",
+      "uuid": "REDACTED",
+      "creatorModule": "REDACTED",
+      "entityType": "REDACTED",
+      "attachments": [],
+      "attachmentsCount": 0,
+      "contract": {
+       "id": 1000667,
+       "label": "1000667",
+       "startOfContract": "2019-02-23",
+       "ContractProspectType": {
+        "name": "Maids.cc",
+        "code": "maids.cc_prospect"
+       },
+       "status": "ACTIVE",
+       "contractType": "LONG_TERM",
+       "living": "IN",
+       "ClientName": "Bahjat Ali Khan",
+       "contractEndDate": "2031-05-31",
+       "adjustedEndDate": "2031-05-31",
+       "clientOwes": "0.0",
+       "weShouldRefund": "0.0",
+       "paidEndDate": "2026-08-31",
+       "specialCase": false,
+       "correctedBalance": null,
+       "clientId": 57963,
+       "sendMaidToHomeExpense": 0.0
+      },
+      "client": {
+       "id": 57963,
+       "label": "Bahjat Ali Khan"
+      },
+      "unblock": true,
+      "type": "REDACTED",
+      "notes": "REDACTED",
+      "allowedReplacements": "REDACTED",
+      "oneMoreChance": false
+     },
+     "isUberBlocked": false,
+     "isPoked": false,
+     "showAllowReplacementButton": false,
+     "fired": false,
+     "numberOfActiveContracts": 1,
+     "nickName": "REDACTED",
+     "isHard": true
+    }
+   }
+  ],
+  "pageable": {
+   "sort": "",
+   "offset": 0,
+   "pageNumber": 0,
+   "pageSize": 40,
+   "paged": true,
+   "unpaged": false
+  },
+  "totalElements": 40,
+  "totalPages": 1,
+  "last": true,
+  "size": 40,
+  "number": 0,
+  "sort": "",
+  "first": true,
+  "numberOfElements": 40,
+  "empty": false
+ },
+ "_note": "Structure-only fixture: the live contract/search/page response captured 2026-08-18 with every identifier and name replaced. Field NAMES, nesting, row count (40), the lying envelope values (size/totalPages/last) and the top-level total are preserved, because those are what the parser and gate 2 are tested against. No client or maid data is retained."
+}
