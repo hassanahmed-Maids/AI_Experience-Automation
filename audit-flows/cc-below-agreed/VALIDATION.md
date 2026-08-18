@@ -108,3 +108,56 @@ Every one of these is stated on the run's own output, not only here.
 - **The verdict vocabulary** — Malaz.
 - **A freezing/unfreezing date in ERP** — the ERP team. Today the business cannot
   answer "when was this contract frozen?" from ERP at all.
+
+## 7. The live run — execution 92265, and why it is NOT the evidence
+
+Fired 2026-08-18 12:04:21 UTC against production, read-only, `cohort_cap: 25`,
+`batch_size: 10`, July 2026. Authorised by Hassan to execute.
+
+**Outcome: inconclusive. Abandoned at 136+ minutes with no handoff to WF-B.**
+Do not read anything about the check's correctness from this run either way.
+
+What it did prove:
+- Validation accepted the payload and derived the three windows correctly, and
+  `auth_mode` came back `caller_payload:params.erp_auth.bearer` — the token travelled
+  as a RUNTIME PAYLOAD. Nothing was written into a Code node and no stored ERP
+  credential was used, which is the property the whole auth design turns on.
+- It survived past **95 minutes**, where runs 89604 (94m44s) and 90669 (~95m) both
+  died. The earlier memory work moved it out of that band.
+
+What it exposed:
+- **`cohort_cap` does not bound the sweep half.** It caps the cohort AFTER
+  `Build Cohort`, so enrichment and verification shrink but the five sweeps stay at
+  full size — ~23 MB of payment rows across three windows plus 43,727 status rows.
+  The execution record passed the readable threshold within ~35 minutes: an
+  `includeData` fetch for a SINGLE small node succeeded at 3m41s and failed on payload
+  size later. So the run became unobservable while still running, which is why this
+  section can report no figures.
+- **Sweep latency under sustained load is far worse than isolated probes suggest.**
+  Measured alone: population ~5.1 s/page, terminated ~20.5 s/page, statuses ~0.65 s
+  plus a 250 ms interval. Predicted ~36 minutes of sweeps; actual >136 minutes with no
+  handoff. Roughly 4x.
+- Not a runaway walk — every terminator was verified against live envelopes:
+  ACTIVE population returns 39 rows on page 134 and 0 from page 135 (136 requests);
+  statuses stop on the 7-row partial page; terminated stops on the empty page 24. All
+  sit well inside `maxRequests`.
+
+## 8. The fix this run argues for
+
+Stage the SWEEPS out of WF-A exactly as the verifier was staged out into WF-B. The
+status sweep is the first target: **1,094 pages, over 80% of the run's call budget,
+for one field** (`status.value`, needed only by gate 12). It should be its own stage
+emitting a slim projection, or a narrower query, so WF-A never holds it.
+
+Until that is done, this check cannot complete a full-population run, and a capped run
+cannot be observed. Neither state is publishable.
+
+## 9. A gap in this session's own gate-2 change, stated rather than left implicit
+
+The reconciliation guards only the SHORT direction: `popRows < declaredTotal - 25`
+throws, because a short cohort is the false clearance. It does NOT guard the LONG
+direction. If a paged route ever clamped over-range pages and kept returning full
+pages, the walk would collect far more rows than `total` and pass silently.
+`Build Cohort` dedupes by `contract_id`, so this is not a false clearance — the cohort
+stays correct — but it would burn an hour invisibly. The long-direction check belongs
+in gate 2 and is not there yet.
