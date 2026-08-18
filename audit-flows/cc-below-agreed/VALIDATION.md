@@ -526,3 +526,73 @@ For this check that is an operational constraint, not a footnote: a full run is 
 and carries the bearer as a runtime payload, so **a run started after ~21:15 UTC loses its
 token mid-flight** and every remaining ERP call 401s. Run 92534 finished at 17:02 UTC, well
 clear, so this did not contribute to that crash.
+
+## 16. WF-E — enrichment staged out, and what it does not buy
+
+Built 2026-08-18 in response to §15: `CC Below Agreed · 0-Enrich Candidates`
+(`NDk03cYGF4XSXsk5`), plus two new WF-A nodes. Four WF-A nodes are gone —
+`Get Contract Plan`, `Attach Plan`, `Get Replacements`, `Attach Replacements` — replaced by
+`Chunk Candidates` → `Enrich Candidates (WF-E)` (`mode: each`, `waitForSubWorkflow: true`)
+→ `Join Enrichment` → `Merge Streams [0]`. `Compute Case States` is untouched, because
+`Join Enrichment` emits exactly the shape `Attach Replacements` did.
+
+### The memory arithmetic, itemised so it can be argued with
+
+| retained in WF-A | before | after |
+|---|---|---|
+| plan responses (5,632 × 3,851 B) | 21.7 MB | **0** — held in the sub-execution, freed per chunk |
+| replacement 401 bodies (5,632 × 185 B) | 1.0 MB | **0** |
+| plan deltas (`Attach Plan`) | 5.6 MB | **0** — folded into the caller's output |
+| chunk inputs (ids only, 5,632 × ~60 B) | — | 0.34 MB |
+| WF-E caller output (the deltas) | — | 5.6 MB |
+| assembled cases (`Attach Replacements` → `Join Enrichment`) | ~14 MB | ~14 MB |
+| **net** | | **~22 MB removed** |
+
+That takes the projected peak from the ~95 MB of §15 toward **~73 MB**, against a measured
+kill band of 100.6–142.6 MB. Two caveats, stated rather than buried: these are per-row
+measurements multiplied by counts, **not an observed heap figure**, and ~73 MB is still
+above the observed healthy band of 44–61 MB. What remains is the population sweep (9.2 MB,
+unstaged) and the case objects copied at each of the ~6 remaining retained node outputs.
+The next run is what turns this into evidence.
+
+### What it explicitly does not buy
+
+**The call count is unchanged: 11,264 calls, ~26 minutes.** Chunks run sequentially — the
+chunk size is a memory ceiling, not a throughput knob, and raising it toward WF-E's own
+limit of 1,200 changes nothing but how much one sub-execution holds. The three node
+comments, the node notes on the canvas and `wf-e/README.md` all say this in the same words,
+because "we staged the enrichment" is exactly the kind of sentence that gets remembered as
+"we fixed the enrichment".
+
+Cutting the fan-out still depends on the open question in
+`askcode/q-bulk-contract-rate.md`: if any bulk route carries the contract's monthly rate,
+`expected` is known for all 5,405 contracts from the walk already being done, and enrichment
+narrows from 5,632 contracts to the few hundred that actually look short.
+
+### Fidelity: this replaced reasoned code, so it was tested as a replacement
+
+`Attach Plan` and `Attach Replacements` carried the discount-prose parsing, the gate-4
+departure, the gate-5 pro-rating branches, and the `newHousemaid: ""` no-successor signal.
+All of it moved verbatim. Two mechanical changes:
+
+1. The pairing source is `Read Chunk` instead of `Needs enrichment?`.
+2. **Every regex is rewritten with character classes** — `[.]` for `\.`, `[ ]+` for `\s+`,
+   `[(]Monthly[)]` for `\(Monthly\)` — because a body shipped into a Code node as a string
+   is precisely where a backslash class gets eaten, and newlines are flattened with
+   `String.fromCharCode(10)` first so the narrower space class cannot change an outcome.
+   `wf-e/offline/enrich_test.js` runs the original and rewritten patterns over the same
+   strings and asserts they agree; that assertion is the reason the rewrite is defensible
+   rather than a silent behavioural change.
+
+`wf-e/offline/enrich_test.js` — **39/39**, including a pass over the real
+`get-client-details` response probed the same day (flags asserted, never the amount).
+`Join Enrichment` and `Chunk Candidates` were diffed byte-for-byte against their deployed
+copies; WF-E's three bodies were read back and checked at every escape-sensitive point.
+
+### One behaviour worth knowing before the next run
+
+`Enrich Candidates (WF-E)` has `onError: continueErrorOutput` wired to `Build Error
+Callback`. So a failed chunk posts an error callback AND then `Join Enrichment` throws,
+naming how many candidates came back without a delta. That double report is deliberate: a
+partially-enriched cohort must not reach the scorer, because those cases would present as
+CANNOT TELL — which reads like a judgment about a contract rather than a lost chunk.
