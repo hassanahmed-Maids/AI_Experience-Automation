@@ -182,8 +182,11 @@ check('established contract: grandfathered on an old published price',
 
 check('grandfathering cannot use a price published AFTER the audit month',
   // 4301 matches the 3/3/2024 window (4300.8). Audit a month before that window
-  // opened and the same rate must NOT clear.
-  scoreMonth(c1005750, card, { audit_month: '2023-06' }).state, 'red');
+  // opened and the same rate must NOT clear as grandfathered. It lands as
+  // above_card rather than red because 4301 exceeds June 2023's 3244.5 - not a
+  // finding, but equally not cleared on a price that did not exist yet.
+  view(scoreMonth(c1005750, card, { audit_month: '2023-06' }), ['state', 'verdict']),
+  { state: 'above_card', verdict: 'Above card' });
 
 // === gates ==================================================================
 
@@ -222,9 +225,12 @@ check('gate: a card boundary inside the month -> never average, never pick',
   { state: 'pending', reason_code: 'card_changed_mid_month', flags: ['card_changed_mid_month'], needs_human: true });
 
 check('gate: the month AFTER a card change scores normally',
-  scoreMonth(Object.assign({}, c1005750, { maid_nationality: 'Kenyan', contract_start_date: '2024-01-01',
-    payments_info: ['Service Fees: 3000 + 150 VAT, on Jan 01 2024 (Monthly)'] }), card, { audit_month: '2025-03' }).reason_code,
-  'below_card_unexplained');
+  // 3150 against March 2025's livein:Other card of 3129 - above card by 21, so
+  // the point of this case is that the mid-month gate is GONE, not the verdict.
+  view(scoreMonth(Object.assign({}, c1005750, { maid_nationality: 'Kenyan', contract_start_date: '2024-01-01',
+    payments_info: ['Service Fees: 3000 + 150 VAT, on Jan 01 2024 (Monthly)'] }), card, { audit_month: '2025-03' }),
+    ['reason_code']),
+  { reason_code: 'above_card_not_under_priced' });
 
 // === living switch ==========================================================
 
@@ -251,6 +257,56 @@ check('switch: a switch INSIDE the audit month routes to a human',
   view(scoreMonth(Object.assign({}, c1005750, { live_out: true, live_in_out_logs: [{ date: '2026-07-10', oldValue: 'IN', newValue: 'OUT' }] }), card, { audit_month: '2026-07' }),
        ['state', 'verdict', 'reason_code', 'flags']),
   { state: 'pending', verdict: "Can't tell", reason_code: 'cleared_on_a_test_but_gate_requires_review', flags: ['living_switch_in_month'] });
+
+// === paying MORE than the card is valid, and never a red flag ===============
+// The July 2026 run mislabelled 751 contracts as "Under-priced" with negative
+// gaps because the red gate only asked whether every test FAILED, never whether
+// actual was below expected. Confirmed with the spec owner 2026-08-19: a client
+// paying above card is a valid case and not a finding.
+
+check('paying more than the card is NOT red',
+  view(scoreMonth(Object.assign({}, c1005750, {
+    payments_info: ['Service Fees: 5440 + 272 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }),
+    ['state', 'verdict', 'reason_code', 'needs_human']),
+  { state: 'above_card', verdict: 'Above card', reason_code: 'above_card_not_under_priced', needs_human: false });
+
+check('the gap on an above-card contract is negative and reported as such',
+  scoreMonth(Object.assign({}, c1005750, {
+    payments_info: ['Service Fees: 5440 + 272 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }).gap_aed,
+  -997.5);
+
+check('the real July shape: livein:Other paying ERP\'s Sri Lankan price is above card, not a finding',
+  // 4715 is ERP's live-in price for Sri Lankan and Indonesian maids; the card
+  // collapses them into Other at 3129. 751 contracts hit this on the July run.
+  view(scoreMonth(Object.assign({}, c1005750, { maid_nationality: 'Sri Lankan',
+    payments_info: ['Service Fees: 4490 + 225 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }),
+    ['cohort', 'state', 'verdict']),
+  { cohort: 'livein:Other', state: 'above_card', verdict: 'Above card' });
+
+check('paying BELOW the card with no explanation is still red',
+  view(scoreMonth(Object.assign({}, c1005750, {
+    payments_info: ['Service Fees: 2000 + 100 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }),
+    ['state', 'verdict', 'needs_human']),
+  { state: 'red', verdict: 'Under-priced', needs_human: true });
+
+check('a red contract\'s gap is POSITIVE, so totals cannot cancel out',
+  scoreMonth(Object.assign({}, c1005750, {
+    payments_info: ['Service Fees: 2000 + 100 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }).gap_aed,
+  2614.5);
+
+check('above-card never reaches the verifier queue',
+  scoreMonth(Object.assign({}, c1005750, {
+    payments_info: ['Service Fees: 5440 + 272 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }).needs_human,
+  false);
+
+check('an above-card contract that is ALSO gated still routes to a human',
+  // needs_human is one-way: a living switch inside the month must not be
+  // released just because the contract pays above card.
+  view(scoreMonth(Object.assign({}, c1005750, { live_out: true,
+    live_in_out_logs: [{ date: '2026-07-10', oldValue: 'IN', newValue: 'OUT' }],
+    payments_info: ['Service Fees: 9000 + 450 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }),
+    ['state', 'needs_human']),
+  { state: 'pending', needs_human: true });
 
 // === reproducibility ========================================================
 

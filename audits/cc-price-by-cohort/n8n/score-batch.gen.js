@@ -508,18 +508,49 @@ function scoreMonth(c, card, opts) {
 
   const expected = pMonth !== null ? pMonth : pStart;
   out.gap_aed = Math.round((expected - actual) * 100) / 100;
-  out.needs_human = true; // a question for the verifier, never an established loss
 
   if (out.flags.indexOf('unpriceable_at_start') !== -1) {
     out.state = 'pending';
     out.verdict = 'Unpriceable';
     out.reason_code = 'no_published_price_at_start';
+    out.needs_human = true;
+    return out;
+  }
+
+  // FAILING EVERY TEST IS NOT THE SAME AS BEING UNDER-PRICED. A contract paying
+  // MORE than the card also matches no window, and labelling it "Under-priced"
+  // with a negative gap is simply false - the spec defines a finding as
+  // actual < expected. On the July 2026 run this mislabelled 751 contracts and
+  // their negative gaps cancelled out the real shortfall in the total, turning
+  // +210,523 into -449,461.
+  //
+  // Above-card is NOT a finding for this check, whose question is "did we
+  // contract for less than the card?". It is reported as its own outcome rather
+  // than folded into green, because the July run showed most of these are
+  // nationalities ERP prices above the card's collapsed "Other" bucket - a card
+  // problem worth seeing, not a clean contract. See erp-price-matrix-mapping.md.
+  if (actual > expected) {
+    // needs_human is ONE-WAY here too. A living switch inside the month, an
+    // unreadable log or an unpriceable start already routed this contract, and
+    // paying above card is not a reason to release it - the gate fired for a
+    // reason unrelated to the amount.
+    if (out.needs_human) {
+      out.state = 'pending';
+      out.verdict = "Can't tell";
+      out.reason_code = 'above_card_but_gate_requires_review';
+      return out;
+    }
+    out.state = 'above_card';
+    out.verdict = 'Above card';
+    out.reason_code = 'above_card_not_under_priced';
+    out.needs_human = false;
     return out;
   }
 
   out.state = 'red';
   out.verdict = 'Under-priced';
   out.reason_code = 'below_card_unexplained';
+  out.needs_human = true; // a question for the verifier, never an established loss
   return out;
 }
 
