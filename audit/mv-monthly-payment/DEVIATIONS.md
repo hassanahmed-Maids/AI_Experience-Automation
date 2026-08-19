@@ -381,3 +381,50 @@ Two consequences:
 
 **File against:** nothing in the spec — the spec assumes a token is valid until it expires, and
 conflates the token's validity with the session's.
+
+### F16. Gate 10 escalates on an OPEN vocabulary, so it flooded 55.6% of cases
+Slice 1 of the full month (250 contracts) filed **139 cases as needing a human — 55.6%** — almost all
+carrying nothing worse than `unrecognised payment type code(s)`. Extrapolated, that is ~13,500 clean
+months parked in a review queue, and a queue that size stops being read at all. A check whose output
+nobody reads has the same value as a check that never ran.
+
+The spec treats an unrecognised `typeOfPayment.code` as an anomaly. ask-the-code explains why that can
+never converge:
+
+> `TypeOfPayment` is a **data-driven picklist**, so an operator can add codes that never appear as
+> literals in source. To get the guaranteed exhaustive list you must query the picklist table.
+
+So the allowlist is *permanently* incomplete by design, and "code not in my list" is not evidence of
+anything. Two changes:
+
+1. **The vocabulary is now the full code-defined set** (41 codes, from ask-the-code) rather than the
+   spec's 12. Only `monthly_payment` satisfies `isMonthlyPayment()`; `monthly_payment_add_on` joins it
+   in `monthlyTypes`. Nothing else is ever summed as a monthly payment.
+2. **The human flag is deferred to cases that did not settle cleanly.** An unrecognised code is
+   recorded on every case (`unrecognised_type_codes`), but only demands a human when the verdict is a
+   finding or pending.
+
+Why the deferral is safe on a clean month: an unrecognised code is never summed as a monthly payment,
+so it cannot manufacture a clearance. The only way an unknown code could hide a monthly obligation is
+if the monthly amount were billed under it — and then the monthly rows are simply *absent*, which
+gates 4 and 8 already red. On a month that did **not** settle, the unknown code might be the payment
+the case is about, so there the flag survives. An **absent** code still reds on sight: a payment row
+with no type at all is a data defect, not an unlisted picklist entry.
+
+Measured effect, slice 2 first chunk: **needsHuman 0 of 25**, against ~14 of 25 before.
+
+**File against:** gate 10. The rule should escalate on an absent code and on unknown codes attached to
+unsettled months, not on the mere existence of a code outside a list that cannot be completed.
+
+### F17. The population estimate was extrapolated from one page of a sorted endpoint
+F12 estimated 50–350 cancelled contracts in scope per month, from a 500-row sample. The measured
+figure for 2026-07 is **2,097** — 6× to 40× higher, and the in-scope total is **24,378**, not ~23,000.
+
+The sample was one page of an endpoint whose default sort returns oldest-first, so it was almost
+entirely 2017–2018 terminations and could not have contained recent cancellations at their true
+density. **One page of a sorted endpoint is not a sample of the population.** The estimate was used
+only for sizing, so nothing downstream was wrong — but it was quoted as a population fact in
+POPULATION-SIZE.md before it was measured, which is the actual mistake.
+
+**File against:** nothing in the spec. A note against my own method: sizing numbers stay labelled as
+estimates until a full sweep reports its own counts.

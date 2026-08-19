@@ -116,14 +116,22 @@ POST /clientmgmt/contract/search/page?page=0&size=1  (pagecode: ClientList)
   503                    → module unavailable, wait, do not re-token
 ```
 
-**Slice payloads** — same `runId` throughout, `offset` advancing by `limit`:
+**Slice payloads** — same `runId` throughout, `offset` advancing by `limit`. Measured costs: sweep
+12.5 min per slice (fixed), scoring ~16 s per 25-contract chunk, so 3,000 contracts ≈ 45 min per
+execution — short enough to stay well inside any execution cap, large enough that the fixed sweep is
+not most of the run.
 
 ```
-{ bearer, token, device, auditedMonth: "2026-07", runId: "mvmp-2026-07-full", offset: 0,     limit: 6000 }
-{ ... offset: 6000,  limit: 6000 }
-{ ... offset: 12000, limit: 6000 }
-{ ... offset: 18000 }                      # no limit — runs to the end of the in-scope population
+{ bearer, token, device, auditedMonth: "2026-07", runId: "mvmp-2026-07-full", offset: 0,      limit: 3000 }
+{ ... offset: 3000,  limit: 3000 }
+...
+{ ... offset: 21000 }                     # no limit — runs to the end of the in-scope population
 ```
+
+The final slice takes **no `limit`** on purpose: the population drifts upward during a multi-hour run
+(`total` moved 22,870 → 22,872 across two hours of 2026-08-19), and because slices are ordered by
+ascending `contractId`, contracts created mid-run land in the tail. An unlimited final slice absorbs
+them; a fixed final `limit` would silently leave them unaudited.
 
 Each slice re-sweeps the population (462 paced calls, ~4 min) so the population guard is exercised
 every time, and reports `slice [from, to) of N in-scope contracts` in its notes. The month is covered
