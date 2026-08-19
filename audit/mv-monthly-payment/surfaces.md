@@ -1,124 +1,205 @@
-# MV Monthly Payment check — ERP surfaces and call budget
+# MV Monthly Payment check — ERP surfaces, probed
 
-Status: **Phase 2 planned, not yet probed** — awaiting the operator's ERP token.
-Spec: Notion *MV Monthly Payment check*, v0.8 draft (2026-08-17).
+**Probed live 2026-08-19** against production, paced, read-only.
+Spec: Notion *MV Monthly Payment check*, v0.8 draft.
 
-`audit_intel/` — the directory the spec cites for every saved payload, probe script and
-raw ERP confirmation — **is not present in this environment**. It lives on the spec
-author's machine. Every "verified live" claim below is therefore inherited, not
-re-observed here, and is re-probed rather than trusted.
+> **Attribution caveat.** All probes below ran on a token issued to ERP user **`Abdullaha`**
+> (device `1783257240058`), not to the operator running this build. Every "works" result is
+> therefore verified **on that account**, and must be re-confirmed on whichever account runs
+> the check before these rows are treated as the operator's access. Recorded because a route
+> once documented as verified turned out to be refused on the auditing account.
+
+`audit_intel/` — the directory the spec cites for its saved payloads — is not present in this
+environment, so nothing below is inherited. Every figure was re-observed.
 
 ---
 
-## Surfaces the check needs
+## Access matrix
 
-| # | Surface | Method + path | pagecode | Role | Blocker? |
+| # | Surface | Method + path | pagecode | Status | Notes |
 |---|---|---|---|---|---|
-| 1 | Contract population | `POST /clientmgmt/contract/search/page?searchKey=` | none required | Enumerate every MV contract; also projects `client.vip` / `client.vVip` | **BLOCKER** — no population, no run |
-| 2 | Payment ledger | `POST /accounting/payments/page/advancesearch?page&size&sort=` | `PaymentReport` | What was actually paid | **BLOCKER** |
-| 3 | Contract details | `POST /clientmgmt/client/get-client-details/{clientId}?type=CONTRACT_DETAILS&contractId={id}` | `ClientSummary` | Expected amount, split, `preCollectedInfo`, `dateOfTermination`, `discount` | **BLOCKER** |
-| 4 | Message log | `GET /clientmgmt/client/smsLog/{clientId}` | `ClientMgmtSMSLog` | Verifier: last follow-up date (**date only**) | Degradation |
-| 5 | Complaints list | `GET /complaints/complaint/page/client/{clientId}?page&size` | `ClientComplaints` | Verifier: `initialDescription` | Degradation |
-| 6 | Complaint thread | `GET /complaints/teamComplaintUpdate/historyOfComplaint/{id}` | `ClientComplaints` | Verifier: staff-written reason | Degradation |
-| 7 | Credit notes | *route not recorded in the variable inventory* | — | Gate 14 relief | Degradation |
-| 8 | Refund types | live read of the payment-type picklist | — | Gate 16 vocabulary | Degradation |
+| 1 | Contract population | `POST /clientmgmt/contract/search/page?searchKey=` | **`ClientList`** | **200** | Spec says "no pageCode required" — **wrong**, empty pagecode returns 401 `PAGE_CODE_MISSING` |
+| 2 | Payment ledger | `POST /accounting/payments/page/advancesearch?page&size&sort=` | `PaymentReport` | **200** | Filter body is an **array**. `ClientSummary` → 401 |
+| 3 | Contract details | `POST /clientmgmt/client/get-client-details/{clientId}?type=CONTRACT_DETAILS&contractId={id}` | `ClientSummary` | **200** | 35 top-level keys. `ClientList` → 401 |
+| 4 | Message log | `GET /clientmgmt/client/smsLog/{clientId}?messageType=WHATSAPP&emailSubject=` | `ClientMgmtSMSLog` | **200** | **Two required params**, both undocumented in the spec |
+| 5 | Complaints list | `GET /complaints/complaint/page/client/{clientId}?page&size` | `ClientComplaints` | **200** | Also works with `post-sale-services_Open_Complaint` |
+| 6 | Complaint thread | `GET /complaints/teamComplaintUpdate/historyOfComplaint/{id}` | `ClientComplaints` | not probed | Needs a complaint id from surface 5 |
+| 7 | Credit notes (structured) | — | — | **NOT FOUND** | No structured credit-note source on CONTRACT_DETAILS — see correction C4 |
+| 8 | Refund types | — | — | not probed | Live picklist read still outstanding |
 
-Surfaces 1–3 are the check. 4–8 only cap verdict confidence: if unreadable, cases still
-score deterministically and affected verdicts are capped and labelled with the named gap
-(`message log unread — PIL blocked`, etc.), never silently defaulted.
+**No blockers.** All three population/ledger/plan surfaces are readable, so the check can run.
 
-### Probe plan (one paced call per row, serial, 500 ms apart)
+### Denial shapes, with their real discriminators
 
-Both documented **and** alternative pagecodes get probed on surfaces 4–7, because a wrong
-pagecode and a missing permission both return 401 and only the `developermessage` header
-separates them. Known-good ids from the spec: contracts `1099709`, `1029517`, `1019110`,
-`1053569`, `1086626`; confirmed reds `1023590` (2026-03), `1074171` (2026-06).
+The `developermessage` response header separates causes that all present as HTTP 401:
 
-Boundary probes to run, because the spec's own numbers depend on them:
-- surface 1: `page=0&size=500`, `page=1&size=500`, `page=1&size=40` — confirm the page-0
-  40-row cap still bites where recorded, and that `size` is honoured on pages 1+.
-- surface 1: read `response.total` **and** `response.clients.totalElements` and confirm they
-  still differ (the outer one is the audit count).
-- surface 2: walk one contract to exhaustion and assert `pulled == totalElements` before
-  trusting any negative month.
-
----
-
-## Call budget — recounted, and the spec is wrong by ~30×
-
-The spec's *Where do the results go?* heading states:
-
-> population sweep ≈ 58 calls (two-pass, ~2,950 contracts measured 2026-08-11) + one
-> payment-history walk per contract at 1–11 pages each ≈ **3,000–8,000** payment-search calls
-
-Both figures in that sentence are wrong, and they are wrong in a way that changes the
-architecture rather than the runtime.
-
-**The population is 22,825, not ~2,950.** The `mv_contract_population` variable row records
-`response.total = 22,825` active MV contracts, measured the same day; the ~2,950 figure is
-the **CC cohort** that lost 460 rows to the pagination trap, transcribed into the MV budget.
-The Snowflake measurement in v0.8 corroborates 22,825: 28,518 distinct contracts across 11
-months, ~243k contract-months.
-
-The 58-call sweep figure is right — it was computed for 22,825 (1 + 12 + ~46). Only the
-contract count beside it is wrong.
-
-**The per-contract payment walk is therefore unaffordable as specced:**
-
-| | Spec's figure | Actual |
+| `developermessage` | Meaning | Fix |
 |---|---|---|
-| Population | ~2,950 | **22,825** |
-| Population sweep | 58 calls | 58 calls ✔ |
-| Payment walk (1–11 pages × population) | 3,000–8,000 | **22,825 – 251,075** |
-| `CONTRACT_DETAILS` per scored case | "per scored case" | up to 22,825 |
-
-At a sequential 500 ms pace, ~68,000 calls (population × ~3 pages average) is **~9.5 hours
-of wall clock in one execution**, on the endpoint the spec itself records as *"the one that
-took the Accounting module down"*. It also cannot live in one n8n execution on retained
-data alone.
-
-### Architecture that fits: windowed sweep + candidate-only enrichment
-
-Instead of one payment walk per contract, sweep the **audited month once** and join in
-memory. A month's monthly-payment rows across all MV contracts is ~22.8k rows; at `size=500`
-that is ~50–100 paged calls.
-
-```
-Stage 1  population sweep (two-pass)                     ~58 calls
-Stage 1  month payment sweep, audited month ±1           ~150 calls   (sub-workflow, slim projection)
-         └─ join: contract → its rows for the month
-Stage 2  candidates only (no RECEIVED row in month)      ~2,835 contracts per the v0.8 measurement
-         ├─ CONTRACT_DETAILS per candidate               ~2,835 calls
-         └─ full ledger walk per candidate (chain proof) ~2,835–8,500 calls
-Stage 3  evidence per surviving red                      ~154 × 3 calls
-                                                  TOTAL  ~9,000–15,000 calls
-```
-
-That is ~20× cheaper than the literal reading and lands in the same order of magnitude the
-spec *believed* it had. Two constraints it must respect:
-
-- The spec forbids "a bare date-range sweep at width" on surface 2. The month sweep is
-  bounded (one month, paced, sequential) and mirrors the proven `CC Below Agreed · 0-Sweep
-  Payments` sub-workflow, which does exactly this in 31-day windows. **To be re-confirmed by
-  probe before the full run** — if the month sweep is refused or throttled, fall back to
-  candidate-only walks driven by a cheaper candidate source.
-- Candidates must be derived from a source that **cannot hide a never-billed contract**. The
-  month sweep satisfies this: a contract with no row at all appears as a candidate precisely
-  because the join finds nothing. Narrowing the population by "appears in the payments book"
-  would reintroduce the payroll-file blindness the owner's ERP-only ruling exists to prevent.
-
-`MAX_PAGES_PER_SWEEP` must be raised to **≥ 46** before pointing the pager at MV (tail offset
-20,000 at the current 40). Forgetting aborts the run rather than under-reporting — the
-shortfall guard raises when collected rows fall short of `response.total` by more than
-`max(3, 0.2%)` — but it wastes a full sweep.
+| `PAGE_CODE_MISSING` | pagecode header absent or empty | send one |
+| `API_NOT_FOUND_FOR_PAGE` | route not registered for that pagecode | use the right pagecode |
+| *(absent)* on a 401 | genuine permission gap | request the permission — it is a finding |
+| 5xx containing `498` / `malformed` | dead token | fresh token |
 
 ---
 
-## Free wins already banked (no extra call)
+## Surface 1 — population. The 40-row page-0 cap is REAL and unchanged
 
-- `is_pre_collected` = `preCollectedInfo.isPreCollectedSalary` — on `CONTRACT_DETAILS`, which
-  the check already reads. Deletes the Accounting-module round trip gates 4/5 once waited on.
-- The advance itself = `preCollectedInfo.currentPreCollectedPayments[]` on the same payload.
-- The salary/fee split = `currentPayments[]` on the same payload. No separate plan call.
+| call | status | rows | `total` | first id | last id |
+|---|---|---|---|---|---|
+| `p0 size=500` | 200 | **40** | 22,867 | 999425 | 1000803 |
+| `p0 size=40` | 200 | 40 | 22,867 | 999425 | 1000803 |
+| `p1 size=500` | 200 | **500** | 22,867 | 1008343 | 1014201 |
+| `p1 size=40` | 200 | 40 | 22,867 | 1000858 | 1001808 |
+| `p2 size=500` | 200 | 500 | 22,867 | 1014205 | 1018073 |
+
+- Page 0 caps at 40 regardless of `size`; **`size` is honoured on every later page**. Confirmed.
+- `p0` ends at id **1000803** and `p1 size=40` begins at **1000858** — contiguous, and both ids
+  match the spec's recorded boundary exactly.
+- A flat `size=500` walk never requests offsets 40–499. The two-pass sweep is required.
+- `total` = **22,867** (outer). `clients.totalElements` = **40** — the capped field. Read the
+  outer one. Reconcile with tolerance: 22,867 today vs 22,825 on 2026-08-11.
+- **Population is 22,867, not the "~2,950" the spec's budget section states.**
+
+Sweep cost: 1 (page 0) + 12 (head, size 40) + ~46 (tail, size 500) = **~59 calls**.
+
+## Surface 2 — payment ledger. The cap does NOT generalise
+
+| call | status | rows | `totalElements` |
+|---|---|---|---|
+| `p0 size=500` | 200 | **127** | 127 |
+| `p0 size=200` | 200 | **127** | 127 |
+| `p0 size=50` | 200 | 50 | 127 |
+| `p0 size=40` | 200 | 40 | 127 |
+
+**Page 0 honours `size` on this route.** One call at `size=500` returns a whole contract's
+ledger. This is the single biggest budget finding — the spec assumes 1–11 paged calls per
+contract; it is **1**.
+
+Full reconciled walk of contract 1099709 (4 pages × 40) pulled 127 of 127 — reconciles.
+Independently reproduced the spec's own recorded figures:
+
+- status spread: `PDC` ×117 · `RECEIVED` ×5 · `DELETED` ×3 · `BOUNCED` ×2 — exact match.
+- `status.value` = `PDC` while `status.label` = `PDP` on all 117.
+- 122 of 127 rows are `monthly_payment`; the rest `transfer_fee` ×3, `same_day_recruitment_fee` ×2.
+- exactly **1** `RECEIVED` row carrying **0.00**.
+
+Row shape: **22 keys**, `amountOfPayment` present, **no `amount` key** — confirms the
+resolved TA conflict. `replaced` is a row-level bool. `contract.client.id` rides along, so a
+ledger read yields the client id for free (no extra lookup for enrichment).
+
+Envelope: `content`, `total`, `totalSum`, `totalVat`, `totalElements`, `totalPages`, `last`,
+`numberOfElements`, `empty`.
+
+## Surface 3 — CONTRACT_DETAILS. Everything the scorer needs, one call
+
+Read on contract 1099709 (client 469560):
+
+```
+currentPayment            = { amount: "AED 1,638", amountValue: 1638.0, status: "" }   # display summary, 3 keys
+currentPayments[0]        = { workerSalary: 1470.0, workerSalaryWithoutVAT: 1400.0,
+                              visaFees: 168.0, amountValue: 1638.0,
+                              paymentTypeCode: "monthly_payment", status: "RECEIVED" }
+isWorkerSalaryVatted      = true          # TOP-LEVEL, not on the currentPayments row
+vatOnSalary               = true
+contractStartDate         = "2026-06-26 09:18:52"    # a DATETIME, not a date
+dateOfTermination         = ""                        # EMPTY STRING when absent, not null
+scheduledDateOfTermination = ""  ·  isScheduledForTermination = false
+nextMonthlyPaymentAmount  = 1638.0                    # populated here; still not to be used
+preCollectedInfo.isPreCollectedSalary = true
+preCollectedInfo.currentPreCollectedPayments = [
+  { amount: "AED 1,638", preCollectedPaymentDate: "01 Jul 2026",
+    status: "RECEIVED", paymentType: "Monthly Payment" } ]
+paymentPlan.paymentsInfo  = 5 free-text strings
+paymentPlan.additionalDiscount / .creditNoteDiscount   # <- the real relief fields
+```
+
+`workerSalary + visaFees == amountValue` exactly (1470 + 168 = 1638), and the plan's own
+`(Monthly)` line agrees: *"WPS Processing + Maid Salary: 1400 Maid's Salary + 160 + 78 VAT,
+on Jul 01 2026 (Monthly)"* = 1,638. The other four plan lines are `(One Time Payment)` or
+`(Once every 2 years)` — gate 12's exclusions are visible in the text.
+
+## Surface 4 — message log. Two undocumented required params, and the wrong channel
+
+`messageType` is a **required** enum, and `emailSubject` is **also required on every
+channel** (pass empty). Neither appears in the spec. Omitting either returns HTTP 400.
+
+`MessageType` constants (via LCP, `MessageType.java:4`): `SMS`, `EMAIL`, `NOTIFICATION`,
+`WHATSAPP`, `WHATSAPP_CONVERSATION`.
+
+| channel | row fields | date field |
+|---|---|---|
+| `SMS` | body, contractId, **creationDate**, id, messageType, receiverId, receiverName, receiverType, smsType, status, subject | `creationDate` **populated 20/20** |
+| `WHATSAPP` | deliveryStatus, outboundNumber, **sentDate**, skill, smsContent, smsSend, templateContent, templateName | `sentDate` **populated 27/27** |
+
+**Use `WHATSAPP`.** It is the only channel carrying `sentDate`, and the only one that can
+satisfy all three of verifier rule 3's tests. Page 0 honours `size` here too (27 rows at
+`size=100`, `totalPages` 1).
+
+`deliveryStatus` values observed: `READ`, `RESPONDED`, `DELIVERED`, `SKIPPED`, `FAILED`.
+Delivered set = {DELIVERED, READ, RESPONDED}; SKIPPED and FAILED are not deliveries.
+
+Template names are structured identifiers — 23 distinct on one client. Chases look like
+`Accounting_dd_messaging_setup_clientBouncedPayment`, `MV_PAYMENT_FOR_APPROVAL_REQUEST_FROM_ERP`.
+Non-chases that must be excluded include `MV_PAYMENT_RECEIVED_NOTIFICATION` (a **receipt**
+containing the word PAYMENT), `CM_CLIENT_BROADCAST_*`, `PRE_SALE_CRM_CAMPAIGN_ACTION_*`,
+`MAID_BIRTHDAY_REMINDER_FOR_CLIENT`, `CM_PORTAL_WHATSAPP_OTP_1`, `Client _VAT_Confirmation`.
+Some template names are **bare numeric ids** (`669348018255590`) — unclassifiable, and
+therefore not counted as chasing.
+
+**Sensitive:** this surface carries `outboundNumber` (a phone number) and message content.
+**Only the date leaves the check.**
+
+## Surface 5 — complaints list
+
+Row keys: `assignTo`, `caller`, `category`, `client`, `commentCount`, `complaintDate`,
+`creationDate`, `housemaid`, `id`, `initialDescription`, `managerNotes`, `primaryType`,
+`recentSummary`, `replacement`, `resolutionDetails`, `seriousnessLevel`, `status`, `summary`.
+
+Both `initialDescription` (what verifier rule 1 requires) and `summary` (what it forbids
+concluding from) are present, so that trap is live and relevant. `managerNotes` and
+`recentSummary` are also available as context.
+
+---
+
+## Call budget — recounted against probed reality
+
+| | Spec | Probed reality |
+|---|---|---|
+| Population | ~2,950 | **22,867** |
+| Population sweep | 58 calls | **~59 calls** ✔ |
+| Ledger pages per contract | 1–11 | **1** (page 0 honours size=500) |
+| Payment-search calls, per-contract walk | 3,000–8,000 | **22,867** |
+
+The spec's own architecture (one walk per contract) costs **~22,867 calls**, not 3,000–8,000.
+That is ~3× the spec's high estimate rather than the ~30× I projected before probing — the
+page-0 finding on surface 2 absorbed most of it. Still far too many for one execution on the
+endpoint that has previously taken the Accounting module down.
+
+### Chosen architecture
+
+```
+Stage 1  population two-pass sweep, reconciled to response.total       ~59 calls
+Stage 1  month payment sweep (audited month), sub-workflow, slim       ~50-100 calls
+         └─ join contract -> its rows for the month, in memory
+Stage 2  candidates only (no RECEIVED monthly row in the month)        ~2,835 per v0.8
+         ├─ CONTRACT_DETAILS per candidate                             ~2,835 calls
+         └─ single-call ledger read per candidate (chain proof)        ~2,835 calls
+Stage 3  evidence per surviving red (WhatsApp log + complaints)        ~154 x 2
+                                                              TOTAL   ~9,000 calls
+```
+
+Constraints this respects:
+- The month sweep is bounded and paced, mirroring the proven `CC Below Agreed · 0-Sweep
+  Payments` sub-workflow. **Still to confirm by probe** that `advancesearch` accepts a
+  date-range filter at this width; if refused, fall back to candidate-only single-call reads.
+- Candidates come from the month sweep, so a contract with **no row at all** still surfaces —
+  the never-billed shape the ERP-only ruling exists to catch stays visible.
+- `MAX_PAGES_PER_SWEEP` must be ≥ 46 for the tail pass at MV scale.
+
+## Free wins confirmed
+
+- `is_pre_collected`, the advance array, the salary/fee split, `dateOfTermination` and the
+  plan text **all ride on one `CONTRACT_DETAILS` call**.
+- `contract.client.id` comes back on every **payment** row — no separate client lookup.
 - `client.vip` / `client.vVip` are projected by the **population** call, so VIP costs nothing.
-  They are *not* on `get-client-details` — looking there reads "not VIP" for everyone.
+- One ledger call per contract instead of up to eleven.

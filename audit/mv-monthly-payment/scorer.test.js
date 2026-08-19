@@ -175,36 +175,65 @@ console.log('\n=== THE FIVE SPEC TEST CASES ===\n');
 
 console.log('\n=== THE TWO CONFIRMED REDS (2026-08-17) ===\n');
 
-// Contract 1023590 · due 2026-03 · one monthly_payment row, BOUNCED, replaced=false,
-// AED 1,838, zero received. The client paid the FOLLOWING month, so this is not
-// termination. replaced=false is the discriminator against case 2.
+// Both re-probed live 2026-08-19. Real payload shapes, not reconstructions.
+// Note BOTH terminate INSIDE the audited month, so they survive gate 2 only because the
+// comparison is month-to-month. A date-to-date test would silently delete both reds.
+
+// Contract 1023590 · audited 2026-03 · client 193871 · NOT pre-collected.
+// One monthly_payment row in the month: BOUNCED, replaced=false, zero received. Client paid
+// the following month (15381654, 2026-04-01), so this is not simply termination.
+// Terminated 2026-03-03. currentPayments split is null; amountValue carries 1838.
 {
   const r = S.scoreContractMonth({
     auditedMonth: '2026-03',
-    contract: mv(1023590, 10004, '2025-06-01', plan(1670, 168, 1838)),
+    contract: mv(1023590, 193871, '2023-06-22 20:05:51', {
+      currentPayment: { amountValue: 1838.0 },
+      currentPayments: [{ paymentTypeCode: 'monthly_payment', workerSalary: null,
+        workerSalaryWithoutVAT: null, visaFees: null, amountValue: 1838.0, status: '' }],
+      paymentPlan: { additionalDiscount: '', creditNoteDiscount: '' },
+    }, { dateOfTermination: '2026-03-03 23:00:10' }),
     payments: [
-      pay(90001, 'monthly_payment', 'BOUNCED', 1838.0, '2026-03-01', false),
-      pay(90002, 'monthly_payment', 'RECEIVED', 1838.0, '2026-04-01'),
+      pay(11860260, 'monthly_payment', 'BOUNCED', 1838.0, '2026-03-01', false),
+      pay(15381654, 'monthly_payment', 'RECEIVED', 1838.0, '2026-04-01'),
     ],
   });
   check('red 1 · 1023590 · 2026-03 → finding', r.verdict, S.VERDICT.RED);
   check('red 1 · type is missing 1st-of-month', r.redFlagType, S.RED_TYPE.MISSING_1ST);
   check('red 1 · chain NOT settled (replaced=false)', r.chainSettled, false);
   check('red 1 · next month does not settle this one', r.received, 0);
+  check('red 1 · null split falls back to amountValue 1838', r.expected, 1838);
+  check('red 1 · termination inside the month keeps it in scope', r.gate, '4');
 }
 
-// Contract 1074171 · due 2026-06 · same shape, AED 2,405.
+// Contract 1074171 · audited 2026-06 · client 292538 · PRE-COLLECTED (isPreCollectedSalary
+// true), advance AED 2,405 dated 01 Oct 2025 on a 01 Sep 2025 contract — a one-off cushion,
+// eight months before the audited month, so it cannot cover it.
+// This is the regression case: treating an unsettled pre-collected month as inconclusive
+// SUPPRESSES a verified red.
 {
   const r = S.scoreContractMonth({
     auditedMonth: '2026-06',
-    contract: mv(1074171, 10005, '2025-03-01', plan(2237, 168, 2405)),
+    contract: mv(1074171, 292538, '2025-09-01 08:02:22', plan(2100.0, 305.0, 2405.0, {
+      paymentPlan: { additionalDiscount: '', creditNoteDiscount: 'Credit Note Amount: 0 applied on 2-year visa' },
+    }), {
+      dateOfTermination: '2026-06-14 23:03:55',
+      preCollectedInfo: {
+        isPreCollectedSalary: true,
+        currentPreCollectedPayments: [
+          { amount: 'AED 2,405', preCollectedPaymentDate: '01 Oct 2025', status: 'RECEIVED', paymentType: 'Monthly Payment' },
+        ],
+      },
+    }),
     payments: [
-      pay(91001, 'monthly_payment', 'BOUNCED', 2405.0, '2026-06-01', false),
-      pay(91002, 'monthly_payment', 'RECEIVED', 2405.0, '2026-07-01'),
+      pay(12200576, 'monthly_payment', 'BOUNCED', 2405.0, '2026-06-01', false),
+      pay(16942408, 'monthly_payment', 'RECEIVED', 2405.0, '2026-07-01'),
     ],
   });
-  check('red 2 · 1074171 · 2026-06 → finding', r.verdict, S.VERDICT.RED);
+  check('red 2 · 1074171 · 2026-06 → finding, NOT suppressed', r.verdict, S.VERDICT.RED);
+  check('red 2 · pre-collected gets the previous-month label', r.redFlagType, S.RED_TYPE.MISSING_PREV);
+  check('red 2 · concluded at gate 8, not gate 4', r.gate, '8');
   check('red 2 · gap is the full 2405', r.gap, 2405);
+  check('red 2 · a zero credit note is not relief', r.verdict, S.VERDICT.RED);
 }
 
 console.log('\n=== TRAP GUARDS ===\n');
@@ -355,14 +384,38 @@ console.log('\n=== TRAP GUARDS ===\n');
 
 // Gate 14: a ZERO credit note is a non-empty string — a truthy test counts it as relief.
 {
+  // Real field names, probed live: paymentPlan.additionalDiscount / .creditNoteDiscount.
   const zeroNote = S.scoreContractMonth({
     auditedMonth: '2026-06',
-    contract: mv(1000013, 10018, '2025-01-01', plan(1470, 168, 1638), {
-      creditNotes: [{ amount: '0', redeemedContractId: 1000013 }],
-    }),
+    contract: mv(1000013, 10018, '2025-01-01', plan(1470, 168, 1638, {
+      paymentPlan: { additionalDiscount: '', creditNoteDiscount: 'Credit Note Amount: 0 applied on 2-year visa' },
+    })),
     payments: [pay(17700001, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01')],
   });
   check('a zero credit note is not relief', zeroNote.verdict, S.VERDICT.RED);
+
+  // Relief naming a DIFFERENT bucket must not clear a monthly gap.
+  const otherBucket = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1000024, 10028, '2025-01-01', plan(1470, 168, 1638, {
+      paymentPlan: { additionalDiscount: 'Discount Amount: 5000 applied on 2-year visa', creditNoteDiscount: '' },
+    })),
+    payments: [pay(17700010, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01')],
+  });
+  check('relief on another bucket does not clear the monthly gap', otherBucket.verdict, S.VERDICT.RED);
+  check('relief on another bucket raises no relief cap', (otherBucket.caps || []).some(function (c) { return /relief prose/.test(c); }), false);
+
+  // Nonzero relief naming the monthly bucket: still a red, but routed to a human. Prose
+  // never auto-clears, because no structured source has been located.
+  const monthlyProse = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1000025, 10029, '2025-01-01', plan(1470, 168, 1638, {
+      paymentPlan: { additionalDiscount: 'Discount Amount: 1000 applied on Service Fee over 4 months', creditNoteDiscount: '' },
+    })),
+    payments: [pay(17700011, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01')],
+  });
+  check('monthly-bucket relief prose does not auto-clear', monthlyProse.verdict, S.VERDICT.RED);
+  check('monthly-bucket relief prose routes to a human', monthlyProse.needsVerifier, true);
 
   // Match the redemption pointer, not just the contract.
   const otherContract = S.scoreContractMonth({
@@ -371,6 +424,7 @@ console.log('\n=== TRAP GUARDS ===\n');
       creditNotes: [{ amount: '638', redeemedContractId: 9999999 }],
     }),
     payments: [pay(17700002, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01')],
+    options: { useStructuredCreditNotes: true },
   });
   check('a credit note redeemed elsewhere is not relief here', otherContract.verdict, S.VERDICT.RED);
 
@@ -380,6 +434,7 @@ console.log('\n=== TRAP GUARDS ===\n');
       creditNotes: [{ amount: '638', redeemedContractId: 1000015 }],
     }),
     payments: [pay(17700003, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01')],
+    options: { useStructuredCreditNotes: true },
   });
   check('a credit note redeemed on THIS contract covering the gap clears it', covering.verdict, S.VERDICT.CLEAN);
 }
@@ -491,6 +546,74 @@ console.log('\n=== VERIFIER LAYER ===\n');
   }, '2026-08-19');
   check('chase gone quiet → stays a finding', quiet.verdict, S.VERDICT.RED);
   check('quiet chase concluded at verifier gate 4', quiet.verifierGate, '4');
+}
+
+console.log('\n=== VERIFIER RULE 3 — FOLLOW-UP CLASSIFICATION (live template names) ===\n');
+
+// Template names and deliveryStatus values below were all observed live 2026-08-19 on the
+// WhatsApp channel of a client carrying a confirmed red.
+{
+  const wa = function (templateName, deliveryStatus, sentDate) {
+    return { templateName: templateName, deliveryStatus: deliveryStatus, sentDate: sentDate };
+  };
+
+  // Genuine chases.
+  check('a bounced-payment template is a chase',
+    S.classifyFollowup(wa('Accounting_dd_messaging_setup_clientBouncedPayment', 'DELIVERED', '2026-08-15 10:00:00')).qualifies, true);
+  check('a payment-approval request is a chase',
+    S.classifyFollowup(wa('MV_PAYMENT_FOR_APPROVAL_REQUEST_FROM_ERP', 'READ', '2026-08-15 10:00:00')).qualifies, true);
+
+  // THE TRAP: a receipt contains "PAYMENT" but is not a chase. Counting it suppresses a red.
+  check('a payment RECEIVED notification is NOT a chase',
+    S.classifyFollowup(wa('MV_PAYMENT_RECEIVED_NOTIFICATION', 'DELIVERED', '2026-08-18 10:00:00')).qualifies, false);
+
+  // Marketing / campaigns / broadcasts — the rule's own named failure.
+  check('a client broadcast is not a chase',
+    S.classifyFollowup(wa('CM_CLIENT_BROADCAST_104196', 'DELIVERED', '2026-08-18 10:00:00')).qualifies, false);
+  check('a pre-sale CRM campaign is not a chase',
+    S.classifyFollowup(wa('PRE_SALE_CRM_CAMPAIGN_ACTION_199_233', 'READ', '2026-08-18 10:00:00')).qualifies, false);
+  check('a birthday reminder is not a chase',
+    S.classifyFollowup(wa('MAID_BIRTHDAY_REMINDER_FOR_CLIENT', 'DELIVERED', '2026-08-18 10:00:00')).qualifies, false);
+  check('an OTP is not a chase',
+    S.classifyFollowup(wa('CM_PORTAL_WHATSAPP_OTP_1', 'DELIVERED', '2026-08-18 10:00:00')).qualifies, false);
+
+  // A row is not a delivery.
+  check('a FAILED chase does not count',
+    S.classifyFollowup(wa('Accounting_dd_messaging_setup_clientBouncedPayment', 'FAILED', '2026-08-18 10:00:00')).qualifies, false);
+  check('a SKIPPED chase does not count',
+    S.classifyFollowup(wa('Accounting_dd_messaging_setup_clientBouncedPayment', 'SKIPPED', '2026-08-18 10:00:00')).qualifies, false);
+  check('a chase with no sentDate does not count',
+    S.classifyFollowup(wa('Accounting_dd_messaging_setup_clientBouncedPayment', 'DELIVERED', null)).qualifies, false);
+
+  // Bare numeric template ids are real and unclassifiable — must not count as chasing.
+  check('an unclassifiable numeric template id is not a chase',
+    S.classifyFollowup(wa('669348018255590', 'DELIVERED', '2026-08-18 10:00:00')).qualifies, false);
+
+  // Newest qualifying chase wins, and ONLY a date comes back.
+  const picked = S.lastQualifyingFollowup([
+    wa('MV_PAYMENT_RECEIVED_NOTIFICATION', 'DELIVERED', '2026-08-18 09:00:00'),
+    wa('Accounting_dd_messaging_setup_clientBouncedPayment', 'DELIVERED', '2026-08-10 09:00:00'),
+    wa('CM_CLIENT_BROADCAST_104196', 'READ', '2026-08-17 09:00:00'),
+    wa('MV_PAYMENT_FOR_APPROVAL_REQUEST_FROM_ERP', 'RESPONDED', '2026-08-14 09:00:00'),
+  ]);
+  check('newest QUALIFYING chase wins, not the newest message', picked.lastFollowupDate, '2026-08-14');
+  check('only a date is returned', typeof picked.lastFollowupDate, 'string');
+
+  // End to end: a red whose only recent messages are marketing stays red.
+  const red = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1000030, 10030, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [pay(18400001, 'monthly_payment', 'BOUNCED', 1638.0, '2026-06-01', false)],
+  });
+  const marketingOnly = S.lastQualifyingFollowup([
+    wa('CM_CLIENT_BROADCAST_104196', 'DELIVERED', '2026-08-18 09:00:00'),
+  ]);
+  const v = S.applyVerifier(red, {
+    messageLogRead: true, explanationForThisMonth: false,
+    qualifyingFollowupSentDate: marketingOnly.lastFollowupDate,
+  }, '2026-08-19');
+  check('marketing-only contact does not suppress the finding', v.verdict, S.VERDICT.RED);
+  check('marketing-only contact concludes at verifier gate 4', v.verifierGate, '4');
 }
 
 console.log('\n' + '='.repeat(60));

@@ -98,13 +98,27 @@ and it cannot supply the numeric device id at all. In practice: **ask the operat
 contains `Access Token is missing or malformed` or `498`. Say "that token is expired, I need a
 fresh one", never "the server errored".
 
-### The three denial shapes — they need different requests to different owners
+### The denial shapes, with their real discriminators **[LIVE-PROVEN 2026-08-19]**
 
-| Shape | How it looks | What it means |
+Several distinct causes all present as HTTP 401. The `developermessage` **response header** is
+what separates them — read it on every failure:
+
+| `developermessage` | Meaning | What to do |
 |---|---|---|
-| `INSUFFICIENT_PERMISSIONS` | HTTP **401** | Either a missing permission **or a wrong `pagecode`.** Only the `developermessage` response header separates them. Probe the documented pagecode *and* a plausible alternative. |
-| `SecurityException` | HTTP 5xx, body names `SecurityException` | The dynamic-API executor is not authorised for this account. |
-| Dead token | HTTP 5xx containing `498` / `malformed` | Expired token. Not an access finding. |
+| `PAGE_CODE_MISSING` | pagecode header absent or empty | send one |
+| `API_NOT_FOUND_FOR_PAGE` | route not registered for that pagecode | use the correct pagecode |
+| *(absent)* on a 401 | genuine permission gap | request the permission — **this is a finding** |
+| 5xx containing `498` / `malformed` | dead or expired token | get a fresh token |
+| 5xx naming `SecurityException` | dynamic-API executor not authorised | different owner, different request |
+
+Probe the documented pagecode **and** a plausible alternative, because a wrong pagecode and a
+missing permission are indistinguishable without that header.
+
+**A 400 is worth reading too.** Spring names the missing parameter outright
+(`Required request parameter 'messageType' ... is not present`), and an invalid enum value names
+the enum class. Two 400s in sequence discovered a required-parameter pair that no spec recorded.
+But an invalid enum does **not** list its constants — ask LCP for those rather than guessing,
+because a wrong-but-valid enum value can return HTTP 200 with the wrong data.
 
 **Never route around a permission gap on a borrowed token.** A route once documented as
 "verified" turned out to be refused on the auditing account because the original check was made
@@ -144,9 +158,18 @@ uncapped count. Reconcile with a **tolerance, not equality** — the table moves
 **Page 0 returns the NEWEST rows.** Any sample from page 0 is a sample of new contracts. Never
 quote a rate off page 0.
 
-**The cap is route-specific.** `CLIENTS_LIST_MAX_RESULTS_RETURNED` has no other consumer, so do
-not inherit the belief for other routes — and do not assume page-0-only behaviour generalises.
-Probe each route's boundary before costing a sweep against it.
+**The cap is route-specific — now confirmed by probe, 2026-08-19.** `/contract/search/page`
+caps page 0 at 40; `/accounting/payments/page/advancesearch` **does not** — it returned all 127
+rows at `p0 size=500`. So one call reads a whole contract's ledger. Never inherit a cap belief
+across routes: probe each route's boundary before costing a sweep against it. Getting this wrong
+in either direction is expensive — assuming the cap where it does not exist multiplies your call
+budget by ~10.
+
+**This route also requires a pagecode**, despite a source reading that said otherwise. Empty
+pagecode → 401 `PAGE_CODE_MISSING`. The working value is **`ClientList`**. The "no pageCode
+required" note came from reading `CurrentRequest.getSource()`, which is a different mechanism
+from the gateway check that actually rejects the call — a good example of why **[SOURCE-ONLY]**
+findings need a probe before they go in a spec.
 
 ### `POST /accounting/payments/page/advancesearch`
 
@@ -235,7 +258,14 @@ like candidates. Turns 250,000 calls into ~100 + (candidates × k).
   empty when none is scheduled — including on contracts still `ACTIVE`. A blank expectation makes
   every amount look correct, or every amount look like a total shortfall, depending on the default.
 - **Boolean-ish flags are not constant across a population.** `isWorkerSalaryVatted` was `true` on
-  four contracts and `false` on a fifth in the same product line.
+  four contracts and `false` on a fifth in the same product line. It also sits **top-level**, not
+  on the per-payment row where you would look for it.
+- **Absent dates come back as `''`, not `null`; present ones are datetimes.**
+  `dateOfTermination` / `scheduledDateOfTermination` are empty strings when unset and
+  `"2026-03-03 23:00:10"` when set, and `contractStartDate` is a datetime too. Any date handling
+  must treat `''` as absent, and must compare at **month** granularity where the rule is about
+  months — two verified reds in one check terminate *inside* the audited month and survive only
+  because the comparison is month-to-month. A date-to-date test deletes them silently.
 - Money can arrive as a **formatted string** (`"AED 1,743"`). A naive `float()` throws. Parse it.
 - Specialised arrays carry **dead rows**. One `currentPreCollectedPayments[]` returned the same
   amount and date twice, once `RECEIVED` and once `BOUNCED`, because the source query filters only
@@ -261,20 +291,44 @@ like candidates. Turns 250,000 calls into ~100 + (candidates × k).
   **17** genuinely justified the flag — 68 had no content at all and 3 were about something else.
 - **Matched-but-unrelated is the most common false clearance** in every reason-finder this team has
   run. Evidence about a different month or a different fee bucket must not close this one.
-- **`creationDate` and `dateOfMessage` return null on every row.** Date a follow-up from
-  **`sentDate`**. Getting this wrong makes a "nobody chased" rule fire across the entire
-  population and sends everything to the review queue.
-- **A row is not a delivery.** One channel returned a row with every field null.
-- **Win-back marketing is not chasing.** The latest message is often a campaign; counted as a
-  follow-up it *suppresses a real finding*.
+- **The message log is one route with five different row shapes.**
+  `GET /clientmgmt/client/smsLog/{clientId}` requires **`messageType`** AND **`emailSubject`**
+  (required on every channel — pass it empty); omit either and you get a 400.
+  `MessageType` = `SMS` | `EMAIL` | `NOTIFICATION` | `WHATSAPP` | `WHATSAPP_CONVERSATION`.
+  The channels return *different fields*, so which one you pick decides whether a rule is even
+  implementable **[LIVE-PROVEN 2026-08-19]**:
+  - `SMS` → `creationDate` (populated on 20/20 rows), **no `sentDate` at all**
+  - `WHATSAPP` → `sentDate` (populated 27/27), plus `deliveryStatus`, `templateName`
+  Use **`WHATSAPP`** for a follow-up date: it is the only channel that can satisfy "asks for
+  money, was delivered, dated by sentDate" simultaneously. A spec that says "date from
+  `sentDate`, never `creationDate`, which is always null" was written against WhatsApp — on SMS
+  that instruction is simply wrong in both halves.
+- **A row is not a delivery.** `deliveryStatus` observed: `READ`, `RESPONDED`, `DELIVERED`,
+  `SKIPPED`, `FAILED`. Only the first three are deliveries.
+- **Win-back marketing is not chasing** — and neither is a receipt. The latest message is often
+  a campaign (`CM_CLIENT_BROADCAST_*`, `PRE_SALE_CRM_CAMPAIGN_ACTION_*`); counted as a follow-up
+  it *suppresses a real finding*. The subtler one: **`MV_PAYMENT_RECEIVED_NOTIFICATION` contains
+  the word PAYMENT but is a receipt**, so a `/payment/i` match suppresses the very finding it
+  should leave standing. Classify with chase patterns **plus an explicit deny-list**, deny
+  winning, and treat an unclassifiable template (some names are bare numeric ids like
+  `669348018255590`) as **not** a chase — that keeps the finding alive.
 - **Message threads are page-size 20 with no pagination** on the history route — a justification
   past message 20 is invisible, and the case reads unexplained when it is not. Known limit.
 - **A failed or empty evidence read is `unknown`, not `nobody did it`.** Absent evidence must halt
   a case, never satisfy a comparison. Write "no follow-up found in the message log since X",
   never "the client was never contacted" — a call or email would not appear there.
+- **Relief lives in free prose, under field names a spec will get wrong.** On
+  `CONTRACT_DETAILS` there is **no `discount` key**; the real fields are
+  `paymentPlan.additionalDiscount` and `paymentPlan.creditNoteDiscount`, `''` when absent
+  **[LIVE-PROVEN 2026-08-19]**. Each string carries an amount *and the bucket it applies to*
+  ("Discount Amount: 0 applied on 2-year visa"), which is what makes "relief only clears the
+  bucket its own text names" implementable at all.
 - **Relief text has a duration.** "Discount Amount: 1000 applied on Service Fee over 4 months" is
   250/month, not 1,000. And a **zero credit note is a non-empty string**, so a truthiness test
   counts it as relief.
+- **Do not assume a structured relief source exists.** No credit-note object with a redemption
+  pointer was found on `CONTRACT_DETAILS`. When the only signal is prose, the safe design is to
+  carry it as context and route to a human — never auto-clear.
 - **Match the redemption pointer, not just the contract id.** Matching `contract.id` alone stamped
   AED 3,665 of real relief as "NOT tied" and produced a false escalation.
 

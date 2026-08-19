@@ -129,17 +129,23 @@ function monthInContractLife(contract, mk) {
 
 // Gate 5 (Order 140): Pre-Collected. It is an exception PATH, not an exemption.
 //
-// SPEC CONTRADICTION — resolved conservatively, see DEVIATIONS.md.
-// The rule body says the month under test becomes the PREVIOUS month. The spec's own test
-// cases 3 and 5 score contract 1099709 (which reads isPreCollectedSalary = true) against
-// each month's OWN ledger rows with no shift. Applying the shift literally makes case 3
-// test May 2026 — before the 26 Jun contract start — which turns a clean month into either
-// no case or a false red, depending on gate order.
+// SPEC CONTRADICTION — resolved against live data 2026-08-19, see DEVIATIONS.md.
+// The rule body says the month under test becomes the PREVIOUS month. Read literally that
+// breaks the spec's own test cases 3 and 5: contract 1099709 is pre-collected, and shifting
+// its June audit to May — before its 26 Jun start — turns a month the spec calls clean into
+// no case or a false red.
 //
-// Taken: score the audited month on its own rows. Where such a month is UNSETTLED and the
-// contract is pre-collected, do not conclude a red — route it to the verifier with the
-// advance attached. That avoids the false red the literal shift produces AND the false
-// clearance that treating the previous month's money as covering this one would produce.
+// The live advance settles it. It is a ONE-OFF cushion collected near contract start
+// (1074171: advance dated 01 Oct 2025 on a 01 Sep 2025 contract; 1099709: 01 Jul 2026 on a
+// 26 Jun 2026 contract), NOT a rolling shift of every ledger row — and the ledger still
+// carries one row per month either way. Confirmed red 1074171 is pre-collected AND has a
+// BOUNCED, never-replaced row dated in the audited month.
+//
+// So the shift governs the red-flag LABEL, not which month's rows are read. Ledger scope is
+// always the audited month. A pre-collected contract still concludes a red (Gate 8), typed
+// "missing previous-month payment" instead of "missing 1st-of-month payment". That is the
+// only reading consistent with all the evidence: test cases 3/5 stay clean, and both
+// verified reds still fire.
 function resolvePreCollected(contract) {
   const pc = contract && contract.preCollectedInfo;
   const flag = pc ? pc.isPreCollectedSalary : undefined;
@@ -255,35 +261,61 @@ function isVip(contract, opts) {
 }
 
 // Gate 14 (Order 230): discount or credit note covers the month.
-// Never read a discount field for truthiness — a ZERO credit note is a non-empty string,
-// and a discount is prose with a duration ("1000 applied on Service Fee over 4 months"
-// is 250/month, not 1000). Unparsed relief is carried as context, never as coverage.
-function reliefCoverage(contract, contractId, gap) {
-  const notes = (contract && Array.isArray(contract.creditNotes)) ? contract.creditNotes : [];
-  // Match the redemption pointer, not just the contract. Matching contract.id alone
-  // stamped AED 3,665 of real relief as "NOT tied" on Travel Assist contract 1101379.
-  const redeemed = notes.filter(function (n) {
-    return n && String(n.redeemedContractId) === String(contractId);
-  });
+//
+// CORRECTED against live data 2026-08-19. The `contract_discount` variable row names the
+// field `discount` on CONTRACT_DETAILS. There is no such key. The real relief signals are
+// two FREE-PROSE strings on the plan:
+//   paymentPlan.additionalDiscount  e.g. "Discount Amount: 0 applied on 2-year visa"
+//   paymentPlan.creditNoteDiscount  e.g. "Credit Note Amount: 0 applied on 2-year visa"
+// Both are absent as '' and, when present, carry an amount AND the bucket they apply to.
+// A ZERO discount is still a non-empty string, so a truthiness test reads it as relief.
+//
+// No structured credit-note source with a redemption pointer has been located on this
+// payload, so this gate NEVER auto-clears from prose: relief is carried as context and the
+// case is routed to a human. That removes an auto-clearance path rather than adding one.
+// The structured path stays behind an explicit opt-in for when the credit-note route is
+// found; it also enforces the redemption-pointer rule (matching contract.id alone stamped
+// AED 3,665 of real relief as "NOT tied" on Travel Assist contract 1101379).
+const MONTHLY_BUCKET = /monthly|maid'?s? salary|wps processing \+ maid salary|service fee/i;
+
+function reliefCoverage(contract, contractId, gap, opts) {
+  const plan = (contract && contract.paymentPlan) || {};
+  const texts = [];
+  for (const key of ['additionalDiscount', 'creditNoteDiscount']) {
+    const raw = plan[key];
+    if (raw === null || raw === undefined || String(raw).trim() === '') continue;
+    const amt = parseMoney(String(raw).replace(/over\s+\d+\s+months?/i, ''));
+    texts.push({
+      field: 'paymentPlan.' + key,
+      // Never let relief clear a bucket its own text does not name.
+      namesMonthlyBucket: MONTHLY_BUCKET.test(String(raw)),
+      // A zero discount is prose, not money.
+      nonZero: isNum(amt) && amt > 0,
+    });
+  }
+  const present = texts.length > 0;
+  const material = texts.filter(function (t) { return t.nonZero && t.namesMonthlyBucket; });
+
+  // Structured notes: opt-in only, and only ones redeemed ON this contract.
   let noteTotal = 0;
-  for (const n of redeemed) {
-    const amt = parseMoney(n.amount);
-    if (isNum(amt)) noteTotal += amt;
+  let redeemed = 0;
+  if (opts && opts.useStructuredCreditNotes && Array.isArray(contract && contract.creditNotes)) {
+    for (const n of contract.creditNotes) {
+      if (!n || String(n.redeemedContractId) !== String(contractId)) continue;
+      redeemed++;
+      const amt = parseMoney(n.amount);
+      if (isNum(amt)) noteTotal += amt;
+    }
   }
 
-  const discountRaw = contract ? contract.discount : null;
-  const discountPresent = !(discountRaw === null || discountRaw === undefined || String(discountRaw).trim() === '');
-  // A discount is free prose with a duration. We do NOT parse a monthly figure out of it
-  // here; it is surfaced as context for the verifier. Never let relief clear a bucket its
-  // own text does not name.
-  const covers = noteTotal > 0 && cmpMoney(noteTotal, gap) >= 0;
-
   return {
-    covers: covers,
+    covers: noteTotal > 0 && cmpMoney(noteTotal, gap) >= 0,
     creditNoteTotal: noteTotal,
-    creditNotesRedeemed: redeemed.length,
-    discountPresent: discountPresent,
-    discountNeedsHuman: discountPresent,
+    creditNotesRedeemed: redeemed,
+    reliefTextPresent: present,
+    materialMonthlyRelief: material.length > 0,
+    reliefFields: texts.map(function (t) { return t.field; }),
+    discountNeedsHuman: material.length > 0,
   };
 }
 
@@ -491,20 +523,12 @@ function scoreContractMonth(input) {
     if (owed !== null && floor > 0 && cmpMoney(owed, floor) < 0) {
       return conclude(VERDICT.CLEAN, '8', 'owed amount below the materiality floor', { belowFloor: true });
     }
-    // Pre-Collected reaches here only because Gate 4 excluded it. The spec's shift is
-    // contradicted by its own test cases (see resolvePreCollected), so an unsettled
-    // pre-collected month is routed to a human rather than concluded either way. This
-    // inflates the inconclusive count and is declared in the run summary.
-    if (pc.isPreCollected === true) {
-      return conclude(VERDICT.INCONCLUSIVE, '8', 'pre-collected contract with an unsettled month — advance path needs a human', {
-        redFlagType: RED_TYPE.MISSING_PREV,
-        gap: owed,
-        needsVerifier: true,
-        caps: out.caps.concat(['pre-collected shift ambiguous — not concluded']),
-      });
-    }
+    // Pre-Collected reaches here because Gate 4 excluded it. It is an exception PATH, not an
+    // exemption: the month is still a finding, carrying the previous-month label. Confirmed
+    // live on red 1074171, which is pre-collected and would be SUPPRESSED by treating this
+    // as inconclusive.
     return conclude(VERDICT.RED, '8', 'the month exists, the contract was live, and nothing ever settled it', {
-      redFlagType: RED_TYPE.MISSING_1ST,
+      redFlagType: pc.isPreCollected ? RED_TYPE.MISSING_PREV : RED_TYPE.MISSING_1ST,
       gap: owed,
       needsVerifier: true,
     });
@@ -531,15 +555,16 @@ function scoreContractMonth(input) {
 
   // ── Gate 14 (230) — discount or credit note covers the month ─────────────────
   out.gatesRun.push('14');
-  const relief = reliefCoverage(contract, contractId, gap);
+  const relief = reliefCoverage(contract, contractId, gap, opts);
   out.creditNoteTotal = relief.creditNoteTotal;
-  out.discountPresent = relief.discountPresent;
+  out.reliefTextPresent = relief.reliefTextPresent;
+  out.reliefFields = relief.reliefFields;
   if (relief.covers) {
     return conclude(VERDICT.CLEAN, '14', 'credit note redeemed on this contract covers the gap');
   }
   if (relief.discountNeedsHuman) {
     out.needsVerifier = true;
-    out.caps.push('discount text present — duration not parsed, needs a human');
+    out.caps.push('relief prose names the monthly bucket with a nonzero amount — duration not parsed, needs a human');
   }
 
   // ── Gate 17 (240) — a short-paid month is the amount-mismatch finding ────────
@@ -551,6 +576,76 @@ function scoreContractMonth(input) {
     redFlagType: RED_TYPE.AMOUNT,
     needsVerifier: true,
   });
+}
+
+// ── Verifier rule 3 (Order 280) — what counts as a follow-up ──────────────────
+// CORRECTED against live data 2026-08-19. The rule says date a follow-up from `sentDate`
+// and never `creationDate` because the latter "returns null on every row". Both halves are
+// wrong about the SMS channel and right about WhatsApp:
+//   messageType=SMS      -> rows carry creationDate, POPULATED on 20/20. No sentDate at all.
+//   messageType=WHATSAPP -> rows carry sentDate, populated on 27/27, plus deliveryStatus
+//                           and templateName.
+// Only WHATSAPP can satisfy all three of the rule's tests, so that is the channel to read.
+// Route: GET /clientmgmt/client/smsLog/{clientId}?messageType=WHATSAPP&emailSubject=
+// (`emailSubject` is a required param on every channel; pass it empty.)
+
+// deliveryStatus observed live: READ, RESPONDED, DELIVERED, SKIPPED, FAILED.
+// A row is not a delivery — SKIPPED and FAILED never count.
+const DELIVERED_STATUSES = ['DELIVERED', 'READ', 'RESPONDED'];
+
+// Templates that genuinely ask for money. Open-ended on purpose.
+const CHASE_PATTERNS = [
+  /bounced.*payment|payment.*bounced/i,
+  /payment_for_approval_request/i,
+  /dd_messaging_setup.*bounced/i,
+  /collection|overdue|unpaid|outstanding|arrears/i,
+  /payment.*reminder|reminder.*payment/i,
+];
+
+// Never a chase, even when the name contains "payment". MV_PAYMENT_RECEIVED_NOTIFICATION is
+// a RECEIPT — counting it as chasing suppresses a real finding, which is the same failure
+// shape as counting win-back marketing. CM_CLIENT_BROADCAST_* and
+// PRE_SALE_CRM_CAMPAIGN_ACTION_* are the campaign shape the rule names.
+const NOT_CHASE_PATTERNS = [
+  /received|confirmation|receipt|thank/i,
+  /broadcast|campaign|pre_sale|returning_clients|win_?back/i,
+  /otp|birthday|medical|vat/i,
+];
+
+function classifyFollowup(row) {
+  const name = (row && row.templateName) || '';
+  const status = (row && row.deliveryStatus) || '';
+  const sent = (row && row.sentDate) || null;
+
+  if (!sent) return { qualifies: false, why: 'no sentDate' };
+  if (DELIVERED_STATUSES.indexOf(status) === -1) {
+    return { qualifies: false, why: 'not delivered (' + (status || 'no status') + ')' };
+  }
+  // A bare numeric template id cannot be classified. Unknown is NOT a chase — that keeps
+  // the finding alive rather than suppressing it.
+  if (/^\d+$/.test(name.trim())) return { qualifies: false, why: 'unclassifiable template id' };
+  for (const p of NOT_CHASE_PATTERNS) {
+    if (p.test(name)) return { qualifies: false, why: 'not a payment chase: ' + name.slice(0, 40) };
+  }
+  for (const p of CHASE_PATTERNS) {
+    if (p.test(name)) return { qualifies: true, sentDate: sent, why: 'payment chase' };
+  }
+  return { qualifies: false, why: 'template does not ask for money' };
+}
+
+// Returns ONLY the date. Message content and phone numbers must never leave this endpoint.
+function lastQualifyingFollowup(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  let best = null;
+  let considered = 0;
+  for (const r of list) {
+    considered++;
+    const c = classifyFollowup(r);
+    if (!c.qualifies) continue;
+    const d = String(c.sentDate).slice(0, 10);
+    if (!best || d > best) best = d;
+  }
+  return { lastFollowupDate: best, rowsConsidered: considered };
 }
 
 // ── Verifier layer (Orders 260–300) ───────────────────────────────────────────
@@ -605,5 +700,6 @@ function applyVerifier(caseOut, evidence, asOfDate) {
 
 module.exports = {
   scoreContractMonth, applyVerifier, deriveExpected, parseMoney, shiftMonth,
-  monthKey, VERDICT, RED_TYPE, KNOWN_TYPE_CODES,
+  monthKey, classifyFollowup, lastQualifyingFollowup,
+  VERDICT, RED_TYPE, KNOWN_TYPE_CODES, DELIVERED_STATUSES,
 };

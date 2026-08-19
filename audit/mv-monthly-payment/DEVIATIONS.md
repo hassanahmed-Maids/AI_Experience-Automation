@@ -6,14 +6,21 @@ Every item here changes numbers or verdicts. Nothing below is silently absorbed.
 
 ## A. Spec defects found (corrections to file back to Notion)
 
-### A1. The call budget is wrong by ~30× — and the population figure is a CC number
+### A1. The call budget is wrong, and the population figure is a CC number
+*(revised 2026-08-19 after probing — the error is ~3×, not the ~30× I projected beforehand;
+the payments route turned out not to share the population route's page-0 cap, which absorbed
+most of it. Correcting my own earlier figure.)*
 *Where do the results go?* says "~2,950 contracts" and "≈ 3,000–8,000 payment-search calls".
 The `mv_contract_population` variable row records **22,825**. 2,950 is the CC cohort that lost
 460 rows to the pagination trap, transcribed into the MV budget. The 58-call sweep figure is
 correct (computed for 22,825); only the contract count beside it is wrong. Correct
 per-contract walk cost is **22,825–251,075 calls**, not 3,000–8,000.
-**Effect:** changes the execution architecture. See `surfaces.md` for the windowed-sweep
-replacement. **File against:** the *Where do the results go?* heading.
+Probed 2026-08-19: population `response.total` = **22,867**. Per-contract ledger reads are
+**1 call each**, not 1–11, because page 0 honours `size` on the payments route — so the
+spec's own architecture costs ~22,867 calls, about 3× its high estimate rather than 30×.
+Still too many for one execution on this endpoint.
+**Effect:** changes the execution architecture. See `surfaces.md`. **File against:** the
+*Where do the results go?* heading.
 
 ### A2. Gate 5 (Pre-Collected) contradicts the spec's own test cases 3 and 5
 Gate 5's body: the month under test becomes the **previous** month. But contract 1099709
@@ -121,3 +128,74 @@ which would be a regression against a verified red. **Probe target for Phase 2:*
 - Any payroll file, as population, cross-check or fallback — owner ruling 2026-08-11.
 - CC contracts, Travel Assist, Same Day Recruitment, one-off and biennial lines,
   second-year insurance.
+
+
+---
+
+## F. Corrections produced by probing (2026-08-19)
+
+Each was found by probing, contradicts a written record, and is filed against the named row.
+
+### F1. The population route DOES require a pagecode
+`mv_contract_population` records *"No pageCode is required here — gated only by
+@PreAuthorize"*. Sending an empty pagecode returns **HTTP 401 `PAGE_CODE_MISSING`**. The
+working value is **`ClientList`**. The source reading was about a different mechanism
+(`CurrentRequest.getSource()`), not the gateway check that actually rejects the call.
+**File against:** `mv_contract_population.pagecode`.
+
+### F2. The page-0 40-row cap does NOT apply to the payments route
+`monthly_payment_amount` and `payment_due_month` inherit no cap claim, but the spec's
+pagination callout and the "walk every page at size=40" fix imply one. Probed: the payments
+route returns **all 127 rows at `p0 size=500`**. The cap is specific to
+`/clientmgmt/contract/search/page`. One call reads a whole contract's ledger.
+**File against:** the pagination callout on the check page, and the budget line.
+
+### F3. The message log needs two undocumented required params, and the spec names the wrong channel
+`last_followup_date` records the route as `GET /clientmgmt/client/smsLog/{client_id}` with no
+parameters. Live, it requires **`messageType`** (enum) **and `emailSubject`** (required on
+every channel; pass empty). Omitting either is HTTP 400.
+
+Worse, verifier rule 3 says date a follow-up from `sentDate` and **never** `creationDate`
+because the latter "returns null on every row". Probed:
+- `messageType=SMS` → `creationDate` **populated on 20/20 rows**, and **no `sentDate` at all**.
+- `messageType=WHATSAPP` → `sentDate` populated on 27/27, plus `deliveryStatus`, `templateName`.
+
+The rule was written against WhatsApp. **`WHATSAPP` is the channel to read** — the only one
+that can satisfy all three of the rule's tests. The claim that `creationDate` is null
+everywhere is false for SMS and vacuous for WhatsApp (the field is absent, not null).
+**File against:** `last_followup_date` (route + params) and verifier rule 3 (channel).
+
+### F4. `contract_discount` names a field that does not exist
+The row records `API Parameter Name: discount` on `CONTRACT_DETAILS`. **There is no `discount`
+key.** The real relief signals are two free-prose strings on the plan:
+- `paymentPlan.additionalDiscount` — e.g. *"Discount Amount: 0 applied on 2-year visa"*
+- `paymentPlan.creditNoteDiscount` — e.g. *"Credit Note Amount: 0 applied on 2-year visa"*
+
+Both are `''` when absent and, when present, carry an amount **and the bucket they apply to** —
+which makes gate 14's "never let relief clear a bucket its own text does not name" directly
+implementable. A **zero** discount is still a non-empty string, so the truthiness trap is live.
+
+**No structured credit-note source with a redemption pointer exists on this payload.** Gate 14
+therefore **never auto-clears from prose**: relief is carried as context and the case is routed
+to a human. The structured path is retained behind an explicit opt-in for when that route is
+found. **Effect:** removes an auto-clearance path. **File against:** `contract_discount`.
+
+### F5. A new false-clearance shape in the follow-up classifier
+`MV_PAYMENT_RECEIVED_NOTIFICATION` is a payment **receipt** whose name contains "PAYMENT". A
+naive `/payment/i` match counts it as chasing and **suppresses a real finding** — the same
+failure shape as counting win-back marketing, which rule 3 already names. The classifier
+therefore uses chase patterns **plus an explicit deny-list** (receipts, confirmations,
+broadcasts, campaigns, OTPs, birthday and VAT notices), with deny winning. Bare numeric
+template ids are unclassifiable and do **not** count as chasing.
+
+### F6. Both verified reds terminate INSIDE the audited month
+1023590 terminated 2026-03-03 while auditing 2026-03; 1074171 on 2026-06-14 while auditing
+2026-06. They survive gate 2 only because the comparison is **month-to-month**. A date-to-date
+test — the intuitive implementation — would silently delete both of the check's only verified
+reds. Recorded so nobody "tightens" gate 2 later. Also note `dateOfTermination` is `''` when
+absent and a **datetime** when present.
+
+### F7. `nextMonthlyPaymentAmount` is populated on some contracts
+It read 1638.0 on 1099709. The spec's warning stands (it came back empty on others including an
+ACTIVE contract), but "always empty" is not the reason to avoid it — it holds the *next
+scheduled* payment, which is a different number from the audited month's expectation.
