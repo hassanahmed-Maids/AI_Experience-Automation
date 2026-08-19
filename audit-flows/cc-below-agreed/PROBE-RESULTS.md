@@ -61,3 +61,25 @@ Both came from reading jq's `tostring` rendering of an absent/null param as the 
 ## Independent population count (Phase 7 input)
 5,392 ACTIVE CC contracts today (route #4 top-level `total`). Spec cites 5,612 paid in July, 4,997
 active, 5,317 — all same order; the delta is month-of-measurement, not an omission.
+
+## Follow-up probes, 2026-08-19 (fresh token, Hassan.Ahmed)
+
+| # | route | pagecode | result |
+|---|---|---|---|
+| 9 | GET /bytable/PaymentsReport (all param shapes) | none/PaymentReport/ClientList/AdminDynamicApi | **bare HTML 403**, content-type text/html, identical on all four — load balancer, not ERP |
+| 10 | GET /accounting/ContractPaymentTerm/getnewddInfo?contractId=&startDate= | ContractPaymentTerm | **401** on 7/7 contracts — permission `ContractPaymentTerm/getNewDDInfo` missing |
+| 11 | POST /clientmgmt/contract/search/page | ClientList | 200, `total` 5,405, **5.03s per 40-row page** (so ~136 pages = 11-14 min; no page-size lever) |
+| 12 | POST /clientmgmt/client/get-client-details CONTRACT_DETAILS | ClientSummary | 200, **3,851 B minified, 1.80s**, 33 top-level keys, `currentPayment` present |
+| 13 | GET /complaints/replacement/page/contract/{id} | ClientReplacement | **401**, 185 B, 1.11s — unchanged since 2026-08-18 |
+| 14 | GET /accounting/payments/getReceivedClientsPayments?from=2026-08-01&to=2026-08-19 | none | 200, 6,173 CC rows, 2.72s |
+
+Two facts worth keeping out of the "defect" column:
+
+- The `/bytable/**` 403 is the SAME shape as the missing-`/accounting/`-prefix 403 recorded
+  earlier: an HTML body from the edge, no ERP JSON, no `developermessage`. Do not read it as
+  a permission problem or chase a pagecode for it.
+- The bulk feed spells the monthly type **"Monthly Payment"**, never `monthly_payment`
+  (checked across every CC payment type in the August window). `monthly_payment` is the
+  `code`; `name` is the human string. The ERP query at `PaymentRepository.java:519-531`
+  filters on the NAME against the code-shaped literal, which is worth remembering before
+  concluding anything about which tier of `currentPayment` fires.

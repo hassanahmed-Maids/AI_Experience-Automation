@@ -596,3 +596,102 @@ Callback`. So a failed chunk posts an error callback AND then `Join Enrichment` 
 naming how many candidates came back without a delta. That double report is deliberate: a
 partially-enriched cohort must not reach the scorer, because those cases would present as
 CANNOT TELL — which reads like a judgment about a contract rather than a lost chunk.
+
+## 17. Asked the code, and the answer moved the problem from cost to correctness
+
+Two questions asked 2026-08-19 (ask-the-code session 44252, answers verbatim in
+`askcode/a1-*.md` and `askcode/a2-*.md`, code-cited). The session could see only
+`accounting`, `client-management` and `reporting`, so every negative below is scoped to
+those three modules.
+
+### The bulk-rate question, answered: no usable route
+
+- **`currentPayment` is not a stored column.** The stored source is
+  `CONTRACTPAYMENTTYPES.AMOUNT` (`AbstractPaymentTypeConfig.amount`) on the active payment
+  term's monthly line; the API value is computed per request in
+  `ContractService.getContractPaymentInfo`.
+- **`contract/search/page` cannot be widened by request.** Its row DTO is the private
+  interface `ContractController.ContractSearchProjection` (lines 991-1034);
+  `extraFilters` and the query params only add WHERE clauses. Adding the amount needs a
+  Java change, would trigger an N+1 lazy load per row, and would return the raw CPT amount
+  rather than the discount/VAT-adjusted figure.
+- **One bulk exposure exists and is unreachable.** `GET /bytable/PaymentsReport` renders a
+  Jasper report carrying `contractId` + `monthlyPayment` for a whole date window, with no
+  permission annotation in code. **Probed live: bare HTML 403, `content-type: text/html`,
+  identical on four pagecodes** — the load-balancer signature, not an ERP denial. So it is
+  blocked at the edge and cannot be used from n8n.
+- The JSON endpoint that once ran the same SQL is **commented out** in `ReportingController`
+  (~lines 1520-1585), and `AdHocController`, `DynamicJasperController` and
+  `CSVDynamicJasperController` are commented out entirely. The Alert engine can run
+  arbitrary SQL but only emails or logs the rows — no synchronous API return.
+
+**So the fan-out stands at 11,264 calls per run** unless someone adds a thin JSON controller
+over `ContractRepository.getPaymentsReportInfo(from, to)`, which already returns
+`contractId` + `monthlyPayment` in bulk. That is a Java change plus a deploy, and it is the
+single highest-leverage thing anyone could do for this check's runtime.
+
+### The finding that outranks it: `expected` may be derived from what was PAID
+
+The same answer exposed the tier-one path in `getContractPaymentInfo`: when the current
+window holds any non-DELETED, non-refund monthly payment row, `currentPayment.amountValue`
+is taken from **`Payment.amountOfPayment`** — the collection — and only falls back to the
+CPT computation when no such row exists. Quoted query
+(`PaymentRepository.java:519-531`): window is the calendar month of **now** (or the CC
+billing cycle), `status <> 'DELETED'` only — **PDC, BOUNCED and PRE_PDP all count** — ordered
+by status rank with **no date or id tiebreak**, so which row wins among two RECEIVED rows is
+undefined.
+
+If that fires, this check is circular: it would compare a payment against itself and clear a
+short-paying contract. So it was probed live rather than accepted.
+
+### What the probe actually found — narrower than the code reading, and still real
+
+Eight contracts with a RECEIVED August monthly payment, comparing
+`currentPayment.amountValue` against the payment and against the plan's `(Monthly)` prose
+line (ratios only; no amounts recorded here):
+
+| contract | paid / plan-line | currentPayment / plan-line | reading |
+|---|---|---|---|
+| 1101305 | 0.4403 | **1.0501** | **paid ~42% of the agreed rate and `currentPayment` still returned the AGREED rate** |
+| 1084149, 1078368, 1060026 | 1.05 | 1.05 | compliant payer — uninformative either way |
+| 1103097, 1103086, 1103085 | 0.4403 | 0.4403 | **first-month contracts**: plan's `(Monthly)` line starts Sep, and the August row is the `(One Time Payment)` |
+| 1049000 | — | unreadable | the expected-unknown case gate 3 already handles |
+
+Three conclusions, in order of importance:
+
+1. **The circular path did NOT fire in the case that matters.** 1101305 paid ~42% of its
+   agreed rate and `currentPayment` returned the full agreed figure. That is the exact
+   shape this check hunts, and the expectation held. It also matches the three contracts
+   recorded in §13 (1054346, 1086789, 1090543), where the field read 4,715/4,715/5,712
+   while collections ran 2,100/2,100/3,360 for months.
+2. **But `currentPayment` is NOT the recurring rate on a first-month contract.** On all
+   three new contracts it returned the one-time/first-month figure — which equals what was
+   paid, so such a case would self-clear. The plan text is what reveals it: a
+   `(One Time Payment)` line dated in the audited month and a `(Monthly)` line starting
+   AFTER it. `Project Plan` already extracts both lines; nothing yet reads their dates.
+3. **The plan's `(Monthly)` prose line is EX-VAT.** Measured 1.05 exactly on four contracts.
+   Anything comparing it to `currentPayment` (VAT-inclusive) must add VAT first, or it will
+   report a 5% shortfall on every compliant contract.
+
+### Two guards this argues for, neither needing another ERP call
+
+- **A first-month guard** (per case): if the `(Monthly)` line's first date is after the
+  audited month, or a `(One Time Payment)` line falls inside it, the contract had no
+  recurring monthly obligation that month. Route it out rather than scoring it — today it
+  would self-clear, which is the quiet direction of failure.
+- **A systemic circularity detector** (free): count candidates where `expected` equals the
+  month's `monthly_net` exactly. Under the circular path that share goes to ~100%. If it
+  crosses an implausible threshold, halt the run rather than publish a book of green
+  verdicts. Cheap, needs no extra data, and fails closed.
+
+### The uncontaminated source, for the record
+
+`CalculateDiscountsWithVatService.getAmountOfMonthlyPaymentAtTimeWithDiscounts(cpt, date)`
+never reads `PAYMENTS`, is VAT-inclusive and discount-adjusted, and takes a date. It is
+exposed over HTTP as `GET /accounting/ContractPaymentTerm/getnewddInfo?contractId=&startDate=`
+→ `suggestedAmount`. **Probed live: 401 on all seven contracts** (permission
+`ContractPaymentTerm/getNewDDInfo`), so it is a second declared gap rather than a fix — and
+worth requesting alongside the replacements permission, because it is the only clean
+agreed-amount read found anywhere. Note its own caveat from the code: it uses the
+**active** payment term, so it cannot reconstruct a rate that changed after the audited
+month.
