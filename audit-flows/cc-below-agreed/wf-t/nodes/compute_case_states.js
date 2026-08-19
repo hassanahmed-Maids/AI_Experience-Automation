@@ -573,4 +573,3 @@ console.log(JSON.stringify({ stage: 'compute_case_states', cases: cases.length, 
 // would be wrong is reporting 984 findings: the residue bounds are 1 strict to ~40
 // lenient, and the rest are candidates awaiting the quoted-amount read.
 return [{ json: { cases: cases } }];
-

@@ -21,14 +21,21 @@ const rows = $input.all();
 const cases = $('Stamp Display Bands').all().map(function (i) { return i.json; });
 const ctx = $('When Called').first().json || {};
 
-// The Sheets node echoes one item per appended row. Fewer than the batch's cases means the
-// append was partial, and a partial write that reports success would leave a reviewer working
-// from a queue that is quietly short.
+// The Sheets node returns one item per appended row. FEWER than the batch's cases means the
+// append was partial, and a partial write reported as success leaves a reviewer working from
+// a queue that is quietly short. MORE means the append landed twice - a duplicated review
+// queue and doubled totals - which is the risk the node's retry setting introduces, so it is
+// checked in the same breath rather than assumed away.
 const appended = rows.length;
 if (appended < cases.length) {
   throw new Error('WF-T: the Cases append returned ' + appended + ' rows for ' + cases.length +
     ' cases in batch ' + (ctx.batch_index === undefined ? '?' : ctx.batch_index) + '. A short ' +
     'write means the review queue is missing cases this run will nonetheless report as audited.');
+}
+if (appended > cases.length) {
+  throw new Error('WF-T: the Cases append returned ' + appended + ' rows for only ' + cases.length +
+    ' cases in batch ' + (ctx.batch_index === undefined ? '?' : ctx.batch_index) + '. The append ' +
+    'landed more than once, so the review queue and the run totals would both be doubled.');
 }
 
 const bands = {};

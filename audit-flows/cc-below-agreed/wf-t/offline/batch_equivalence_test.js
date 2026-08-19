@@ -285,5 +285,60 @@ throws(() => exec(WFT_VALIDATE, [{ json: {
     'Join Scored refuses a short Cases-tab write', 'review queue is missing');
 }
 
+// --------------------------------------- the run-level tripwire must actually fire
+// Guards arms its tripwire at 500 scored cases, so with small batches it silently stops
+// arming. Join Scored repeats the test over the whole cohort for exactly that reason, and a
+// guard nobody has watched fire is not a guard - so it is fired here, twice.
+function syntheticCohort(n, mutate) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const c = { case_key: 'k' + i + ':2026-07', skip_computation: false,
+                display_band: 'paid_in_full',
+                computed: { variance: 0, shortfall: 0, expected_known: true } };
+    mutate(c, i);
+    out.push(c);
+  }
+  return out;
+}
+function joinWith(cohort, batches) {
+  const size = Math.ceil(cohort.length / batches);
+  const chunkOut = [];
+  for (let i = 0; i < cohort.length; i += size) chunkOut.push({ json: { cases: cohort.slice(i, i + size) } });
+  const returns = chunkOut.map((b, i) => ({ json: { scored_cases: b.json.cases, _batch_index: i,
+    _rows_appended: b.json.cases.length, _bands: {}, _candidate_aed: 0,
+    _requires_verifier: 0, _escalation_blocked: 0 } }));
+  return exec(JOIN_SCORED, returns, { 'Chunk Cases': chunkOut });
+}
+// 600 cases, every one exactly matched: 100% exact, over the 97% ceiling.
+throws(() => joinWith(syntheticCohort(600, () => {}), 6),
+  'the run-level tripwire fires on a 100%-exact cohort spread over six batches',
+  'CIRCULARITY TRIPWIRE (run-level)');
+// 600 cases, a healthy 82% exact but ZERO shortfalls - the sharper of the two tests.
+throws(() => joinWith(syntheticCohort(600, (c, i) => {
+    if (i % 5 === 0) { c.computed.variance = 3; c.display_band = 'paid_in_full'; }
+  }), 6),
+  'the run-level tripwire fires on a cohort with no shortfall at all',
+  'NOT ONE is short');
+// And it does NOT fire on a normal-looking book: 82% exact, the rest genuinely short.
+{
+  const healthy = syntheticCohort(600, (c, i) => {
+    if (i % 5 === 0) { c.computed.variance = -1500; c.computed.shortfall = 1500;
+                       c.display_band = 'candidate'; }
+  });
+  const r = joinWith(healthy, 6);
+  ok(r.out[0].json.cases.length === 600,
+     'the run-level tripwire does NOT fire on a normal book (82% exact, 120 short)');
+  ok(r.log.exact_share_pct === 80 && r.log.shortfall_cases === 120,
+     'and it reports the measured exact share and shortfall count',
+     JSON.stringify({ exact: r.log.exact_share_pct, short: r.log.shortfall_cases }));
+}
+// Under 500 scored cases it must say NOT ARMED rather than quietly passing.
+{
+  const r = joinWith(syntheticCohort(400, () => {}), 4);
+  ok(/not armed/.test(r.log.circularity_tripwire_run_level),
+     'below the arming threshold it says so, instead of reading as a passed check',
+     r.log.circularity_tripwire_run_level);
+}
+
 console.log('\n' + pass + '/' + (pass + fail) + ' assertions behaved as specified');
 process.exit(fail ? 1 : 0);

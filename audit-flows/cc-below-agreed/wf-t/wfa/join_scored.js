@@ -83,10 +83,55 @@ if (rowsAppended < cases.length) {
     cases.length + ' scored cases. The review queue is missing cases the run will report on.');
 }
 
+// ------------------------------------------- THE CIRCULARITY TRIPWIRE, RUN-LEVEL
+// The same test Guards runs, repeated here over the WHOLE cohort, and the reason is the
+// batching: Guards arms only at TRIPWIRE_MIN_POPULATION (500) scored cases, so its per-batch
+// arming is a function of the batch size. At 1,200 a batch it arms; at 300 it would silently
+// stop, and the failure it watches for - ERP's currentPayment falling through to its
+// PAYMENT-derived tier, making the audit compare a payment against itself - is the one that
+// makes the output look BETTER rather than worse. A guard whose arming depends on a tuning
+// parameter is not a guard. So the run-level check lives here, where the cohort is whole and
+// the batch size cannot switch it off.
+//
+// The constants are Guards' constants and must stay in step with them: measured July 2026,
+// 4,575 exact of 5,612 = 81.5% is NORMAL, the ceiling is 97%, and 984 were short.
+const TOLERANCE = 5.00;
+const EXACT_SHARE_CEILING = 0.97;
+const TRIPWIRE_MIN_POPULATION = 500;
+function r2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+const withVariance = cases.filter(function (k) {
+  return !k.skip_computation && k.computed && k.computed.variance !== null &&
+         k.computed.variance !== undefined;
+});
+const exactlyMatched = withVariance.filter(function (k) { return r2(k.computed.variance) === 0; }).length;
+const shortfallCases = withVariance.filter(function (k) { return k.computed.variance < -TOLERANCE; }).length;
+const exactShare = withVariance.length ? exactlyMatched / withVariance.length : null;
+if (withVariance.length >= TRIPWIRE_MIN_POPULATION && exactShare > EXACT_SHARE_CEILING) {
+  throw new Error('CIRCULARITY TRIPWIRE (run-level): ' + exactlyMatched + ' of ' + withVariance.length +
+    ' scored cases (' + Math.round(exactShare * 1000) / 10 + '%) have expected EXACTLY equal to what was ' +
+    'received, against a measured norm of 81.5% and a ceiling of ' +
+    Math.round(EXACT_SHARE_CEILING * 100) + '%. Guards checks this per batch; this checks the whole ' +
+    'cohort, so the batch size cannot switch it off. The likely cause is ERP\'s currentPayment falling ' +
+    'through to its PAYMENT-derived tier - the audit comparing a payment against itself. Refusing to ' +
+    'publish these verdicts.');
+}
+if (withVariance.length >= TRIPWIRE_MIN_POPULATION && shortfallCases === 0) {
+  throw new Error('CIRCULARITY TRIPWIRE (run-level): ' + withVariance.length + ' scored cases across ' +
+    returned.length + ' batches and NOT ONE is short by more than the AED ' + TOLERANCE.toFixed(2) +
+    ' tolerance. July 2026 measured 984 short of 5,612. A perfectly reconciled book of this size is a ' +
+    'broken comparison, not good news. Refusing to publish a clean bill of health that was never tested.');
+}
+
 console.log(JSON.stringify({ stage: 'join_scored', cases: cases.length,
   batches: returned.length, batch_indexes: seenBatches, rows_appended: rowsAppended,
   bands: bands, candidate_aed: Math.round(candidateAed * 100) / 100,
   requires_verifier: requiresVerifier, escalation_blocked: escalationBlocked,
+  cases_with_a_variance: withVariance.length, exactly_matched: exactlyMatched,
+  exact_share_pct: exactShare === null ? null : Math.round(exactShare * 1000) / 10,
+  shortfall_cases: shortfallCases,
+  circularity_tripwire_run_level: withVariance.length < TRIPWIRE_MIN_POPULATION
+    ? 'not armed - fewer than ' + TRIPWIRE_MIN_POPULATION + ' scored cases in the whole run'
+    : 'armed and passed over the whole cohort, independent of batch size',
   note: 'emits the same { cases } envelope the scorer used to, so Build Runs Log and ' +
         'everything after it is unchanged. The Cases tab was already written, per batch.' }));
 
