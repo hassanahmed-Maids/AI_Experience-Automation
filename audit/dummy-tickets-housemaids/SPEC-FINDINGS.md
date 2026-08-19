@@ -190,3 +190,194 @@ outcome or its exposure** — which is why it is recorded here rather than asked
 `applicant_not_found` is **retired**, per the spec. Its two causes are separated: ERP failure →
 `erp_unreachable` (gate 30); a genuinely ticket-less applicant reached through a 492 transaction →
 `unsettled` + `route_verifier_scope_contradiction` (gate 40).
+
+---
+
+# Part 2 · Live measurements, 2026-08-19
+
+Probed and run against production ERP through n8n's egress (the build container gets a 403
+from ERP's load balancer, so every call went through n8n).
+
+⚠️ **ATTRIBUTION CAVEAT ON EVERYTHING BELOW.** These reads were made on a bearer token whose
+`user` claim is **`Abdullaha`**, not the operator's. Running on it was explicitly authorised by
+Hassan after the conflict was raised. It is recorded here because the build process is
+explicit that permissions tested on a borrowed token get recorded as working and *stay*
+recorded — and this spec already carries one route documented as "verified" that later turned
+out to be refused on the auditing account. **Nothing below should be marked
+`Technical Validated` until it is re-confirmed on the account that will actually run the check.**
+
+## 6 · The population checksum reproduces exactly
+
+| | |
+|---|---|
+| Window | 2026-05-01 .. 2026-05-05 |
+| `totalElements` declared | **137** |
+| Rows pulled | **137** |
+| Pages at `size=200` | **1** |
+| Independent count | the spec's recorded `transactions_processed` from the last production run = **137** |
+| Delta | **0** |
+
+Population purity: **137 of 137** rows were `expense.id = 492` / code `FT 78`; all dates inside
+the window; **0** null dates. `transactionType` split `APPLICANT 133 / UNKNOWN 3 / HOUSEMAID 1`
+— which confirms the spec's warning never to filter on `transactionType`, since 3 genuine rows
+would be dropped as `UNKNOWN`.
+
+## 7 · The GATE 2 landmine is live on THIS endpoint
+
+The envelope carries **both** keys:
+
+```
+total:         ""     ← empty STRING
+totalElements: 137    ← number
+```
+
+This is the exact shape that broke the sibling CC sweep (`"" != null` is true, `Number("")` is
+0, so `collected < 0` never fires). **Confirmed present on `advancesearchNew`.** The rebuild
+asserts on `totalElements` and refuses any non-numeric declared total. The flow being replaced
+asserts nothing at all, so it is not bitten today — but any future "improvement" that reads
+`total` would truncate silently and report success.
+
+## 8 · FREE WIN — the per-transaction detail call drops from 137 to 1
+
+`Applicant ID - N` is present in the transaction description on **136 of 137** rows, and the
+parsed id matched `applicants[0].applicant.id` on **6 of 6** sampled rows with **zero**
+disagreements. The ticketing card is also on the search row (`fromBucket`), so nothing is lost.
+
+**Corrects the `transaction_applicant_id` variable row**, which binds Dummy Tickets to the
+detail call and reserves the parse for Applicant Real Ticket. The same shortcut works here.
+Implemented as parse-first with the detail call as fallback; gate 20's policy is untouched
+(structured source, never a name). Deviation declared, not silent.
+
+Call budget for the reference window, corrected and measured:
+`1 population page + 1 detail call + 93 Hustler reads + 1 sentinel ≈ 96` — against the spec's
+stated ~460.
+
+## 9 · The one row that resolves a housemaid, not an applicant
+
+**1 of 137** rows is `transactionType: HOUSEMAID`, description prefixed `Maid -`, and its detail
+payload carries `housemaids[0].housemaid.id` with an **empty** `applicants` array. This
+applicant-scoped check (one case = one applicant) cannot own it.
+
+**The spec does not cover this case.** *Anything this check must NOT cover* addresses real
+tickets, duplicate detection and terminated maids — not a housemaid-type charge sitting in the
+dummy-ticket expense. It is counted and declared as
+`housemaid_charges_out_of_scope`, not dropped, and deliberately not routed to the verifier, who
+would have no question to answer. **Owner call:** does it belong to *Terminated Housemaids
+Tickets*, or nowhere?
+
+## 10 · A fourth `requestRefundAutomaticallyType` the spec does not list
+
+Measured over the reference window's 247 in-scope DUMMY tickets:
+
+| value | count |
+|---|---|
+| *(empty)* | 100 |
+| **`Immediately`** | **92** |
+| `CustomTime` | 38 |
+| `TwentyFourHoursBeforeDepartureTime` | 17 |
+
+`Immediately` is the **second most common value** and is absent from the row's *Allowed Values*
+(`CustomTime · TwentyFourHoursBeforeDepartureTime · DoNotRequestRefund · empty`). The row's
+open-ended fail-safe held — it is a real schedule, so the empty-means-`DoNotRequestRefund`
+default correctly does not apply to it, and an unrefunded ticket carrying one lands in the
+terminal net rather than in a red. Locked in as offline test **E18**.
+
+`DoNotRequestRefund` was **not observed once**, consistent with the spec's note that no DUMMY
+example has ever been seen.
+
+Statuses observed: `REFUNDED 197 · CANCELED 46 · REFUND_FAILED 3 · REFUND_SENT_TO_PAYERS 1`.
+Only **4 of the 8** documented states appear in this window; `ISSUED`, `PENDING_REFUND`,
+`REQUESTED` and `Used` do not, so gates 50 and 80 were **not exercised on live data** here.
+
+## 11 · Two field-shape corrections
+
+- **`currency` has no `name` key on a DUMMY ticket.** Keys are `[id, label, code]`, with
+  `label: "AED"`. The variable row's *API Parameter Name* (`currency.label`) is **right**; its
+  *Example Values* (`{"name": "AED"}`, measured on REAL rows) is what misleads. My own earlier
+  note in Part 1 §2.4 had this backwards — the parameter name needs no change, the example does.
+- **The FLIGHT_TICKTE payload has no `applicants` array at all.** Top-level keys are exactly
+  `changesHistory` and `flightsTickets`. The `transaction_applicant_id` row claims the plural
+  array "still holds on the ticket-side payload for both checks" — it does not for
+  `tab=FLIGHT_TICKTE`. Only the transaction detail carries it.
+
+TC1 confirmed live and exactly: applicant `1508067` / ticket `4261989`, `status REFUND_FAILED`,
+`ticketOutcome.label "Lost"`, `amountInAED` matching the spec to the cent, `amount` genuinely
+**differing** from `amountInAED` (so the never-substitute rule bites on DUMMY rows too),
+`requestRefundOn` empty, `requestRefundAutomaticallyType` empty, `refundable: true`,
+`creatorModule: recruitment`. Its `applicantTask.label` is **`Refund_Flight_Ticket`** — on a
+confirmed AED 4,674.74 loss. That is live proof of the `applicant_task_label` false-clearance
+trap: filtering the population on that field would drop this very loss.
+
+## 12 · A bug this build found in itself
+
+The first full-window run reported `success`, 93 applicants, and a plausible-looking record —
+but `never_returned: 68`. **Only 25 of 93 applicants had actually been scored.** The Execute
+Workflow node defaults to passing every chunk in ONE call while the sub-workflow read
+`$input.first()`, so only chunk 0 was expanded.
+
+In production this would have reported a near-loss-free window it never examined — the
+expensive failure, because it looks like success. It was caught only because the scorer asserts
+that **every applicant asked for must come back** and records the missing ones as unreachable
+rather than dropping them. Fixed with `mode: each`; `never_returned` is now **0**.
+
+The residual imprecision, declared: a never-returned applicant is labelled `erp_unreachable`,
+which reads as an ERP outage. The `SUBWORKFLOW_DROPPED_N` line in `declared_gaps` distinguishes
+it, so the cause stays visible.
+
+## 13 · Full-window result, and the comparison that matters
+
+Reference window, 93 applicants, 323 ticket rows read (247 in scope after gate 10):
+
+| | rebuild | the flow it replaces |
+|---|---|---|
+| Red flags published | **4** | **~32** |
+| — of which confirmed losses (gate 70) | 3 | 3 |
+| — past-due / never-scheduled (gate 100) | 1 | 0 (gate absent) |
+| Clean (no portal row) | 61 | 61 |
+| Pending (own state, not a red) | 28 | **0 — the state does not exist** |
+| Routed to verifier | 0 | 0 |
+| ERP unreachable → pending | 2 | published as red `applicant_not_found` |
+| Exposure | AED 11,517 | one ticket's amount per case |
+
+The ~32 figure is derived, not guessed: production flags every case whose worst ticket is not
+`REFUNDED`, which is the 26 zero-amount cases + 2 unreachable + 4 findings.
+
+**Gate 100 fired.** The spec records it as never having fired. Under the conservative reading of
+the §4.1 contradiction it produced exactly **1** red across 93 applicants, via
+`reason: no_refund_scheduled` — i.e. through the empty-means-`DoNotRequestRefund` default. That
+is the measurement the ruling needs: the conservative reading is **not** noisy. Owner: Jacky.
+
+## 14 · The ranking decision that needs a ruling — with its number
+
+Part 1 §4.3 called the placement of `immaterial` a label-only assumption. **That was wrong**,
+and the live run shows why: placing it above `refunded` turns a case whose money all came back
+into a **pending** case whenever any sibling ticket carries no amount.
+
+`cases_pending_only_due_to_zero_amount` = **26 of 93 (28%)**. Every one of those 26 has all its
+money-bearing tickets refunded and nothing outstanding. Under the alternative ranking they read
+clean, and the window becomes 87 clean / 2 pending instead of 61 / 28.
+
+The conservative reading is active by default, because a null amount means *unpriced* and can
+still change. Pass `params.immaterial_ranks_below_refunded: true` to run it the other way.
+**Owner call — the number above is the whole input to it.**
+
+## 15 · Guards proven to work, not just written
+
+- **GATE 2** asserted 137 == 137 and refused nothing (correctly).
+- **Every-applicant-returns** caught the 68-applicant drop in §12. Without it the run would
+  have published a false all-clear.
+- **Item-alignment assertion** in `0-Fetch` (throws if response count ≠ applicant count) did
+  not fire — the counts matched on every chunk.
+- **Exact ERP path** used for every applicant: `path_used = tree_walk_FALLBACK` on **0 of 93**.
+- **Tripwire** not triggered (4 findings against a ceiling of 40).
+- **Webhook security**: an empty POST was rejected `400 unauthorized` by the shared-secret check
+  before anything touched ERP. That is the guard the live flow does not have.
+- **Dead-token classification**: reproduced both shapes and both are mapped to
+  `erp_auth_expired` with a re-save instruction rather than surfacing as a server error.
+
+## 16 · Offline suite
+
+**49 of 49 assertions green** — the spec's five test cases plus one guard per "Never" clause,
+plus E18–E20 added from the live findings. Mutation-tested: re-introducing the
+gate-90-behind-gate-100 order, substring `REFUND` matching, or first-ticket-wins each fails the
+suite, and substring matching turns a confirmed loss **green**.

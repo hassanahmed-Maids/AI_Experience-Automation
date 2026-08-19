@@ -187,6 +187,25 @@ check('E17 Refund_Flight_Ticket still scored',
   scoreTicket(T({ id: 17, status: 'REFUNDED', outcome: 'Refunded', aed: 4000, task: 'Refund_Flight_Ticket' }), CTX('2026-08-19')).verdict,
   'refunded');
 
+// E18 — 'Immediately' is a FOURTH requestRefundAutomaticallyType, observed live 2026-08-19
+// (92 occurrences in the reference window) and NOT in the spec's allowed-values list. It is
+// a real schedule, so the empty-means-DoNotRequestRefund default must NOT apply to it: an
+// unrefunded ticket carrying one lands in the terminal net, visible but not red.
+const e18 = scoreTicket(T({ id: 18, status: 'ISSUED', aed: 4200, cur: 'AED', autoType: 'Immediately' }), CTX('2026-08-19'));
+check('E18 Immediately is not DoNotRequestRefund', e18.verdict, 'unsettled');
+check('E18 recorded as a rules gap', e18.reason, 'no_gate_matched');
+
+// E19 — an unlisted status must never clear. Guards the open-ended enum fail-safe.
+check('E19 unknown status -> unsettled',
+  scoreTicket(T({ id: 19, status: 'SOME_NEW_STATE', aed: 4200, cur: 'AED', autoType: 'CustomTime' }), CTX('2026-08-19')).verdict,
+  'unsettled');
+
+// E20 — the live gate-100 shape: money, no schedule at all, not refunded. Under the
+// conservative reading this is the ONE red gate 100 produced across 93 applicants.
+const e20 = scoreTicket(T({ id: 20, status: 'ISSUED', aed: 4200, cur: 'AED', autoType: '', refundOn: '' }), CTX('2026-08-19'));
+check('E20 no schedule at all -> red', e20.verdict, 'refund_overdue');
+check('E20 reason names the cause', e20.reason, 'no_refund_scheduled');
+
 // ══════════════════════════ report ══════════════════════════
 const pass = results.filter(r => r.pass).length;
 const fail = results.filter(r => !r.pass);
