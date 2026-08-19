@@ -47,7 +47,7 @@ of an execution — ending a sub-execution is the only thing that frees it.
 
 ## What is proven and what has never run
 
-**Offline: 11 suites, all green.** Run them all before and after any change:
+**Offline: 12 suites, all green.** Run them all before and after any change:
 
 ```bash
 cd audit-flows/cc-below-agreed
@@ -55,7 +55,7 @@ for t in offline/harness.js offline/gate2_test.js offline/gate2_payments_test.js
          offline/attach_payments_test.js offline/cohort_test.js offline/guards_test.js \
          offline/validate_inputs_test.js wf-b/offline/baton_hops.js \
          wf-e/offline/enrich_test.js wf-pop/offline/population_test.js \
-         wf-t/offline/batch_equivalence_test.js; do
+         wf-t/offline/batch_equivalence_test.js offline/tail_test.js; do
   printf '%-44s ' "$t"; node "$t" >/dev/null 2>&1 && echo PASS || echo FAIL
 done
 ```

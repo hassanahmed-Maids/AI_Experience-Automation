@@ -1209,3 +1209,78 @@ Two seam contracts were verified by hand while mapping this and both hold: `Merg
 Verdicts` emits `cases` and `Build Verdict Rows` reads `merged.cases`; the whole legacy
 in-WF-A verifier chain (`Get Messages` through `Verdicts -> Google Sheet`) is **disabled**,
 superseded by WF-B, which is correct and not an oversight.
+
+## 24. The WF-A tail suite — and five node bodies that were never in the repo
+
+`offline/tail_test.js`, 34 assertions, covers `Join Scored → Build Runs Log → Build Case
+Payload → Build Summary Row → Select Candidates → Assemble Baton`. Until now that stretch had
+**neither an offline test nor a live execution**: 93346 died in the sweeps, 94122 was stopped
+at `Join Scored` one node short of it, and `Assemble_Baton.js`, `Build_Case_Payload.js` and
+`Build_Summary_Row.js` had no suite loading them at all.
+
+### Five live node bodies were not under version control
+
+Found while mapping the tail. WF-A contains code nodes with **no repo file**, so the repo could
+not be the source of truth for them and nothing could test them:
+
+`Select Candidates`, `Merge with previous_cases`, `Manual Run Config`, `Build Error Callback`,
+`Format Failure Email`
+
+Two of those are the error rail — the code that ran, correctly, when the token died in 94355.
+All five are now extracted into `nodes/` straight from the deployed graph (via `jq`, so there
+is no transcription risk) and syntax-checked. `Select Candidates` is exercised by the new suite;
+the other four are at least now versioned, diffable and reviewable.
+
+### The fixtures are generated, not authored — deliberately
+
+94122's bug was a shape mismatch that eleven green suites missed because
+`batch_equivalence_test.js` hand-built the input to the one node the refactor had newly written.
+**A hand-authored fixture cannot catch a shape mismatch, because the hand that authors it
+authors the mismatch away.**
+
+So this suite invents no `Join Scored` output. It runs the real WF-T chain — Chunk Cases,
+Validate Inputs, Join Enrichment, Compute Case States, Guards, Adjudicate Cases, Stamp Display
+Bands, Build Sheet Rows, Return Batch — then the real `Join Scored`, and feeds *that* envelope
+to the tail. The only thing mocked is the wiring, and it is mocked to match the deployed graph.
+
+One wiring fact had to be read off the graph rather than guessed: `Select Candidates`' only
+inbound wire comes from `Callback — Results`, which is **disabled**. n8n passes input straight
+through a disabled node, which is why the node runs at all. Same for `Callback — Runs Log`
+between `Post runs log?` and `Build Case Payload`. If either is ever enabled and starts
+transforming its input, this suite's wiring stops matching production.
+
+### It is proven to bite
+
+Six mutations applied to the real node bodies, suite re-run, body restored:
+
+| mutation | result |
+|---|---|
+| Build Runs Log treats each wire ITEM as a case (the 94122 shape) | caught, 9 assertions |
+| Build Case Payload loses the run record | caught, 4 |
+| Select Candidates emits an envelope instead of per-item | caught, 4 |
+| zero-cases fallback reverted to `$('Compute Case States')` | caught, 4 |
+| Select Candidates drops a no-client-id shortfall silently | caught, 2 |
+| Assemble Baton reads only the first candidate | caught, 2 |
+
+A seventh — rewriting `$input.first().json` as `$input.all()[0].json` — was **not** caught, and
+correctly so: on a one-item wire those are the same expression, so nothing changed. Recorded
+because it is the trap in mutation testing itself; reading it as a blind spot would have sent
+someone hunting a gap that does not exist.
+
+### What the suite pins down
+
+Beyond the seams: no case is lost or duplicated across the tail; the record's band counts equal
+the bands `Stamp Display Bands` stamped (the two `bandOf` copies must agree or the run record
+and the Cases tab have drifted); `finding_reasons` is empty off the scorer and the results block
+never uses the word "findings"; a no-client-id shortfall is counted rather than dropped; the
+baton is well-formed for WF-B with its windows carried verbatim and an empty verdict tally; a
+capped run marks itself `publishable: false` and says so in its first caveat; and today's
+zero-cases fallback fix is pinned by a direct regression test.
+
+### Still unproven after this
+
+WF-B's own chain (`Get Messages` → `Resolve Quoted Amounts` → `Build Evidence Bundle` → the
+model → `Merge Agent Verdicts` → `Build Verdict Rows` → `Prepare Handoff`) and WF-C. `WF-B`'s
+`baton_hops.js` covers the baton arithmetic across hops but not the evidence chain, whose
+riskiest node — `Resolve Quoted Amounts`, which decides Underpaid vs Under-billed — is also the
+one with no repo file until today and no test now. That is the next target.
