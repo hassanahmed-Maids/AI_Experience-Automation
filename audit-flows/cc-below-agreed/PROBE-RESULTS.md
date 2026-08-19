@@ -143,17 +143,29 @@ lacks `ClientReplacement`, Abdullaha's has it. Consequences:
   account's probe and then read as a property of the check. **Which account fires the run changes
   what the audit can see.** Record the account with the result, every time.
 
-### A FOURTH denial shape: `UNAUTHORIZED <LOGOUT>` on a malformed URL
+### `UNAUTHORIZED <LOGOUT>` is ERP's GENERIC 401 — it does not mean one thing
 
-The three shapes documented above (`SecurityException`, `INSUFFICIENT_PERMISSIONS`,
-the 498-inside-500 dead token) are not the whole set. A **missing required path variable** on
-`get-client-details` returns HTTP 401 `{"status":401,"error":"Unauthorized","message":"UNAUTHORIZED <LOGOUT>"}`
-— identical on a correct pagecode, a wrong one and a deliberately bogus one, so the pagecode
-discrimination method cannot separate it. It is a *routing* failure wearing an *auth* failure's clothes.
+HTTP 401 `{"status":401,"error":"Unauthorized","message":"UNAUTHORIZED <LOGOUT>"}` was seen
+twice in one session, from two unrelated causes:
 
-**This collides with a live detector.** `isTokenDead()` in `wf-e/nodes/project_plan.js` (and the same
-function in `project_replacements.js`) matches on the substring `logout`, so a malformed plan-read URL
-would be reported as `plan_token_dead` and throw "DEAD TOKEN ... Re-issue the bearer and re-run".
-The bearer would be fine and re-issuing it would change nothing. The guard **fails safe** — it stops
-the run rather than scoring empty reads, which is the behaviour that matters — but the operator is
-sent after the wrong cause. Worth a note in the throw text, not a change to the matcher.
+1. **A malformed route** — `get-client-details` without the `{clientId}` path segment, at
+   14:41, while the very same token returned 200 on `contract/search/page` and 200 on the
+   correctly-formed plan read. Identical message on a correct pagecode, a wrong one and a
+   deliberately bogus one, so the pagecode-discrimination method cannot separate it.
+2. **A genuinely dead token** — at 14:49, on `contract/search/page`, the exact request that
+   had returned 200 eight minutes earlier and had just walked 136 pages successfully inside
+   execution 94122. Confirmed by re-curling the route by hand.
+
+So the message carries **no diagnostic weight on its own**. It means "this request is not
+authorized right now", nothing more precise. Separate the two by **testing a second, known-good
+route with the same token**: if that route answers, the token is alive and the first URL is
+wrong; if both refuse, the token is dead. That test costs one call and is the only reliable
+discriminator found.
+
+**What this means for the live detector.** `isTokenDead()` in `wf-e/nodes/project_plan.js`
+and `project_replacements.js` matches the substring `logout`. Against cause 2 — by far the
+common one, and the one that actually threatens a run — it is **correct**, and execution 94355
+is the proof: the token died mid-session and the rail caught it in 346 ms. Against cause 1 it
+would name the wrong culprit, but cause 1 requires a malformed URL that no deployed node has.
+Leave the matcher alone; the one improvement worth making is to the throw text, which should
+say "re-issue the bearer **or** check the request URL", so the rarer cause is at least named.

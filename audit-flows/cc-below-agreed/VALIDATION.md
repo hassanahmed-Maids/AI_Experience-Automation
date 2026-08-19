@@ -1040,3 +1040,95 @@ and re-verified after the run completes.
 That is worth carrying to the sibling checks — any flow whose respond node is drawn below its
 work has the same latent bug, and it is invisible until someone measures the caller's wait
 rather than the workflow's status.
+
+### What execution 94122 actually proved, and the bug it found
+
+94122 ran 35 minutes and **reached the scoring tail — the first execution ever to do so.**
+Every phase before the tail matched §19's measured figures almost exactly, which is worth
+recording because it means the staging did not change the sweeps' behaviour:
+
+| phase | 94122 | §19 (93346) |
+|---|---|---|
+| active population walk (WF-Pop, 94123) | 16 m 15 s | 16.0 min, both walks |
+| three payment windows (WF-P) | 10 s | 9 s |
+| status sweep (WF-S, 94179) | 7 m 53 s | 7 m 51 s |
+| terminated walk (WF-Pop, 94220) | 8 m 52 s | — (not separately timed before) |
+| gate 2 + cohort + attach + chunk + enrich + 4 WF-T batches | ~1 m 35 s | tail never completed |
+
+**It did not crash.** 93346 died at the scoring join at 41.5 minutes; 94122 passed that point
+and was stopped by a *guard*, not by memory — and it did so while **four unrelated executions
+were running in the same instance** (94124/94125/94126 plus a sub-execution of `CopNHNsXUzFO59bW`
+firing every ~15 s throughout). That is evidence for the §19 open question, though not the clean
+test: a *survival* under concurrent load is stronger than a survival alone, so the batched tail
+looks like a real fix. It does not settle whether the ceiling is per-instance, because nothing
+hit a ceiling.
+
+**The bug it found.** `Join Scored` threw: *"4 scored cases returned for 400 sent."* Four
+batches came back — no batch lost, the index reconciliation was fine — but each carried
+**one** case instead of 100.
+
+Traced through the stored execution rather than guessed:
+
+- `When Called` (WF-T) received `cases` with **length 100**. The WF-A → WF-T boundary is fine.
+- `Join Enrichment` (WF-T) emitted **100 items**. Fine.
+- `Stamp Display Bands` emitted **1**. Everything after it — `Build Sheet Rows`,
+  `Cases -> Google Sheet`, `Return Batch Result` — inherited the 1.
+
+`Compute Case States`, `Guards` and `Adjudicate Cases` each return a single **envelope** item
+`[{ json: { cases: [...] } }]` — the WF-A idiom all three were lifted byte-identical with, and
+the reason the lift was cheap. `Adjudicate Cases` wires straight into `Stamp Display Bands`,
+which is the one node **written new for WF-T**, and it read `$input.all()` as one-item-per-case.
+Given an envelope it stamped a band on the envelope object and passed one meaningless "case"
+down the chain.
+
+**Why 11 green offline suites missed it.** `batch_equivalence_test.js` line 173 read:
+
+```js
+const banded = exec(WFT_BANDS, adj[0].json.cases.map(c => ({ json: c })), vNodes).out;
+```
+
+It unwrapped the envelope *for* the node — modelling a wiring the deployed graph does not have.
+The equivalence test was comparing batched against un-batched scoring faithfully; it was the
+*harness* that was wrong, at exactly the one seam the refactor introduced. The lesson is
+narrow and worth keeping: **the node that is newly written is the node whose input shape the
+harness is most likely to have invented.** Both arms of that test ran through nodes lifted
+byte-identical, so the only place a shape could drift was the new one, and that is where the
+fixture was hand-made.
+
+Fixed both ways: `Stamp Display Bands` now unwraps the envelope and refuses an unwrapped one
+arriving in any other shape; the test feeds `adj` directly. Against the old node the corrected
+test now fails (`Join Scored: 11 case_key(s) appeared in more than one batch`); against the
+fixed node it passes. 11/11 suites green.
+
+**Cleanup owed:** 94122 appended **4 junk rows** to the Cases tab (`gid=0`) — one per batch,
+each built from an envelope rather than a contract, under run_id `claude-cap-20260819T135328Z`.
+They should be deleted before anyone reads that queue.
+
+### Execution 94355 — the Respond fix verified, and the token died
+
+Re-fired at 14:49 with both fixes deployed. Two results:
+
+**The Respond 200 fix works.** The POST returned **HTTP 200 in 8.2 s** instead of hanging 100 s
+into a Cloudflare 524, and the stored execution confirms the mechanism: `Respond 200` ran at
+`executionIndex: 3`, two seconds in, before any sweep. One coordinate, and the caller is
+acknowledged. (One residual: the 200 carries an **empty body**. The runbook promises "200 with
+the accepted run"; the node has no `respondWith` body configured. Cosmetic for a caller that
+only checks status, wrong for one that parses it.)
+
+**The run then failed in 7 seconds because the ERP token had died.** `Sweep Active Population`
+got HTTP 401 `UNAUTHORIZED <LOGOUT>` on page 0 — the same route, same request, that had
+returned 200 at 14:41 and had walked 136 pages inside 94122 until 14:27. The token's own `exp`
+claim was 22:00 UTC, so this was an **early death from a logout elsewhere**, precisely the case
+`RUNBOOK-trigger.md` warns about and the first time it has been observed in a run.
+
+Two things worked exactly as designed and are worth recording as passes, not just as context:
+
+- The **error rail** caught it in 346 ms, built the error callback, and `Format Failure Email`
+  **threw**, so the execution reads `error`. That is the fix for run 90669 — which failed after
+  95 minutes and was recorded as SUCCESS — working on live traffic for the first time.
+- The failure cost **one ERP call**, not a 30-minute sweep, because the population walk is the
+  first thing that runs.
+
+**Method note for next time:** verify the token immediately before firing, not just at session
+start. A token that answered eight minutes ago is not evidence about a run starting now, and
+one cheap call is much cheaper than discovering it 30 minutes into a sweep.

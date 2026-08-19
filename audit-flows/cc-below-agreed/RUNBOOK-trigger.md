@@ -161,6 +161,28 @@ batches, 400 rows.
 
 Then, if it is clean, the same command with `cohort_cap` and `score_batch_size` removed.
 
+## Verify the token IMMEDIATELY before firing — not at session start
+
+Learned from execution 94355, which died 7 seconds in. Tokens die **early**, not only at
+22:00 UTC: 94355's bearer had `exp` 22:00 and was already dead at 14:49, having answered 200
+at 14:41 and walked 136 pages until 14:27. Something logged the session out elsewhere.
+
+One call settles it, and it costs nothing:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -X POST 'https://erpbackendpro.maids.cc/clientmgmt/contract/search/page?page=0&size=1&sort=&searchKey=&unAssignedClients=false&vipClients=false&vVip=false&gccClients=false' \
+  -H 'pagecode: ClientList' -H 'content-type: application/json' \
+  -H 'origin: https://erp.maids.cc' -H 'referer: https://erp.maids.cc/' \
+  -H "authorization: $ERP_BEARER" \
+  -d '{"contract":{"status":"ACTIVE","contractProspectType":{"code":"maids.cc_prospect"},"client":null,"housemaid":{"nationality":null},"contractType":null},"extraFilters":[],"flowTypeCode":null,"paymentMethod":null,"bankIds":[],"clientNationalityIds":[],"includeNullNationality":false,"emirate":null,"clientsWithMultipleContracts":false}'
+```
+
+`200` means fire. `401` means get a fresh token — the body will read `UNAUTHORIZED <LOGOUT>`,
+which is ERP's generic 401 and says nothing more specific than "not authorized right now"
+(see PROBE-RESULTS). A dead token costs one ERP call to discover here, because the population
+walk runs first — but it costs the whole run.
+
 ## Token expiry bounds when you may start
 
 ERP tokens all die at **22:00 UTC / 02:00 Dubai**, whatever time they were issued (see
