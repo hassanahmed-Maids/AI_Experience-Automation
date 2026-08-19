@@ -1,0 +1,698 @@
+<title>Dummy Tickets Refund Handover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     Palette: an audit register. Ledger ink on cool paper, viridian
+     for verified, oxide for findings, ochre for pending. Neutrals
+     carry a green-grey bias toward the accent rather than pure grey.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --paper:      #F4F6F5;
+    --card:       #FFFFFF;
+    --ink:        #16211F;
+    --ink-soft:   #475753;
+    --ink-faint:  #74847F;
+    --rule:       #D3DAD7;
+    --rule-soft:  #E6EBE8;
+    --accent:     #1E6F5C;
+    --accent-bg:  #E4EFEB;
+    --flag:       #A63A2B;
+    --flag-bg:    #F7E7E4;
+    --amber:      #8F6114;
+    --amber-bg:   #F7EEDC;
+    --shadow:     0 1px 2px rgba(22,33,31,.05), 0 8px 24px -12px rgba(22,33,31,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #101817;
+      --card:       #16211F;
+      --ink:        #E8EEEB;
+      --ink-soft:   #A3B3AE;
+      --ink-faint:  #788883;
+      --rule:       #2C3A37;
+      --rule-soft:  #212D2B;
+      --accent:     #6FBFA6;
+      --accent-bg:  #1A2E29;
+      --flag:       #E0806F;
+      --flag-bg:    #33201C;
+      --amber:      #D9A94E;
+      --amber-bg:   #302614;
+      --shadow:     0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:      #101817;
+    --card:       #16211F;
+    --ink:        #E8EEEB;
+    --ink-soft:   #A3B3AE;
+    --ink-faint:  #788883;
+    --rule:       #2C3A37;
+    --rule-soft:  #212D2B;
+    --accent:     #6FBFA6;
+    --accent-bg:  #1A2E29;
+    --flag:       #E0806F;
+    --flag-bg:    #33201C;
+    --amber:      #D9A94E;
+    --amber-bg:   #302614;
+    --shadow:     0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  /* prose measure */
+  p, ul, ol { max-width: 68ch; }
+
+  /* ── masthead ─────────────────────────────────────────── */
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .75rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-family: Spectral, Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(2.1rem, 5vw, 3.1rem);
+    line-height: 1.08;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0 0 .75rem;
+  }
+  .standfirst {
+    font-family: Spectral, Georgia, serif;
+    font-size: 1.2rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0 0 2.5rem;
+    max-width: 60ch;
+  }
+
+  /* ── document control block ────────────────────────────── */
+  .control {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    margin-bottom: 3.5rem;
+  }
+  .control-title {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .7rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: .85rem;
+    border-bottom: 1px solid var(--rule-soft);
+    margin-bottom: 1.25rem;
+  }
+  .control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1.15rem 2rem;
+  }
+  .field { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+  .field dt {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .field dd {
+    margin: 0;
+    font-size: .92rem;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: break-word;
+  }
+  .field dd a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  /* ── sections ─────────────────────────────────────────── */
+  section { margin-bottom: 3.5rem; }
+  h2 {
+    font-family: Spectral, Georgia, serif;
+    font-weight: 600;
+    font-size: 1.6rem;
+    line-height: 1.2;
+    text-wrap: balance;
+    margin: 0 0 .35rem;
+    padding-bottom: .6rem;
+    border-bottom: 2px solid var(--ink);
+  }
+  h3 {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 1.02rem;
+    letter-spacing: -.005em;
+    margin: 2rem 0 .5rem;
+  }
+  .section-note {
+    font-size: .82rem;
+    color: var(--ink-faint);
+    margin: .6rem 0 1.5rem;
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  /* ── tables ───────────────────────────────────────────── */
+  .scroll { overflow-x: auto; margin: 1.25rem 0; border: 1px solid var(--rule); border-radius: 3px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: .87rem; }
+  th, td {
+    text-align: left;
+    padding: .6rem .85rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .68rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--rule);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: "IBM Plex Mono", monospace; }
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: .86em; }
+  code { background: var(--rule-soft); padding: .1em .35em; border-radius: 2px; }
+
+  /* ── status pills ─────────────────────────────────────── */
+  .pill {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .66rem;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: .16rem .5rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .pill.ok   { background: var(--accent-bg); color: var(--accent); }
+  .pill.red  { background: var(--flag-bg);   color: var(--flag); }
+  .pill.warn { background: var(--amber-bg);  color: var(--amber); }
+
+  /* ── severity-striped notes ───────────────────────────── */
+  .note {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--ink-faint);
+    border-radius: 0 3px 3px 0;
+    padding: 1.1rem 1.25rem;
+    margin: 1.25rem 0;
+  }
+  .note > :first-child { margin-top: 0; }
+  .note > :last-child  { margin-bottom: 0; }
+  .note.red   { border-left-color: var(--flag); }
+  .note.warn  { border-left-color: var(--amber); }
+  .note.ok    { border-left-color: var(--accent); }
+  .note h4 {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: .8rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin: 0 0 .5rem;
+    color: var(--ink-soft);
+  }
+  .note p, .note ul { max-width: 64ch; }
+
+  ul { padding-left: 1.15rem; }
+  li { margin-bottom: .4rem; }
+  strong { font-weight: 600; }
+  a { color: var(--accent); }
+
+  hr.thin { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .74rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Audit Flow Factory · Handover</p>
+  <h1>Dummy Tickets Submitted for Refund — Housemaids</h1>
+  <p class="standfirst">
+    A rebuild of the live check on the CC Non Received golden rails. Two flows, published.
+    The deterministic gates and both verifier rules are built and tested; four business
+    questions are settled; six spec corrections are filed. Three things still need a human,
+    and one procedural deviation needs a decision.
+  </p>
+
+  <div class="control">
+    <p class="control-title">Document control</p>
+    <div class="control-grid">
+      <dl class="field"><dt>Check id</dt><dd class="mono">7d6e0c41-9b2a-4d6c-83f1-2a4c6e8d1f02</dd></dl>
+      <dl class="field"><dt>Spec version</dt><dd>0.4 draft (2026-08-17)</dd></dl>
+      <dl class="field"><dt>Category · module</dt><dd>CC Maid · Money Control</dd></dl>
+      <dl class="field"><dt>Check type</dt><dd>Money out · finding measured in AED</dd></dl>
+      <dl class="field"><dt>Handover date</dt><dd>2026-08-19</dd></dl>
+      <dl class="field"><dt>Scoring flow</dt><dd><span class="pill ok">published</span> <span class="mono">aTmGMAlYLwsJQ7js</span> · v <span class="mono">59fb0485</span></dd></dl>
+      <dl class="field"><dt>Enrichment sub-flow</dt><dd><span class="pill ok">published</span> <span class="mono">YQlNlxrnhbQpBbdl</span></dd></dl>
+      <dl class="field"><dt>Flow it replaces</dt><dd><span class="pill red">unpublished</span> <span class="mono">FXrhGBJUnGYgrs9R</span></dd></dl>
+      <dl class="field"><dt>Golden cloned</dt><dd>CC Non Received Monthly Payments <span class="mono">Qq473Ygj543jxPUN</span></dd></dl>
+      <dl class="field"><dt>Webhook path</dt><dd class="mono">/webhook/dummy-tickets-housemaids</dd></dl>
+      <dl class="field"><dt>Trigger</dt><dd>Manual only · no schedule · no email</dd></dl>
+      <dl class="field"><dt>Offline suite</dt><dd><span class="pill ok">67 / 67</span> mutation-tested</dd></dl>
+      <dl class="field"><dt>ERP variable rows</dt><dd>17 · all Confirmed / Verified · <strong>0 Pending Technical</strong></dd></dl>
+      <dl class="field"><dt>Result workbook</dt><dd><a href="https://docs.google.com/spreadsheets/d/172R3JzxXm1nf6Vc3qTesin7eys-jT0ng3SOxUsf3LD8">Cases · Run Summary · Verdicts</a></dd></dl>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>What this replaces, and why</h2>
+    <p>
+      The live check flagged <strong>everything that was not already refunded</strong>. Because gates
+      50, 90 and 100 did not exist in it — <code>requestRefundOn</code> was never read at all — five of
+      the seven ticket statuses that occur in production were published as red flags against named
+      applicants. A refund that simply was not due yet, a cancelled shell carrying no money, and an
+      ERP outage were all indistinguishable from a loss.
+    </p>
+    <p>
+      On the same 5-day window, measured by porting the live classifier verbatim and scoring the
+      spec's own fixtures through it:
+    </p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Same window, same population</th><th class="num">Rebuild</th><th class="num">Flow it replaces</th></tr></thead>
+        <tbody>
+          <tr><td>Red flags published</td><td class="num"><strong>4</strong></td><td class="num"><strong>~32</strong></td></tr>
+          <tr><td>— confirmed losses</td><td class="num">3</td><td class="num">3</td></tr>
+          <tr><td>— past-due or never scheduled</td><td class="num">1</td><td class="num">0 <span class="pill red">gate absent</span></td></tr>
+          <tr><td>Pending, as its own state</td><td class="num">28</td><td class="num">0 <span class="pill red">state does not exist</span></td></tr>
+          <tr><td>ERP unreachable</td><td class="num">2 → pending</td><td class="num">red, as “applicant not found”</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Test results — the spec's five cases</h2>
+    <p class="section-note">Deterministic gates run offline against the spec's fixtures. 67 of 67 assertions green.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Record</th><th>Spec expects</th><th>Produced</th><th>Gate</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Applicant <span class="mono">1508067</span>, 1 ticket</td><td>finding</td><td class="mono">financial_loss / finding</td><td class="mono">70</td><td><span class="pill ok">match</span></td></tr>
+          <tr><td>Applicant <span class="mono">1697770</span>, 2 tickets</td><td>clean</td><td class="mono">refunded / clean</td><td class="mono">60</td><td><span class="pill ok">match</span></td></tr>
+          <tr><td>Applicant <span class="mono">1846842</span>, 2 tickets</td><td>clean (explained)</td><td class="mono">refunded / clean</td><td class="mono">60</td><td><span class="pill ok">match</span></td></tr>
+          <tr><td>Applicant <span class="mono">1535511</span>, 2 tickets</td><td>pending / unresolved</td><td class="mono">awaiting_scheduled_refund / pending</td><td class="mono">50</td><td><span class="pill ok">match</span></td></tr>
+          <tr><td>Applicant <span class="mono">1473519</span>, 4 tickets</td><td>the trickiest one</td><td class="mono">financial_loss / finding</td><td class="mono">70</td><td><span class="pill ok">match</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Case <span class="mono">1473519</span> is the regression that matters: the loss sits <em>behind</em>
+      two successful refunds, and the case must still take the worst of its tickets. It does, and the
+      exposure it reports is the lost ticket alone, not the sum of the three.
+    </p>
+
+    <div class="note ok">
+      <h4>A verified finding that still reproduces live</h4>
+      <p>
+        Read directly from ERP on 2026-08-19: applicant <span class="mono">1508067</span>, ticket
+        <span class="mono">4261989</span> — <code>status REFUND_FAILED</code>,
+        <code>ticketOutcome.label "Lost"</code>, <code>amountInAED</code> matching the spec to the cent,
+        <code>refundable true</code>. The check can demonstrably produce one of its own reds.
+      </p>
+      <p>
+        That same ticket carries <code>applicantTask.label "Refund_Flight_Ticket"</code> on a confirmed
+        loss — live proof of the trap the spec warns about. Filtering the population on that field would
+        drop this very finding.
+      </p>
+    </div>
+
+    <h3>Guards proven, not merely written</h3>
+    <ul>
+      <li>The <strong>every-applicant-returns</strong> assertion caught a 68-of-93 enrichment drop on a run that still reported success.</li>
+      <li>The <strong>starved-verifier</strong> tripwire caught the model being asked to read records that had been stripped upstream.</li>
+      <li><strong>Item alignment</strong> throws if response count ≠ applicant count; it never fired — counts matched on all 25 chunks.</li>
+      <li>The <strong>exact ERP path</strong> served every applicant: <code>fallback_path 0</code> on every run.</li>
+      <li>The <strong>webhook secret</strong> rejected an empty POST with 400 before anything touched ERP.</li>
+    </ul>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Population proof</h2>
+    <p class="section-note">A complete page walk proves pagination, not population. Both are reported here.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Window</th><th class="num">Declared</th><th class="num">Pulled</th><th class="num">Pages</th><th class="num">Applicants</th><th>Independent reconciliation</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>2026-05-01 … 05 <span class="mono">(5d)</span></td>
+            <td class="num">137</td><td class="num">137</td><td class="num">1</td><td class="num">93</td>
+            <td><span class="pill ok">delta 0</span> matches the <code>transactions_processed</code> the spec records for the last production run</td>
+          </tr>
+          <tr>
+            <td>2026-06-01 … 30 <span class="mono">(30d)</span></td>
+            <td class="num">1197</td><td class="num">1197</td><td class="num">6</td><td class="num">605</td>
+            <td><span class="pill warn">none exists</span> no second count for June — declared, not silently accepted</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Filter integrity was asserted rather than assumed: <strong>137 of 137</strong> rows carried
+      <code>expense.id 492</code> / <code>FT 78</code>, and <strong>0</strong> rows had a null
+      transaction date. A dropped or wrong expense filter would audit every transaction in the window
+      with every later gate still passing, so the run aborts rather than widening.
+    </p>
+
+    <div class="note red">
+      <h4>The completeness landmine is live on this endpoint</h4>
+      <p>
+        The page envelope carries <em>both</em> keys: <code>total: ""</code> — an empty
+        <strong>string</strong> — and <code>totalElements: 137</code>, a number. This is the exact shape
+        that truncated the sibling CC sweep at 24,000 of 29,772 rows and published thousands of false
+        reds on a run that reported success.
+      </p>
+      <p>
+        The rebuild asserts on <code>totalElements</code> and aborts on any non-numeric declared total.
+        <strong>The flow it replaces asserts nothing here at all</strong>, so it is not bitten today —
+        but any future change that reads <code>total</code> would truncate silently.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Cohort request — every field, and what it measured</h2>
+    <p class="section-note">Built from the population variable row. Pulled both ways and both counts recorded, per the build procedure.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Field</th><th>Value</th><th>Why this value</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">endpoint</td><td class="mono">POST /accounting/transactions/page/advancesearchNew</td><td>Population row</td></tr>
+          <tr><td class="mono">pagecode</td><td class="mono">ManageTransactions</td><td>Population row</td></tr>
+          <tr><td class="mono">property: expense.id</td><td class="mono">= 492</td><td>The constant. <code>137</code> is the REAL-ticket expense and belongs to a different check</td></tr>
+          <tr><td class="mono">property: date</td><td class="mono">between range_start / range_end</td><td>The transaction date — never the flight, booking or refund date</td></tr>
+          <tr><td class="mono">size</td><td class="mono">200</td><td><strong>Measured, not reasoned.</strong> See below</td></tr>
+          <tr><td class="mono">pagination complete</td><td class="mono">$response.body.last === true</td><td>Capped at 50 requests</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Pulled both ways</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th class="num">size</th><th class="num">totalElements</th><th class="num">rows on page 0</th><th class="num">totalPages</th><th><code>last</code></th></tr></thead>
+        <tbody>
+          <tr><td class="num">200</td><td class="num">137</td><td class="num">137</td><td class="num">1</td><td class="mono">true</td></tr>
+          <tr><td class="num">40</td><td class="num">137</td><td class="num">40</td><td class="num">4</td><td class="mono">false</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Both sizes agree on the population; only the page count differs. This <strong>corrects two ERP
+      variable rows</strong>, which still record the envelope as capping at <code>size=40</code> and
+      instruct a four-page walk. The reference window is one page at 200.
+    </p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>What differs from the golden</h2>
+
+    <div class="note red">
+      <h4>Procedural deviation — this is not a literal clone</h4>
+      <p>
+        The build procedure says to clone the golden and <em>not</em> re-generate the webhook and
+        validation nodes, pagination, carry-forward handling, the callback nodes, the error rail,
+        verdict merging, or the AI agent's wiring — and to <strong>stop and say so</strong> rather than
+        improvise a skeleton change.
+      </p>
+      <p>
+        <code>Validate Inputs</code> <strong>is</strong> the golden's, verbatim, including the shared
+        secret, the callback-URL allowlist and the bearer shape check. Everything else in that list was
+        <strong>re-implemented rather than cloned</strong>, because the data budget forced a shape the
+        golden does not have: ~1,200 transactions and 605 applicants per month cannot be enriched inside
+        one execution, so enrichment moved into a chunked sub-workflow returning slim projections.
+      </p>
+      <p>
+        <strong>This carries exactly the regression risk the cloning rule exists to prevent.</strong>
+        Two of the bugs found during this build were in re-implemented skeleton territory. Worth an
+        explicit decision: either accept the divergence and treat these two flows as a second skeleton,
+        or fold the chunked-enrichment shape back into the shared golden so every check gets it.
+      </p>
+    </div>
+
+    <h3>Node inventory</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Part</th><th>Origin</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Validate Inputs</td><td><span class="pill ok">golden, verbatim</span></td><td>Secret · callback allowlist · bearer shape check</td></tr>
+          <tr><td>Population sweep + completeness gate</td><td><span class="pill warn">re-implemented</span></td><td>Golden's fail-closed pattern, this check's endpoint</td></tr>
+          <tr><td>Identity resolution</td><td><span class="pill warn">new</span></td><td>Description parse with detail-call fallback</td></tr>
+          <tr><td>Enrichment sub-workflow</td><td><span class="pill warn">new</span></td><td>No golden equivalent — the reason for the deviation</td></tr>
+          <tr><td>13 deterministic gates</td><td><span class="pill warn">new</span></td><td>Check-specific by design</td></tr>
+          <tr><td>Runs log, written before delivery</td><td><span class="pill warn">re-implemented</span></td><td>Golden's ordering principle</td></tr>
+          <tr><td>Callback nodes · error rail</td><td><span class="pill warn">re-implemented</span></td><td>Should have been cloned</td></tr>
+          <tr><td>Verifier agent + verdict merge</td><td><span class="pill warn">re-implemented</span></td><td>Should have been cloned</td></tr>
+          <tr><td>Workbook output</td><td><span class="pill red">added</span></td><td>Not in the spec's delivery answers — see below</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Pacing</h3>
+    <p>
+      Every per-record ERP call runs at the house limit — <strong>5 concurrent, 500 ms between
+      batches</strong> — and chunks run sequentially. The flow this replaces ran its detail sweep at
+      10 concurrent / 200 ms. Across the June run that meant roughly <strong>1,200 authenticated reads
+      with zero ERP failures</strong>, which matters given the shared account has already been disabled
+      once by an unpaced burst.
+    </p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Live runs</h2>
+    <p class="section-note">Results delivered to the workbook. Portal callbacks disabled — the portal is not yet repointed.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Run</th><th class="num">Applicants</th><th class="num">Findings</th><th class="num">Exposure AED</th><th class="num">Clean</th><th class="num">Pending</th><th class="num">Wall clock</th></tr></thead>
+        <tbody>
+          <tr><td>May 5-day</td><td class="num">93</td><td class="num">4</td><td class="num">11,517.00</td><td class="num">88</td><td class="num">1</td><td class="num">2m 40s</td></tr>
+          <tr><td>June month</td><td class="num">605</td><td class="num">7</td><td class="num">22,611.54</td><td class="num">584</td><td class="num">14</td><td class="num">8m 05s</td></tr>
+          <tr><td>June month, re-run</td><td class="num">605</td><td class="num">7</td><td class="num">22,611.54</td><td class="num">587</td><td class="num">11</td><td class="num">7m 24s</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The June run is the <strong>first month-scale run of this check ever to complete</strong> — the
+      spec records the only previous attempt dying with <code>erp_unavailable</code> HTTP 500. Twenty-five
+      sequential chunks, all successful, <code>never_returned 0</code>.
+    </p>
+    <p>
+      The two June runs produced an <strong>identical scored result</strong>. The only figures that moved
+      are the ERP-transient ones — <code>applicants_unreachable</code> 4 → 1, shifting clean and pending
+      by three. The money answer does not drift between runs; only the retry-next-run bucket does.
+    </p>
+
+    <h3>Verifier</h3>
+    <p>
+      Both verifier rules are built. Enforcement lives in <code>Merge Verdicts</code>, not the prompt:
+      only <code>EXPLAINED</code> or <code>CLAIMED_OFF_ERP</code> <em>with a quoted sentence</em> may move
+      a ticket, a claimed off-ERP refund downgrades to <strong>pending</strong> and keeps the amount as a
+      claim rather than writing it off, and everything else leaves the gates' verdict standing.
+      <strong>There is no path by which a confirmed loss becomes clean.</strong>
+    </p>
+    <p>
+      On the June run all 7 findings were adjudicated, every one had a written record, every one returned
+      <code>NO_CLAIM</code>, and every finding stood.
+    </p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Settled by the spec owner</h2>
+    <p class="section-note">Each default is a ruling. Each is overridable in <code>params</code> only so an alternative can be measured.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Question</th><th>Ruling</th><th>Measured effect</th></tr></thead>
+        <tbody>
+          <tr><td>Blank refund schedule, money still out</td><td><strong>Flag it</strong></td><td>1 red in 93 applicants — not noisy. Without it a forgotten refund is permanently invisible to this check</td></tr>
+          <tr><td>Zero-amount sibling beside recovered money</td><td><strong>Clean</strong></td><td>151 cases in June read clean that were previously pending</td></tr>
+          <tr><td>Repeat-booking threshold</td><td><strong>2</strong>, “for now”</td><td>281 booking reviews against 7 findings</td></tr>
+          <tr><td>Scope</td><td><strong>Applicants only</strong></td><td>1 housemaid charge listed as out of scope, no case created</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note warn">
+      <h4>The threshold was ruled on the 5-day number</h4>
+      <p>
+        At month scale, threshold 2 sends <strong>281 cases for a booking-pattern review against 7 actual
+        findings</strong> — 40 reviews per finding. The spread on the same population: <span class="mono">3
+        → 160 · 4 → 81 · 5 → 44 · 6 → 18 · 8 → 5</span>.
+      </p>
+      <p>
+        Nothing on the money side changes at any threshold — findings stay at 7 and exposure at
+        AED 22,611.54. It is purely review load, and it is one parameter.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Declared gaps</h2>
+    <p class="section-note">Each travels with every run in <code>record.declared_gaps</code>. A quietly absorbed gap is worse than a loud one.</p>
+
+    <div class="note warn">
+      <h4>Verifier rule 1 has never been exercised on live data</h4>
+      <p>
+        No dummy ticket with outcome <code>Used</code> has appeared in any window run — not in 93
+        applicants, not in 605. The flown-on path is covered offline only. <strong>Do not record it as
+        validated.</strong>
+      </p>
+    </div>
+
+    <div class="note warn">
+      <h4>Gate 100's date-based half has never fired</h4>
+      <p>
+        It fires only through the blank-schedule ruling. No ticket past a real <code>requestRefundOn</code>
+        plus 30 days has been observed in any run, consistent with the spec's own measurement that the
+        auto-refund scheduler is 100% on time. Keep the gate as the guard for the day that stops being
+        true; do not mark that half validated. <code>DoNotRequestRefund</code> has also never been
+        observed on a DUMMY ticket.
+      </p>
+    </div>
+
+    <div class="note warn">
+      <h4>Charges that cannot become cases</h4>
+      <p>
+        June produced <strong>15</strong> charges carrying no applicant id in the description and none on
+        the transaction detail. They cannot be applicant-scoped cases — one case is one applicant — so
+        they are listed in the workbook as <code>needs_attribution</code> with their transaction ids, and
+        are <strong>not adjudicated and not counted in any verdict total</strong>. They need manual
+        attribution. May produced none, which is why this only surfaced at month scale.
+      </p>
+    </div>
+
+    <div class="note red">
+      <h4>The workbook is a deviation from the spec</h4>
+      <p>
+        The spec's <em>Where do the results go?</em> has portal and runs log ticked and
+        <strong>Workbook unticked</strong>, and this check is marked <em>Handles sensitive data = YES</em>.
+        The workbook was added on request.
+      </p>
+      <p>
+        Mitigated by writing identifiers and amounts only. <strong>Deliberately excluded from every
+        tab:</strong> applicant names, passport numbers, and card-holder or staff names. Passport numbers
+        are also stripped before anything reaches the model. A Sheet is far easier to forward than a
+        portal case, so <strong>who the file is shared with is a live decision</strong>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Spec corrections filed</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Row / claim</th><th>Correction</th></tr></thead>
+        <tbody>
+          <tr><td>Envelope caps at <code>size=40</code>, walk 4 pages</td><td><code>size=200</code> is honoured; the reference window is <strong>1 page</strong></td></tr>
+          <tr><td>Identity requires the per-transaction detail call</td><td><strong>136 of 137</strong> rows carry the applicant id in the description, matching the authoritative source on <strong>6 of 6</strong> sampled rows. Detail calls drop from 137 to 1</td></tr>
+          <tr><td>Allowed values for the auto-refund type</td><td><code>Immediately</code> is a fourth value — <strong>229 occurrences</strong> in June — absent from the list</td></tr>
+          <tr><td><code>currency.label</code> vs its example <code>{"name": "AED"}</code></td><td>The parameter name is right; the example is wrong. Keys are <code>[id, label, code]</code></td></tr>
+          <tr><td>The plural <code>applicants</code> array is on the ticket payload too</td><td>It is not. The <code>FLIGHT_TICKTE</code> payload has only <code>changesHistory</code> and <code>flightsTickets</code></td></tr>
+          <tr><td>Call budget ≈ 460 for a 5-day window</td><td>≈ <strong>96</strong> after the description-parse win; the budget also omitted a whole per-case pass</td></tr>
+          <tr><td>“One ticket decides the case” is a production defect</td><td>Not borne out — the live flow already ranks worst-first and picks the failed-refund ticket correctly. The real defect is the three missing gates</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The blocker in the spec's own red callout — <em>“the live n8n flow body could NOT be read”</em> — was
+      not a project-permission problem. Both flows were simply not exposed to MCP; one toggle made them
+      readable, which is how the behavioural comparison in this document was measured rather than inferred.
+    </p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <section>
+    <h2>What still needs a human</h2>
+
+    <div class="note red">
+      <h4>1 · Re-verify on the operator's own ERP identity</h4>
+      <p>
+        Every measurement in this document was taken on a bearer token whose <code>user</code> claim is
+        <strong>not</strong> the operator's, at the owner's explicit instruction. ERP logs every read under
+        the token's identity, so findings would attribute to someone who did not produce them — and where
+        that person also reviews the cases, it makes the reviewer the actor in their own evidence.
+      </p>
+      <p>
+        <strong>Nothing here should be marked <em>Technical Validated</em> until it is re-run under the
+        identity that will own the findings.</strong> Set the n8n workflow variable
+        <code>ERP_BEARER</code>; the flow holds no ERP credential of its own and fails with a clear message
+        rather than silently borrowing one.
+      </p>
+    </div>
+
+    <div class="note warn">
+      <h4>2 · Repoint the portal</h4>
+      <p>
+        Publishing did not cut over. The portal calls the old flow's path; this one answers on
+        <code>/webhook/dummy-tickets-housemaids</code>. The old flow is now unpublished, so
+        <strong>the check is offline for the portal until it is repointed</strong> — which also finally
+        closes that flow's unauthenticated-webhook exposure.
+      </p>
+    </div>
+
+    <div class="note warn">
+      <h4>3 · Sign-off before findings reach reviewers</h4>
+      <p>
+        <code>Test cases verified</code>, <code>Business Validated</code> and
+        <code>Technical Validated</code> are still unticked on the spec. The spec's own answer to
+        <em>independent review</em> is <strong>no</strong> — on the grounds that the Security Room reviewer
+        working each case is the second pair of eyes — so that reviewer is the control, and it only holds
+        once the portal is repointed and cases actually reach them.
+      </p>
+    </div>
+
+    <p>
+      Also open, and lower stakes: the <strong>repeat-booking threshold</strong> deserves a second look
+      against the month-scale number, and the <strong>skeleton divergence</strong> above needs a decision
+      about whether the chunked-enrichment shape folds back into the shared golden.
+    </p>
+  </section>
+
+  <footer>
+    Handover prepared 2026-08-19 · check_id 7d6e0c41-9b2a-4d6c-83f1-2a4c6e8d1f02 · spec v0.4 draft<br>
+    Working files, offline suite and the full correction log: <span class="mono">audit/dummy-tickets-housemaids/</span> on branch <span class="mono">claude/erp-audit-flow-builder-ts2qys</span><br>
+    Counts, totals and flags only. Per-case detail lives in the workbook and the portal case store.
+  </footer>
+
+</div>
