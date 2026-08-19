@@ -76,3 +76,47 @@ secret. Two ways round it:
 ERP tokens all die at **22:00 UTC / 02:00 Dubai**, whatever time they were issued (see
 `docs/code-llm-api.md`). A ~45-minute run started after ~21:15 UTC loses its bearer
 mid-flight and every remaining ERP call 401s. Don't start one in that last hour.
+
+---
+
+## Rotating the webhook shared secret into a credential
+
+**Status: not closable by me.** The n8n MCP can neither create a credential nor attach one
+to a node — verified against the whole tool surface 2026-08-19. Two `httpHeaderAuth`
+credentials already exist in Hassan's personal project (`Header Auth account 2` and
+`account 5`), but their values are redacted by the API, so binding one blind would either
+reject every real call from the portal or "harden" the trigger with a value nobody has
+checked. Both are worse than leaving it. So the credential is a UI action.
+
+What *is* done: `Validate Inputs` now accepts a **set** of named secret slots instead of one
+literal, and logs which slot matched (never the value). That removes the trap — with a single
+literal there was no ordering that avoided an outage, because changing the portal first makes
+the flow reject everything and changing the flow first makes the portal's old value reject.
+
+### The sequence
+
+1. **Add the new secret alongside the old.** In `nodes/Validate_Inputs.js`, uncomment the
+   `rotating` slot and put a fresh random value in it (32+ chars). Deploy and **publish** —
+   both secrets are now accepted, and nothing has broken.
+2. **Create the credential.** n8n → Credentials → new **Header Auth**, name it
+   `SR Webhook - CC Below Agreed`, header name `X-SR-Webhook-Secret`, value = the new secret
+   from step 1.
+3. **Bind it to the Webhook node.** WF-A (`uJ8UVNKdN2s5PHHA`) → the `Webhook` node →
+   Authentication → **Header Auth** → the credential from step 2. Publish. n8n now rejects
+   unauthenticated callers before the workflow runs; the in-flow check stays as a second
+   layer.
+4. **Switch the portal.** Update `SR_WEBHOOK_SECRET` to the new value.
+5. **Verify on live traffic, do not assume.** Trigger a run and read the `validate_inputs`
+   log line: `secret_slot_matched` must read `rotating`. If it still reads `live`, the portal
+   change has not taken effect and step 6 would break the trigger.
+6. **Remove the `live` slot** from the array and publish. The old secret is now dead.
+
+Do **not** compress steps 1 and 6 into one change — that is exactly the outage the set
+exists to prevent.
+
+### What this does and does not buy
+
+It stops the secret being readable by anyone with project access, and it moves rejection to
+n8n's edge. It does **not** make the secret confidential against an insider on the portal
+side, and it is not a substitute for the `callback_url` allowlist — that allowlist, not the
+secret, is what stops an authenticated caller having the audit couriered to their own host.
