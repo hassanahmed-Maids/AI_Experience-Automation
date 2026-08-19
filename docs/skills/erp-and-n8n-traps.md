@@ -171,6 +171,28 @@ required" note came from reading `CurrentRequest.getSource()`, which is a differ
 from the gateway check that actually rejects the call — a good example of why **[SOURCE-ONLY]**
 findings need a probe before they go in a spec.
 
+### `POST /clientmgmt/contract/search/page` — IT WILL 503 THE WHOLE MODULE IF YOU SWEEP IT HARD
+
+**[LIVE-PROVEN 2026-08-19, the expensive way.]** A sweep of ~116 requests at `size=500`, 5
+concurrent with 500 ms between batches, took the **entire clientmgmt module** to
+**HTTP 503 Service Temporarily Unavailable** — nginx-level, not an application error. Afterwards
+even `page=0&size=1` 503'd, and `get-client-details` 503'd too, while `/accounting/*` stayed
+healthy. The module had been probed healthily minutes earlier, `size=500` pages included.
+
+**Call count is not load.** ~58 calls per cohort reads as cheap and is not: each `size=500`
+response carries 500 nested contract records, and two cohorts were swept five at a time. That is
+far heavier than any human ERP session. The spec's "never sweep at width" warning is written
+about the payments endpoint — **carry it over to this one.**
+
+So when sweeping the population on production: **serial or at most 2 concurrent, `size` 40–100,
+longer intervals.** More calls, survivable load. And **put a circuit breaker on the first 5xx** —
+a sweep that keeps firing ~100 more requests into an already-failing module, and only notices at
+the reconcile step afterwards, makes the outage worse than the bug.
+
+The one thing that saved it: the population guard reconciled the short sweep and **aborted rather
+than scoring a partial population**, so the run produced no false clearances. Build that guard
+before you build the sweep.
+
 ### `POST /accounting/payments/page/advancesearch`
 
 Its pagination envelope is **honest**, unlike contract search. But a second trap fires here:
