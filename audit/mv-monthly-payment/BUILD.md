@@ -53,9 +53,21 @@ row. Writes one Runs row, reads it back, and throws if it did not persist. Emits
 totals only** — per-entity amounts and identifiers stay in the case store, and no names, contact
 details or salary components leave the check.
 
+## Proven end to end 2026-08-19
+
+The full chain has run live and correctly: population union -> scoring -> verification -> delivery.
+Two gentle sweeps of the whole 45,519-contract population, no 503, module healthy before, during
+and after both. The first PIL-ready finding is on record (contract 1074171, June 2026, AED 2,405,
+no staff explanation, no chase in 106 days).
+
+Re-verify without re-sweeping: POST `{ runId, bearer, token, device }` to
+`mv-monthly-payment-verify`. 2 ERP calls per finding instead of ~464.
+
 ## Not done yet — read this before running anything for real
 
-1. **No live run has happened.** Offline is 140/140, but the flow has never executed. The next step
+1. ~~No live run has happened.~~ **Targeted runs done.** A FULL run (all ~23,000 in-scope
+   contracts) has still not been attempted; extrapolated cost ~4 hours.
+   Original note: Offline is 140/140, but the flow has never executed. The next step
    is a small `limit` run, output read back, then a full run — and a real run needs sign-off.
 2. ~~Stage 2 is serial~~ **DONE.** Stage 2 is now item-parallel at 5 concurrent, so a full run is
    ~4 hours rather than ~20. Note the deliberate asymmetry with Stage 0: Stage 2 drops the loop to
