@@ -777,3 +777,87 @@ with no `cases` array, and reports a missing `Join Enrichment` rather than passi
 Every pre-existing suite still passes unchanged: `harness` 13/13, `wf-e/offline/enrich_test`
 39/39, `gate2_payments_test` 8/8, `gate2_test` 10/10, `attach_payments_test` 6/6,
 `cohort_test`.
+
+## 19. Execution 93346 — the furthest a run has ever got, and where it died
+
+First run through the published chain, triggered by webhook 2026-08-19 08:58:08Z with
+Hassan's own token. **Crashed at 09:39:36Z, 41.5 minutes in, 26 seconds after the last
+enrichment chunk returned.** Every stage that has killed a previous run passed.
+
+### The measured timeline — every figure below is observed, not projected
+
+| phase | measured | previously |
+|---|---|---|
+| population + terminated paged walks | **16.0 min** | I estimated 11-14 for the population alone, and had not counted the terminated walk, which runs in the same branch queue |
+| WF-P × 3 payment windows | **9 s total** (1.6-1.9 s each) | ~11 s yesterday |
+| WF-S status sweep | **7 min 51 s** | 7 min 34 s yesterday — reproducible under load |
+| gate 2 + Build Cohort + Attach Month Payments + Chunk Candidates | **10.0 min** | never measured; no run had reached it |
+| WF-E × 8 enrichment chunks | **7.0 min** (56-57 s each, final partial chunk 27 s) | I estimated ~26 min — the per-chunk cost was 3x pessimistic |
+| Join Enrichment → scorer | **26 s, then crashed** | — |
+| **total** | **41.5 min** | ~46 min projected |
+
+Eight chunks of 750 with a 382-candidate tail confirms **~5,632 candidates**, exactly the
+figure §15 derived from the July payment rows.
+
+### What chunk 0 proves about the enrichment (from its returned deltas)
+
+| | |
+|---|---|
+| candidates / deltas returned | 750 / 750 — nothing lost, so the join had a complete set |
+| plan fetch failures | **0** |
+| expected rate readable | **750 / 750 (100%)** |
+| monthly schedule date parsed | **750 / 750 (100%)** — the gate-35 parser reads live prose at full coverage |
+| gate 35 would fire | **0 of 750** — the narrow carve-out §18 predicted, confirmed on live data |
+| carrying a discount | 52 (6.9%) |
+
+### Where it died, and what that costs to fix
+
+The crash sits between `Join Enrichment` and the scorer. That is the retention term §16
+explicitly left in place: the assembled cases. `Join Enrichment` holds ~5,632 full cases,
+`Merge Streams` holds them again, `Compute Case States` a third time, then `Guards`,
+`Adjudicate Cases` and `Build Case Payload`. At ~2.5 KB per assembled case that is ~14 MB
+**per retained node output**, six times over, on top of the ~25 MB of staged sweeps and
+~10 MB of population and terminated rows still resident.
+
+So the ~73 MB projection in §16 was too low, and the reason is structural rather than a
+mis-measurement: staging removed the raw bodies but the case objects were never the thing
+being staged, and there are six copies of them at the end of the flow instead of four.
+
+### A hypothesis worth testing before the next run, NOT a conclusion
+
+**The memory ceiling may be per-INSTANCE, not per-execution.** Two other audits were live
+in the same n8n instance during this run: `CC Price by Cohort · 2-Enrich+Score` ran
+09:10:39-09:30:17 (success) and its follow-on chained at 09:30:17 and **crashed two seconds
+later**, nine minutes before this run died. If n8n workers share a heap, every concurrent
+execution's retained data counts against the same budget, and this entire retention analysis
+has been reasoning about WF-A in isolation.
+
+Evidence for: two crashes in one instance inside ten minutes, both in flows carrying large
+row sets. Evidence against: the price-by-cohort crash came 2 s after its start, which looks
+more like its own failure than a shared ceiling. **Not settled.** The cheap test is to re-run
+this check when nothing else is executing and compare.
+
+### The fix list, in the order that buys the most
+
+1. **Batch the scoring tail.** The cohort does not need to reach the scorer in one item set.
+   Splitting it into batches of ~1,500 through score → guards → adjudicate → sheet-write
+   holds a quarter of the cases at a time and removes the six-copy peak entirely. This is the
+   same medicine as the sweeps and the enrichment, applied to the last unstaged stage.
+2. **Stage the population sweep** (9.2 MB, the only sweep still inline).
+3. **Run it alone** and see whether concurrency was a factor.
+4. Fix a defect this run exposed: **`_replacement_permission_denied` counted 0** while all
+   750 replacement reads failed. The detector tests `resp.status === '401'` and an `error`
+   string, and n8n's `continueRegularOutput` clearly hands back a different shape. Verdicts
+   are unaffected — coverage is degraded either way, as declared — but the counter exists so
+   a permission grant shows up as it falling to zero, and today it cannot.
+
+### What this run settled that no amount of offline testing could
+
+- The staged sweeps work under production load, reproducibly.
+- Gate 2 reconciled a real cohort and let the run through.
+- `Attach Month Payments` collapsed three months of real payments without dying.
+- The enrichment chunking works, returns complete delta sets, and is 3x faster than modelled.
+- The gate-35 parser reads live plan prose at 100% coverage and fires on nobody in a normal
+  month — so it is a carve-out, not a filter over the book.
+
+The circularity tripwire never got to run: it lives in `Guards`, downstream of the crash.
