@@ -112,7 +112,7 @@ after 4 hours in practice (`DEVIATIONS.md` F15). Run it as consecutive slices sh
 ```
 POST /clientmgmt/contract/search/page?page=0&size=1  (pagecode: ClientList)
   200 + numeric .total   → healthy, go
-  5xx + body status 498  → token is dead, get a fresh one (its own exp claim means nothing)
+  5xx + body status 498  → ERP session not active; log back in or get a fresh token (exp means nothing)
   503                    → module unavailable, wait, do not re-token
 ```
 
@@ -133,7 +133,7 @@ boundary it actually used.
 
 `offset` and `contractIds` are mutually exclusive: a targeted run is already a slice.
 
-**If a slice trips the breaker**, the message names the action (`ERP_TOKEN_DEAD` → re-token;
+**If a slice trips the breaker**, the message names the action (`ERP_SESSION_INACTIVE` → log back in or re-token;
 `ERP_MODULE_UNAVAILABLE` → wait and confirm health; `ERP_ACCESS_DENIED` → report the gap). Restart
 that same slice — its already-written cases carry the same `run_id` and `case_key`, so a re-run
 duplicates rows for the retried chunk rather than losing them. Deduplicate on `case_key` when

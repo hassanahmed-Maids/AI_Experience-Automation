@@ -28,8 +28,12 @@ function trip({ scored, persisted, det, led }) {
   if (scored.length > 0 && persisted === 0) {
     return { code: 'CASE_ROWS_LOST', message: 'scored ' + scored.length + ' and none reached the Cases table' };
   }
+  // SESSION_INACTIVE, not "token dead": the same JWT starts working again the moment the operator
+  // logs back in (proven 2026-08-19 - an identical token went 498 <LOGOUT> then 200 within hours).
+  // Still trips on the FIRST read, because grinding through a slice with no live session is pure
+  // waste, but the operator's action is "log back in or re-token", not "discard this token".
   const dead = det.tokenDead + led.tokenDead;
-  if (dead > 0) return { code: 'ERP_TOKEN_DEAD', message: dead + ' read(s) returned the 498-inside-5xx shape' };
+  if (dead > 0) return { code: 'ERP_SESSION_INACTIVE', message: dead + ' read(s) returned the 498-inside-5xx shape' };
 
   const down = det.unavailable + led.unavailable;
   if (down >= 3) return { code: 'ERP_MODULE_UNAVAILABLE', message: down + ' read(s) came back 5xx-unavailable' };
@@ -47,14 +51,15 @@ function trip({ scored, persisted, det, led }) {
 module.exports = { classify, trip };
 
 // Offline mirror of Stage 1's "Check Access And Plan Cohorts" denial advice (n8n IKRXhIco1mwxrcPq).
-// This is the FIRST thing an operator reads when a run refuses to start, so the three shapes have
-// to be named correctly: waiting on a dead token waits forever, and re-tokening a 503 does nothing.
+// This is the FIRST thing an operator reads when a run refuses to start, so the shapes have to be
+// named correctly: re-tokening a 503 does nothing, and a 498 <LOGOUT> is a session that is not
+// active rather than a token that must be thrown away.
 function denialAdvice(status, body) {
   const txt = typeof body === 'string' ? body : JSON.stringify(body || '');
   if (status === 401) return 'ACCESS_DENIED';
   if (status === 503) return 'MODULE_UNAVAILABLE';
   if (status && status >= 500) {
-    if (/498|malformed|Access Token/i.test(txt)) return 'TOKEN_DEAD';
+    if (/498|malformed|Access Token/i.test(txt)) return 'SESSION_INACTIVE';
     if (/SecurityException/.test(txt)) return 'EXECUTOR_UNAUTHORISED';
     return 'SERVER_FAULT';
   }

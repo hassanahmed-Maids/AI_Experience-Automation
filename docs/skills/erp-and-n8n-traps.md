@@ -110,11 +110,17 @@ HTTP 500
 The `<LOGOUT>` marker means the *server-side session* was terminated: the operator logged out, or
 the device session was invalidated. The module was healthy throughout (sub-second responses).
 
-So: **never plan a long run against `exp`.** Health-check the actual surface immediately before
-starting, and treat the response **body** as the authority — not the status code, and not the
-token's own claims. Any run longer than an hour or two must be **resumable** (slice it, and let
-slices share one run id), because the token will die mid-flight sooner or later. Budget on
-observed lifetime — assume ~4 hours, not what `exp` says.
+**This is recoverable, and that matters.** Twelve minutes later the byte-identical token returned
+HTTP 200 — the operator had logged back in, reviving the session behind the same JWT. So do **not**
+tell the operator their token is dead and must be replaced. Say the **ERP session is not active**,
+and that logging back in restores it *or* they can supply a fresh token. Getting this message wrong
+sends them to the wrong remedy half the time.
+
+So: **never plan a long run against `exp`.** It is uninformative in both directions — the same `exp`
+spanned a window where the token was dead and then alive again. Health-check the actual surface
+immediately before starting, and treat the response **body** as the only authority on whether a read
+will succeed right now. Any run longer than an hour or two must be **resumable** (slice it, and let
+slices share one run id), because the session will drop out mid-flight sooner or later.
 
 ### The denial shapes, with their real discriminators **[LIVE-PROVEN 2026-08-19]**
 

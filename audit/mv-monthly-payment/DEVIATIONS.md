@@ -335,7 +335,7 @@ Both surfaces are now **3 concurrent / 750 ms**, and Stage 2's `Chunk Summary` i
 
 | trip | threshold | why that threshold |
 |---|---|---|
-| `ERP_TOKEN_DEAD` | **one** read | a dead token cannot recover; every further call is waste |
+| `ERP_SESSION_INACTIVE` | **one** read | a slice with no live session cannot read anything |
 | `ERP_MODULE_UNAVAILABLE` | 3 reads 5xx-unavailable | one blip must not kill a 5-hour run |
 | `ERP_ACCESS_DENIED` | 3 reads 401/403 | an access gap is a finding to report, not to route around |
 | `ERP_SURFACE_STORM` | ≥40% of a chunk unreadable | backstop for failure shapes the status codes miss |
@@ -346,7 +346,7 @@ chunk (≤25 contracts) of wasted calls. Mirrored offline in `breaker.js` with 3
 
 **Recorded as a build note, not a spec defect.** The spec's pacing ceiling is a ceiling, not a target.
 
-### F15. The ERP token dies before its own `exp` claim, and the JWT lies about it
+### F15. The ERP *session* dies independently of the token, and `exp` tells you nothing either way
 Probed 2026-08-19T11:33Z. The run token's JWT `exp` was 22:00Z — **10.4 hours of headroom by its own
 claim**. Every request was already returning:
 
@@ -359,15 +359,25 @@ The `<LOGOUT>` marker is the tell: the server-side session was terminated (opera
 the device session was invalidated) roughly 4 hours after the token was issued. The module itself was
 healthy — sub-second responses throughout.
 
+**Then, at 11:45Z, the byte-identical token returned HTTP 200 with `total: 22870`.** The operator had
+logged back in, which revived the session behind the same JWT. So this shape is *not* proof the token
+must be replaced — it means **the session is not currently active**, which is a different and
+recoverable condition. The first version of the breaker said "retrying with the same token cannot
+succeed", which is simply false; the trip is now `ERP_SESSION_INACTIVE` and tells the operator to
+restore the session **or** supply a fresh token. It still fires on the first occurrence, because a
+slice with no live session cannot read anything.
+
 Two consequences:
 
-1. **Never plan a run against the JWT's `exp`.** It is an upper bound the server does not honour.
-   Health-check the actual surface immediately before a long run, and treat the response body — not
-   the status code, and not the token's own claims — as the authority on whether the token is alive.
+1. **Never plan a run against the JWT's `exp`.** It is an upper bound the server does not honour, and
+   it is uninformative in both directions — the same `exp` covered a window in which the token was
+   dead, then alive again. Health-check the actual surface immediately before a long run, and treat
+   the response **body** as the only authority on whether a read will succeed right now.
 2. A long run must be **resumable**, because the token will die mid-flight sooner or later. Stage 1
    now takes `offset` and an optional `runId`, so the population is covered as consecutive slices by
    ascending `contractId` under one run id. A slice is always flagged `populationSample` and Stage 3
    declares the month partial — the slices being complete together is a fact about the operator's
    sequence, not something a single execution can assert.
 
-**File against:** nothing in the spec — the spec assumes a token is valid until it expires.
+**File against:** nothing in the spec — the spec assumes a token is valid until it expires, and
+conflates the token's validity with the session's.
