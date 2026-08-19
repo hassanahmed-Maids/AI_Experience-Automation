@@ -86,12 +86,17 @@ console.log('\n=== THE FIVE SPEC TEST CASES ===\n');
       ],
     },
   });
+  // Pre-collected, so auditing 2025-04 tests 2025-03. The spec records March as "the
+  // identical shape" — another settled replacement chain — so both months are supplied.
   const rows = [
+    pay(7711063, 'monthly_payment', 'BOUNCED', 2568.0, '2025-03-01', true),
+    pay(10168142, 'monthly_payment', 'RECEIVED', 2568.0, '2025-03-01'),
     pay(7711064, 'monthly_payment', 'BOUNCED', 2568.0, '2025-04-01', true),
     pay(10168143, 'monthly_payment', 'RECEIVED', 2568.0, '2025-04-01'),
   ];
   const r = S.scoreContractMonth({ auditedMonth: '2025-04', contract: c, payments: rows });
   check('case 2 · 1053569 · 2025-04 → clean', r.verdict, S.VERDICT.CLEAN);
+  check('case 2 · pre-collected shifts the month under test to 2025-03', r.monthUnderTest, '2025-03');
   check('case 2 · concluded at gate 7 (chain)', r.gate, '7');
   check('case 2 · null split → expectation unknown, not zero', r.expected, null);
   check('case 2 · advance sums RECEIVED only (2400, not 4800)', r.advanceReceived, 2400);
@@ -119,10 +124,18 @@ console.log('\n=== THE FIVE SPEC TEST CASES ===\n');
     pay(16337703, 'same_day_recruitment_fee', 'DELETED', 8925.0, '2026-06-26'),
     pay(16337704, 'same_day_recruitment_fee', 'RECEIVED', 0.0, '2026-06-26'),
   ];
+  // Under the owner's ruling this contract is pre-collected, so auditing 2026-06 tests
+  // 2026-05 — before the 26 Jun start. Correctly raises no case rather than a red.
   const r = S.scoreContractMonth({ auditedMonth: '2026-06', contract: c, payments: june });
-  check('case 3 · 1099709 · 2026-06 → clean', r.verdict, S.VERDICT.CLEAN);
-  check('case 3 · June sums to 168, not 1743', r.received, 168);
-  check('case 3 · recognised as the first partial month', r.isStartMonth, true);
+  check('case 3 · 1099709 · 2026-06 raises no finding', r.verdict, S.VERDICT.INCONCLUSIVE);
+  check('case 3 · month under test shifted to 2026-05', r.monthUnderTest, '2026-05');
+  check('case 3 · excluded because it precedes contract start', r.gate, '2');
+
+  // Auditing JULY tests June — the month the spec's case is really about.
+  const julyAudit = S.scoreContractMonth({ auditedMonth: '2026-07', contract: c, payments: june });
+  check('case 3 · auditing July tests June and is clean', julyAudit.verdict, S.VERDICT.CLEAN);
+  check('case 3 · June sums to 168, not 1743', julyAudit.received, 168);
+  check('case 3 · June recognised as the first partial month', julyAudit.isStartMonth, true);
 }
 
 // Case 4 · 1029517 · Apr 2026 → clean. Three DELETED rows at 1,668 / 1,743 / 1,743 sit in
@@ -157,20 +170,22 @@ console.log('\n=== THE FIVE SPEC TEST CASES ===\n');
       ],
     },
   });
-  const july = S.scoreContractMonth({
-    auditedMonth: '2026-07', contract: c,
+  // Pre-collected, so an AUGUST audit is what tests July's full 1,638.
+  const augAudit = S.scoreContractMonth({
+    auditedMonth: '2026-08', contract: c,
     payments: [pay(16337774, 'monthly_payment', 'RECEIVED', 1638.0, '2026-07-01')],
   });
-  check('case 5 · 1099709 · 2026-07 → clean at full amount', july.verdict, S.VERDICT.CLEAN);
-  check('case 5 · July expected 1638', july.expected, 1638);
+  check('case 5 · auditing Aug tests July → clean at full amount', augAudit.verdict, S.VERDICT.CLEAN);
+  check('case 5 · July expected 1638', augAudit.expected, 1638);
+  check('case 5 · month under test is 2026-07', augAudit.monthUnderTest, '2026-07');
 
-  // The trap itself: June must NOT be scored against 1,638.
-  const juneOnly = S.scoreContractMonth({
-    auditedMonth: '2026-06', contract: c,
+  // The trap itself: June must NOT be scored against 1,638. A July audit tests June.
+  const juneViaJuly = S.scoreContractMonth({
+    auditedMonth: '2026-07', contract: c,
     payments: [pay(16355526, 'monthly_payment', 'RECEIVED', 168.0, '2026-06-26')],
   });
-  check('case 5 · June does NOT invent a 1470 shortfall', juneOnly.verdict, S.VERDICT.CLEAN);
-  check('case 5 · June raises no amount-mismatch red', juneOnly.redFlagType, undefined);
+  check('case 5 · June does NOT invent a 1470 shortfall', juneViaJuly.verdict, S.VERDICT.CLEAN);
+  check('case 5 · June raises no amount-mismatch red', juneViaJuly.redFlagType, undefined);
 }
 
 console.log('\n=== THE TWO CONFIRMED REDS (2026-08-17) ===\n');
@@ -212,7 +227,7 @@ console.log('\n=== THE TWO CONFIRMED REDS (2026-08-17) ===\n');
 // SUPPRESSES a verified red.
 {
   const r = S.scoreContractMonth({
-    auditedMonth: '2026-06',
+    auditedMonth: '2026-07',
     contract: mv(1074171, 292538, '2025-09-01 08:02:22', plan(2100.0, 305.0, 2405.0, {
       paymentPlan: { additionalDiscount: '', creditNoteDiscount: 'Credit Note Amount: 0 applied on 2-year visa' },
     }), {
@@ -225,15 +240,35 @@ console.log('\n=== THE TWO CONFIRMED REDS (2026-08-17) ===\n');
       },
     }),
     payments: [
+      pay(12200570, 'monthly_payment', 'RECEIVED', 2405.0, '2026-05-01'),
       pay(12200576, 'monthly_payment', 'BOUNCED', 2405.0, '2026-06-01', false),
       pay(16942408, 'monthly_payment', 'RECEIVED', 2405.0, '2026-07-01'),
     ],
   });
-  check('red 2 · 1074171 · 2026-06 → finding, NOT suppressed', r.verdict, S.VERDICT.RED);
+  check('red 2 · 1074171 · found auditing 2026-07 → finding', r.verdict, S.VERDICT.RED);
+  check('red 2 · the month under test is 2026-06', r.monthUnderTest, '2026-06');
   check('red 2 · pre-collected gets the previous-month label', r.redFlagType, S.RED_TYPE.MISSING_PREV);
   check('red 2 · concluded at gate 8, not gate 4', r.gate, '8');
   check('red 2 · gap is the full 2405', r.gap, 2405);
-  check('red 2 · a zero credit note is not relief', r.verdict, S.VERDICT.RED);
+
+  // THE INTERACTION THAT WOULD SUPPRESS IT: the contract terminated 2026-06-14, so the AUDITED
+  // month (July) is past termination. Gate 2 must bound the SHIFTED month, or this red vanishes.
+  check('red 2 · survives despite the audited month being past termination', r.gate, '8');
+
+  // And auditing June tests May, which was paid — so June correctly says nothing.
+  const juneAudit = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1074171, 292538, '2025-09-01 08:02:22', plan(2100.0, 305.0, 2405.0), {
+      dateOfTermination: '2026-06-14 23:03:55',
+      preCollectedInfo: { isPreCollectedSalary: true, currentPreCollectedPayments: [
+        { amount: 'AED 2,405', preCollectedPaymentDate: '01 Oct 2025', status: 'RECEIVED', paymentType: 'Monthly Payment' }] },
+    }),
+    payments: [
+      pay(12200570, 'monthly_payment', 'RECEIVED', 2405.0, '2026-05-01'),
+      pay(12200576, 'monthly_payment', 'BOUNCED', 2405.0, '2026-06-01', false),
+    ],
+  });
+  check('red 2 · auditing June tests May, which was paid → clean', juneAudit.verdict, S.VERDICT.CLEAN);
 }
 
 console.log('\n=== TRAP GUARDS ===\n');
@@ -377,14 +412,14 @@ console.log('\n=== TRAP GUARDS ===\n');
     contract: mv(1000012, 10017, '2025-01-01', plan(1470, 168, 1638), { vip: false, vVip: true }),
     payments: [pay(17600003, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01')],
   });
-  check('vVip alone does not clear under the conservative default', vvip.verdict, S.VERDICT.RED);
+  check('vVip alone clears — owner ruled both flags count', vvip.verdict, S.VERDICT.CLEAN_VIP);
   const vvipOn = S.scoreContractMonth({
     auditedMonth: '2026-06',
     contract: mv(1000012, 10017, '2025-01-01', plan(1470, 168, 1638), { vip: false, vVip: true }),
     payments: [pay(17600003, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01')],
-    options: { vipCountsVVip: true },
+    options: { vipCountsVVip: false },
   });
-  check('vVip clears once the owner rules it in', vvipOn.verdict, S.VERDICT.CLEAN_VIP);
+  check('the narrow reading is still available as an option', vvipOn.verdict, S.VERDICT.RED);
 }
 
 // Gate 14: a ZERO credit note is a non-empty string — a truthy test counts it as relief.
@@ -523,6 +558,51 @@ console.log('\n=== TRAP GUARDS ===\n');
   check('parseMoney handles a formatted string', S.parseMoney('AED 1,743'), 1743);
   check('parseMoney rejects an empty value', S.parseMoney(''), null);
   check('parseMoney keeps a real zero', S.parseMoney(0), 0);
+}
+
+console.log('\n=== OWNER RULING 1 — small amounts matter, zero does not ===\n');
+
+// "yes even the little amounts Matter, 0 payments do not tho" (owner, 2026-08-19)
+{
+  // A one-fils shortfall still flags. No floor on small amounts.
+  const tiny = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1600001, 25001, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [pay(19900001, 'monthly_payment', 'RECEIVED', 1637.99, '2026-06-01')],
+  });
+  check('a 1-fil shortfall still opens a case', tiny.verdict, S.VERDICT.RED);
+  check('the 1-fil gap is carried and is above zero', tiny.gap > 0 && tiny.gap < 0.02, true);
+
+  // A month where nothing was owed raises no case — nothing at stake.
+  const zeroOwed = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1600002, 25002, '2025-01-01', plan(0, 0, 0)),
+    payments: [pay(19900002, 'monthly_payment', 'BOUNCED', 0.0, '2026-06-01', false)],
+  });
+  check('a zero-owed month raises no case', zeroOwed.verdict, S.VERDICT.CLEAN);
+  check('and is marked as nothing at stake', zeroOwed.zeroAtStake, true);
+
+  // A BOUNCED row of 0.00 against a REAL plan amount still opens a case: the money at stake is
+  // the plan's amount, not the bounced row's. This is the one place the ruling could be read
+  // differently, so it is asserted explicitly.
+  const zeroRowRealPlan = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1600003, 25003, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [pay(19900003, 'monthly_payment', 'BOUNCED', 0.0, '2026-06-01', false)],
+  });
+  check('a zero-value BOUNCED row against a real plan still opens a case', zeroRowRealPlan.verdict, S.VERDICT.RED);
+  check('and the amount at stake is the plan amount', zeroRowRealPlan.gap, 1638);
+
+  // An unreadable owed amount is never silently dropped by the zero test.
+  const unknownOwed = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1600004, 25004, '2025-01-01', {
+      currentPayment: { amountValue: null },
+      currentPayments: [{ paymentTypeCode: 'monthly_payment', workerSalary: null, visaFees: null, amountValue: null, status: '' }],
+    }),
+    payments: [pay(19900004, 'monthly_payment', 'BOUNCED', 1638.0, '2026-06-01', false)],
+  });
+  check('an unreadable owed amount is not dropped as zero', unknownOwed.verdict, S.VERDICT.RED);
 }
 
 console.log('\n=== VERIFIER LAYER ===\n');

@@ -53,7 +53,11 @@ the check page's ordered list, never from the row's `Order`. Schema limitation.
 
 ---
 
-## B. Rules implemented with a conservative default, pending a ruling
+## B. Rules implemented with a conservative default — ALL THREE NOW RULED (2026-08-19)
+
+> Superseded by owner rulings; see `OWNER-QUESTIONS.md`. Kept for the reasoning trail.
+> B1 (`vVip`) → **both flags count**. B2 (materiality) → **no floor, but zero raises no case**.
+> The pre-collected question in A2 → **the shift is a scope shift**, tested month is M−1.
 
 ### B1. Gate 13 — VIP: does `vVip` alone count? (`Pending Business`, owner **Malaz**)
 **Default taken:** only `vip` clears; `vVip` alone does not. Narrower exception = fewer

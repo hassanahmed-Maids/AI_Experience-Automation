@@ -171,23 +171,24 @@ function monthInContractLife(contract, mk) {
 
 // Gate 5 (Order 140): Pre-Collected. It is an exception PATH, not an exemption.
 //
-// SPEC CONTRADICTION — resolved against live data 2026-08-19, see DEVIATIONS.md.
-// The rule body says the month under test becomes the PREVIOUS month. Read literally that
-// breaks the spec's own test cases 3 and 5: contract 1099709 is pre-collected, and shifting
-// its June audit to May — before its 26 Jun start — turns a month the spec calls clean into
-// no case or a false red.
+// OWNER RULING 2026-08-19, verbatim: "for pre collected contracts we only care about previous
+// months, current months don't matter." So the shift is a real SCOPE shift, not just a label —
+// auditing month M on a pre-collected contract tests month M-1's obligation. My earlier
+// label-only reading is superseded.
 //
-// The live advance settles it. It is a ONE-OFF cushion collected near contract start
-// (1074171: advance dated 01 Oct 2025 on a 01 Sep 2025 contract; 1099709: 01 Jul 2026 on a
-// 26 Jun 2026 contract), NOT a rolling shift of every ledger row — and the ledger still
-// carries one row per month either way. Confirmed red 1074171 is pre-collected AND has a
-// BOUNCED, never-replaced row dated in the audited month.
+// Validated against the ledger of confirmed red 1074171 (pre-collected): every month 2026-01
+// to 2026-05 settled at 2,405, 2026-06 BOUNCED with nothing received, 2026-07 settled again.
+// Auditing 2026-07 tests 2026-06 and the red fires. Auditing 2026-06 tests 2026-05, which is
+// paid, so it correctly says nothing.
 //
-// So the shift governs the red-flag LABEL, not which month's rows are read. Ledger scope is
-// always the audited month. A pre-collected contract still concludes a red (Gate 8), typed
-// "missing previous-month payment" instead of "missing 1st-of-month payment". That is the
-// only reading consistent with all the evidence: test cases 3/5 stay clean, and both
-// verified reds still fire.
+// CRITICAL INTERACTION: gate 2 (contract life) must be evaluated on the SHIFTED month, not the
+// audited one. Contract 1074171 terminated 2026-06-14, so an audited month of 2026-07 is past
+// termination — testing gate 2 on the audited month would put the whole case out of scope and
+// SUPPRESS this verified red. The month whose obligation is being tested is the month that has
+// to be inside the contract's life.
+//
+// Same for the first-partial-month suppression: 1099709 starts 26 Jun, so auditing 2026-07
+// tests June, which is its start month, and the amount comparison must stay suppressed there.
 function resolvePreCollected(contract) {
   const pc = contract && contract.preCollectedInfo;
   const flag = pc ? pc.isPreCollectedSalary : undefined;
@@ -209,6 +210,7 @@ function resolvePreCollected(contract) {
   return {
     isPreCollected: flag === true,
     unknown: false,
+    shifted: flag === true,
     advanceReceived: entries.length ? advance : null,
     advanceEntries: entries.length,
   };
@@ -315,13 +317,14 @@ function badTypeRows(payments) {
   return { absent: absent, unrecognised: Array.from(new Set(unrecognised)) };
 }
 
-// Gate 13 (Order 220): VIP. Pending Business — Malaz to rule whether vVip alone counts.
-// Conservative default: only `vip` clears. Narrower exception = fewer clearances.
+// Gate 13 (Order 220): VIP.
+// OWNER RULING 2026-08-19: "both count as vip yes, vvip and vip." Previously Pending Business.
+// Set vipCountsVVip: false to go back to the narrow reading.
 function isVip(contract, opts) {
   const vip = !!(contract && contract.vip);
   const vvip = !!(contract && contract.vVip);
-  if (opts && opts.vipCountsVVip) return vip || vvip;
-  return vip;
+  if (opts && opts.vipCountsVVip === false) return vip;
+  return vip || vvip;
 }
 
 // Gate 14 (Order 230): discount or credit note covers the month.
@@ -407,6 +410,11 @@ function scoreContractMonth(input) {
   const contractId = contract.id;
   const payments = input.payments || [];
   const evidence = input.evidence || {};
+  // OWNER RULING 2026-08-19: "yes even the little amounts Matter, 0 payments do not tho."
+  // So there is NO materiality floor on small amounts — a case opens on any amount strictly
+  // above zero, however small — but a case with nothing at stake does not open at all.
+  // materialityFloor stays wired at 0 so a future floor is a one-line change; the comparison
+  // is strictly-greater-than, which is what makes zero the only excluded value today.
   const floor = isNum(opts.materialityFloor) ? opts.materialityFloor : 0;
 
   const out = {
@@ -452,16 +460,9 @@ function scoreContractMonth(input) {
     out.caps.push('unrecognised payment type code(s) on the contract: ' + bad.unrecognised.join(', '));
   }
 
-  // ── Gate 2 (110) — month must fall inside the contract's life ────────────────
-  // Evaluated on the AUDITED month, per Order 110 running before Gate 5's Order 140.
-  out.gatesRun.push('2');
-  const life = monthInContractLife(contract, auditedMonth);
-  if (!life.inLife) {
-    return conclude(VERDICT.INCONCLUSIVE, '2', life.why + ' — no case');
-  }
-  out.isStartMonth = !!life.isStartMonth;
-
-  // ── Gate 5 (140) — Pre-Collected ─────────────────────────────────────────────
+  // ── Gate 5 (140) — Pre-Collected decides WHICH month is under test ──────────
+  // Evaluated before gate 2 because gate 2 must bound the month whose obligation is being
+  // tested. See the note on resolvePreCollected for why the audited month is the wrong one.
   out.gatesRun.push('5');
   const pc = resolvePreCollected(contract);
   if (pc.unknown) {
@@ -470,17 +471,23 @@ function scoreContractMonth(input) {
       needsVerifier: true,
     });
   }
-  const mk = auditedMonth;
+  const mk = pc.isPreCollected ? shiftMonth(auditedMonth, -1) : auditedMonth;
   out.monthUnderTest = mk;
   out.isPreCollected = pc.isPreCollected;
+  out.monthShifted = pc.shifted;
   out.advanceReceived = pc.advanceReceived;
   if (pc.isPreCollected && pc.advanceEntries === 0) {
-    // pre_collected_payments default: an empty array on a contract flagged pre-collected
-    // means NO advance is on record — inconclusive, route to the verifier. Never read
-    // absence as "covered" and never read presence as "paid".
     out.caps.push('flagged pre-collected with no advance on record');
     out.needsVerifier = true;
   }
+
+  // ── Gate 2 (110) — the month under test must fall inside the contract's life ─
+  out.gatesRun.push('2');
+  const life = monthInContractLife(contract, mk);
+  if (!life.inLife) {
+    return conclude(VERDICT.INCONCLUSIVE, '2', life.why + ' — no case');
+  }
+  out.isStartMonth = !!life.isStartMonth;
 
   // ── Gates 9 / 11 / 12 — derive the expectation ───────────────────────────────
   // These carry Orders 180/200/210 but are derivations, not verdicts, and Gate 11 states
@@ -523,6 +530,15 @@ function scoreContractMonth(input) {
     out.caps.push(out.isStartMonth
       ? 'first partial month — amount comparison suppressed, timing only'
       : 'expected amount unknown — amount comparison suppressed');
+  }
+
+  // Owner ruling 2026-08-19: a month with nothing at stake raises no case. Concluded here,
+  // ahead of gate 6, so the reason reads "nothing owed" rather than "paid in full" — the
+  // verdict is the same either way but the case text should say which it is.
+  if (isNum(exp.expected) && cmpMoney(exp.expected, floor) <= 0) {
+    return conclude(VERDICT.CLEAN, '6', 'nothing was owed for this month — no money at stake', {
+      zeroAtStake: true,
+    });
   }
 
   // ── Gate 6 (150) — a month is settled only when a payment reaches RECEIVED ───
@@ -580,8 +596,13 @@ function scoreContractMonth(input) {
     // Materiality floor: some BOUNCED rows carry zero and are not money. Default 0 =
     // no floor, flag everything. Owner question open.
     const owed = isNum(exp.expected) ? exp.expected : null;
-    if (owed !== null && floor > 0 && cmpMoney(owed, floor) < 0) {
-      return conclude(VERDICT.CLEAN, '4', 'owed amount below the materiality floor', { belowFloor: true });
+    if (owed !== null && cmpMoney(owed, floor) <= 0) {
+      return conclude(VERDICT.CLEAN, '4', 'nothing was owed for this month — no money at stake', { zeroAtStake: true });
+    }
+    if (owed === null) {
+      // Unknown amount with nothing received is not "no money at stake". Never let an
+      // unreadable expectation be silently dropped by the amount test.
+      out.caps.push('month unsettled but the owed amount could not be read');
     }
     return conclude(VERDICT.RED, '4', 'month owed, nothing settled it, no exception path applies', {
       redFlagType: RED_TYPE.MISSING_1ST,
@@ -594,15 +615,16 @@ function scoreContractMonth(input) {
   out.gatesRun.push('8');
   if (!anyMoney) {
     const owed = isNum(exp.expected) ? exp.expected : null;
-    if (owed !== null && floor > 0 && cmpMoney(owed, floor) < 0) {
-      return conclude(VERDICT.CLEAN, '8', 'owed amount below the materiality floor', { belowFloor: true });
+    if (owed !== null && cmpMoney(owed, floor) <= 0) {
+      return conclude(VERDICT.CLEAN, '8', 'nothing was owed for this month — no money at stake', { zeroAtStake: true });
     }
+    if (owed === null) out.caps.push('month unsettled but the owed amount could not be read');
     // Pre-Collected reaches here because Gate 4 excluded it. It is an exception PATH, not an
     // exemption: the month is still a finding, carrying the previous-month label. Confirmed
     // live on red 1074171, which is pre-collected and would be SUPPRESSED by treating this
     // as inconclusive.
     return conclude(VERDICT.RED, '8', 'the month exists, the contract was live, and nothing ever settled it', {
-      redFlagType: pc.isPreCollected ? RED_TYPE.MISSING_PREV : RED_TYPE.MISSING_1ST,
+      redFlagType: pc.shifted ? RED_TYPE.MISSING_PREV : RED_TYPE.MISSING_1ST,
       gap: owed,
       needsVerifier: true,
     });
@@ -623,7 +645,7 @@ function scoreContractMonth(input) {
   out.gatesRun.push('13');
   if (isVip(contract, opts)) {
     return conclude(VERDICT.CLEAN_VIP, '13', 'amount mismatch on a VIP client — closed as VIP exception', {
-      vipRuleUnresolved: !opts.vipCountsVVip,
+      vipCountsVVip: opts.vipCountsVVip !== false,
     });
   }
 
@@ -643,8 +665,8 @@ function scoreContractMonth(input) {
 
   // ── Gate 17 (240) — a short-paid month is the amount-mismatch finding ────────
   out.gatesRun.push('17');
-  if (gap > 0 && floor > 0 && cmpMoney(gap, floor) < 0) {
-    return conclude(VERDICT.CLEAN, '17', 'shortfall below the materiality floor', { belowFloor: true });
+  if (cmpMoney(gap, floor) <= 0) {
+    return conclude(VERDICT.CLEAN, '17', 'no shortfall at stake', { zeroAtStake: true });
   }
   return conclude(VERDICT.RED, '17', 'money arrived for the month and is below the contract plan', {
     redFlagType: RED_TYPE.AMOUNT,
