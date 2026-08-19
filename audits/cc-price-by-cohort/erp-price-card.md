@@ -81,10 +81,32 @@ Base `/paymenttermconfig`, pagecode `paymenttermconfig`:
 
 Both return **today's** value. Neither takes a month.
 
-**Not reachable from this session:** ERP's load balancer answers `403` with
-`server: awselb/2.0` to these paths from here, while `/lowcode/c2d/*` works. The
-n8n egress path is the one that reaches ERP for this check, so any probe has to
-run from n8n, not from a shell.
+### PROBED, AND THE ROUTES ARE NOT REACHABLE AT ALL — 2026-08-19
+
+`/paymenttermconfig/*` answers **403 from `server: awselb/2.0`** — an HTML body,
+not ERP's `SecurityException` JSON — which means the request is refused at the
+**edge**, before it reaches the application, so it is not a permission problem
+that a grant could fix.
+
+Tested from **two independent egress paths** with the same valid token:
+
+| From | Result |
+|---|---|
+| shell in the build environment | 403 `awselb/2.0` |
+| n8n cloud (workflow `0oB2SX1nN2D3nyIE`, execution 93373) | **403 `awselb/2.0` on 11 of 11 probes** |
+
+The n8n probe covered all five cohorts against **two unrelated contract ids**
+(1005750 and 1103069) plus `getconfigs`. Every one returned 403.
+`cohorts_answered: 0`.
+
+That n8n reaches ERP fine on `/clientmgmt/*`, `/admin/dynamicApi/*` and
+`/lowcode/c2d/*` in the same runs rules out an egress or token problem. The
+`/paymenttermconfig/*` family simply is not exposed publicly.
+
+**So the cross-check cannot be built against these endpoints.** The probe also
+answered a question it no longer matters to have answered: whether
+`findsuitableconfigforcontract` is cohort-keyed or contract-keyed is untestable
+while the route is closed.
 
 ## What this means for the check
 
