@@ -683,3 +683,122 @@ quietly examined less than it appears to.** The 68 dropped applicants were caugh
 that every applicant asked for must come back. This one was caught only because someone asked why
 the answer was what it was. Where a step can be starved of its input, assert on the input's
 presence — not just on the absence of an error.
+
+---
+
+# Part 7 · June 2026 — the first month-scale run ever to complete
+
+`run_id june-2026-paced` · window 2026-06-01..2026-06-30 · **8m05s** · status success.
+
+The spec records that **a month has never been run**: all four production runs used a 5-day
+window, and the single attempt at 2026-05-01..2026-06-05 died with `erp_unavailable` HTTP 500.
+This is the run that closes that gap.
+
+## Population — proven complete at 6 pages
+
+| | |
+|---|---|
+| `totalElements` declared | **1197** |
+| Rows pulled | **1197** |
+| Pages | 6 (at size 200) |
+| Expense purity | 1197/1197 on 492 / `FT 78` |
+| Null dates | 0 |
+| Unique applicants | **605** — all 605 scored |
+
+**`never_returned: 0` across 25 sequential chunks, every one successful.** The chunking fix holds
+at 25× the load that first exposed it. `fallback_path: 0` — the exact ERP path served every
+applicant.
+
+## Result
+
+| | |
+|---|---|
+| **Findings** | **7** — 6 `financial_loss`, 1 `refund_overdue` |
+| **Exposure** | **AED 22,611.54** |
+| Clean | 584 |
+| Pending | 14 (4 ERP-unreachable, 7 `unsettled`, 3 `awaiting_scheduled_refund`) |
+| Portal rows | **300** |
+| Tickets read | 1635, of which 418 out of scope → 1217 in-scope DUMMY |
+
+7 findings across 605 applicants sits comfortably inside the tripwire ceiling and is consistent
+with the spec's ~11-real-losses expectation for a case store, not a single window.
+
+## Pacing held
+
+25 chunks ran **sequentially**, each 8–22s at 5 concurrent / 500 ms; the model calls were paced one
+at a time with a 1s gap. **Zero ERP failures across roughly 1,200 authenticated reads.** No 500s,
+no rate-limit symptoms — which is the thing the June-2026 account disablement makes worth stating.
+Total wall clock 8m05s, well inside the 40-minute execution ceiling.
+
+## Gates this window exercised that May did not
+
+The wider window brought out statuses the 5-day one never contained:
+
+```
+REFUNDED 966 · CANCELED 207 · REFUND_SENT_TO_PAYERS 21 · PENDING_REFUND 8
+REQUESTED 5 · REFUND_FAILED 6 · ISSUED 4
+```
+
+- **Gate 50 fired** — 3 cases `awaiting_scheduled_refund`. The not-yet-due path now has live cases.
+- **Gate 115 fired** — 7 cases `unsettled`, driven by the 21 `REFUND_SENT_TO_PAYERS` tickets, which
+  are money in flight: correctly neither clean nor red.
+- **Still no `Used` outcome anywhere.** Gate 80 and verifier rule 1 remain unexercised on live data
+  across both windows. Recorded as a gap, not as validated.
+- `auto_types`: `TwentyFourHoursBeforeDepartureTime` 464 · `CustomTime` 262 · *(blank)* 262 ·
+  `Immediately` 229. **`DoNotRequestRefund` still never observed** on a DUMMY ticket.
+
+## Verifier
+
+All **7** findings were adjudicated. Every one had a written record (`had_written_record: true`),
+every one returned `NO_CLAIM`, and **every finding stood**.
+
+```
+applied_rule1: 0   applied_rule2: 0   refused_unquoted: 0   no_model_answer: 0
+judged_with_written_record: 7   judged_without_written_record: 0
+suspected_starved_verifier: false
+```
+
+The starvation tripwire read clean at 7× the case count that first exposed the bug.
+
+## The threshold-2 cost, at month scale
+
+| | |
+|---|---|
+| Actual findings | **7** |
+| Cases surfaced **only** for the booking question | **289** |
+| Portal rows total | 300 |
+
+**41 booking reviews for every real finding.** The spread at other thresholds, measured on this
+same population:
+
+| threshold | applicants routed |
+|---|---|
+| 2 *(current ruling)* | **294** |
+| 3 | 160 |
+| 4 | 81 |
+| 5 | 44 |
+| 6 | **18** |
+| 8 | 5 |
+
+Nothing on the money side changes with the threshold — findings stay at 7 and exposure at
+AED 22,611.54 at any value. It is purely review load, and it is one parameter. Worth revisiting
+now that the month-scale number exists, since "for now" was ruled against the 5-day figure.
+
+Separately, the zero-amount ruling earned its keep at this scale: **151 cases** read clean that
+would previously have been pending.
+
+## A defect this run exposed in my own work
+
+The run record has been claiming unattributable charges were *"routed to the verifier, never
+dropped"*. **They were only counted** — no case, no row, nothing anyone could work. May had zero of
+them so it never showed; **June produced 15**, which made a materially false statement sit in a
+durable record.
+
+They genuinely cannot be applicant-scoped cases — one case is one applicant, and these have no
+applicant to key one on. So they now go to the **workbook** as their own rows with
+`portal_state needs_attribution`, and the run record says what actually happens: listed for manual
+attribution, **not** adjudicated, **not** counted in any verdict total. Housemaid charges get the
+same treatment as `out_of_scope_housemaid`.
+
+The same audit was applied to every other line in `declared_gaps`, including correcting two that
+still described the verifier as unbuilt.
