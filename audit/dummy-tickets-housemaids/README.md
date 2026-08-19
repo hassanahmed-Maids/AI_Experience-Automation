@@ -31,7 +31,11 @@ the person running the check** — and execute from the `Run Manually` trigger. 
 | window | population | applicants | findings | exposure | wall clock |
 |---|---|---|---|---|---|
 | 2026-05-01..05 (5d) | 137/137, 1 page | 93 | 4 | AED 11,517 | ~2m40s |
-| 2026-06-01..30 (30d) | 1197/1197, 6 pages | 605 | 7 | AED 22,611.54 | **8m05s** |
+| 2026-06-01..30 (30d) | 1197/1197, 6 pages | 605 | 7 | AED 22,611.54 | 8m05s |
+| 2026-06-01..30 (re-run) | 1197/1197, 6 pages | 605 | 7 | AED 22,611.54 | **7m24s** |
+
+The two June runs produced an **identical scored result** — same findings, same exposure, same
+population proof. Only the ERP-transient `applicants_unreachable` count moved (4 → 1).
 
 The June run is the **first month-scale run ever to complete** — the spec records the only previous
 attempt dying with `erp_unavailable`. 25 sequential chunks, zero ERP failures across ~1,200

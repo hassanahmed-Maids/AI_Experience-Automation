@@ -802,3 +802,53 @@ same treatment as `out_of_scope_housemaid`.
 
 The same audit was applied to every other line in `declared_gaps`, including correcting two that
 still described the verifier as unbuilt.
+
+## Part 7b · June re-run — validating the fixes that shipped untested
+
+`run_id june-2026-paced-v2` · **7m24s** · status success. Published as `activeVersionId 59fb0485`.
+
+The `needs_attribution` rows and the corrected `declared_gaps` wording were written **after** the
+first June run, so they had never executed. This run exercised them. June is the only window that
+can: May produced zero unattributable charges.
+
+**Both fixes confirmed working.** `Cases -> Sheet` wrote **315 rows**:
+
+| portal_state | rows |
+|---|---|
+| `needs_verifier` | 291 |
+| `needs_attribution` | **15** ← new, previously invisible |
+| `red_flag` | 7 |
+| `out_of_scope_housemaid` | **1** ← new |
+| `pending` | 1 |
+
+Each new row carries its transaction id and date (e.g. *transaction 1986941 dated 2026-06-29*), so
+it is actually workable rather than merely counted. The run record now states what the code does:
+*"CANNOT be applicant-scoped cases… listed in the workbook as needs_attribution… NOT adjudicated
+and NOT counted in any verdict total."*
+
+Two `declared_gaps` lines that still described the verifier as unbuilt are also corrected, and one
+now carries the threshold cost inline: *"gate_110_repeat_threshold=2: 281 case(s) whose money
+verdict was CLEAN are surfaced for a booking-pattern review, against 7 actual finding(s)."*
+
+### Reproducibility across the two June runs
+
+| | run 1 | run 2 |
+|---|---|---|
+| Population declared / pulled | 1197 / 1197 | 1197 / 1197 |
+| Pages | 6 | 6 |
+| Unique applicants | 605 | 605 |
+| Enrichment chunks | 25, all success | 25, all success |
+| `never_returned` | 0 | 0 |
+| `fallback_path` | 0 | 0 |
+| **Findings** | **7** | **7** |
+| **Exposure** | **AED 22,611.54** | **AED 22,611.54** |
+| Verifier decisions | 7, all `NO_CLAIM`, all stood | 7, all `NO_CLAIM`, all stood |
+| Wall clock | 8m05s | 7m24s |
+
+**The scored result is identical.** The only figures that moved are the ERP-transient ones —
+`applicants_unreachable` 4 → 1, which shifts `clean` 584 → 587 and `pending` 14 → 11, and the
+booking-review count 289 → 281 as a consequence. Findings, exposure and the population proof are
+stable, which is what matters: the money answer does not drift between runs, only the
+retry-next-run bucket does.
+
+The workbook now holds rows from four runs, distinguished by `run_id`.
