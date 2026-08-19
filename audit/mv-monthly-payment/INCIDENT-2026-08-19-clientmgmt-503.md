@@ -1,6 +1,8 @@
 # INCIDENT 2026-08-19 — clientmgmt module 503 during the first live Stage 1 run
 
-**Status: open at time of writing. All calls to `/clientmgmt/*` stopped.**
+**Status: RECOVERED 2026-08-19 ~09:55 UTC**, about 10 minutes after the last sweep request.
+A single light call returned 200 with `total` = 22,869. Recovery was not assisted by anything on
+our side beyond stopping — which is itself weak evidence that load was the cause.
 
 ## What happened
 
@@ -45,6 +47,31 @@ cancelled: swept 669 of 22,649 (tolerance 46) - SHORT by 21,980
 520 is exactly page 0 (40 rows) plus the 12 head pages (12 x 40). No cases were written, no Runs
 row was created, nothing was reported. **The run produced no false clearances** — which is the
 whole reason that guard exists, and it is the one part of this that worked as designed.
+
+## What was changed in response
+
+A new **Stage 0 sub-workflow** (`MV Monthly Payment · 0-Sweep Population`, `9jOMFEC2zEWy2RHM`)
+now does all sweeping, and Stage 1 calls it once per cohort instead of sweeping directly:
+
+- **`pageSize` 100 instead of 500** — five times lighter per response.
+- **One request at a time**, with `pacingMs` between them, instead of 5 concurrent.
+- **A circuit breaker**: pages run in groups (default 20), and the first failing group stops the
+  sweep. Previously the sweep fired ~100 more requests into an already-failing module and only
+  noticed at the reconcile step afterwards.
+- **Slim projection returned**, so Stage 1 never retains raw contract rows (~45k rows across
+  both cohorts, tens of MB raw — the earlier execution's data read was 1.6M characters and was
+  still truncated).
+- **Contracts are returned only if the cohort reconciled** within tolerance. A partial
+  population is never handed back.
+- Stage 1 refuses to proceed if either cohort aborted or failed to reconcile.
+
+Cost: ~231 calls per cohort at `pageSize` 100 (1 + 2 head + 228 tail), so ~462 total, run
+serially — roughly 8–15 minutes for the sweep. Four times the call count of the version that
+broke the module, at a fifth of the payload per call and a fifth of the concurrency.
+
+A pager subtlety worth keeping: **the head pass must run at `size` <= 40.** Page 1 at size S
+starts at offset S, so any S > 40 leaves a hole at offsets 40..S-1, because page 0 only ever
+returns 40 rows whatever size asks for.
 
 ## Before the sweep runs again
 

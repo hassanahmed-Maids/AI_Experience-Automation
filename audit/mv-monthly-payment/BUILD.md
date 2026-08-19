@@ -5,6 +5,7 @@ Three staged workflows in the **`Adeeb`** n8n project (`gxKXV4pckO4b4pQM`).
 
 | Stage | Workflow | ID |
 |---|---|---|
+| 0 | MV Monthly Payment · 0-Sweep Population | `9jOMFEC2zEWy2RHM` |
 | 1 | MV Monthly Payment · 1-Population | `IKRXhIco1mwxrcPq` |
 | 2 | MV Monthly Payment · 2-Score chunk | `CopNHNsXUzFO59bW` |
 | 3 | MV Monthly Payment · 3-Deliver | `Z9fTvmaM526eYofe` |
@@ -55,10 +56,10 @@ details or salary components leave the check.
 
 1. **No live run has happened.** Offline is 140/140, but the flow has never executed. The next step
    is a small `limit` run, output read back, then a full run — and a real run needs sign-off.
-2. **Stage 2 is serial and should not be.** It loops at `batchSize: 1`. The spec permits 5
-   concurrent at 500 ms, and the HTTP node's own batching gives exactly that if contracts flow as
-   items rather than one per loop iteration. As built, a full run is ~20 hours; restructured, ~4.
-   See DEVIATIONS F13.
+2. ~~Stage 2 is serial~~ **DONE.** Stage 2 is now item-parallel at 5 concurrent, so a full run is
+   ~4 hours rather than ~20. Note the deliberate asymmetry with Stage 0: Stage 2 drops the loop to
+   gain concurrency, while Stage 0 *keeps* a loop precisely to get a circuit breaker. Different
+   requirements, different shapes.
 3. **The verifier layer is NOT built.** The spec's five verifier rules — read what staff wrote, the
    10-day chase rule, the follow-up qualification tests — do not run anywhere in this chain. Every
    finding it produces is **deterministic only and has not been checked against staff-written
