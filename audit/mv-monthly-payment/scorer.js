@@ -6,17 +6,59 @@
 // it goes near n8n. Every gate below cites its numeral and Order.
 
 const COLLECTED = 'RECEIVED';
-const DEAD = ['BOUNCED', 'DELETED'];
-const IN_FLIGHT_KNOWN = ['PDC', 'PRE_PDP'];
 const MONTHLY = 'monthly_payment';
 
-// Known payment-type codes. Deliberately OPEN-ENDED per gate 10's Never: an
-// unrecognised type is a red flag, not a silent exclusion. This list is the set we
-// recognise, NOT a whitelist that closes the month.
+// The COMPLETE PaymentStatus enum — all 14 constants, from PaymentStatus.java:15-29 via LCP
+// 2026-08-19, each classified by what it means for money.
+//
+// THIS LIST BEING SHORT IS A SUPPRESSED FINDING. Gate 15 says "never treat an unrecognised
+// status as dead — any unknown value counts as in flight", which is right as a safety net and
+// catastrophic as a substitute for knowing the enum: five of these constants are DEAD, and
+// treating them as in-flight lets them "cover the gap" and park a real red in `pending`
+// forever. RETURNED_TO_CLIENT was found live on a real row while the scorer knew only five
+// statuses.
+const STATUS_COLLECTED = ['RECEIVED'];
+
+const STATUS_IN_FLIGHT = [
+  'PDC',        // post-dated cheque held, not yet due. UI label "PDP".
+  'PRE_PDP',    // scheduled DD or card.
+  'ADCB_PDC',   // ADCB post-dated cheque variant.
+  'DEPOSIT',    // deposited at bank, awaiting clearance.
+  'FROZEN',     // held/frozen at the bank — not settled, not dead.
+  'REQUESTED',  // requested, not yet collected.
+];
+
+const STATUS_DEAD = [
+  'BOUNCED',                          // failed / rejected by bank.
+  'DELETED',                          // record cancelled.
+  'TEARED_UP',                        // instrument physically voided.
+  'RETURNED_TO_CLIENT',               // cheque handed back. UI "Returned to family".
+  'UNCOLLECTED',                      // never collected / written off.
+  'CANCELLED',
+  'CANCELLED_WAITING_CLIENT_PICKUP',
+];
+
+// No status means "collected then refunded". A genuine reversal is a separate payment of a
+// refund TYPE plus a ClientRefundToDo, which is why gate 16 reads types, not statuses.
+
+// Known payment-type codes. Live-observed values are marked; the rest come from the spec's
+// exclusion list. Gate 10 no longer reds on an unrecognised-but-present code — see
+// badTypeRows — because six legitimate codes were missing from this list on a 14-contract
+// sample, and a blanket red would have flooded the queue with clean contracts.
 const KNOWN_TYPE_CODES = [
-  'monthly_payment', 'monthly_payment_add_on', 'pre_collected_payment',
-  'pre_collected_payment_no_vat', 'transfer_fee', 'same_day_recruitment_fee',
-  'visa_2_years', 'wps_processing_fee', 'gcc_fee', 'overstay_fine',
+  'monthly_payment',                  // live
+  'monthly_payment_add_on',
+  'pre_collected_payment',            // live
+  'pre_collected_payment_no_vat',     // live
+  'transfer_fee',                     // live
+  'same_day_recruitment_fee',         // live
+  'insurance',                        // live
+  'overstay_fee',                     // live (NOT "overstay_fine")
+  'Urgent_visa_charges',              // live — note the mixed case
+  'non-mp-refund',                    // live — note the hyphens
+  'service_charge',                   // live
+  'oec',                              // live
+  'visa_2_years', 'wps_processing_fee', 'gcc_fee',
   'travel_visa_lebanon', 'travel_visa_egypt', 'travel_assist_fee',
   'second_year_insurance', 'refund',
 ];
@@ -215,7 +257,7 @@ function sumReceived(rows) {
 // Gate 7 (Order 160): follow the replacement chain before flagging.
 // replaced=true marks that a successor exists, NOT that the successor was paid.
 function chainSettled(rows) {
-  const failed = rows.filter(function (p) { return DEAD.indexOf(statusOf(p)) !== -1; });
+  const failed = rows.filter(function (p) { return STATUS_DEAD.indexOf(statusOf(p)) !== -1; });
   const replacedFlagged = failed.filter(function (p) { return p.replaced === true; });
   if (!replacedFlagged.length) return { settled: false, hadFailedRows: failed.length > 0, replacedFlagged: 0 };
   const successorReceived = rows.some(function (p) { return statusOf(p) === COLLECTED; });
@@ -228,27 +270,49 @@ function chainSettled(rows) {
 function sumInFlight(rows) {
   let total = 0;
   const statuses = [];
+  const unknown = [];
   for (const p of rows) {
     const s = statusOf(p);
-    if (s === COLLECTED) continue;
-    if (DEAD.indexOf(s) !== -1) continue;
+    if (STATUS_COLLECTED.indexOf(s) !== -1) continue;
+    if (STATUS_DEAD.indexOf(s) !== -1) continue;
+    // Gate 15's safety net, now applied only to values genuinely outside the enum: an
+    // unknown status counts as in flight, because one that really meant collected would
+    // leave a false red standing. Recorded so a new constant surfaces instead of hiding.
+    if (STATUS_IN_FLIGHT.indexOf(s) === -1) unknown.push(s);
     statuses.push(s);
     const amt = parseMoney(p.amountOfPayment);
     total += isNum(amt) ? amt : 0;
   }
-  return { total: total, statuses: statuses };
+  return { total: total, statuses: statuses, unknownStatuses: unknown };
 }
 
 // Gate 10 (Order 190): an unknown or missing payment type is a red flag, never a pass.
+// SPLIT 2026-08-19 after live data. The rule reds on a type that is "absent, or outside the
+// known set". A 14-contract sample carried SIX legitimate codes missing from the known set
+// (insurance, overstay_fee, Urgent_visa_charges, non-mp-refund, service_charge, oec), so a
+// blanket red would flood the queue with clean contracts.
+//
+// The failure the rule actually guards against is an unrecognised type "falling through the
+// monthly filter and closing the month green". That cannot happen here: only monthly_payment
+// rows are ever summed, so an excluded row makes a month look LESS paid, never more. The
+// protection needed is that it is never silently dropped.
+//
+// So: absent or empty code -> red (a real data problem). Unrecognised but present -> surfaced
+// on the case and routed to a human, never summed as payment, never a blanket red.
 function badTypeRows(payments) {
   const all = Array.isArray(payments) ? payments : [];
-  return all.filter(function (p) {
+  const absent = [];
+  const unrecognised = [];
+  for (const p of all) {
     const t = p && p.typeOfPayment;
-    if (!t) return true;
-    const code = t.code;
-    if (code === null || code === undefined || code === '') return true;
-    return KNOWN_TYPE_CODES.indexOf(code) === -1;
-  });
+    const code = t ? t.code : undefined;
+    if (!t || code === null || code === undefined || String(code).trim() === '') {
+      absent.push(p);
+    } else if (KNOWN_TYPE_CODES.indexOf(code) === -1) {
+      unrecognised.push(code);
+    }
+  }
+  return { absent: absent, unrecognised: Array.from(new Set(unrecognised)) };
 }
 
 // Gate 13 (Order 220): VIP. Pending Business — Malaz to rule whether vVip alone counts.
@@ -375,12 +439,17 @@ function scoreContractMonth(input) {
   // Evaluated on the contract's rows before the type filter can swallow them.
   out.gatesRun.push('10');
   const bad = badTypeRows(payments);
-  if (bad.length) {
-    return conclude(VERDICT.RED, '10', 'payment row carries an absent or unrecognised payment type', {
+  if (bad.absent.length) {
+    return conclude(VERDICT.RED, '10', 'payment row carries no payment type at all', {
       redFlagType: RED_TYPE.BAD_TYPE,
-      badTypeRowCount: bad.length,
+      badTypeRowCount: bad.absent.length,
       needsVerifier: true,
     });
+  }
+  if (bad.unrecognised.length) {
+    out.unrecognisedTypeCodes = bad.unrecognised;
+    out.needsVerifier = true;
+    out.caps.push('unrecognised payment type code(s) on the contract: ' + bad.unrecognised.join(', '));
   }
 
   // ── Gate 2 (110) — month must fall inside the contract's life ────────────────
@@ -483,6 +552,11 @@ function scoreContractMonth(input) {
   const flight = sumInFlight(rows.inMonth);
   out.inFlight = flight.total;
   out.inFlightStatuses = flight.statuses;
+  if (flight.unknownStatuses && flight.unknownStatuses.length) {
+    out.unknownStatuses = flight.unknownStatuses;
+    out.needsVerifier = true;
+    out.caps.push('status value(s) outside the known enum, counted as in flight: ' + flight.unknownStatuses.join(', '));
+  }
   if (flight.total > 0) {
     if (gapForFlight === null) {
       return conclude(VERDICT.PENDING, '15', 'money scheduled in-month, expectation not testable — still in flight', {
@@ -702,4 +776,5 @@ module.exports = {
   scoreContractMonth, applyVerifier, deriveExpected, parseMoney, shiftMonth,
   monthKey, classifyFollowup, lastQualifyingFollowup,
   VERDICT, RED_TYPE, KNOWN_TYPE_CODES, DELIVERED_STATUSES,
+  STATUS_COLLECTED, STATUS_IN_FLIGHT, STATUS_DEAD,
 };

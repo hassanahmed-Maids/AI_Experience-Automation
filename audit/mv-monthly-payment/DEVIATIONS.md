@@ -199,3 +199,71 @@ absent and a **datetime** when present.
 It read 1638.0 on 1099709. The spec's warning stands (it came back empty on others including an
 ACTIVE contract), but "always empty" is not the reason to avoid it — it holds the *next
 scheduled* payment, which is a different number from the audited month's expectation.
+
+### F8. THE PAYMENT STATUS ENUM HAS 14 CONSTANTS, NOT 5 — five dead ones were being read as in flight
+The spec names five statuses (`RECEIVED`, `PDC`, `BOUNCED`, `DELETED`, `PRE_PDP`). A live row
+carried **`RETURNED_TO_CLIENT`**, which is in none of them. LCP returned the full enum
+(`PaymentStatus.java:15-29`):
+
+| Category | Constants |
+|---|---|
+| Collected | `RECEIVED` |
+| In flight | `PDC`, `PRE_PDP`, `ADCB_PDC`, `DEPOSIT`, `FROZEN`, `REQUESTED` |
+| **Dead** | `BOUNCED`, `DELETED`, **`TEARED_UP`**, **`RETURNED_TO_CLIENT`**, **`UNCOLLECTED`**, **`CANCELLED`**, **`CANCELLED_WAITING_CLIENT_PICKUP`** |
+
+Gate 15 says *"never treat an unrecognised status as dead — any unknown value counts as in
+flight"*. That is correct as a safety net and **catastrophic as a substitute for knowing the
+enum**: the five bolded constants are DEAD, and under the unknown-is-in-flight rule each would
+have **covered the month's gap and parked a real finding in `pending` forever**. A month whose
+only row is `UNCOLLECTED` — money explicitly written off — would never have been reported.
+
+This is a suppressed finding, and the most serious defect found in this build. Fixed by
+enumerating all 14 explicitly; the unknown-is-in-flight net now applies only to values
+genuinely outside the enum, and any such value is surfaced on the case instead of hiding.
+
+`RETURNED_TO_CLIENT` is specifically *"cheque handed back, never collected"* (UI label
+"Returned to family"), not a reversal of collected money. No status means collected-then-refunded
+— a genuine reversal is a separate payment of a refund **type** plus a `ClientRefundToDo`, which
+is why gate 16 reads types rather than statuses.
+
+**File against:** `payment_status` / the check page's status vocabulary, and gate 15.
+
+### F9. Gate 10's blanket red on "unrecognised type" would flood the queue
+A 14-contract sample carried **six legitimate type codes absent from the spec's vocabulary**:
+`insurance`, `overstay_fee` (the spec says `overstay_fine`), `Urgent_visa_charges` (mixed case),
+`non-mp-refund` (hyphenated), `service_charge`, `oec`. Gate 10 reds on a type *"absent, or
+holding a value outside the known set"* — which would have raised a case on every clean contract
+carrying an insurance row.
+
+The failure gate 10 actually guards against is an unrecognised type *"falling through the monthly
+filter and closing the month green"*. That cannot happen: only `monthly_payment` rows are ever
+summed, so an excluded row makes a month look **less** paid, never more.
+
+**Taken:** absent or empty code → red (a genuine data problem, as specified). Unrecognised but
+present → surfaced on the case and routed to a human, never summed, never a blanket red. This
+keeps "never a silent exclusion" while avoiding a false-positive flood.
+**File against:** gate 10, and the payment-type vocabulary.
+
+### F10. A date-range sweep of the payment ledger is NOT viable — the spec's warning is vindicated
+Probed narrowly (a single day, `size=5`): **73 seconds**, reporting `totalElements` = **45,061**
+rows for one day of monthly payments across both product lines. An `operation: "between"` filter
+returns HTTP 500 (`NullPointerException`).
+
+So the windowed-sweep architecture I proposed in `surfaces.md` before probing is **withdrawn**.
+The spec's rule — *"sequential only, scoped by `contract.id`, never a bare date-range sweep at
+width"* — is correct, and this is the endpoint that has already taken the Accounting module down.
+
+**Architecture now:** per-contract ledger reads, scoped by `contract.id`, paced, in
+sub-workflows returning slim projections. Measured cost: **mean 1.6 s per contract** (14 reads,
+max 2.1 s). At the spec's pacing (5 concurrent, 500 ms between batches) that is roughly
+**2 hours** for 22,867 contracts — acceptable for a manual monthly run, and it must be chunked
+across staged executions so no single execution retains the payloads.
+
+### F11. `size=500` does NOT always cover a contract's ledger
+Within the same 14-contract sample, contract 1011565 reported **689 rows** — `size=500` returned
+500 and `pulled == totalElements` was **false**. One call per contract is the common case, not a
+guarantee. The reconcile-before-trusting-a-negative rule caught it on the first small sample,
+which is exactly why that rule exists: without it, that contract's later months would read as
+having no payment rows at all.
+**Effect:** the ledger reader must page until `pulled == totalElements` and abort the case
+otherwise. Never trust a negative from a single call.

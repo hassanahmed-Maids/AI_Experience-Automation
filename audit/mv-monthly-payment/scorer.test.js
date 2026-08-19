@@ -309,8 +309,13 @@ console.log('\n=== TRAP GUARDS ===\n');
     contract: mv(1000006, 10011, '2025-01-01', plan(1470, 168, 1638)),
     payments: [pay(17200001, 'some_unmapped_new_fee', 'RECEIVED', 500.0, '2026-06-01')],
   });
+  // The month must NOT close green. Since an unrecognised type is never summed as payment,
+  // the month correctly reads unpaid and takes the TIMING red — not the bad-type red, which
+  // is now reserved for a genuinely absent type code.
   check('unknown payment type → red, not a green month', r.verdict, S.VERDICT.RED);
-  check('unknown type red carries the right portal type', r.redFlagType, S.RED_TYPE.BAD_TYPE);
+  check('unknown type is not summed, so the month reads unpaid', r.received, 0);
+  check('unknown type surfaces the code on the case',
+    (r.unrecognisedTypeCodes || []).indexOf('some_unmapped_new_fee') !== -1, true);
 }
 
 // Gate 9: a null split must not default to zero. Expectation unknown halts the amount test.
@@ -546,6 +551,110 @@ console.log('\n=== VERIFIER LAYER ===\n');
   }, '2026-08-19');
   check('chase gone quiet → stays a finding', quiet.verdict, S.VERDICT.RED);
   check('quiet chase concluded at verifier gate 4', quiet.verifierGate, '4');
+}
+
+console.log('\n=== FULL PaymentStatus ENUM (14 constants, PaymentStatus.java:15-29) ===\n');
+
+// Every DEAD status must fail to settle AND fail to cover the gap. Before the enum was read,
+// five of these were treated as in-flight, which parked a real red in `pending` forever.
+{
+  const deadStatuses = ['BOUNCED','DELETED','TEARED_UP','RETURNED_TO_CLIENT','UNCOLLECTED',
+                        'CANCELLED','CANCELLED_WAITING_CLIENT_PICKUP'];
+  deadStatuses.forEach(function (st, i) {
+    const r = S.scoreContractMonth({
+      auditedMonth: '2026-06',
+      contract: mv(1100000 + i, 20000 + i, '2025-01-01', plan(1470, 168, 1638)),
+      payments: [pay(19000000 + i, 'monthly_payment', st, 1638.0, '2026-06-01', false)],
+    });
+    check('dead status ' + st + ' does NOT cover the gap', r.verdict, S.VERDICT.RED);
+    check('dead status ' + st + ' contributes nothing in flight', r.inFlight, 0);
+  });
+
+  const flightStatuses = ['PDC','PRE_PDP','ADCB_PDC','DEPOSIT','FROZEN','REQUESTED'];
+  flightStatuses.forEach(function (st, i) {
+    const r = S.scoreContractMonth({
+      auditedMonth: '2026-06',
+      contract: mv(1200000 + i, 21000 + i, '2025-01-01', plan(1470, 168, 1638)),
+      payments: [pay(19100000 + i, 'monthly_payment', st, 1638.0, '2026-06-01', false)],
+    });
+    check('in-flight status ' + st + ' covers the gap → pending', r.verdict, S.VERDICT.PENDING);
+  });
+
+  // A genuinely NEW constant still counts as in flight (gate 15's net), but is surfaced.
+  const novel = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1300001, 22001, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [pay(19200001, 'monthly_payment', 'SOME_FUTURE_STATUS', 1638.0, '2026-06-01', false)],
+  });
+  check('a status outside the enum still counts as in flight', novel.verdict, S.VERDICT.PENDING);
+  check('a status outside the enum is surfaced, not hidden',
+    (novel.unknownStatuses || []).indexOf('SOME_FUTURE_STATUS') !== -1, true);
+
+  // A dead row replaced by a RECEIVED successor is still settled, whichever dead status.
+  const teared = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1300002, 22002, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [
+      pay(19300001, 'monthly_payment', 'TEARED_UP', 1638.0, '2026-06-01', true),
+      pay(19300002, 'monthly_payment', 'RECEIVED', 1638.0, '2026-06-01'),
+    ],
+  });
+  check('a TEARED_UP row replaced by RECEIVED settles the month', teared.verdict, S.VERDICT.CLEAN);
+}
+
+console.log('\n=== PAYMENT TYPE CODES (live-observed) ===\n');
+
+// Six legitimate codes were missing from the known set on a 14-contract sample. A blanket red
+// on "unrecognised" would have flooded the queue with clean contracts.
+{
+  const liveCodes = ['insurance','overstay_fee','Urgent_visa_charges','service_charge','oec'];
+  liveCodes.forEach(function (code, i) {
+    const r = S.scoreContractMonth({
+      auditedMonth: '2026-06',
+      contract: mv(1400000 + i, 23000 + i, '2025-01-01', plan(1470, 168, 1638)),
+      payments: [
+        pay(19400000 + i, 'monthly_payment', 'RECEIVED', 1638.0, '2026-06-01'),
+        pay(19500000 + i, code, 'RECEIVED', 500.0, '2026-06-01'),
+      ],
+    });
+    check('a live ' + code + ' row does not red a paid month', r.verdict, S.VERDICT.CLEAN);
+  });
+
+  // An ABSENT type code is still a red — that is a real data problem.
+  const absent = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1500001, 24001, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [{ id: 19600001, typeOfPayment: { code: '' }, status: { value: 'RECEIVED' },
+                 amountOfPayment: 1638.0, dateOfPayment: '2026-06-01', replaced: false }],
+  });
+  check('an ABSENT type code is still a red', absent.verdict, S.VERDICT.RED);
+  check('absent type carries the right portal type', absent.redFlagType, S.RED_TYPE.BAD_TYPE);
+
+  // An unrecognised-but-present code is surfaced on the case, never a blanket red.
+  const novelType = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1500002, 24002, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [
+      pay(19700001, 'monthly_payment', 'RECEIVED', 1638.0, '2026-06-01'),
+      pay(19700002, 'brand_new_fee_type', 'RECEIVED', 99.0, '2026-06-01'),
+    ],
+  });
+  check('an unrecognised code does not red a paid month', novelType.verdict, S.VERDICT.CLEAN);
+  check('an unrecognised code is surfaced on the case',
+    (novelType.unrecognisedTypeCodes || []).indexOf('brand_new_fee_type') !== -1, true);
+  check('an unrecognised code is never summed as payment', novelType.received, 1638);
+
+  // The live refund code must still be caught by refund detection.
+  const refund = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1500003, 24003, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [
+      pay(19800001, 'monthly_payment', 'RECEIVED', 1000.0, '2026-06-01'),
+      pay(19800002, 'non-mp-refund', 'RECEIVED', 500.0, '2026-06-10'),
+    ],
+  });
+  check('the live non-mp-refund code is detected as a refund', refund.refundPresent, true);
+  check('a refund still does not reduce the shortfall', refund.gap, 638);
 }
 
 console.log('\n=== VERIFIER RULE 3 — FOLLOW-UP CLASSIFICATION (live template names) ===\n');
