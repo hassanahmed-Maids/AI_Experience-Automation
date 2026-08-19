@@ -281,7 +281,7 @@
       <dl class="field"><dt>Flow it replaces</dt><dd><span class="pill red">archived</span> <span class="mono">FXrhGBJUnGYgrs9R</span></dd></dl>
       <dl class="field"><dt>Golden cloned</dt><dd>CC Non Received Monthly Payments <span class="mono">Qq473Ygj543jxPUN</span></dd></dl>
       <dl class="field"><dt>Webhook path</dt><dd class="mono">/webhook/applicant-<wbr>dummy-ticket-refund-audit</dd></dl>
-      <dl class="field"><dt>Trigger</dt><dd>Portal webhook · no schedule · no email</dd></dl>
+      <dl class="field"><dt>Trigger</dt><dd><strong>Manual only</strong> · no schedule · no email</dd></dl>
       <dl class="field"><dt>Offline suite</dt><dd><span class="pill ok">67 / 67</span> mutation-tested</dd></dl>
       <dl class="field"><dt>ERP variable rows</dt><dd>17 · all Confirmed / Verified · <strong>0 Pending Technical</strong></dd></dl>
       <dl class="field"><dt>Result workbook</dt><dd><a href="https://docs.google.com/spreadsheets/d/172R3JzxXm1nf6Vc3qTesin7eys-jT0ng3SOxUsf3LD8">Cases · Run Summary · Verdicts</a></dd></dl>
@@ -683,6 +683,13 @@
         rejection. The old flow had no secret check and would have replied with a missing-field error.
         That flow is now <strong>archived</strong>, which both prevents a republish from taking the path
         back and closes its unauthenticated-webhook exposure for good.
+      </p>
+      <p>
+        <strong>The trigger stays manual.</strong> The cutover added a <em>route</em>, not automation. The
+        flow has exactly two entry points and both are human-initiated: the portal webhook, which fires
+        only when someone triggers the check in the portal, and <code>Run Manually</code> in n8n. There is
+        no Schedule or Cron node anywhere in either flow, and none will be added here — a standing
+        unattended run is an ERP/Data team decision, not a build one.
       </p>
       <p>
         <strong>Watch the first portal-driven run.</strong> If the portal does not send the shared-secret

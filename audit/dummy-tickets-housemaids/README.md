@@ -86,6 +86,12 @@ POST https://sami-team.app.n8n.cloud/webhook/applicant-dummy-ticket-refund-audit
 
 `/webhook/dummy-tickets-housemaids` **no longer exists** — do not use it in a manual test.
 
+**The trigger is still manual only.** The cutover added a route, not automation. Both entry points are
+human-initiated — the portal webhook (fires only when someone triggers the check in the portal) and
+`Run Manually` in n8n — and there is **no Schedule or Cron node in either flow**. Verified against the
+node inventory, not assumed. None will be added here: a standing unattended run goes to the ERP/Data
+team, not into this build.
+
 The repoint needed **no portal-side payload change**. This flow's validator is the golden's, and the
 golden is what the portal already drives:
 
