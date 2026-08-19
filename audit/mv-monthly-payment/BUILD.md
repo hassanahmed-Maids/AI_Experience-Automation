@@ -84,7 +84,11 @@ Re-verify without re-sweeping: POST `{ runId, bearer, token, device }` to
    evidence**, so none is ready for the PIL queue. Stage 3 declares this in every run's notes. The
    logic exists and is tested in `scorer.js` (`applyVerifier`, `classifyFollowup`); it needs a
    Stage 4 that reads the WhatsApp log and complaint threads.
-4. **The amount-mismatch red type has no verified live example.** Covered by synthetic tests only.
+4. ~~**The amount-mismatch red type has no verified live example.** Covered by synthetic tests only.~~
+   **CLOSED 2026-08-19** by run `mvmp-2026-07-full` slice 2: 7 live amount-mismatch findings among
+   3,000 contracts, alongside 6 missing-1st-of-month. All four red types now have live instances
+   except `missing or invalid payment type` (absent `typeOfPayment`), which has still never been
+   observed in production — it stays declared.
 
 ## Test seeds for the first live run
 
