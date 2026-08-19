@@ -7,7 +7,11 @@
 // SCORER_UNDER_TEST lets this same suite run against the copy EMBEDDED in Stage 2's Code node.
 // The embedded copy is the one that actually scores production, so "the tests pass" has to mean
 // "they pass against that copy too" - otherwise the two drift and only production notices.
-const S = require(process.env.SCORER_UNDER_TEST || './scorer');
+// Resolved from the CWD, not from this file, so the suite can be pointed at the harness from the
+// repo root as well as from this directory.
+const S = require(process.env.SCORER_UNDER_TEST
+  ? require('path').resolve(process.cwd(), process.env.SCORER_UNDER_TEST)
+  : './scorer');
 
 let pass = 0, fail = 0;
 const failures = [];

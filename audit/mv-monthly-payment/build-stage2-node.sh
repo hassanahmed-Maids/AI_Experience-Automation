@@ -6,7 +6,7 @@
 # helpers and so cannot run offline). Generating it rather than hand-editing in the n8n UI is what
 # keeps the tested copy and the production copy from drifting.
 #
-# Usage:  sh build-stage2-node.sh && SCORER_UNDER_TEST=./scorer.stage2.harness.js node scorer.test.js
+# Usage:  sh build-stage2-node.sh && SCORER_UNDER_TEST=scorer.stage2.harness.js node scorer.test.js
 set -e
 cd "$(dirname "$0")"
 { cat scorer.stage2.js; printf '\n'; cat scorer.stage2.wrapper.js; } > stage2.node.js
