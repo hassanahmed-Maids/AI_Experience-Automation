@@ -1,6 +1,8 @@
 # Design change: scope the check to an audit MONTH
 
-Status: proposed, not built. Supersedes task #11 ("implement pro_rated").
+Status: BUILT 2026-08-19. Supersedes task #11 ("implement pro_rated"), which is
+retired rather than implemented: a partial month is out of scope, so there is no
+pro-rated payment left to test for.
 
 Today the check asks *"is this contract priced correctly right now?"* and reads
 whatever payment happens to be current. That framing is the root of every
@@ -103,15 +105,16 @@ mistake "5,000 contracts out of scope for July" for "5,000 contracts clean".
 
 **An approved introductory rate below card still gets flagged.** The example
 contract pays 4,190 in September against a card price of 4,714.50, so September's
-audit would call it under-priced by 524.50.
+audit calls it under-priced by 524.50.
 
-I think that is correct behaviour — the check reports what was true that month
-and a human clears approved promotions through the existing `needs_human` path,
-exactly as it handles living-switches. But it is a policy call, not a data one,
-and it is the one question that still needs the spec owner.
+**Confirmed as intended by the spec owner, 2026-08-19.** The check reports what
+was true that month and a human clears approved promotions through the existing
+`needs_human` path, exactly as it handles living-switches. Contracts on a
+time-bounded rate carry the flag `bounded_rate_period` so the reviewer sees the
+reason without opening ERP.
 
-It is a much narrower question than before: not *"which rate do we test"* but
-*"should an approved intro discount be flagged in the month it applies?"*
+Status: this document is no longer proposed. It is built — `scorer-month.js`,
+`paymentsinfo.js`, `test-month.js` (44 assertions), and the three n8n stages.
 
 ## Implementation checklist
 

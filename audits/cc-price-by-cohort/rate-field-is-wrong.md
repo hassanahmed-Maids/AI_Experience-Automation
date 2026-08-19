@@ -66,7 +66,7 @@ denominated (minimum monthly payment **+ VAT**).
 If no `Monthly` entry can be parsed → `pending / no_monthly_rate`, routed to a
 human. Never fall back to `currentPayment`.
 
-## OPEN BUSINESS QUESTION — cannot be resolved from the data
+## RESOLVED 2026-08-19 — the rate in effect during the audit month
 
 A stepped plan has more than one monthly rate. Which does the check test?
 
@@ -80,10 +80,18 @@ A stepped plan has more than one monthly rate. Which does the check test?
 These give materially different answers on the same contract. Option 1 says
 "priced correctly"; option 3 says "under-priced by 524.50/month for two months".
 
-The spec's five tests are silent on stepped plans. **This needs Moe or the spec
-page, not a guess.** Until it is decided, the scorer should gate rather than
-choose — parse the entries, and where more than one `Monthly` rate exists, route
-to a human with the entries attached.
+**The spec owner chose option 3, scoped to a month** (2026-08-19): the check
+tests the rate in effect during the audit month, whichever rate that is. On this
+contract September and October are reported as under-priced by 524.50 and
+November onward is green. An approved promotion is cleared by a human on review,
+not exempted from measurement — the check errs toward showing rather than hiding.
+
+Month-scoping is what makes that answerable: there is exactly one applicable
+rate per month, so nothing has to be chosen. Where a month genuinely has two
+covering monthly entries the scorer still refuses to pick and routes to a human
+with the entries attached (`multiple_rates_in_month`), and a time-bounded rate
+carries the flag `bounded_rate_period` so the reviewer sees why the figure sits
+below card. Implemented in `scorer-month.js`; see `design-month-scoped-audit.md`.
 
 ## How common are stepped plans?
 
