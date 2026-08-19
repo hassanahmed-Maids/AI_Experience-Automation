@@ -7,8 +7,9 @@ check_id `7d6e0c41-9b2a-4d6c-83f1-2a4c6e8d1f02`.
 
 | | |
 |---|---|
-| **1-Score** (main flow, DRAFT) | https://sami-team.app.n8n.cloud/workflow/aTmGMAlYLwsJQ7js |
-| **0-Fetch Tickets** (sub-workflow, DRAFT) | https://sami-team.app.n8n.cloud/workflow/YQlNlxrnhbQpBbdl |
+| **1-Score** (main flow, PUBLISHED) | https://sami-team.app.n8n.cloud/workflow/aTmGMAlYLwsJQ7js |
+| **0-Fetch Tickets** (sub-workflow, PUBLISHED) | https://sami-team.app.n8n.cloud/workflow/YQlNlxrnhbQpBbdl |
+| Result workbook | https://docs.google.com/spreadsheets/d/172R3JzxXm1nf6Vc3qTesin7eys-jT0ng3SOxUsf3LD8 |
 | Golden it is built on | `Qq473Ygj543jxPUN` — CC Non Received Monthly Payments |
 | The flow it replaces (LIVE) | `FXrhGBJUnGYgrs9R` |
 
@@ -45,7 +46,18 @@ the person running the check** — and execute from the `Run Manually` trigger. 
 4. **The live flow's webhook is unauthenticated** (Part 1 §1) and will stay that way until it is
    replaced or unpublished. That is independent of this build.
 
-## Not built
+## The verifier
 
-Verifier rules 1 and 2. Gate 80 (`Used`) and finding cases are *routed* to human review with
-their evidence rather than adjudicated. Every run declares this in `record.declared_gaps`.
+Rules 1 and 2 are **built** (see `SPEC-FINDINGS.md` Part 5). Enforcement lives in
+`Merge Verdicts`, not the prompt: only `EXPLAINED`+quote or `CLAIMED_OFF_ERP`+quote may move a
+ticket, a claimed off-ERP refund downgrades to *pending* and never clears the amount, and there
+is no path by which a confirmed loss becomes clean.
+
+**Rule 1 has no live case yet** — the reference window holds zero `Used` tickets. Covered offline
+only; do not record it as validated.
+
+## Publishing does not cut over
+
+The portal calls the old flow's path; this one answers on `/webhook/dummy-tickets-housemaids`.
+Both are live. When the portal is repointed, **unpublish the old flow** — that also closes its
+unauthenticated-webhook exposure.

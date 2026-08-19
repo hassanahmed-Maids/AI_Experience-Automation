@@ -510,3 +510,104 @@ than publishing a finding about a person. Expect the pending count to move a lit
 rule bodies, E18–E20 from the live probe, R1–R4 for the zero-amount ruling, and T1–T4 for the
 repeat-booking surfacing. Mutation-tested: re-introducing the gate-90-behind-gate-100 order,
 substring `REFUND` matching, or first-ticket-wins each fails the suite.
+
+---
+
+# Part 5 · Verifier, workbook, and publish — 2026-08-19
+
+## The AI verifier is built — the largest declared gap is closed
+
+Verifier rules 1 and 2 now exist, cloned from the golden's pattern. Both flows are **published**.
+
+**It runs after the results callback**, so reds are already visible in the portal as provisional
+and a slow or failing model cannot delay them.
+
+**Only the residue reaches the model** — everything settleable from structured fields was already
+settled by a gate. Two shapes remain: a dummy ticket someone flew on (rule 1) and a finding
+(rule 2). The projection now also carries the ticket's own note fields, which it did not before.
+
+**Grounding.** Each case is bundled with the ticket's written record plus an all-time ERP refund
+search on `description like 'Applicant ID - N'` + expense 492, with no date filter. `like` is
+deliberate: `contains` returns HTTP 500 on this endpoint — a wrong operator, not a missing
+permission. An empty history counts as evidence **only** when the walk is proven complete
+(`pulled == totalElements`), and that assertion travels with the bundle. **Passport numbers are
+stripped before anything reaches the model.**
+
+**Enforcement is in code, not in the prompt.** Only two model answers may move anything, and each
+needs its quoted sentence present:
+
+| model answer | effect |
+|---|---|
+| `EXPLAINED` + quote | that **ticket** → `clean_explained` |
+| `CLAIMED_OFF_ERP` + quote | that **ticket** → `unresolved` (**pending**); the amount is kept as `claimed_amount_aed` and **never written off** |
+| `NOT_EXPLAINED` · `NO_CLAIM` · `NO_TEXT` · `UNRESOLVED` · no answer · model error · asserted-but-unquoted | **unchanged** — the gates' verdict stands |
+
+There is **no path by which a confirmed loss becomes clean.** The clean is ticket-scoped and the
+case re-takes the worst of its remaining tickets, so an explained emergency can never absorb a
+sibling's red. A model echo naming a different case is discarded rather than applied to the wrong
+person.
+
+### Live result
+
+All **4** findings went to the verifier. Every one came back `NO_TEXT` — there is no written
+record on those tickets — so all 4 stood unchanged and were routed to auditor review.
+
+```
+applied_rule1: 0   applied_rule2: 0   refused_unquoted: 0
+no_model_answer: 0   auditor_review: 4
+refund_history_complete: true on all 4  (so the absence IS evidence)
+```
+
+**Rule 1 was NOT exercised on live data.** The reference window contains zero `Used` tickets, so
+the flown-on path has no live case — the same honest gap the spec already records for gate 100's
+date half. Its logic is covered offline by the ticket-scoped re-aggregation tests.
+
+## A bug the test caught, worth recording
+
+The first end-to-end attempt **aborted the whole run** on an invalid Anthropic key — and took the
+Cases and Run Summary sheet writes with it, even though those branches were topologically
+independent of the verifier. `onError: continueRegularOutput` did not save it; a credential
+failure aborts above that level.
+
+Fixed by **sequencing the workbook writes before the verifier** rather than beside it. It is the
+same principle as the golden's "runs log is written first": the durable, visible output must not
+be hostage to an optional downstream step.
+
+## The workbook — a declared deviation
+
+`https://docs.google.com/spreadsheets/d/172R3JzxXm1nf6Vc3qTesin7eys-jT0ng3SOxUsf3LD8`
+Tabs: **Cases** · **Run Summary** · **Verdicts**. Created in Hassan's Drive.
+
+⚠️ **The spec's *Where do the results go?* has Workbook UNTICKED** — portal and runs log only.
+The workbook is therefore a deviation on request, not something the spec asked for, and this check
+is marked *Handles sensitive data = YES*.
+
+Mitigated by writing identifiers and amounts only. **Deliberately excluded from every tab:**
+applicant names, passport numbers, and card-holder / staff names (the `card` field is dropped at
+the row builder). The `Verdicts` tab does carry the model's quoted sentence, because that quote is
+the evidence a reviewer needs — it is capped and was passport-redacted upstream.
+
+A Sheet is far easier to forward than a portal case. **Worth a conscious decision about who the
+file is shared with.**
+
+## Published
+
+| | |
+|---|---|
+| `Dummy Tickets Housemaids · 1-Score` | **published**, `activeVersionId bffc22f2` |
+| `Dummy Tickets Housemaids · 0-Fetch Tickets` | **published** (required first — a parent cannot publish against an unpublished sub-workflow) |
+
+**Publishing does not cut over.** The portal calls the old flow's path
+(`/webhook/applicant-dummy-ticket-refund-audit`); this one answers on
+`/webhook/dummy-tickets-housemaids`. Both are now live and the old flow is still active. Traffic
+moves only when the portal is repointed — and at that moment the old flow should be unpublished,
+which also closes its unauthenticated-webhook exposure (Part 1 §1).
+
+**A live run needs the n8n workflow variable `ERP_BEARER` set** to the token of whoever runs the
+check. It is not stored in the flow.
+
+## Final state
+
+Offline suite **67/67**. End-to-end live: population 137/137, 93 applicants scored, 4 findings,
+AED 11,517 exposure, 56 portal rows (51 of them the booking-pattern question), 4 verifier
+decisions, all three workbook tabs written.
