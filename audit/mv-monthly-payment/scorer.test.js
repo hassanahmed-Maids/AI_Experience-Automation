@@ -4,7 +4,10 @@
 // Rows are transcribed from the spec's own live-verified payloads (Notion v0.8) so that
 // reproducing its figures is evidence the logic is right, not evidence it agrees with me.
 
-const S = require('./scorer');
+// SCORER_UNDER_TEST lets this same suite run against the copy EMBEDDED in Stage 2's Code node.
+// The embedded copy is the one that actually scores production, so "the tests pass" has to mean
+// "they pass against that copy too" - otherwise the two drift and only production notices.
+const S = require(process.env.SCORER_UNDER_TEST || './scorer');
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -605,6 +608,15 @@ console.log('\n=== OWNER RULING 1 — small amounts matter, zero does not ===\n'
   check('an unreadable owed amount is not dropped as zero', unknownOwed.verdict, S.VERDICT.RED);
 }
 
+// Stage 2 embeds the SCORING logic only - the verifier lives in Stage 4 - so when this suite is
+// pointed at the embedded copy these sections have nothing to exercise. Skipping on a capability
+// check keeps a parity run genuinely green instead of green-with-known-failures, which is the only
+// kind of green worth having.
+const HAS_VERIFIER = typeof S.applyVerifier === 'function' && typeof S.classifyFollowup === 'function';
+if (!HAS_VERIFIER) {
+  console.log('\n=== VERIFIER LAYER — SKIPPED (target embeds scoring only) ===\n');
+}
+if (HAS_VERIFIER) {
 console.log('\n=== VERIFIER LAYER ===\n');
 
 // Verifier 4's Never: an unread message log is UNKNOWN, not "nobody chased".
@@ -724,6 +736,44 @@ console.log('\n=== PAYMENT TYPE CODES (live-observed) ===\n');
     (novelType.unrecognisedTypeCodes || []).indexOf('brand_new_fee_type') !== -1, true);
   check('an unrecognised code is never summed as payment', novelType.received, 1638);
 
+  // TypeOfPayment is a DATA-DRIVEN PICKLIST (ask-the-code, 2026-08-19): operators add codes that
+  // exist in no source file, so the allowlist is permanently incomplete. On the first full-month
+  // slice, unrecognised codes appeared on 55.6% of cases. Escalating every one would have parked
+  // ~13,500 clean months in the human queue - a queue that size does not get read.
+  check('an unrecognised code on a CLEAN month does not demand a human',
+    novelType.needsVerifier === true, false);
+  check('and the code is still recorded on the case for whoever extends the vocabulary',
+    (novelType.unrecognisedTypeCodes || []).length > 0, true);
+
+  // ...but on a month that did NOT settle, the unknown code might BE the payment in question, so
+  // the flag has to survive exactly there. This is the whole reason the rule is deferred to
+  // conclude() rather than dropped at gate 10.
+  const novelTypeUnpaid = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1500011, 24011, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [
+      pay('2026-06-05', 1638, 'RECEIVED', 'brand_new_fee_type'),
+    ],
+  });
+  check('a month with no monthly payment is still a finding', novelTypeUnpaid.verdict, S.VERDICT.RED);
+  check('and the unrecognised code DOES demand a human there',
+    novelTypeUnpaid.needsVerifier, true);
+  check('the reason is carried on the case, not just the flag',
+    novelTypeUnpaid.caps.some(function (c) { return /unrecognised payment type/.test(c); }), true);
+
+  // An ABSENT code is a different thing entirely and still reds on sight - a payment row with no
+  // type at all is a data defect, not an unlisted picklist entry.
+  const absentType = S.scoreContractMonth({
+    auditedMonth: '2026-06',
+    contract: mv(1500012, 24012, '2025-01-01', plan(1470, 168, 1638)),
+    payments: [
+      pay('2026-06-01', 1638, 'RECEIVED', 'monthly_payment'),
+      { dateOfPayment: '2026-06-02', amountOfPayment: 100, status: { value: 'RECEIVED' }, typeOfPayment: null },
+    ],
+  });
+  check('an absent type code still reds even on a fully paid month', absentType.verdict, S.VERDICT.RED);
+  check('and it is still routed to a human', absentType.needsVerifier, true);
+
   // The live refund code must still be caught by refund detection.
   const refund = S.scoreContractMonth({
     auditedMonth: '2026-06',
@@ -804,6 +854,8 @@ console.log('\n=== VERIFIER RULE 3 — FOLLOW-UP CLASSIFICATION (live template n
   check('marketing-only contact does not suppress the finding', v.verdict, S.VERDICT.RED);
   check('marketing-only contact concludes at verifier gate 4', v.verifierGate, '4');
 }
+
+} // end if (HAS_VERIFIER)
 
 console.log('\n' + '='.repeat(60));
 console.log('  ' + pass + ' passed, ' + fail + ' failed');

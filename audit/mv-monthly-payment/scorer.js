@@ -45,22 +45,63 @@ const STATUS_DEAD = [
 // exclusion list. Gate 10 no longer reds on an unrecognised-but-present code — see
 // badTypeRows — because six legitimate codes were missing from this list on a 14-contract
 // sample, and a blanket red would have flooded the queue with clean contracts.
+// The authoritative vocabulary, from ask-the-code 2026-08-19: every TypeOfPayment.code
+// defined or referenced in the accounting codebase, plus codes observed live in ledgers.
+//
+// IMPORTANT — this list can never be exhaustive. TypeOfPayment is a DATA-DRIVEN PICKLIST, so an
+// operator can add a code that appears in no source file. That is why an unrecognised code is not
+// treated as an anomaly on a clean month (see gate 10): the vocabulary being incomplete is the
+// normal state of the world, not a defect to escalate 13,000 times.
+//
+// Only `monthly_payment` satisfies PaymentHelper.isMonthlyPayment(); `monthly_payment_add_on` sits
+// with it in `monthlyTypes`. Everything below that is a one-off fee, refund or adjustment, and none
+// of it is ever summed as a monthly payment.
 const KNOWN_TYPE_CODES = [
-  'monthly_payment',                  // live
+  // recurring monthly obligation
+  'monthly_payment',
   'monthly_payment_add_on',
-  'pre_collected_payment',            // live
-  'pre_collected_payment_no_vat',     // live
-  'transfer_fee',                     // live
-  'same_day_recruitment_fee',         // live
-  'insurance',                        // live
-  'overstay_fee',                     // live (NOT "overstay_fine")
-  'Urgent_visa_charges',              // live — note the mixed case
-  'non-mp-refund',                    // live — note the hyphens
-  'service_charge',                   // live
-  'oec',                              // live
-  'visa_2_years', 'wps_processing_fee', 'gcc_fee',
-  'travel_visa_lebanon', 'travel_visa_egypt', 'travel_assist_fee',
-  'second_year_insurance', 'refund',
+  // pre-collected (advance) payments
+  'pre_collected_payment',
+  'pre_collected_payment_no_vat',
+  // one-off client-owed fees and charges
+  'same_day_recruitment_fee',
+  'insurance',
+  'second_year_insurance',
+  'matching_fee',
+  'transfer_fee',
+  'overstay_fee',
+  'travel_assist',
+  'travel_assist_fee',
+  'upgrading_nationality',
+  'Filipina_Salary_Adjustment',
+  'Urgent_visa_charges',
+  'service_charge',
+  'oec',
+  'owwa_registration',
+  'contract_verification',
+  'passport_renewal',
+  'visa_2_years',
+  'wps_processing_fee',
+  'gcc_fee',
+  'vat_only',
+  'travel_visa_lebanon',
+  'travel_visa_egypt',
+  'travel_to_lebanon_visa',
+  'travel_to_egypt_visa',
+  // refunds and credits (the code carries a refund/refund_for picklist tag)
+  'refund',
+  'non-mp-refund',
+  'pre_collected_salary_refund',
+  'pre_collected_salary_refund_no_vat',
+  'maidVisa_recruitment_fee_refund',
+  'paid_the_client_-_refund',
+  'partial_mp_refunded_to_client',
+  'vat_only_refund',
+  'owwa_registration_refund',
+  'contract_verification_refund',
+  'oec_refund',
+  'passport_renewal_refund',
+  'urgent_visa_charges_refund',
 ];
 
 const VERDICT = {
@@ -430,6 +471,12 @@ function scoreContractMonth(input) {
     out.verdict = verdict;
     out.gate = gate;
     out.reason = reason;
+    // Deferred from gate 10: an unrecognised payment type only needs a human when the month did not
+    // settle cleanly, because only then could the unknown code be the payment in question.
+    if (out.unrecognisedTypeNote && verdict !== VERDICT.CLEAN && verdict !== VERDICT.CLEAN_VIP) {
+      out.needsVerifier = true;
+      out.caps.push(out.unrecognisedTypeNote);
+    }
     return out;
   };
 
@@ -455,9 +502,20 @@ function scoreContractMonth(input) {
     });
   }
   if (bad.unrecognised.length) {
+    // RECORDED, not escalated. TypeOfPayment is an open picklist, so unrecognised codes are the
+    // normal state of the world - on the first full-month slice they appeared on 55.6% of cases and
+    // would have parked ~13,500 clean months in the human queue, which is how a review queue stops
+    // being read at all.
+    //
+    // Safe to record-and-continue on a CLEAN month: an unrecognised code is never summed as a
+    // monthly payment, so it cannot manufacture a clearance. The only way an unknown code could hide
+    // a monthly obligation is if the monthly amount were billed under it - and then the monthly rows
+    // are simply absent, which gates 4 and 8 already red.
+    //
+    // But on a month that is NOT clean, an unknown code in that month might be the legitimate
+    // payment the case is about, so conclude() escalates those. See the deferred rule below.
     out.unrecognisedTypeCodes = bad.unrecognised;
-    out.needsVerifier = true;
-    out.caps.push('unrecognised payment type code(s) on the contract: ' + bad.unrecognised.join(', '));
+    out.unrecognisedTypeNote = 'unrecognised payment type code(s) on the contract: ' + bad.unrecognised.join(', ');
   }
 
   // ── Gate 5 (140) — Pre-Collected decides WHICH month is under test ──────────

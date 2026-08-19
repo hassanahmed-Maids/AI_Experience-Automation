@@ -1,22 +1,36 @@
-# Why ~23,000 contracts, and not fewer
+# Why ~24,000 contracts, and not fewer
 
-Asked 2026-08-19, before the first full run. Short answer: **23,000 is the owner's ruling, not an
-accident of the sweep.** But the number that actually costs hours is not the population — it is how
-many of those contracts need an expensive read, and that is a separate question with a real answer.
+Asked 2026-08-19, before the first full run. Short answer: **the population size is the owner's
+ruling, not an accident of the sweep.** But the number that actually costs hours is not the
+population — it is how many of those contracts need an expensive read, and that is a separate
+question with a real answer.
 
-## 1. Where 23,000 comes from
+> **Measured 2026-08-19, run `mvmp-2026-07-full` slice 1.** The in-scope population for 2026-07 is
+> **24,378**, not the ~23,000 estimated below. Both cohorts reconciled exactly (22,870/22,870 and
+> 22,649/22,649). The estimate was wrong in one place and it is worth saying why — see §1.
+
+## 1. Where the number comes from
 
 Two cohorts are swept and unioned:
 
-| cohort | reported total | in scope for one audited month |
+| cohort | reported total | in scope for 2026-07 (**measured**) |
 |---|---|---|
-| ACTIVE (`maidvisa.ae_prospect`, default status) | 22,870 | ~22,700 |
-| CANCELLED (`FILTER_CANCELED`) | 22,649 | **~50–350** |
+| ACTIVE (`maidvisa.ae_prospect`, default status) | 22,870 | 22,281 |
+| CANCELLED (`FILTER_CANCELED`) | 22,649 | **2,097** |
+| | | **24,378 in scope** |
 
-The cancelled cohort is nearly the same size as the active one, but almost all of it is out of
-scope: a contract that terminated before the audited month owes nothing for it. Measured on a
-500-row page, only 0.2%–1.6% of cancelled contracts terminated in or after a candidate audited
-month (`DEVIATIONS.md` F12). So the union is ~23,000 — barely more than ACTIVE alone.
+Out of scope: 661 start after the audited month, 20,455 ended before the cutoff, 25 owner-account.
+
+The cancelled cohort is nearly the same size as the active one, and most of it is out of scope: a
+contract that terminated before the audited month owes nothing for it. But **most is not almost
+all.** The pre-run estimate said 0.2%–1.6% of cancelled contracts were in scope (~50–350); the
+measured figure is **9.3% (2,097)** — off by 6× to 40×.
+
+The estimate came from sampling a single 500-row page, and the default sort returns the oldest
+contracts first. That page was overwhelmingly 2017–2018 terminations, so it could not have contained
+recent cancellations at their true density. **A single page of a sorted endpoint is not a sample of
+the population.** Extrapolating a rate from one is the error; the guard that caught it was reading
+the run's own counts instead of trusting the estimate.
 
 Those few hundred cancelled contracts are not a rounding error. **Both of this check's verified reds
 (1023590 and 1074171) are CANCELLED contracts.** An ACTIVE-only sweep is a snapshot of today and
@@ -49,8 +63,8 @@ The scope filters that ARE applied are the ones that cannot hide a finding:
 
 ## 3. The number that actually costs time
 
-23,000 contracts in scope is not the same as 23,000 expensive reads. ~94.2% of contract-months are
-paid in full, so ~1,300 contracts are plausible candidates for a finding. In principle the run could
+24,378 contracts in scope is not the same as 24,378 expensive reads. ~94.2% of contract-months are
+paid in full, so ~1,400 contracts are plausible candidates for a finding. In principle the run could
 read the cheap ledger for everyone and the expensive `CONTRACT_DETAILS` only for the ~1,300 whose
 ledger does not already clear them — roughly halving the call budget.
 
@@ -78,15 +92,21 @@ nothing at stake, so it cannot manufacture a clearance. Not built.
 
 ## 4. So the honest cost
 
-| | |
-|---|---|
-| contracts in scope | ~23,000 |
-| ERP reads | ~46,000 (ledger + `CONTRACT_DETAILS` per contract) |
-| pacing | 3 concurrent, 750 ms interval, per surface |
-| estimated wall clock | ~5–9 hours |
-| token lifetime | ~10 hours at best, and the last one died after 4 |
+| | | source |
+|---|---|---|
+| contracts in scope | **24,378** | measured, slice 1 |
+| ERP reads | ~48,800 (ledger + `CONTRACT_DETAILS` per contract) | |
+| pacing | 3 concurrent, 750 ms interval, per surface | |
+| measured scoring rate | **15.7 s per 25-contract chunk** (0.63 s/contract, both reads) | measured, slice 1 |
+| scoring wall clock | **~4.3 hours** | 24,378 × 0.63 s |
+| population sweep, per slice | **12.5 min** (both cohorts, ~460 paced calls each) | measured, slice 1 |
+| session lifetime | assume ~4 hours; one session dropped that fast | measured |
 
 The run is therefore **sliced**, not shortened: `offset` + `limit` cut the in-scope population by
 ascending `contractId`, consecutive slices share one `runId`, and the month is covered when the
 slices reach the reported in-scope total. Shrinking the population was never the available lever;
 splitting the run was.
+
+Slice size trades sweep overhead against execution length: every slice re-sweeps (12.5 min), so 3,000
+contracts per slice costs ~44 min per execution and ~1.7 h of sweep across the month, while smaller
+slices spend more of the run sweeping than scoring.
