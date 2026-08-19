@@ -170,7 +170,10 @@ function batched(cohort, batchSize) {
     const guarded = exec(GUARDS, scored,
       Object.assign({ 'Join Enrichment': perCase }, vNodes)).out;
     const adj = exec(ADJUD, guarded, vNodes).out;
-    const banded = exec(WFT_BANDS, adj[0].json.cases.map(c => ({ json: c })), vNodes).out;
+    // Feed the ENVELOPE, exactly as Adjudicate Cases -> Stamp Display Bands does in the
+    // deployed graph. This line used to unwrap it first, which hid the shape mismatch that
+    // execution 94122 found at Join Scored.
+    const banded = exec(WFT_BANDS, adj, vNodes).out;
     const rows = exec(SHEETS, [],
       Object.assign({ 'Stamp Display Bands': banded }, vNodes)).out;
     // The Sheets append echoes one item per appended row.

@@ -14,7 +14,38 @@
 // and nothing about other cases, so batching cannot change its answer. Build Runs Log
 // recomputing the same value over the returned cases is therefore a free cross-check: if the
 // two ever disagree, the run record and the Cases tab disagree, and that is worth a hard look.
-const cases = $input.all().map(function (i) { return i.json; });
+//
+// THE INPUT IS ONE ENVELOPE ITEM, NOT ONE ITEM PER CASE. Compute Case States, Guards and
+// Adjudicate Cases each return `[{ json: { cases: [...] } }]` - the WF-A idiom all three were
+// lifted byte-identical with - and Adjudicate Cases wires straight into this node. This node
+// was written NEW for WF-T and originally read $input.all() as one-item-per-case, which made
+// it treat the envelope itself as a single case: 100 cases in, one meaningless row out, the
+// batch returning `_cases: 1`, and four junk rows on the Cases tab.
+//
+// It survived 11 green offline suites because batch_equivalence_test.js unwrapped the
+// envelope for it - `exec(WFT_BANDS, adj[0].json.cases.map(c => ({ json: c })))` - modelling a
+// wiring the deployed graph does not have. The offline arm has been corrected to feed `adj`
+// directly, so the harness now tests the shape that actually runs.
+//
+// Caught live by Join Scored on execution 94122: "4 scored cases returned for 400 sent".
+// The reconciliation that exists to stop a short cohort passing as a clean run earned its
+// place on the first end-to-end execution.
+const _input = $input.all();
+let cases;
+if (_input.length === 1 && _input[0].json && Array.isArray(_input[0].json.cases)) {
+  cases = _input[0].json.cases;
+} else {
+  cases = _input.map(function (i) { return i.json; });
+  // The same fault in a new shape: a "case" carrying a `cases` array is an unwrapped
+  // envelope, never a case. Refuse rather than score one meaningless row per batch.
+  for (const _c of cases) {
+    if (_c && Array.isArray(_c.cases)) {
+      throw new Error('WF-T Stamp Display Bands: an input item carries a `cases` array, so a ' +
+        'scorer envelope reached this node unwrapped. Scoring would proceed on one ' +
+        'meaningless case per batch and the run would under-report coverage by ~99%.');
+    }
+  }
+}
 
 //   not_in_scope  nothing arrived at all -> that is the SIBLING check's finding
 //   inconclusive  the money question cannot be answered from what we can read:
