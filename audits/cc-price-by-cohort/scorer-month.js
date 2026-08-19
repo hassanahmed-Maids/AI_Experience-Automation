@@ -89,6 +89,42 @@ function historicPricesUpTo(card, cohort, tMs) {
     .map(function (w) { return w.price_inc_vat; });
 }
 
+// --- NATIONALITY, and where it is allowed to come from ---------------------
+//
+// The dynamic API's maidNationality is blank whenever NO MAID IS CURRENTLY
+// ATTACHED to the contract. Verified 2026-08-19 by pulling all 5,401 rows of the
+// live population: 292 rows have a blank maidNationality, and 292 of those 292
+// also have a blank maidId. NOT ONE is a maid with a null nationality FK. That
+// matters because it kills the obvious fix - LCP's headline recommendation was
+// to read the picklist's code instead of its name, which would change nothing
+// here, because there is no maid to read a picklist off. My question to LCP had
+// stated the premise wrongly ("contracts WITH a maid"); the data corrected it.
+//
+// getActiveCptInfo still answers for these contracts, because the ACTIVE payment
+// term carries its own housemaid link and keeps it after the maid leaves the
+// contract. So the term still knows which nationality the contract was priced
+// for, which is exactly the key a PRICING audit needs.
+//
+// LCP says that endpoint's `nationality` is cpt.getHousemaid().getNationality()
+//   .getName() - the maid's name string, NOT the payment term's own nationality
+// FK. Taken on trust that would be a silent semantic swap, so it was checked:
+// across 14 sampled contracts that DO have a maid, the endpoint's value agreed
+// with the dynamic API's maidNationality 14 times out of 14. LCP was right, and
+// the older note in stage2-design.md claiming cptName "provably contains" the
+// nationality is wrong - contract 1099770 reads nationality "Ethiopian" under
+// cptName "CC - Default - Kenyan -OMG".
+//
+// Order is deliberate. The live maid wins whenever there IS a live maid; the
+// term is a fallback, never an override, because a term can be stale by exactly
+// the amount the upgrading-nationality test is looking for.
+function resolveNationality(c) {
+  const direct = String(c.maid_nationality === null || c.maid_nationality === undefined ? '' : c.maid_nationality).trim();
+  if (direct !== '') return { value: direct, source: 'maid' };
+  const cpt = String(c.cpt_nationality === null || c.cpt_nationality === undefined ? '' : c.cpt_nationality).trim();
+  if (cpt !== '') return { value: cpt, source: 'active_payment_term' };
+  return { value: '', source: null };
+}
+
 function outOfScope(out, reason, detail) {
   out.scope = 'out_of_scope';
   out.scope_reason = reason;
@@ -127,6 +163,8 @@ function scoreMonth(c, card, opts) {
     card_price_at_start: null,
     cohort: null,
     cohort_at_start: null,
+    nationality: null,
+    nationality_source: null,
     flags: [],
   };
 
@@ -203,7 +241,16 @@ function scoreMonth(c, card, opts) {
     out.needs_human = true;
     return out; // never default to live-in, it is the cheaper cohort
   }
-  const bucket = bucketOf(c.maid_nationality, liveOutInMonth);
+  const nat = resolveNationality(c);
+  out.nationality = nat.value || null;
+  out.nationality_source = nat.source;
+  if (nat.source === 'active_payment_term') {
+    // Recorded, not hidden. The value is the nationality the contract was PRICED
+    // for rather than one read off a maid standing in the house today, and a
+    // reviewer is entitled to know which of the two they are looking at.
+    out.flags.push('nationality_from_payment_term');
+  }
+  const bucket = bucketOf(nat.value, liveOutInMonth);
   if (bucket === null) {
     out.state = 'pending';
     out.verdict = 'Unpriceable';
@@ -240,7 +287,7 @@ function scoreMonth(c, card, opts) {
 
   const cohortAtStart = (function () {
     const lo = liveOutAt(c.live_out, c.live_in_out_logs, startMs);
-    const b = bucketOf(c.maid_nationality, lo);
+    const b = bucketOf(nat.value, lo);
     return b ? cohortKey(b, lo) : null;
   })();
   const pStart = cohortAtStart ? priceAt(card, cohortAtStart, startMs) : null;
@@ -280,10 +327,59 @@ function scoreMonth(c, card, opts) {
   out.tests.price_in_month = within(pMonth);
   out.tests.price_at_contract_start = within(pStart);
   out.tests.any_historic_price = history.some(function (p) { return Math.abs(actual - p) <= TOLERANCE; });
-  // No definition exists on the spec pages, so it is scored NOT PASSED by
-  // decision and declared, never quietly assumed false.
+  // --- upgrading_nationality: no longer unimplemented -----------------------
+  //
+  // LCP was asked whether ERP records this concept at all, and was explicitly
+  // told that "it does not exist, the test cannot be built" was an acceptable
+  // answer. It does exist and it is persisted: a nationality switch writes a
+  // ContractPaymentTerm with REASON='SWITCHING', and the term keeps the
+  // housemaid it was priced for. So a contract billed on a term priced for maid
+  // X while maid Y stands in the house today is a real, recorded state - not a
+  // heuristic.
+  //
+  // What we can actually READ is narrower than what LCP described, and the
+  // difference is load-bearing. LCP's cleanest detector is the term's own
+  // NATIONALITY_ID, exposed with REASON on
+  // /accounting/contractpaymentterm/getcontractpaymentterminfo/{id}. That route
+  // returns 401 on this account (see erp-401-pagecodes.md), so REASON is out of
+  // reach. What IS reachable, at 200, is getActiveCptInfo's `nationality`: the
+  // nationality of the maid the ACTIVE TERM was priced for. Comparing that with
+  // the maid on the contract today detects the same state by a different route.
+  //
+  // Direction matters. A switch only EXCUSES an under-price when the new maid
+  // is the DEARER cohort - the client kept an older, cheaper rate. A switch to a
+  // cheaper nationality explains nothing and must not suppress a finding.
+  const cptNat = String(c.cpt_nationality === null || c.cpt_nationality === undefined ? '' : c.cpt_nationality).trim();
+  out.cpt_nationality = cptNat || null;
   out.tests.upgrading_nationality = false;
-  out.unimplemented_tests = ['upgrading_nationality'];
+  out.unimplemented_tests = [];
+  if (c.cpt_surface === 'unavailable' || cptNat === '') {
+    // Declared unavailable rather than quietly scored false, exactly as the
+    // payment-term gate is. A test that could not run is not a test that failed.
+    out.flags.push('upgrading_nationality_surface_unavailable');
+    out.unimplemented_tests = ['upgrading_nationality'];
+  } else if (nat.source !== 'maid') {
+    // The nationality we are pricing on CAME from the term, so comparing it with
+    // the term would compare a value with itself and could never fire. This is
+    // the same self-comparison trap stage2-design.md warned about; it is avoided
+    // by declaring the test untestable instead of letting it return a free pass.
+    out.flags.push('upgrading_nationality_untestable_no_maid');
+    out.unimplemented_tests = ['upgrading_nationality'];
+  } else if (cptNat.toLowerCase() !== String(nat.value).trim().toLowerCase()) {
+    const pTerm = (function () {
+      const b = bucketOf(cptNat, liveOutInMonth);
+      return b ? priceAt(card, cohortKey(b, liveOutInMonth), bounds.first) : null;
+    })();
+    out.card_price_for_term_nationality = pTerm;
+    if (pTerm !== null && pMonth !== null && pMonth > pTerm) {
+      out.tests.upgrading_nationality = true;
+      out.flags.push('nationality_upgraded_since_pricing');
+    } else {
+      // Recorded because it is still a mismatch worth a reviewer's eye - it just
+      // is not an excuse for paying less.
+      out.flags.push('nationality_switch_not_an_upgrade');
+    }
+  }
   // pro_rated is RETIRED by month scoping: a partial month is out of scope, so
   // there is no pro-rated payment left to test for.
   out.retired_tests = ['pro_rated'];
@@ -304,6 +400,11 @@ function scoreMonth(c, card, opts) {
     return out;
   }
 
+  // This gate wants the payment term's OWN nationality FK - a different field
+  // from the one getActiveCptInfo returns, and reachable only through the 401
+  // route. It stays declared-unavailable rather than being quietly satisfied by
+  // the upgrading_nationality test above, which answers a related but not
+  // identical question off a field we can actually read.
   if (c.payment_term_nationality_surface === 'unavailable') {
     out.flags.push('cpt_surface_unavailable');
   } else if (
@@ -354,6 +455,22 @@ function scoreMonth(c, card, opts) {
     return out;
   }
 
+  // A detected nationality upgrade is the fifth test, and it EXPLAINS an
+  // under-price - but it does not clear one. LCP was explicit that the rule
+  // deciding whether a switch keeps the old rate or re-prices lives in the
+  // accounting module, which is not in the workspace it can read, so nothing
+  // available to this audit can say the retained rate was actually approved.
+  // Calling it green would assert something no source supports; calling it red
+  // would report a loss we have a recorded reason to doubt. It is a question,
+  // and questions are pendings.
+  if (out.tests.upgrading_nationality) {
+    out.state = 'pending';
+    out.verdict = "Can't tell";
+    out.reason_code = 'upgrading_nationality_suspected';
+    out.needs_human = true;
+    return out;
+  }
+
   out.state = 'red';
   out.verdict = 'Under-priced';
   out.reason_code = 'below_card_unexplained';
@@ -361,4 +478,4 @@ function scoreMonth(c, card, opts) {
   return out;
 }
 
-module.exports = { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, cardChangedMidMonth, TOLERANCE };
+module.exports = { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, cardChangedMidMonth, resolveNationality, TOLERANCE };

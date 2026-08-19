@@ -58,7 +58,7 @@ return [{ json: { ok: errors.length === 0, errors: errors, params: {
   started_at: new Date().toISOString(),
   audit_month: auditMonth,
   audit_month_defaulted: requestedMonth === "",
-  chunk: { offset: 0, size: Number(ch.size || 1500), max_chunks: Number(ch.max_chunks || 0) },
+  chunk: { offset: 0, size: Number(ch.size || 1200), max_chunks: Number(ch.max_chunks || 0) },
   population: { abort_below: Number(p.abort_below === undefined ? 4600 : p.abort_below), warn_below: Number(p.warn_below === undefined ? 4900 : p.warn_below), max_divergence_pct: Number(p.max_divergence_pct === undefined ? 1 : p.max_divergence_pct), warn_only: p.warn_only === true },
   erp_auth: { bearer: bearer, token_bare: bearer.replace(/^Bearer\s+/, ""), device_id: deviceId, acting_user: tokenUser }
 } } }];

@@ -6,7 +6,7 @@
 if (typeof $input === 'undefined') {
   // Required as a module by test-node-parity.js, which proves the SHIPPED body
   // still agrees with scorer-month.js on every harness case.
-  module.exports = { scoreMonth, resolveMonthlyRate, parseEntry, monthBounds, lastCompletedMonth, liveOutAt };
+  module.exports = { scoreMonth, resolveMonthlyRate, parseEntry, monthBounds, lastCompletedMonth, liveOutAt, resolveNationality };
 } else {
   const baton = $("Receive Baton").first().json;
   const params = baton.params;
@@ -45,7 +45,7 @@ if (typeof $input === 'undefined') {
       client_id: str(row.client_id),
       audit_month: auditMonth,
       contract_start_date: str(pick(row.start_inline, d.contractStartDate)),
-      maid_nationality: str(j.nationality),
+      maid_nationality: str(row.nationality_inline),
       live_out: "",
       scope: "in_scope",
       scope_reason: "",
@@ -67,6 +67,9 @@ if (typeof $input === 'undefined') {
       test_pro_rated: false,
       unimplemented_tests: "upgrading_nationality",
       retired_tests: "pro_rated",
+      cpt_nationality: "",
+      cpt_status: 0,
+      card_price_for_term_nationality: 0,
       flags: "",
       needs_human: false,
       living_switch: false,
@@ -79,7 +82,7 @@ if (typeof $input === 'undefined') {
       pil_blocked: false,
       price_card_checksum_ok: baton.price_card.checksum_ok === true,
       scored_at: new Date().toISOString(),
-      nationality_source: str(j.nationality_source),
+      nationality_source: "",
     };
 
     // The monthly rate lives in details.paymentPlan.paymentsInfo. If that call
@@ -97,9 +100,17 @@ if (typeof $input === 'undefined') {
       continue;
     }
 
+    // The active payment term keeps its own housemaid link, so it still answers
+    // for a contract whose maid has left - which is EVERY one of the contracts
+    // that used to land in no_nationality. A non-200 is passed through as
+    // 'unavailable' rather than as an empty string, so the scorer can tell
+    // "there is no switch" apart from "we could not look".
+    const cptOk = j.cpt_status === 200;
     const c = {
       contract_id: row.contract_id,
-      maid_nationality: str(j.nationality),
+      maid_nationality: str(row.nationality_inline),
+      cpt_nationality: cptOk ? str(j.cpt_nationality) : "",
+      cpt_surface: cptOk ? "available" : "unavailable",
       live_out: coerceBool(pick(row.live_out_inline, d.liveOut)),
       contract_start_date: pick(row.start_inline, d.contractStartDate),
       date_of_termination: d.dateOfTermination || null,
@@ -149,6 +160,15 @@ if (typeof $input === 'undefined') {
       test_price_in_month: t.price_in_month === true,
       test_price_at_start: t.price_at_contract_start === true,
       test_any_historic_price: t.any_historic_price === true,
+      test_upgrading_nationality: t.upgrading_nationality === true,
+      unimplemented_tests: (r.unimplemented_tests || []).join(","),
+      maid_nationality: str(r.nationality),
+      nationality_source: str(r.nationality_source),
+      cpt_nationality: str(r.cpt_nationality),
+      cpt_status: j.cpt_status === undefined || j.cpt_status === null ? 0 : Number(j.cpt_status),
+      card_price_for_term_nationality: r.card_price_for_term_nationality === null || r.card_price_for_term_nationality === undefined ? 0 : r.card_price_for_term_nationality,
+      payment_term_nationality_mismatch: flags.indexOf("nationality_upgraded_since_pricing") !== -1,
+      payment_term_surface_unavailable: flags.indexOf("upgrading_nationality_surface_unavailable") !== -1,
       flags: flags.join(","),
       needs_human: r.needs_human === true,
       living_switch: flags.indexOf("living_switch_in_month") !== -1,

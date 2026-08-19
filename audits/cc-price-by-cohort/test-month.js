@@ -14,7 +14,7 @@ const TARGET = process.env.SCORER || 'sources';
 const M = TARGET === 'sources'
   ? Object.assign({}, require('./scorer-month'), require('./paymentsinfo'))
   : require(TARGET);
-const { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, parseEntry, resolveMonthlyRate } = M;
+const { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, parseEntry, resolveMonthlyRate, resolveNationality } = M;
 const card = require('./card.json');
 
 let pass = 0, fail = 0;
@@ -166,7 +166,8 @@ check('stepped plan, intro month: FLAGGED (policy call 2026-08-19)',
     actual_rate: 4190, card_price: 4714.5, gap_aed: 524.5, needs_human: true });
 
 check('stepped plan, intro month: the human is told the rate is time-bounded',
-  scoreMonth(c1103073, card, { audit_month: '2026-09' }).flags, ['bounded_rate_period']);
+  scoreMonth(c1103073, card, { audit_month: '2026-09' }).flags,
+  ['bounded_rate_period', 'upgrading_nationality_surface_unavailable']);
 
 check('stepped plan, steady-state month: GREEN at card price',
   view(scoreMonth(c1103073, card, { audit_month: '2026-11' }),
@@ -256,7 +257,8 @@ check('switch: a switch BEFORE the audit month is unambiguous, not a pending',
 check('switch: a switch INSIDE the audit month routes to a human',
   view(scoreMonth(Object.assign({}, c1005750, { live_out: true, live_in_out_logs: [{ date: '2026-07-10', oldValue: 'IN', newValue: 'OUT' }] }), card, { audit_month: '2026-07' }),
        ['state', 'verdict', 'reason_code', 'flags']),
-  { state: 'pending', verdict: "Can't tell", reason_code: 'cleared_on_a_test_but_gate_requires_review', flags: ['living_switch_in_month'] });
+  { state: 'pending', verdict: "Can't tell", reason_code: 'cleared_on_a_test_but_gate_requires_review',
+    flags: ['living_switch_in_month', 'upgrading_nationality_surface_unavailable'] });
 
 // === paying MORE than the card is valid, and never a red flag ===============
 // The July 2026 run mislabelled 751 contracts as "Under-priced" with negative
@@ -325,6 +327,111 @@ check('tolerance: 3.01 AED does not',
   scoreMonth(Object.assign({}, c1005750, {
     payments_info: ['Service Fees: 4711 + 0.49 VAT, on Jun 10 2020 (Monthly)'] }), card, { audit_month: '2026-07' }).state,
   'red');
+
+// === nationality fallback + upgrading_nationality ===========================
+//
+// These cover the two things the 2026-08-19 LCP round changed. The fixtures use
+// the real July 2026 card: livein:Filipina 4714.50, livein:Ethiopian 3129.
+
+const NAT_BASE = {
+  contract_id: 9001, live_out: false, contract_start_date: '2020-06-10',
+  additional_discount: '', credit_note_discount: '', live_in_out_logs: [],
+  payment_term_nationality_surface: 'unavailable',
+};
+function natCase(over) { return Object.assign({}, NAT_BASE, over); }
+const PAYS_FIL = ['Service Fees: 4490 + 224.5 VAT, on Jun 10 2020 (Monthly)']; // 4714.50
+const PAYS_ETH = ['Service Fees: 2980 + 149 VAT, on Jun 10 2020 (Monthly)'];   // 3129
+
+check('resolve: a live maid always beats the payment term',
+  resolveNationality({ maid_nationality: 'Filipina', cpt_nationality: 'Ethiopian' }),
+  { value: 'Filipina', source: 'maid' });
+
+check('resolve: the term answers only when there is no maid',
+  resolveNationality({ maid_nationality: '', cpt_nationality: 'Ethiopian' }),
+  { value: 'Ethiopian', source: 'active_payment_term' });
+
+check('resolve: neither means neither - never a default bucket',
+  resolveNationality({ maid_nationality: '', cpt_nationality: '' }),
+  { value: '', source: null });
+
+// The 231-contract case: no maid on the contract, so the OLD behaviour was a
+// guaranteed pending. The term still knows what the contract was priced for.
+check('fallback: a maid-less contract is now scoreable off the payment term',
+  view(scoreMonth(natCase({ maid_nationality: '', cpt_nationality: 'Filipina', payments_info: PAYS_FIL }),
+    card, { audit_month: '2026-07' }),
+    ['state', 'reason_code', 'nationality', 'nationality_source', 'cohort']),
+  { state: 'green', reason_code: 'matches_card_for_month', nationality: 'Filipina',
+    nationality_source: 'active_payment_term', cohort: 'livein:Filipina' });
+
+check('fallback: the reviewer is told the nationality did not come from a maid',
+  scoreMonth(natCase({ maid_nationality: '', cpt_nationality: 'Filipina', payments_info: PAYS_FIL }),
+    card, { audit_month: '2026-07' }).flags.indexOf('nationality_from_payment_term') !== -1,
+  true);
+
+check('fallback: with no maid AND no term it is still an unpriceable pending',
+  view(scoreMonth(natCase({ maid_nationality: '', cpt_nationality: '', payments_info: PAYS_FIL }),
+    card, { audit_month: '2026-07' }), ['state', 'reason_code', 'nationality_source']),
+  { state: 'pending', reason_code: 'no_nationality', nationality_source: null });
+
+// THE SELF-COMPARISON TRAP. When the nationality itself came from the term,
+// comparing it against the term is comparing a value with itself. It must be
+// declared untestable, never scored as a pass.
+check('upgrade: never self-compares when the nationality came from the term',
+  view(scoreMonth(natCase({ maid_nationality: '', cpt_nationality: 'Ethiopian', payments_info: PAYS_ETH }),
+    card, { audit_month: '2026-07' }), ['tests', 'unimplemented_tests']).unimplemented_tests,
+  ['upgrading_nationality']);
+
+check('upgrade: an unreadable term surface is declared, not scored false',
+  view(scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_surface: 'unavailable', payments_info: PAYS_FIL }),
+    card, { audit_month: '2026-07' }), ['unimplemented_tests']),
+  { unimplemented_tests: ['upgrading_nationality'] });
+
+check('upgrade: same nationality on maid and term is not a switch',
+  scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Filipina', payments_info: PAYS_FIL }),
+    card, { audit_month: '2026-07' }).tests.upgrading_nationality,
+  false);
+
+// Ethiopian-priced term, Filipina maid today, still paying 3129: the dearer maid
+// on the cheaper rate. This is the case the test exists for.
+check('upgrade: a dearer maid on the old cheaper rate is detected and excused to a human',
+  view(scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Ethiopian', payments_info: PAYS_ETH }),
+    card, { audit_month: '2026-07' }),
+    ['state', 'verdict', 'reason_code', 'needs_human', 'gap_aed', 'card_price_for_term_nationality']),
+  { state: 'pending', verdict: "Can't tell", reason_code: 'upgrading_nationality_suspected',
+    needs_human: true, gap_aed: 1585.5, card_price_for_term_nationality: 3129 });
+
+check('upgrade: it is recorded as a passed test, not just a flag',
+  scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Ethiopian', payments_info: PAYS_ETH }),
+    card, { audit_month: '2026-07' }).tests.upgrading_nationality,
+  true);
+
+// DIRECTION IS THE WHOLE POINT. Switching DOWN to a cheaper nationality gives a
+// client no claim on a lower rate, so it must not suppress the finding.
+check('upgrade: a switch to a CHEAPER nationality excuses nothing and stays red',
+  view(scoreMonth(natCase({ maid_nationality: 'Ethiopian', cpt_nationality: 'Filipina', payments_info: ['Service Fees: 2000 + 100 VAT, on Jun 10 2020 (Monthly)'] }),
+    card, { audit_month: '2026-07' }), ['state', 'reason_code']),
+  { state: 'red', reason_code: 'below_card_unexplained' });
+
+check('upgrade: the not-an-upgrade case is still surfaced to the reviewer',
+  scoreMonth(natCase({ maid_nationality: 'Ethiopian', cpt_nationality: 'Filipina', payments_info: ['Service Fees: 2000 + 100 VAT, on Jun 10 2020 (Monthly)'] }),
+    card, { audit_month: '2026-07' }).flags.indexOf('nationality_switch_not_an_upgrade') !== -1,
+  true);
+
+// An upgrade detected on a contract that IS paying the right price must not be
+// dragged out of green - the test explains a shortfall, it does not create one.
+check('upgrade: a correctly-priced contract stays green even with an upgrade detected',
+  view(scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Ethiopian', payments_info: PAYS_FIL }),
+    card, { audit_month: '2026-07' }), ['state', 'reason_code']),
+  { state: 'green', reason_code: 'matches_card_for_month' });
+
+// An ABOVE-card contract with an upgrade is above card, not a pending: the
+// upgrade branch sits after the above_card branch precisely so paying MORE is
+// never re-labelled as a question.
+check('upgrade: above-card wins over an upgrade excuse',
+  scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Ethiopian',
+    payments_info: ['Service Fees: 6000 + 300 VAT, on Jun 10 2020 (Monthly)'] }),
+    card, { audit_month: '2026-07' }).state,
+  'above_card');
 
 // ---------------------------------------------------------------------------
 console.log(failures.length ? failures.join('\n\n') + '\n' : '');
