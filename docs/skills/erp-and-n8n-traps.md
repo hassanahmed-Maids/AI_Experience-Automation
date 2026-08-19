@@ -181,9 +181,23 @@ bounced payment — because that contract's newest 50 rows are future instalment
 reads exactly like "does not exist."** Walk every page and assert `pulled == totalElements`
 before trusting any negative. (`size=40` gives contiguous offsets; `size=50` skips 40–49.)
 
-**This endpoint took the Accounting module down.** Sequential only, scoped by `contract.id`.
-Never a bare date-range sweep at width. Body is a filter **array**, not an object:
+**This endpoint took the Accounting module down, and a date-range sweep is genuinely not
+viable — measured, not feared [LIVE-PROVEN 2026-08-19].** A *single day* filtered to one payment
+type took **73 seconds** and reported `totalElements` = **45,061**. `operation: "between"`
+returns HTTP 500 (`NullPointerException`). Sequential only, scoped by `contract.id`. Body is a
+filter **array**, not an object:
 `[{"property":"contract.id","operation":"=","value":"<id>"}]`, `pageCode: PaymentReport`.
+Supported operations seen working: `=`, `>=`, `<=`.
+
+**Per-contract reads cost ~1.6 s each** (14 reads, mean 1.60 s, max 2.09 s). Budget from that
+number, not from a guess: ~23k contracts is ~2 hours at 5 concurrent with 500 ms between
+batches — fine for a manual monthly run, provided it is chunked across staged executions so no
+single execution retains the payloads.
+
+**`size=500` does NOT always cover one contract's ledger.** In the same 14-contract sample one
+contract had **689 rows**. Page until `pulled == totalElements` and abort the case otherwise —
+without that, the missing rows read as "this month has no payment", which is a manufactured
+finding or a manufactured clearance depending on the month.
 
 ---
 
@@ -211,6 +225,32 @@ like candidates. Turns 250,000 calls into ~100 + (candidates × k).
 
 ## 4. Payment-row semantics **[LIVE-PROVEN]**
 
+- **KNOW THE WHOLE STATUS ENUM BEFORE YOU CLASSIFY. `PaymentStatus` has 14 constants**
+  (`PaymentStatus.java:15-29`) **[LIVE-PROVEN 2026-08-19]**. A spec that lists five is not a
+  vocabulary, it is a sample:
+
+  | Category | Constants |
+  |---|---|
+  | Collected | `RECEIVED` |
+  | In flight | `PDC`, `PRE_PDP`, `ADCB_PDC`, `DEPOSIT`, `FROZEN`, `REQUESTED` |
+  | Dead | `BOUNCED`, `DELETED`, `TEARED_UP`, `RETURNED_TO_CLIENT`, `UNCOLLECTED`, `CANCELLED`, `CANCELLED_WAITING_CLIENT_PICKUP` |
+
+  "Never treat an unrecognised status as dead — unknown counts as in flight" is a sound safety
+  net and a **catastrophic** substitute for knowing the enum. Applied to a five-value list, it
+  silently reclassifies **five dead statuses as in flight**, where they "cover the gap" and park
+  a real finding in `pending` forever. A month whose only row is `UNCOLLECTED` — money
+  explicitly written off — never gets reported. Enumerate all 14, then keep the net for values
+  genuinely outside the enum, and surface those on the case rather than absorbing them.
+  `RETURNED_TO_CLIENT` is "cheque handed back, never collected" (UI "Returned to family"), not
+  a reversal. **No status means collected-then-refunded** — a real reversal is a separate
+  payment of a refund *type* plus a `ClientRefundToDo`.
+- **The type vocabulary is longer than any spec's too.** A 14-contract sample carried six codes
+  absent from the spec: `insurance`, `overstay_fee` (the spec said `overstay_fine`),
+  `Urgent_visa_charges` (mixed case), `non-mp-refund` (hyphenated), `service_charge`, `oec`.
+  Before red-flagging "unrecognised type", ask which direction the error runs: if unrecognised
+  rows are merely *excluded* from a sum, the month looks **less** paid, never more — so a
+  blanket red just floods the queue with clean contracts. Red on an **absent** code; surface an
+  unrecognised-but-present one.
 - **`status.value` is authoritative; `status.label` lies.** On all 117 future instalments of one
   contract, `status.value` = `PDC` while `status.label` = `PDP`. Testing `status == 'PDP'`
   matches nothing, silently, forever.
