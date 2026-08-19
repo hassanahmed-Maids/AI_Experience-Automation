@@ -271,3 +271,52 @@ which is exactly why that rule exists: without it, that contract's later months 
 having no payment rows at all.
 **Effect:** the ledger reader must page until `pulled == totalElements` and abort the case
 otherwise. Never trust a negative from a single call.
+
+### F12. THE POPULATION MISSES BOTH VERIFIED REDS — cancelled contracts are not in the default sweep
+Probed 2026-08-19. Both confirmed reds carry **`contract.status = 'CANCELLED'`**
+(1023590 terminated 2026-03-03, 1074171 terminated 2026-06-14), and the population sweep the
+spec specifies does not return them:
+
+| status filter sent | `response.total` | what comes back |
+|---|---|---|
+| *(none — the spec's default)* | 22,870 | the ACTIVE cohort |
+| `ACTIVE` | 22,870 | same |
+| `CANCELLED` | **22,870** | **silently the ACTIVE cohort** — the documented one-L trap, live |
+| `FILTER_CANCELED` | **22,649** | genuinely cancelled contracts (500/500 sampled read `CANCELLED`) |
+| `TERMINATED` / `ALL` | HTTP 400 | not enum members |
+
+A run auditing 2026-03 or 2026-06 under the spec's population would therefore **never enumerate
+either verified red**, and would report clean by omission. This is the completeness failure the
+spec's own note predicts — *"the risk moved from matching to completeness"* — and it is the
+single most serious defect found in this build, worse than the status-enum bug, because no gate
+can catch a contract that was never listed.
+
+**Why it happens:** the check audits a month that may be in the past. A contract live during that
+month can have been cancelled since. The ACTIVE-only sweep is a snapshot of *today*, not of the
+audited month.
+
+**Fix, and it is cheap.** The population is the **union** of:
+1. the ACTIVE sweep (no status) — 22,870, and
+2. the `FILTER_CANCELED` sweep — 22,649, **filtered locally** to
+   `dateOfTermination >= first day of the month under test`.
+
+The cancelled rows all carry `dateOfTermination` (500/500 sampled), so the filter costs no extra
+calls. Measured on a 500-row page, only **0.2%–1.6%** of cancelled contracts terminated in or
+after a candidate audited month — roughly **50–350 contracts per month**, not 22,649. So the
+correct population is about **23,000**, barely more than the incorrect one.
+
+**File against:** `mv_contract_population` (the sweep is incomplete as recorded) and gate 1.
+
+### F13. Runtime: a full run is hours, and the loop shape made it 5x worse than it needs to be
+Measured per-contract cost is ~1.6 s, and each contract needs two reads (ledger +
+`CONTRACT_DETAILS`), so ~23,000 contracts is ~46,000 calls. Run serially that is ~20 hours.
+
+Stage 2 as first built loops with `splitInBatches` at batchSize 1, which is serial. The spec
+permits **5 concurrent with 500 ms between batches**, and the HTTP node's own `batching` option
+delivers exactly that when contracts are fed through as items instead of one per loop iteration.
+Restructuring Stage 2 to item-parallel brings a full run to roughly **4 hours** — long, but this
+is a manual monthly check, and it must still be chunked across staged executions so no single
+execution retains the payloads.
+
+**Recorded as a build note, not a spec defect.** The spec's pacing rule is correct; the loop shape
+simply failed to use the concurrency it allows.
