@@ -50,8 +50,13 @@ Prepared per the *Build the n8n Flow — Prompt* handover checklist in the Audit
 1. **Re-verify on the operator's own ERP identity.** Every measurement was taken on a token belonging
    to another user, at owner instruction. Nothing should be marked `Technical Validated` until re-run
    under the identity that will own the findings. Set the n8n variable `ERP_BEARER`.
-2. **Repoint the portal.** Publishing did not cut over; the old flow is unpublished, so the check is
-   offline for the portal until repointed.
+2. ~~**Repoint the portal.**~~ **Done 2026-08-19.** Repointed from the n8n side rather than the portal
+   side: this flow adopted the retired flow's webhook path, so the URL the portal already stores
+   (`/webhook/applicant-dummy-ticket-refund-audit`) now resolves here. `/webhook/dummy-tickets-housemaids`
+   no longer exists. No portal-side payload change was needed — the validator is the golden's, and the
+   golden is what the portal already drives. The old flow is **archived**, which also closes its
+   unauthenticated-webhook exposure. Caveat: if the portal does not send the shared-secret header for
+   this check, calls are rejected **silently** — watch the first portal-driven run rather than assume it.
 3. **Sign-off** before findings reach reviewers. `Test cases verified`, `Business Validated` and
    `Technical Validated` are all still unticked.
 

@@ -262,7 +262,7 @@
   <p class="eyebrow">Audit Flow Factory · Handover</p>
   <h1>Dummy Tickets Submitted for Refund — Housemaids</h1>
   <p class="standfirst">
-    A rebuild of the live check on the CC Non Received golden rails. Two flows, published.
+    A rebuild of the live check on the CC Non Received golden rails. Two flows, published, and the portal cut over to them.
     The deterministic gates and both verifier rules are built and tested; four business
     questions are settled; six spec corrections are filed. Three things still need a human,
     and one procedural deviation needs a decision.
@@ -276,12 +276,12 @@
       <dl class="field"><dt>Category · module</dt><dd>CC Maid · Money Control</dd></dl>
       <dl class="field"><dt>Check type</dt><dd>Money out · finding measured in AED</dd></dl>
       <dl class="field"><dt>Handover date</dt><dd>2026-08-19</dd></dl>
-      <dl class="field"><dt>Scoring flow</dt><dd><span class="pill ok">published</span> <span class="mono">aTmGMAlYLwsJQ7js</span> · v <span class="mono">59fb0485</span></dd></dl>
+      <dl class="field"><dt>Scoring flow</dt><dd><span class="pill ok">published</span> <span class="mono">aTmGMAlYLwsJQ7js</span> · v <span class="mono">ae39d1cc</span></dd></dl>
       <dl class="field"><dt>Enrichment sub-flow</dt><dd><span class="pill ok">published</span> <span class="mono">YQlNlxrnhbQpBbdl</span></dd></dl>
-      <dl class="field"><dt>Flow it replaces</dt><dd><span class="pill red">unpublished</span> <span class="mono">FXrhGBJUnGYgrs9R</span></dd></dl>
+      <dl class="field"><dt>Flow it replaces</dt><dd><span class="pill red">archived</span> <span class="mono">FXrhGBJUnGYgrs9R</span></dd></dl>
       <dl class="field"><dt>Golden cloned</dt><dd>CC Non Received Monthly Payments <span class="mono">Qq473Ygj543jxPUN</span></dd></dl>
-      <dl class="field"><dt>Webhook path</dt><dd class="mono">/webhook/dummy-tickets-housemaids</dd></dl>
-      <dl class="field"><dt>Trigger</dt><dd>Manual only · no schedule · no email</dd></dl>
+      <dl class="field"><dt>Webhook path</dt><dd class="mono">/webhook/applicant-<wbr>dummy-ticket-refund-audit</dd></dl>
+      <dl class="field"><dt>Trigger</dt><dd>Portal webhook · no schedule · no email</dd></dl>
       <dl class="field"><dt>Offline suite</dt><dd><span class="pill ok">67 / 67</span> mutation-tested</dd></dl>
       <dl class="field"><dt>ERP variable rows</dt><dd>17 · all Confirmed / Verified · <strong>0 Pending Technical</strong></dd></dl>
       <dl class="field"><dt>Result workbook</dt><dd><a href="https://docs.google.com/spreadsheets/d/172R3JzxXm1nf6Vc3qTesin7eys-jT0ng3SOxUsf3LD8">Cases · Run Summary · Verdicts</a></dd></dl>
@@ -500,7 +500,7 @@
   <!-- ══════════════════════════════════════════════════════ -->
   <section>
     <h2>Live runs</h2>
-    <p class="section-note">Results delivered to the workbook. Portal callbacks disabled — the portal is not yet repointed.</p>
+    <p class="section-note">Results delivered to the workbook. Portal callbacks were disabled for these runs; the portal was repointed afterwards, on 2026-08-19.</p>
     <div class="scroll">
       <table>
         <thead><tr><th>Run</th><th class="num">Applicants</th><th class="num">Findings</th><th class="num">Exposure AED</th><th class="num">Clean</th><th class="num">Pending</th><th class="num">Wall clock</th></tr></thead>
@@ -661,13 +661,34 @@
       </p>
     </div>
 
-    <div class="note warn">
-      <h4>2 · Repoint the portal</h4>
+    <div class="note ok">
+      <h4>2 · Repoint the portal — <strong>done 2026-08-19</strong></h4>
       <p>
-        Publishing did not cut over. The portal calls the old flow's path; this one answers on
-        <code>/webhook/dummy-tickets-housemaids</code>. The old flow is now unpublished, so
-        <strong>the check is offline for the portal until it is repointed</strong> — which also finally
-        closes that flow's unauthenticated-webhook exposure.
+        Repointed from the <em>n8n</em> side rather than the portal side. The check's registry row lives in
+        the Security Room's Supabase project, which was not reachable, so this flow
+        <strong>adopted the retired flow's webhook path</strong> instead: the URL the portal already stores,
+        <code>/webhook/applicant-dummy-ticket-refund-audit</code>, now resolves here.
+        <code>/webhook/dummy-tickets-housemaids</code> no longer exists.
+      </p>
+      <p>
+        No portal-side payload change was needed. This flow's validator <em>is</em> the golden's, and the
+        golden is what the portal already drives: the same shared-secret header, the same callback-origin
+        allowlist (it is literally the portal's two callback hosts), a 31-day span cap that fits the portal's
+        previous-calendar-month default, and backwards-compatible reading of the legacy
+        <code>auth.erp.token</code> field the old flow used.
+      </p>
+      <p>
+        Verified by POSTing the production path with no secret: it answered
+        <code>{"accepted":false,"message":"unauthorized"}</code> — the new validator's terse security
+        rejection. The old flow had no secret check and would have replied with a missing-field error.
+        That flow is now <strong>archived</strong>, which both prevents a republish from taking the path
+        back and closes its unauthenticated-webhook exposure for good.
+      </p>
+      <p>
+        <strong>Watch the first portal-driven run.</strong> If the portal does not send the shared-secret
+        header for <em>this</em> check, every call is rejected — and that branch is deliberately silent, so
+        that anyone who finds the URL cannot mail-bomb the team. The portal would look like it ran and
+        produce nothing. Confirm in the n8n execution list rather than assuming.
       </p>
     </div>
 
@@ -678,7 +699,7 @@
         <code>Technical Validated</code> are still unticked on the spec. The spec's own answer to
         <em>independent review</em> is <strong>no</strong> — on the grounds that the Security Room reviewer
         working each case is the second pair of eyes — so that reviewer is the control, and it only holds
-        once the portal is repointed and cases actually reach them.
+        once cases actually reach them — which, now that the portal is repointed, depends only on sign-off.
       </p>
     </div>
 

@@ -43,8 +43,10 @@ authenticated reads.
 
 ## Before this goes live
 
-1. **Sign-off.** The flow is a draft and must stay one until someone who has read the spec
-   approves a production run. Findings here name real clients and real money.
+1. **Sign-off — still outstanding, and now the flow is live.** This was written while the flow was a
+   draft. It is published and the portal is cut over to it (see *Cutover* below), at owner instruction.
+   Nobody who has read the spec has yet approved a production run, and findings here name real clients
+   and real money. This is the one item the cutover made *more* urgent, not less.
 2. **All four business questions are settled** (Hassan, 2026-08-19) — see `SPEC-FINDINGS.md`
    Parts 3 and 4. Every default is a ruling; each is overridable in `params` only so an
    alternative can be measured:
@@ -57,9 +59,10 @@ authenticated reads.
    AED 11,517 at any threshold. A threshold of 6 would send 8 for review instead of 49.
 3. **Re-verify on the operator's own ERP account.** Everything in Part 2 was measured on a
    borrowed token; nothing should be marked `Technical Validated` until it is re-run under the
-   identity that will own the findings.
-4. **The live flow's webhook is unauthenticated** (Part 1 §1) and will stay that way until it is
-   replaced or unpublished. That is independent of this build.
+   identity that will own the findings. Portal-driven runs solve this on their own — the token
+   arrives in the payload from the triggering user's saved credentials.
+4. ~~**The live flow's webhook is unauthenticated** (Part 1 §1).~~ **Closed 2026-08-19** — the old
+   flow is archived, and the path it exposed is now served by this flow's shared-secret gate.
 
 ## The verifier
 
@@ -71,8 +74,51 @@ is no path by which a confirmed loss becomes clean.
 **Rule 1 has no live case yet** — the reference window holds zero `Used` tickets. Covered offline
 only; do not record it as validated.
 
-## Publishing does not cut over
+## Cutover — done 2026-08-19
 
-The portal calls the old flow's path; this one answers on `/webhook/dummy-tickets-housemaids`.
-Both are live. When the portal is repointed, **unpublish the old flow** — that also closes its
-unauthenticated-webhook exposure.
+The portal was repointed **from the n8n side**, not the portal side. Rather than edit the check's
+registry row (it lives in the Security Room's Supabase project, which was not reachable), this flow
+**adopted the retired flow's webhook path**. The URL the portal already stores now resolves here:
+
+```
+POST https://sami-team.app.n8n.cloud/webhook/applicant-dummy-ticket-refund-audit
+```
+
+`/webhook/dummy-tickets-housemaids` **no longer exists** — do not use it in a manual test.
+
+The repoint needed **no portal-side payload change**. This flow's validator is the golden's, and the
+golden is what the portal already drives:
+
+| Demanded | Already satisfied |
+|---|---|
+| `x-sr-webhook-secret` header | same value the golden expects |
+| `callback_url` on the origin allowlist, `/ta-callback/<64-hex>` | the allowlist *is* the portal's two callback hosts |
+| ERP token | backwards compatible — prefers `params.erp_auth.bearer`, still reads the legacy `auth.erp.token` the old flow used |
+| window ≤ 31 days | portal default is the previous calendar month |
+
+Verified by POSTing the production path with no secret: it answered
+`{"accepted":false,"message":"unauthorized"}` — the new validator's terse security rejection. The old
+flow had no secret check and would have replied with a `Missing required field(s)` shape instead.
+
+**The old flow `FXrhGBJUnGYgrs9R` is archived**, not merely unpublished. Two reasons: republishing it
+would collide with this flow on that path and could silently take the URL back, and archiving closes
+its unauthenticated-webhook exposure for good. Its logic is preserved in `prod-comparison.js`.
+
+### Two things to know about the first portal-driven run
+
+1. **A misconfigured repoint fails quietly.** If the portal does not send the shared-secret header for
+   *this* check, every call returns `unauthorized` — and that branch sets `_silent`, deliberately, so a
+   stranger who finds the URL cannot mail-bomb anyone. The portal would look like it ran and produce
+   nothing. Watch the first run in the n8n execution list; do not assume it.
+2. **A rejection returns HTTP 200** with `accepted:false` in the body, not a 4xx. That is inherited
+   golden behaviour, and the portal is already built against it — left alone deliberately.
+
+## What the cutover did *not* settle
+
+- **Sign-off.** `Test cases verified`, `Business Validated` and `Technical Validated` are still unticked.
+- **Two rules have never seen a live case:** gate 80 and verifier rule 1 (no `Used` outcome has ever
+  appeared, across 1,290 tickets read), and gate 100's date-based half.
+- The **repeat-booking threshold of 2** costs 281 booking reviews per 7 findings at month scale.
+
+The borrowed-token gap, though, closes itself: in production the token arrives in the portal's payload
+from the triggering user's own saved ERP credentials. `ERP_BEARER` matters only for manual runs.

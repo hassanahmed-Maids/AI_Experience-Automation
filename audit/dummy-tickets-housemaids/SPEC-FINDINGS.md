@@ -852,3 +852,91 @@ stable, which is what matters: the money answer does not drift between runs, onl
 retry-next-run bucket does.
 
 The workbook now holds rows from four runs, distinguished by `run_id`.
+
+---
+
+# Part 8 · Cutover, 2026-08-19 (Hassan) — the portal now reaches this flow
+
+## What was actually done, and why it is not what "repoint the portal" literally says
+
+The check's registry row — the record holding the n8n URL the portal calls — lives in the Security
+Room's **Supabase** project (`nnbyjbdbigcpoqtsczlz`, the same project whose functions host is one of
+the two allowlisted callback origins). That project was not reachable from this session: a Supabase
+connector exists on the org but was toggled off in-chat. Editing the portal's own config was
+therefore impossible, and it is worth naming that plainly rather than filing the cutover as if the
+portal had been touched.
+
+**The inverse was done instead, at owner instruction:** this flow *adopted the retired flow's
+webhook path*. Its `Webhook` node moved from `dummy-tickets-housemaids` to
+`applicant-dummy-ticket-refund-audit`, and the flow was republished
+(`activeVersionId ae39d1cc`). The URL the portal already stores now resolves here. **The documented
+path `/webhook/dummy-tickets-housemaids` no longer exists** — every doc that quoted it has been
+corrected.
+
+## The finding that made this safe: no portal-side change was needed
+
+A path swap alone would have been reckless without checking what the *new* validator demands that
+the old one did not. The old flow had **no inbound authentication of any kind**. This one is the
+golden's validator, with three gates the old flow lacked. All three turn out to be already satisfied,
+because the golden is a check the portal **already drives**:
+
+| Gate this flow adds | Status against the portal |
+|---|---|
+| `x-sr-webhook-secret` shared-secret header | satisfied — the value is the golden's, unchanged |
+| `callback_url` origin allowlist + `/ta-callback/<64-hex>` path shape | satisfied — the allowlist *is* the portal's Worker proxy and Supabase functions host |
+| `Bearer <token>` shape check (CRLF header injection) | satisfied — shape only, not validity |
+| ERP token location | **backwards compatible** — prefers `params.erp_auth.bearer`, still reads the legacy `auth.erp.token` the old flow sent |
+| 31-day window span cap | satisfied — the portal default is the previous calendar month |
+
+So the cutover is a URL change and nothing else. That is a measured claim, not an assumption: the
+validator was read in full before the path was touched.
+
+## Verified, not assumed
+
+POSTing the production path with no secret header returned:
+
+```
+HTTP 200  {"accepted":false,"message":"unauthorized"}
+```
+
+That body is **this** flow's terse security rejection. The old flow, having no secret check, would
+have answered with a `Missing required field(s)` shape instead. The difference in reply is the proof
+the path now lands here. The probe was chosen because it is rejected at the first gate: it touches no
+ERP endpoint and posts no callback.
+
+## The old flow is archived, not just unpublished
+
+`FXrhGBJUnGYgrs9R` was unpublished earlier in the session and is now **archived**. Unpublishing alone
+left a live hazard: n8n resolves a production webhook by path, so republishing that flow — by anyone,
+for any reason — would have collided on `applicant-dummy-ticket-refund-audit` and could have taken
+the portal's traffic back to the unaudited logic. Archiving also permanently closes the
+unauthenticated-webhook exposure recorded in Part 1 §1. Its `classifyDummy` logic is preserved
+verbatim in `prod-comparison.js`, so the comparison baseline survives the archive.
+
+## Two failure modes to carry into the first portal-driven run
+
+**1. A misconfigured repoint fails *silently*.** If the portal does not send the shared-secret header
+for *this* check — the secret is the golden's, but nothing here proves the portal attaches it
+per-check rather than per-flow — every call returns `unauthorized`, and that branch sets `_silent` by
+design, so that anyone who finds the URL cannot mail-bomb the team by hammering it. The consequence
+is the dangerous one: **the portal would look like it ran and produce nothing at all.** The first
+portal-driven run must be confirmed in the n8n execution list. Absence of an alert is not evidence of
+a run.
+
+**2. A rejection returns HTTP 200**, with `accepted:false` in the body, not a 4xx. Inherited golden
+behaviour, and the portal is built against it, so it was deliberately left alone — but anyone testing
+by status code alone will read a rejection as a success.
+
+## What the cutover did not settle
+
+It moved traffic; it did not validate anything. Still open, and now open on a **live** flow:
+
+- **Sign-off.** `Test cases verified`, `Business Validated`, `Technical Validated` all still unticked.
+  The cutover makes this more urgent, not less.
+- **Gate 80 and verifier rule 1** have still never seen a live case — no `Used` outcome has appeared
+  across 1,290 tickets read. Gate 100's date-based half likewise.
+- **The repeat-booking threshold of 2** still costs 281 booking reviews per 7 findings at month scale.
+
+One item closed itself: the borrowed-token caveat on Part 2 does **not** apply to portal-driven runs.
+The token arrives in the payload from the triggering user's own saved ERP credentials, so production
+findings are attributed to whoever triggered them. `ERP_BEARER` matters only for manual runs.
