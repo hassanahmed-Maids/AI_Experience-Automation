@@ -10,14 +10,21 @@ Read from the node itself (`Validate Inputs`, WF-A `uJ8UVNKdN2s5PHHA`):
 
 | field | rule |
 |---|---|
-| header `X-SR-Webhook-Secret` | must equal the `EXPECTED_WEBHOOK_SECRET` constant (line 97 of the node). Copy it from there — it is deliberately not written down here. The node's own comment is worth reading: it travels in plaintext, lands in every execution's data, and keeps strangers out, not colleagues. |
+| header `X-SR-Webhook-Secret` | must match one of the slots in `ACCEPTED_WEBHOOK_SECRETS` (line 116 of the node) — today just the `live` slot. Copy it from there; it is deliberately not written down here. The node's own comment is worth reading: it travels in plaintext, lands in every execution's data, and keeps strangers out, not colleagues. The `validate_inputs` log line reports which slot matched, never the value. |
 | `check_id`, `run_id` | any non-empty strings; `run_id` keys the run |
-| `callback_url` | origin must be one of the two in `CALLBACK_ORIGIN_ALLOWLIST` (lines 102-105) and the path must match `/ta-callback/<64 hex>` — or `/functions/v1/ta-callback/<64 hex>` |
+| `callback_url` | origin must be one of the two in `CALLBACK_ORIGIN_ALLOWLIST` (line 124) and the path must match `/ta-callback/<64 hex>` — or `/functions/v1/ta-callback/<64 hex>` |
 | `audit_window` | `{"kind":"month","year":2026,"month":7}` — or `{"kind":"date_range","from":"...","to":"..."}` |
 | `params.erp_auth.bearer` | `"Bearer <jwt>"`, shape-checked for CR/LF (header-injection guard) |
 
-Optional: `params.previous_cases` (array, default []), `params.enrich_chunk_size`
-(default 750, clamped to 1,200), `params.population_floor` (may be raised, never lowered).
+Optional:
+
+| param | default | what it does |
+|---|---|---|
+| `params.previous_cases` | `[]` | carried cases from a previous run |
+| `params.enrich_chunk_size` | 750, clamped to 1,200 | candidates per WF-E sub-execution |
+| `params.score_batch_size` | 1,200, clamped to 2,000 | cases per WF-T sub-execution. **Lower it to force more batches on a small cohort** — that is how the fan-out gets exercised. Do not go below ~600 for a real run: the circularity tripwire inside `Guards` arms at 500 scored cases (`Join Scored` repeats it run-level, so nothing is lost, but the per-batch check goes quiet). |
+| `params.cohort_cap` | absent = **uncapped = a real audit** | caps the cohort for a PIPELINE TEST. Every number from a capped run is unpublishable and the run says so in its own log. |
+| `params.population_floor` | 4,600 | may be raised, never lowered |
 
 **On `callback_url`:** all three callback nodes — `Callback — Runs Log`,
 `Callback — Results`, `Callback: Agent Review` — are **disabled**, so nothing is POSTed
@@ -34,7 +41,7 @@ own terminal — it does not need to pass through anyone else's chat log or this
 # 1. paste YOUR OWN ERP token (the Authorization header value from any logged-in
 #    erp.maids.cc request, including the "Bearer " prefix)
 read -rs ERP_BEARER          # then paste, press Enter — keeps it out of shell history
-# 2. paste the webhook secret from Validate Inputs line 97
+# 2. paste the webhook secret from Validate Inputs line 116 (the 'live' slot)
 read -rs SR_SECRET
 
 curl -sS -X POST 'https://sami-team.app.n8n.cloud/webhook/cc-below-agreed-amount' \
@@ -56,20 +63,93 @@ JSON
 ```
 
 It answers immediately (the webhook uses a response node): `200` with the accepted run, or
-`400` with the reason. The audit then runs asynchronously for **~45 minutes** — roughly 14
-for the population walk, 8 for the sweeps, 24 for the enrichment.
+`400` with the reason. The audit then runs asynchronously. Measured on execution 93346, the
+furthest a run has reached — these are observed, not projected:
 
-## The one thing this needs that a draft does not have
+| phase | measured |
+|---|---|
+| population + terminated walks (now WF-Pop) | 16.0 min |
+| three payment windows (WF-P) | 9 s |
+| status sweep (WF-S) | 7 min 51 s |
+| gate 2 + cohort + payment attach + chunking | 10.0 min |
+| enrichment, 8 chunks of 750 (WF-E) | 7.0 min |
+| the scoring tail | **never completed** — 93346 crashed here, which is what WF-T fixes |
 
-The production path `/webhook/...` only exists while the workflow is **active**. WF-A is a
-draft on purpose and is not activated as part of this runbook — that is a human decision,
-and while active the webhook is reachable by anyone holding the URL and that plaintext
-secret. Two ways round it:
+So budget **~45 minutes** and expect the tail to add roughly five sub-executions on top of the
+41.5 minutes 93346 reached before it died.
 
-- **Test mode, no activation:** click *Test workflow* in the editor, then send the request to
-  `https://sami-team.app.n8n.cloud/webhook-test/cc-below-agreed-amount` within the listening
-  window. Same payload, same validation, runs in manual mode.
-- **Activate**, send to `/webhook/...`, and deactivate afterwards.
+## Activation state — CHANGED, read this
+
+**WF-A is published and active** (since 2026-08-19, at Hassan's instruction), so the
+production path `/webhook/cc-below-agreed-amount` is live right now. That means the earlier
+version of this section is obsolete: you do not need test mode, and the webhook is reachable
+by anyone holding the URL and that plaintext secret until it is rotated into a credential (see
+the rotation section below).
+
+Two things follow:
+
+- A **crash deactivates the workflow.** If a run dies, the next POST returns
+  `{"code":404,...,"is not registered"}` — that is not a bad payload, it is a deactivated
+  workflow. Re-publish before re-firing. This has already caught me once.
+- If you would rather not leave it reachable, unpublish after the run. Test mode still works
+  as an alternative: click *Test workflow*, then POST to
+  `https://sami-team.app.n8n.cloud/webhook-test/cc-below-agreed-amount` inside the listening
+  window — same payload, same validation, manual mode.
+
+Publishing order matters if anything is edited first: **leaves before the parent.** n8n refuses
+to publish WF-A while any of WF-Pop / WF-P / WF-S / WF-E / WF-T / WF-B / WF-C is unpublished,
+and it names them.
+
+## The run to fire FIRST — a capped pipeline test
+
+Nothing in this chain has executed since the tail was batched, so the first run should be the
+cheap one that exercises the new parts rather than the full book. Same command as above with two
+params added:
+
+```json
+  "params": {
+    "erp_auth": { "bearer": "$ERP_BEARER" },
+    "previous_cases": [],
+    "cohort_cap": 2000,
+    "score_batch_size": 400
+  }
+```
+
+**Why 400 and not the default.** `cohort_cap: 2000` alone gives two batches at the default 1,200,
+which barely tests the fan-out. At 400 you get five, so `Score Batch (WF-T)` fans out properly and
+`Join Scored`'s batch-index reconciliation (no gaps, no repeats) is actually exercised. That
+reconciliation is the thing standing between a lost batch and a run that reports on 1,600 of
+2,000 contracts while looking perfectly clean.
+
+**Two things a capped run does NOT do, so nobody reads more into it than it earns:**
+
+- **It does not reduce the sweep cost.** The cap is applied inside `Build Cohort`, *after* the
+  population walk, the three payment windows and the status sweep — so a capped run still pays
+  ~30 minutes and the sweeps' full memory. It tests the tail, not the sweeps.
+- **Every number it produces is unpublishable.** `Build Cohort` logs
+  `PIPELINE TEST - NOT AN AUDIT` and the case store carries `pipeline_test: true`. Coverage is
+  incomplete by design.
+
+**It does have real side effects.** It appends ~2,000 rows to the Cases tab (the review queue) and
+a Run Summary row. The three callback nodes are disabled so nothing is POSTed to the portal. If
+you want the queue kept clean, use `cohort_cap: 400` with `score_batch_size: 100` — still four
+batches, 400 rows.
+
+### What to read afterwards, in order
+
+1. `chunk_cases` — `batches` and `batch_sizes` match the cap and the batch size.
+2. `wft_return_batch`, once per batch — `rows_appended` equals `cases`, and `bands` is populated.
+3. `join_scored` — `batch_indexes` is `0..n-1` with no repeat, `rows_appended` equals `cases`,
+   and `circularity_tripwire_run_level` reads *armed and passed* (or *not armed* on a cohort
+   under 500 — expected on a small cap, and it says so rather than looking like a pass).
+4. `guards` — `plan_source` should read `Join Enrichment`, not `unavailable`.
+5. `wfpop_project_rows`, twice — `last_page_short: true` on the active walk, and
+   `salary_fields_dropped` greater than zero, which is the proof the salary field never reached
+   WF-A.
+6. The execution's peak memory, and whether anything else was running in the instance — that is
+   the open question from VALIDATION.md §19 and the reason to run this alone.
+
+Then, if it is clean, the same command with `cohort_cap` and `score_batch_size` removed.
 
 ## Token expiry bounds when you may start
 
