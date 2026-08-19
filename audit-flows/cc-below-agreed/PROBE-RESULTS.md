@@ -83,3 +83,24 @@ Two facts worth keeping out of the "defect" column:
   `code`; `name` is the human string. The ERP query at `PaymentRepository.java:519-531`
   filters on the NAME against the code-shaped literal, which is worth remembering before
   concluding anything about which tier of `currentPayment` fires.
+
+## Probe 15 — the Google Sheets append echo, settled from execution history (2026-08-19)
+
+**Question, and why it mattered:** `Return Batch Result` (WF-T) and `Join Scored` (WF-A) both
+reconcile rows-appended against the batch's case count, reading the count off the Sheets node's
+output. In WF-A the Cases append was a TERMINAL node — nothing ever read its output — so the
+shape was an assumption. If the node returned one summary item per call instead of one item per
+row, every batch would throw and the first run would die ~30 minutes in, after the sweeps.
+
+**Method:** no token and no run needed. Execution **88906** of `CC Non Received · 2-Verify`
+(`qAuvLHhae2sKD7mM`, success, 2026-08-15) contains a `Verdicts -> Google Sheet` append on the
+same node type and version (`n8n-nodes-base.googleSheets` 4.7, operation `append`,
+`autoMapInputData`). Read its stored output.
+
+**Answer: one output item per input item.** The output items carry the appended row's own json
+and `pairedItem: {item: 0}`, `{item: 1}`, `{item: 2}` — a per-input pairing, not a summary. So
+`rows.length === cases.length` on a healthy append, and the reconciliation in both directions
+(short write, duplicated write) is measuring the right thing.
+
+Worth remembering as a method as much as a fact: an execution record answers questions about
+node behaviour for free, and a sibling audit had already run the exact node this one depends on.
