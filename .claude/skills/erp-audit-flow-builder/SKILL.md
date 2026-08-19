@@ -235,6 +235,9 @@ judged by, by someone who was not in the room while you built it.
 
 **Read `references/handover-html.md` before you write a line of it.** It carries the
 design system, the two diagram patterns, and the page skeleton.
+`examples/applicant-real-ticket-handover.html` is a real one that shipped — read it
+for the shape and the level of detail, not for its palette: the next check gets its
+own visual identity, not a recolour of this one.
 
 ### Two sections, business first
 
