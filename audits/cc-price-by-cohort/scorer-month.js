@@ -124,7 +124,9 @@ function scoreMonth(c, card, opts) {
     gap_aed: null,
     actual_rate: null,
     card_price: null,
+    card_price_at_start: null,
     cohort: null,
+    cohort_at_start: null,
     flags: [],
   };
 
@@ -242,6 +244,8 @@ function scoreMonth(c, card, opts) {
     return b ? cohortKey(b, lo) : null;
   })();
   const pStart = cohortAtStart ? priceAt(card, cohortAtStart, startMs) : null;
+  out.cohort_at_start = cohortAtStart;
+  out.card_price_at_start = pStart;
 
   if (pMonth === null && pStart === null) {
     out.state = 'pending';

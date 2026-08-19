@@ -7,8 +7,14 @@
 // BEFORE it is wired into n8n.
 // ---------------------------------------------------------------------------
 
-const { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt } = require('./scorer-month');
-const { parseEntry, resolveMonthlyRate } = require('./paymentsinfo');
+// SCORER lets the identical suite run against the GENERATED n8n node body as
+// well as the sources, which is what makes the shipped code provably the code
+// these assertions cover. See test-node-parity.js.
+const TARGET = process.env.SCORER || 'sources';
+const M = TARGET === 'sources'
+  ? Object.assign({}, require('./scorer-month'), require('./paymentsinfo'))
+  : require(TARGET);
+const { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, parseEntry, resolveMonthlyRate } = M;
 const card = require('./card.json');
 
 let pass = 0, fail = 0;
@@ -266,5 +272,5 @@ check('tolerance: 3.01 AED does not',
 
 // ---------------------------------------------------------------------------
 console.log(failures.length ? failures.join('\n\n') + '\n' : '');
-console.log(pass + ' passed, ' + fail + ' failed');
+console.log(pass + ' passed, ' + fail + ' failed  [target: ' + TARGET + ']');
 process.exit(fail ? 1 : 0);
