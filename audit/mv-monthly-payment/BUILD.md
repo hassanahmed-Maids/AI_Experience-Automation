@@ -9,6 +9,7 @@ Three staged workflows in the **`Adeeb`** n8n project (`gxKXV4pckO4b4pQM`).
 | 1 | MV Monthly Payment · 1-Population | `IKRXhIco1mwxrcPq` |
 | 2 | MV Monthly Payment · 2-Score chunk | `CopNHNsXUzFO59bW` |
 | 3 | MV Monthly Payment · 3-Deliver | `Z9fTvmaM526eYofe` |
+| 4 | MV Monthly Payment · 4-Verify findings | `9T91z5VFH5g69WyT` |
 
 Case store: `MV Monthly Payments Cases (test)` `MlU50KCb0NEQC1ch` (extended with 10 columns).
 Run log: `MV Monthly Payments Runs (test)` `5pArYsVWkARj2JXH` (extended with 8 columns).
@@ -60,7 +61,12 @@ details or salary components leave the check.
    ~4 hours rather than ~20. Note the deliberate asymmetry with Stage 0: Stage 2 drops the loop to
    gain concurrency, while Stage 0 *keeps* a loop precisely to get a circuit breaker. Different
    requirements, different shapes.
-3. **The verifier layer is NOT built.** The spec's five verifier rules — read what staff wrote, the
+3. ~~The verifier layer is NOT built.~~ **BUILT** — Stage 4, wired between scoring and delivery.
+   All five verifier rules run; four branches are proven by pinned fixture tests
+   (`VERIFIER-TESTS-2026-08-19.md`), including that an unreadable surface or a failed model call
+   leaves a finding STANDING and PIL-blocked rather than clearing it. Still unproven: Stage 4
+   against live ERP evidence end to end. Superseded note follows.
+   ~~Original:~~ The spec's five verifier rules — read what staff wrote, the
    10-day chase rule, the follow-up qualification tests — do not run anywhere in this chain. Every
    finding it produces is **deterministic only and has not been checked against staff-written
    evidence**, so none is ready for the PIL queue. Stage 3 declares this in every run's notes. The
