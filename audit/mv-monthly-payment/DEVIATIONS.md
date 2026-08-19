@@ -320,3 +320,54 @@ execution retains the payloads.
 
 **Recorded as a build note, not a spec defect.** The spec's pacing rule is correct; the loop shape
 simply failed to use the concurrency it allows.
+
+### F14. Pacing: the sweep was hardened, but scoring is 100x the calls and was left at 5-concurrent
+Stage 0 was built gentle (pageSize 100, one request at a time, circuit breaker) after a size=500
+sweep took clientmgmt to 503. That fixed **462 calls**. Scoring is **~46,000 calls**, half of them
+to the same clientmgmt module, sustained for hours rather than in a burst — and it was still running
+at the spec's ceiling of 5 concurrent / 500 ms.
+
+The per-request weight is not comparable (a `size=500` contract search is a heavy query returning
+500 fat rows; `get-client-details` for one contract is a point read), so this is not simply "worse
+than the outage". But the run is 100x longer and nothing in it noticed refusal.
+
+Both surfaces are now **3 concurrent / 750 ms**, and Stage 2's `Chunk Summary` is a circuit breaker:
+
+| trip | threshold | why that threshold |
+|---|---|---|
+| `ERP_TOKEN_DEAD` | **one** read | a dead token cannot recover; every further call is waste |
+| `ERP_MODULE_UNAVAILABLE` | 3 reads 5xx-unavailable | one blip must not kill a 5-hour run |
+| `ERP_ACCESS_DENIED` | 3 reads 401/403 | an access gap is a finding to report, not to route around |
+| `ERP_SURFACE_STORM` | ≥40% of a chunk unreadable | backstop for failure shapes the status codes miss |
+| `CASE_ROWS_LOST` | any scored, none persisted | verdicts computed then lost read as a clean chunk |
+
+A trip throws, which fails Stage 1's `Score Chunk` node and stops the run. Cost of a trip is one
+chunk (≤25 contracts) of wasted calls. Mirrored offline in `breaker.js` with 34 assertions.
+
+**Recorded as a build note, not a spec defect.** The spec's pacing ceiling is a ceiling, not a target.
+
+### F15. The ERP token dies before its own `exp` claim, and the JWT lies about it
+Probed 2026-08-19T11:33Z. The run token's JWT `exp` was 22:00Z — **10.4 hours of headroom by its own
+claim**. Every request was already returning:
+
+```
+HTTP 500
+{ "status": 498, "message": "Access Token is missing or malformed <LOGOUT>" }
+```
+
+The `<LOGOUT>` marker is the tell: the server-side session was terminated (operator logged out, or
+the device session was invalidated) roughly 4 hours after the token was issued. The module itself was
+healthy — sub-second responses throughout.
+
+Two consequences:
+
+1. **Never plan a run against the JWT's `exp`.** It is an upper bound the server does not honour.
+   Health-check the actual surface immediately before a long run, and treat the response body — not
+   the status code, and not the token's own claims — as the authority on whether the token is alive.
+2. A long run must be **resumable**, because the token will die mid-flight sooner or later. Stage 1
+   now takes `offset` and an optional `runId`, so the population is covered as consecutive slices by
+   ascending `contractId` under one run id. A slice is always flagged `populationSample` and Stage 3
+   declares the month partial — the slices being complete together is a fact about the operator's
+   sequence, not something a single execution can assert.
+
+**File against:** nothing in the spec — the spec assumes a token is valid until it expires.

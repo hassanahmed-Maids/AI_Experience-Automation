@@ -101,3 +101,40 @@ Contracts with known expected outcomes, all confirmed live 2026-08-19:
 
 Note 1023590 and 1074171 are **CANCELLED**, so they only appear if the cancelled cohort is swept.
 That makes them the sharpest test of Stage 1's population.
+
+## Runbook — a paced full run, in slices
+
+A full month is ~23,000 contracts / ~46,000 ERP reads / ~5–9 hours, against a token that has died
+after 4 hours in practice (`DEVIATIONS.md` F15). Run it as consecutive slices sharing one `runId`.
+
+**Before each slice**, health-check the surface and read the *body*, not the status code:
+
+```
+POST /clientmgmt/contract/search/page?page=0&size=1  (pagecode: ClientList)
+  200 + numeric .total   → healthy, go
+  5xx + body status 498  → token is dead, get a fresh one (its own exp claim means nothing)
+  503                    → module unavailable, wait, do not re-token
+```
+
+**Slice payloads** — same `runId` throughout, `offset` advancing by `limit`:
+
+```
+{ bearer, token, device, auditedMonth: "2026-07", runId: "mvmp-2026-07-full", offset: 0,     limit: 6000 }
+{ ... offset: 6000,  limit: 6000 }
+{ ... offset: 12000, limit: 6000 }
+{ ... offset: 18000 }                      # no limit — runs to the end of the in-scope population
+```
+
+Each slice re-sweeps the population (462 paced calls, ~4 min) so the population guard is exercised
+every time, and reports `slice [from, to) of N in-scope contracts` in its notes. The month is covered
+when the slices reach `N`. Slice boundaries are stable because the population is sorted by ascending
+`contractId` — contracts created between slices shift only the tail, and every slice records the
+boundary it actually used.
+
+`offset` and `contractIds` are mutually exclusive: a targeted run is already a slice.
+
+**If a slice trips the breaker**, the message names the action (`ERP_TOKEN_DEAD` → re-token;
+`ERP_MODULE_UNAVAILABLE` → wait and confirm health; `ERP_ACCESS_DENIED` → report the gap). Restart
+that same slice — its already-written cases carry the same `run_id` and `case_key`, so a re-run
+duplicates rows for the retried chunk rather than losing them. Deduplicate on `case_key` when
+reading a resumed run back.

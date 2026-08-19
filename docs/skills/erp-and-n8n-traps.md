@@ -98,6 +98,24 @@ and it cannot supply the numeric device id at all. In practice: **ask the operat
 contains `Access Token is missing or malformed` or `498`. Say "that token is expired, I need a
 fresh one", never "the server errored".
 
+**The JWT's own `exp` claim is an upper bound the server does not honour.** **[LIVE-PROVEN
+2026-08-19]** A token whose `exp` decoded to 22:00Z was already dead at 11:33Z — roughly 4 hours
+after issue — returning:
+
+```
+HTTP 500
+{ "status": 498, "message": "Access Token is missing or malformed <LOGOUT>", "path": "..." }
+```
+
+The `<LOGOUT>` marker means the *server-side session* was terminated: the operator logged out, or
+the device session was invalidated. The module was healthy throughout (sub-second responses).
+
+So: **never plan a long run against `exp`.** Health-check the actual surface immediately before
+starting, and treat the response **body** as the authority — not the status code, and not the
+token's own claims. Any run longer than an hour or two must be **resumable** (slice it, and let
+slices share one run id), because the token will die mid-flight sooner or later. Budget on
+observed lifetime — assume ~4 hours, not what `exp` says.
+
 ### The denial shapes, with their real discriminators **[LIVE-PROVEN 2026-08-19]**
 
 Several distinct causes all present as HTTP 401. The `developermessage` **response header** is
@@ -426,6 +444,18 @@ like candidates. Turns 250,000 calls into ~100 + (candidates × k).
 - **Retained data kills large runs.** Per-entity payload × population can be tens of MB in one
   execution. Push the heavy read into a **sub-workflow that returns a slim projection**, so the
   parent retains kilobytes. This is why the CC chain has `0-Sweep` / `0-Enrich` sub-workflows.
+- **Hardening the sweep is not hardening the run.** **[LEARNED 2026-08-19]** The population sweep
+  is hundreds of calls; the scoring fan-out behind it is tens of thousands, to the same modules,
+  sustained for hours. Making the sweep gentle and leaving the fan-out at the pacing ceiling
+  protects the cheap part and not the expensive one. Pace the fan-out *below* the ceiling — the
+  spec's limit is a ceiling, not a target — and give every multi-hour fan-out a **circuit breaker**
+  that classifies the raw responses and throws. A throw inside a sub-workflow fails the parent's
+  Execute Workflow node (unless it carries `onError: continueRegularOutput`) and stops the run,
+  which is exactly the propagation you want. Trip thresholds should differ by cause: an
+  unrecoverable one (dead token) trips on the **first** occurrence, a possibly-transient one
+  (5xx-unavailable) needs a few so one blip does not kill a five-hour run. Without a breaker the
+  run keeps calling a refusing module for hours and files every contract it touched as
+  "awaiting reviewer" — which, in the case store, is indistinguishable from work that was done.
 - **`alwaysOutputData: true` is a footgun** unless paired with a dedicated empty-case branch.
 - **`success` status means the workflow did not crash, not that it did the right thing.** Read the
   execution output back, every time.
