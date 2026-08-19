@@ -28,17 +28,30 @@
 const validated = $('Validate Inputs').first().json;
 const WINDOWS = validated.persistence_windows || [];
 
-// Cases normally arrive on this node's own input (the scorer emits one item
-// holding the whole array). The fallback reads the scorer BY NODE NAME because a
+// Cases normally arrive on this node's own input (Join Scored emits one item
+// holding the whole array). The fallback reads that node BY NODE NAME because a
 // re-wire that drops an intermediate node must not silently produce a run record
 // with zero cases - which would look exactly like a clean month.
+//
+// THE FALLBACK NAMED 'Compute Case States' UNTIL 2026-08-19 AND HAD BEEN DEAD SINCE
+// THE TAIL WAS BATCHED. That node moved into WF-T (§21), so WF-A no longer contains
+// it: $('Compute Case States') could only ever throw here, and the catch swallowed
+// it. The guard was therefore absent for exactly the scenario it was written for -
+// silently, because a dead try/catch looks identical to a healthy one. Found by a
+// static cross-check of every $('name') reference against the nodes each workflow
+// actually contains, after execution 94122 proved that a seam changed by a refactor
+// is where the defects are.
+//
+// It now names Join Scored, which is what emits { cases } in WF-A today. Join Scored
+// throws hard if the batches do not reconcile, so this is defence in depth rather
+// than the primary protection - but it is real again instead of decorative.
 const input = $input.first().json || {};
 let cases = Array.isArray(input.cases) ? input.cases : [];
 if (!cases.length) {
   try {
-    const scored = $('Compute Case States').first().json;
+    const scored = $('Join Scored').first().json;
     if (scored && Array.isArray(scored.cases)) cases = scored.cases;
-  } catch (e) { /* the scorer is upstream of this node on every wiring; ignore */ }
+  } catch (e) { /* Join Scored is upstream of this node on every wiring; ignore */ }
 }
 
 const gate2 = (function () {
