@@ -104,3 +104,56 @@ and `pairedItem: {item: 0}`, `{item: 1}`, `{item: 2}` — a per-input pairing, n
 
 Worth remembering as a method as much as a fact: an execution record answers questions about
 node behaviour for free, and a sibling audit had already run the exact node this one depends on.
+
+## Probes 16-21 — the testing session, 2026-08-19 (token issued to Abdullaha, supplied by Hassan)
+
+Fired before the first end-to-end run. **Two rows above are wrong and are corrected here.**
+
+| # | route | pagecode | HTTP | note |
+|---|---|---|---|---|
+| 16 | POST /clientmgmt/client/get-client-details?type=CONTRACT_DETAILS&contractId={id} — **no path segment** | ClientSummary / ClientList / none / bogus | **401** | `UNAUTHORIZED <LOGOUT>` on all four pagecodes alike |
+| 17 | POST /clientmgmt/client/get-client-details/**{clientId}**?type=CONTRACT_DETAILS&contractId={id} | ClientSummary | **200** | 5,033 B, 2.00 s, 33 keys, `currentPayment.amountValue` a number |
+| 18 | POST /clientmgmt/contract/search/page (empty body) | ClientList | 400 | `searchKey ... is not present` — proves auth passes on this token |
+| 19 | POST /clientmgmt/contract/search/page (full WF-Pop body) | ClientList | 200 | `total` **5,401**, 40 rows, **6.61 s/page** |
+| 20 | GET /complaints/replacement/page/contract/{id} | ClientReplacement | **200** | paged envelope, 11 keys — **NOT denied on this account** |
+| 21 | GET /accounting/payments/getReceivedClientsPayments?from=&to= (1 day) | none | 200 | 68 rows; row keys `contractID, contractType, paymentAmount, paymentDate, paymentId, paymentMethod, paymentType` — **no clientId** |
+
+### Correction 1 — the plan read needs the clientId PATH SEGMENT (probes #5 and #12 are wrong as written)
+
+Rows #5 and #12 record the plan read as `POST /clientmgmt/client/get-client-details?type=CONTRACT_DETAILS`
+returning 200. Reproduced today, **that exact URL returns 401**. The route only answers when the
+client id is a path segment: `/get-client-details/{clientId}?type=CONTRACT_DETAILS&contractId={contractId}`
+— which is what `Fetch Contract Plan` in WF-E has always sent (`.../get-client-details/{{ $json.client_id }}`),
+so **the flow is correct and only the probe record was wrong**. The earlier probes must have included
+the segment and recorded the URL without it. Anyone re-probing from row #5 as written would conclude
+the account had lost the permission.
+
+### Correction 2 — ClientReplacement is NOT denied on every account (rows #6 and #13)
+
+Rows #6/#13 record `/complaints/replacement/page/contract/{id}` as a standing
+401 `INSUFFICIENT_PERMISSIONS`, described as "half the enrichment calls fail by design" and
+"~5,632 wasted round trips per uncapped run". On **this** token the same route returns **200** with a
+full paged envelope. The denial is therefore **account-scoped, not check-scoped**: Hassan's account
+lacks `ClientReplacement`, Abdullaha's has it. Consequences:
+
+- The "~5,632 wasted round trips" figure holds only for a run fired under an account without the
+  permission. Under one that has it, the enrichment is fully useful and gate 7's coverage answer is
+  the real one rather than the capped one.
+- This is precisely the failure the skill warns about — a permission recorded as absent from one
+  account's probe and then read as a property of the check. **Which account fires the run changes
+  what the audit can see.** Record the account with the result, every time.
+
+### A FOURTH denial shape: `UNAUTHORIZED <LOGOUT>` on a malformed URL
+
+The three shapes documented above (`SecurityException`, `INSUFFICIENT_PERMISSIONS`,
+the 498-inside-500 dead token) are not the whole set. A **missing required path variable** on
+`get-client-details` returns HTTP 401 `{"status":401,"error":"Unauthorized","message":"UNAUTHORIZED <LOGOUT>"}`
+— identical on a correct pagecode, a wrong one and a deliberately bogus one, so the pagecode
+discrimination method cannot separate it. It is a *routing* failure wearing an *auth* failure's clothes.
+
+**This collides with a live detector.** `isTokenDead()` in `wf-e/nodes/project_plan.js` (and the same
+function in `project_replacements.js`) matches on the substring `logout`, so a malformed plan-read URL
+would be reported as `plan_token_dead` and throw "DEAD TOKEN ... Re-issue the bearer and re-run".
+The bearer would be fine and re-issuing it would change nothing. The guard **fails safe** — it stops
+the run rather than scoring empty reads, which is the behaviour that matters — but the operator is
+sent after the wrong cause. Worth a note in the throw text, not a change to the matcher.

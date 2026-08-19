@@ -985,3 +985,58 @@ A run. Everything above is offline-proven and deployed; nothing has been execute
 against the batched tail. That needs a live ERP token from whoever fires it, and the §19
 per-instance memory hypothesis is still unsettled — the cheap test is to run it when nothing
 else is executing.
+
+## 22. The first end-to-end test run — and the acknowledgement the caller never gets
+
+Run fired 2026-08-19 13:53 UTC as execution **94122**, `cohort_cap: 400`,
+`score_batch_size: 100` (4 batches), `enrich_chunk_size: 150` (3 chunks) — the cheapest
+shape that still fans both stages out. Token supplied by Hassan but **issued to Abdullaha**;
+that is recorded here because §22's access findings are account-scoped, not check-scoped
+(see PROBE-RESULTS corrections 1 and 2).
+
+### The 524, which is a real defect and not a symptom of the run
+
+`RUNBOOK-trigger.md` said: *"It answers immediately (the webhook uses a response node): `200`
+with the accepted run, or `400` with the reason."* **It does not.** The POST hung and
+Cloudflare returned **524 A timeout occurred** at 100 s. The workflow itself was unaffected —
+94122 was already running — so the run is fine and the *caller* is the casualty.
+
+Cause, read off the deployed graph rather than guessed:
+
+- The `Webhook` node is `responseMode: responseNode`, correctly.
+- `Validation OK?`'s true output fans to **seven** nodes: `Respond 200` **and** the six sweep
+  starters (`Get Payment Statuses`, `Get Month Payments`, `Get Payments (M-1)`, `Get Payments
+  (M-2)`, `Get CC Contract Population`, `Get Terminated Contracts`).
+- n8n `executionOrder: v1` runs equally-ready branches in **position order, top to bottom** —
+  not in connection order. The y coordinates are:
+
+  | node | y | runs |
+  |---|---|---|
+  | Get CC Contract Population | −640 | 1st |
+  | Get Month Payments | −528 | 2nd |
+  | Get Payments (M-1) | −400 | 3rd |
+  | Get Payments (M-2) | −288 | 4th |
+  | Get Payment Statuses | −160 | 5th |
+  | **Respond 200** | **−144** | **6th** |
+  | Get Terminated Contracts | 208 | 7th |
+
+So the acknowledgement fires **after the population walk, all three payment windows and the
+status sweep** — roughly thirty minutes of work — and Cloudflare has hung up twenty-eight
+minutes earlier. The 200 is dispatched into a closed socket.
+
+**Why this matters beyond cosmetics.** The portal is the intended caller. It receives a 524,
+which reads as *the audit did not start*. The obvious portal-side response to that is a retry,
+and a retry launches a **second** full run — another ~11,000 production ERP reads, a second set
+of Cases rows, and two runs racing on the same `run_id`. The check has never been fired by the
+portal, so this has never been observed; it would have appeared on the first real integration.
+
+**The fix is one coordinate.** Move `Respond 200` above the sweeps (any y below −640) and v1
+ordering runs it first, before the population walk starts. Nothing else changes — same
+connections, same validation, same branch. It is deliberately NOT applied mid-run, because
+publishing WF-A while 94122 is executing would disturb the very run being measured. Applied
+and re-verified after the run completes.
+
+**A second reading of the same fact:** position is load-bearing behaviour in n8n, not layout.
+That is worth carrying to the sibling checks — any flow whose respond node is drawn below its
+work has the same latent bug, and it is invisible until someone measures the caller's wait
+rather than the workflow's status.

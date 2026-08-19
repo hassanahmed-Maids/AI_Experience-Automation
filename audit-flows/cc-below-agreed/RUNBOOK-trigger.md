@@ -62,8 +62,18 @@ JSON
 )"
 ```
 
-It answers immediately (the webhook uses a response node): `200` with the accepted run, or
-`400` with the reason. The audit then runs asynchronously. Measured on execution 93346, the
+**It does NOT answer immediately — measured 2026-08-19, see VALIDATION.md §22.** The intent
+was `200` with the accepted run (or `400` with the reason) straight away, and the `Webhook` node
+is correctly set to `responseMode: responseNode`. But `Respond 200` is drawn at y=-144, *below*
+five of the six sweep starters, and n8n's `executionOrder: v1` runs equally-ready branches in
+POSITION order — so the acknowledgement fires 6th, after ~30 minutes of sweeping. Cloudflare
+gives up at 100 s and the caller gets **`524 A timeout occurred`**.
+
+**A 524 here does NOT mean the run failed.** The workflow is already executing; check the
+execution list before concluding anything, and never re-POST on a 524 — a retry starts a
+SECOND full audit (~11,000 more production ERP reads) against the same `run_id`. Fixed by
+moving `Respond 200` above the sweeps; until you have confirmed that fix is deployed, treat
+the 524 as the expected response. The audit then runs asynchronously. Measured on execution 93346, the
 furthest a run has reached — these are observed, not projected:
 
 | phase | measured |
