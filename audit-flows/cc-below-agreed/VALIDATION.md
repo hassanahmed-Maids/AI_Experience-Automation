@@ -1132,3 +1132,80 @@ Two things worked exactly as designed and are worth recording as passes, not jus
 **Method note for next time:** verify the token immediately before firing, not just at session
 start. A token that answered eight minutes ago is not evidence about a run starting now, and
 one cheap call is much cheaper than discovering it 30 minutes into a sweep.
+
+## 23. A static seam audit, run because 94122's bug was at a seam
+
+Both ERP accounts (Hassan's and Abdullaha's) were deactivated after 94355, so no further
+execution is possible. That removes live testing but not *all* testing: the 94122 defect
+needed no token to find, only a comparison between what the deployed graph does and what the
+offline harness assumed. So the remaining time went on generalising that comparison.
+
+`tools/seam_check.py` reads exported workflow JSON and applies two checks. It is deliberately
+a script rather than a test, because it needs the DEPLOYED graph, which the repo does not hold.
+
+### Check 1 — dangling `$('Name')` references. One real hit.
+
+A Code node calling `$('X')` where X is not a node in the same workflow. n8n throws at
+runtime — **unless the call sits in a `try/catch`, in which case the guard is silently dead
+and looks healthy forever.**
+
+**`Build Runs Log` → `$('Compute Case States')`.** That node moved into WF-T when the tail was
+batched (§21), so WF-A has not contained it since. The reference is inside a `try/catch`, so
+it never announced itself; it had simply stopped working. What it guards is stated in its own
+comment: *"a re-wire that drops an intermediate node must not silently produce a run record
+with zero cases - which would look exactly like a clean month."* The re-wire that comment
+warns about is the one that broke it.
+
+Severity, stated honestly: **low, and not a crash.** `Join Scored` throws hard if the batches
+do not reconcile, so the empty-cases path it protects is already defended upstream. This is
+defence in depth that had quietly become decorative. Fixed in the repo to name `Join Scored`,
+which is what emits `{ cases }` in WF-A today.
+
+**NOT YET DEPLOYED — see the banner at the top of README.md.** The node body is 453 lines
+carrying several regexes (`/^(https:\/\/[^/?#@]+)/`, `str.indexOf('\\')`) whose escaping is
+easy to corrupt when transmitted as a single string, and this is the file whose own notes warn
+that "a slip in the scorer moves money". With no token, no run can happen, so deploying blind
+buys nothing and risks something. Paste it from the repo in the n8n UI before the next run and
+diff the deployed `jsCode` against `nodes/Build_Runs_Log.js`.
+
+### Check 2 — envelope / per-item wire mismatches. Clean, and it reproduces the 94122 bug.
+
+Run against the pre-fix WF-T snapshot it reports exactly the defect that cost a 35-minute
+execution to find:
+
+```
+!! Adjudicate Cases [return [{json:...}]] -> Stamp Display Bands [$input.all()]  ENVELOPE INTO PER-ITEM
+```
+
+Against the current WF-A, WF-B, WF-E and the fixed WF-T it reports nothing. So the shape
+family that produced 94122's bug does not recur elsewhere in the chain.
+
+Three false positives were designed out rather than tolerated, because a checker people learn
+to ignore is worse than no checker: trigger nodes emit one item (so a downstream `$input.first()`
+is right), a node's *error* output emits one item (so the whole error rail is right), and a
+`$('X')` inside a block comment is not a reference.
+
+### Coverage map — what is still unproven, precisely
+
+Cross-referencing every repo node body against the suites that load it:
+
+| node body | offline | executed live |
+|---|---|---|
+| `nodes/Assemble_Baton.js` | **no** | **no** |
+| `nodes/Build_Case_Payload.js` | **no** | **no** |
+| `nodes/Build_Summary_Row.js` | **no** | **no** |
+| `nodes/Build_Runs_Log.js` | partial (via WF-T equivalence) | **no** |
+| `wf-p/nodes/read_window.js`, `wf-s/nodes/read_window.js` | no | **yes** (94122) |
+| `nodes/Adjudicate_Cases.js`, `nodes/Build_Sheet_Rows.js` | — | — (**absent from WF-A**; WF-T holds the live copies, which are covered) |
+| everything else | yes | mostly yes |
+
+So the genuinely untested stretch is **WF-A's tail from `Build Runs Log` to `Assemble Baton`**,
+plus all of WF-B and WF-C. That is the next run's first new territory, and the next session's
+best offline target: a suite that drives `Join Scored → Build Runs Log → Build Case Payload →
+Build Summary Row → Select Candidates → Assemble Baton` using the shapes taken from the
+deployed graph — **not** hand-built fixtures, which is the mistake that hid 94122's bug.
+
+Two seam contracts were verified by hand while mapping this and both hold: `Merge Agent
+Verdicts` emits `cases` and `Build Verdict Rows` reads `merged.cases`; the whole legacy
+in-WF-A verifier chain (`Get Messages` through `Verdicts -> Google Sheet`) is **disabled**,
+superseded by WF-B, which is correct and not an oversight.

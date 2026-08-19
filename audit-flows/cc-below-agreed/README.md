@@ -1,4 +1,22 @@
-# CC Monthly Payments Below Agreed Amount — build artifacts
+# CC Monthly Payments Below Agreed Amount
+
+> ## ⚠ PENDING DEPLOYMENT — do this BEFORE the next run
+>
+> `nodes/Build_Runs_Log.js` in this repo is **one change ahead of the deployed WF-A**
+> (`uJ8UVNKdN2s5PHHA`). The node's zero-cases fallback named `$('Compute Case States')`,
+> which moved into WF-T when the tail was batched, so it had been dead since that refactor.
+> The repo version names `$('Join Scored')` instead.
+>
+> **To deploy:** paste the repo file into WF-A's `Build Runs Log` node (n8n UI is safest —
+> the body carries regexes whose escaping is easy to corrupt in transit), then publish
+> WF-A. Verify by diffing the deployed `jsCode` against `nodes/Build_Runs_Log.js`; they
+> must be byte-identical.
+>
+> Not urgent in itself — the reference sits inside a `try/catch` so it cannot crash, and
+> `Join Scored` throws hard before the empty-cases path can be reached. It is listed here
+> only because **repo and deployment must not silently drift**, which is the trap that
+> produced the bug in the first place. Every other node in this repo matches its deployed
+> version as of 2026-08-19.
 
 Spec: Notion "CC Monthly Payments Below Agreed Amount" v1.5 · flow `uJ8UVNKdN2s5PHHA` (DRAFT, never published)
 
