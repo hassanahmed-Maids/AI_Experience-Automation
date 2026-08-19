@@ -116,6 +116,27 @@ tell the operator their token is dead and must be replaced. Say the **ERP sessio
 and that logging back in restores it *or* they can supply a fresh token. Getting this message wrong
 sends them to the wrong remedy half the time.
 
+**The same session state has a SECOND shape, and it is a 401.** **[LIVE-PROVEN 2026-08-19 14:42Z]**
+Mid-run, both surfaces began returning:
+
+```
+HTTP 401
+developermessage: UNAUTHENTICATED
+{ "status": 401, "error": "Unauthorized", "message": "UNAUTHORIZED <LOGOUT>" }
+```
+
+Same cause, same remedy, completely different status class. **`<LOGOUT>` is the discriminator, not the
+status code** — so test the body for `<LOGOUT>` / `UNAUTHENTICATED` *before* any status-based branch.
+Classified as an ordinary 401 this reads as a permission gap, and the operator is sent to request
+access they already hold. (Note this also means the "absent `developermessage` on a 401" rule below is
+not the only 401 worth reading: here it was *present* and said `UNAUTHENTICATED`.)
+
+**Session lifetime is short and variable — budget for it dropping, not for when.** Observed on
+2026-08-19: one session died ~4 h after issue, and the next died **2 h 50 m** after the operator logged
+back in, mid-slice. Any run longer than a couple of hours needs a resumable design and a breaker that
+stops on the first such read; treating session loss as an exceptional event rather than an expected one
+is what turns it into lost work.
+
 So: **never plan a long run against `exp`.** It is uninformative in both directions — the same `exp`
 spanned a window where the token was dead and then alive again. Health-check the actual surface
 immediately before starting, and treat the response **body** as the only authority on whether a read

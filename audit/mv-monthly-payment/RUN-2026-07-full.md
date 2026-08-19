@@ -21,7 +21,26 @@ degradation (clientmgmt stayed at 1.4–3.9 s throughout).
 |---|---|---|---|---|---|---|
 | 1 | 0 | 250 | 93591 | 15m03s | 10/10 | 241 OK, 1 red, 8 pending, **139 needing a human (55.6%)** |
 | 2 | 250 | 3000 | 93657 | 45m28s | 120/120 | cumulative 3,160 OK, 13 red, 77 pending, 211 needing a human (6.5%) |
-| 3 | 3250 | 3000 | 93900 | running | | |
+| 3 | 3250 | 3000 | 93900 | 48m18s | 120/120 | cumulative 5,990 OK, 52 red, 208 pending, 349 needing a human (5.6%) |
+| 4 | 6250 | 3000 | 94124 | 42m04s | **106/120 — BREAKER TRIPPED** | ERP session dropped at 14:35Z; 2,650 contracts scored, resume at offset 8900 |
+
+### Slice 4 — the breaker firing in production
+
+At 14:35Z, 106 chunks in, both ERP surfaces began returning `401 / UNAUTHENTICATED / UNAUTHORIZED
+<LOGOUT>`. The session behind the token had dropped — 2 h 50 m after the operator logged back in, not
+the ~4 h assumed. The breaker threw on the first affected chunk, which failed Stage 1's `Score Chunk`
+node and stopped the run.
+
+**This is the behaviour it was built for.** Without it the remaining 14 chunks — and every later slice —
+would have been called against a refusing ERP and filed as ~18,000 cases "awaiting reviewer", which in
+the case store is indistinguishable from work that was done.
+
+What it got *wrong* was the advice: it reported `ERP_ACCESS_DENIED` and told the operator to report a
+permission gap. Fixed — `<LOGOUT>` is now tested before any status-based branch (`DEVIATIONS.md` F15).
+
+Resume point: **offset 8900**, the start of the failing chunk. Chunk 106's rows were written before the
+breaker threw (it runs after the write), so re-running it re-scores the 7 contracts whose reads were
+refused. Duplicates by `case_key` are expected and deduped on read.
 
 Slice 1's 55.6% human rate was the run's most useful early result: it exposed that gate 10 escalated
 on an open vocabulary (`DEVIATIONS.md` F16). Fixed before the bulk of the population was scored, which

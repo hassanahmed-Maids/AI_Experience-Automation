@@ -379,6 +379,17 @@ Two consequences:
    declares the month partial — the slices being complete together is a fact about the operator's
    sequence, not something a single execution can assert.
 
+**Then it happened again, in a different shape.** At 14:35Z, mid-slice-4, both surfaces began
+returning `401` with `developermessage: UNAUTHENTICATED` and body `UNAUTHORIZED <LOGOUT>`. The breaker
+stopped the run correctly — but classified it `ERP_ACCESS_DENIED` and told the operator to report a
+permission gap, which is the wrong remedy entirely. `<LOGOUT>` is now tested **before** any
+status-based branch in Stage 1, Stage 2 and `breaker.js`, so both shapes report as
+`ERP_SESSION_INACTIVE`; a 401 *without* the marker still reads as a genuine denial.
+
+**And the session lifetime is shorter than assumed.** Revived at ~11:45Z, dead again at 14:35Z:
+**2 h 50 m**, not the ~4 h this file previously advised budgeting for. Treat session loss as an expected
+event at any point in a long run, not something to schedule around.
+
 **File against:** nothing in the spec — the spec assumes a token is valid until it expires, and
 conflates the token's validity with the session's.
 

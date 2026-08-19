@@ -8,7 +8,7 @@
 // Keep this file and the n8n node in step. This copy is the one with tests.
 
 function classify(items) {
-  const c = { total: 0, ok: 0, unavailable: 0, tokenDead: 0, denied: 0, other: 0 };
+  const c = { total: 0, ok: 0, unavailable: 0, sessionInactive: 0, denied: 0, other: 0 };
   for (const it of items) {
     const j = (it && it.json) || {};
     const st = j.statusCode;
@@ -16,7 +16,14 @@ function classify(items) {
     c.total++;
     if (st === 200) { c.ok++; continue; }
     if (st === 502 || st === 503 || st === 504) { c.unavailable++; continue; }
-    if (typeof st === 'number' && st >= 500 && /498|malformed|Access Token/i.test(txt)) { c.tokenDead++; continue; }
+    // A dropped ERP session wears TWO shapes, and the status code does not separate them from their
+    // neighbours - only the body does. Both carry the <LOGOUT> marker:
+    //   5xx + "Access Token is missing or malformed <LOGOUT>"   (probed 11:33Z)
+    //   401 + "UNAUTHORIZED <LOGOUT>", developermessage: UNAUTHENTICATED   (probed 14:42Z)
+    // The 401 form MUST be tested before the plain 401/403 denial branch, or a dead session is
+    // reported as a permission gap and the operator is sent to request access they already have.
+    if (/<LOGOUT>|UNAUTHENTICATED/i.test(txt)) { c.sessionInactive++; continue; }
+    if (typeof st === 'number' && st >= 500 && /498|malformed|Access Token/i.test(txt)) { c.sessionInactive++; continue; }
     if (st === 401 || st === 403) { c.denied++; continue; }
     c.other++;
   }
@@ -32,7 +39,7 @@ function trip({ scored, persisted, det, led }) {
   // logs back in (proven 2026-08-19 - an identical token went 498 <LOGOUT> then 200 within hours).
   // Still trips on the FIRST read, because grinding through a slice with no live session is pure
   // waste, but the operator's action is "log back in or re-token", not "discard this token".
-  const dead = det.tokenDead + led.tokenDead;
+  const dead = det.sessionInactive + led.sessionInactive;
   if (dead > 0) return { code: 'ERP_SESSION_INACTIVE', message: dead + ' read(s) returned the 498-inside-5xx shape' };
 
   const down = det.unavailable + led.unavailable;
@@ -56,6 +63,8 @@ module.exports = { classify, trip };
 // active rather than a token that must be thrown away.
 function denialAdvice(status, body) {
   const txt = typeof body === 'string' ? body : JSON.stringify(body || '');
+  // <LOGOUT> before anything status-based: a dropped session appears as both 401 and 5xx.
+  if (/<LOGOUT>|UNAUTHENTICATED/i.test(txt)) return 'SESSION_INACTIVE';
   if (status === 401) return 'ACCESS_DENIED';
   if (status === 503) return 'MODULE_UNAVAILABLE';
   if (status && status >= 500) {

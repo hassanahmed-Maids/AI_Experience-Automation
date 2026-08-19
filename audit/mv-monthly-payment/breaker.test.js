@@ -18,8 +18,8 @@ const DEAD_BODY = {
   timestamp: '2026-08-19 15:33:29', status: 498, error: 'Http Status 498',
   message: 'Access Token is missing or malformed <LOGOUT>', path: '/clientmgmt/contract/search/page',
 };
-eq(classify([R(500, DEAD_BODY)]).tokenDead, 1, 'the live 498-inside-500 body is read as a session failure');
-eq(classify([R(500, JSON.stringify(DEAD_BODY))]).tokenDead, 1, 'same body arriving as a string');
+eq(classify([R(500, DEAD_BODY)]).sessionInactive, 1, 'the live 498-inside-500 body is read as a session failure');
+eq(classify([R(500, JSON.stringify(DEAD_BODY))]).sessionInactive, 1, 'same body arriving as a string');
 eq(classify([R(503, '<html>503 Service Unavailable</html>')]).unavailable, 1, 'nginx 503 is unavailability');
 eq(classify([R(502, '')]).unavailable, 1, '502 is unavailability');
 eq(classify([R(504, '')]).unavailable, 1, '504 is unavailability');
@@ -42,6 +42,25 @@ eq(trip({ scored: scored(25), persisted: 25, det: classify([R(500, DEAD_BODY)]),
   'ERP_SESSION_INACTIVE', 'a SINGLE session-inactive read trips the breaker - no threshold');
 eq(trip({ scored: scored(1), persisted: 1, det: NONE, led: classify([R(500, DEAD_BODY)]) }).code,
   'ERP_SESSION_INACTIVE', 'the ledger surface trips it too');
+
+// The SECOND session-drop shape, probed live at 2026-08-19T14:42Z after the breaker tripped on it
+// mid-run. Status 401, developermessage UNAUTHENTICATED, body "UNAUTHORIZED <LOGOUT>" - identical
+// meaning to the 5xx/498 form, completely different status class. Classified as a plain 401 denial it
+// tells the operator to go request a permission they already hold.
+const LOGOUT_401 = {
+  timestamp: '2026-08-19 18:42:17', status: 401, error: 'Unauthorized',
+  message: 'UNAUTHORIZED <LOGOUT>', path: '/clientmgmt/contract/search/page',
+};
+eq(classify([R(401, LOGOUT_401)]).sessionInactive, 1, 'a 401 carrying <LOGOUT> is a dropped session');
+eq(classify([R(401, LOGOUT_401)]).denied, 0, 'and is NOT counted as a permission denial');
+eq(trip({ scored: scored(25), persisted: 25, det: classify([R(401, LOGOUT_401)]), led: NONE }).code,
+  'ERP_SESSION_INACTIVE', 'one such read stops the run, same as the 5xx form');
+eq(denialAdvice(401, LOGOUT_401), 'SESSION_INACTIVE',
+  'the operator is told to restore the session, not to request access');
+// A 401 WITHOUT the marker is still a genuine access problem - the distinction has to survive.
+eq(classify([R(401, { message: 'PAGE_CODE_MISSING' })]).denied, 1,
+  'a 401 with no LOGOUT marker is still a real denial');
+eq(denialAdvice(401, { message: 'Forbidden' }), 'ACCESS_DENIED', 'and still reads as an access problem');
 
 // --- trip: unavailability needs three, so one blip does not kill a 5-hour run ---------------
 
