@@ -898,3 +898,90 @@ One behavioural change worth knowing: `Validation OK?` lists its parallel branch
 order (the two replaced nodes are now last), so the sweeps start in a different sequence.
 `Respond 200` is still first, and the sweeps are order-independent, but a run's log lines
 will not appear in the same order as in 93346.
+
+## 21. The scoring tail batched — the fix for 93346, and three things found on the way
+
+### The tail (WF-T `pOa3yRIyguSyoBk4`, published)
+
+`Compute Case States`, `Guards`, `Adjudicate Cases`, `Build Sheet Rows` and the Cases append
+are out of WF-A (69 nodes → 67) and run per batch of 1,200 inside a sub-execution. Five
+retained copies of the cohort — ~14 MB each on the 93346 measurement, ~70 MB — now die with
+each batch. `Chunk Cases` costs **one** copy back, and the README says so rather than
+presenting the change as free: ids-and-re-read is unavailable here because these case objects
+are derived, not fetchable.
+
+Three of the four relocated bodies are **byte-identical** to WF-A's, verified after deploy.
+That was the design goal, not a happy accident: WF-T names two nodes `Validate Inputs` and
+`Join Enrichment` precisely because the lifted bodies already read those names, so 930 lines
+of tested scoring logic never had to be retyped. `Build Sheet Rows` has one change — where its
+case list comes from.
+
+**Proof, not assertion:** `wf-t/offline/batch_equivalence_test.js` runs the batched and
+un-batched chains over the same twelve fixtures (all six display bands) at batch sizes 1, 2, 5,
+n−1, n, n+3 and compares scored cases field for field and in order. **Identical every time.**
+46/46 including the guards on the new boundary.
+
+### Three things the work exposed
+
+**1. The circularity tripwire's arming depended on a tuning parameter.** It arms at 500 scored
+cases, so inside a batch whether it arms at all is a function of `score_batch_size` — and the
+failure it watches for is the one that makes output look *better*. `Join Scored` now repeats it
+run-level. The suite fires it in both directions and proves it stays quiet on a normal book
+(82% exact, 120 short).
+
+**2. `written_at` changed meaning** — now the moment a row's batch was appended, not one
+instant per run. More accurate, and a crashed run's timestamps show how far it got. Stated
+because it is a behaviour change, however small.
+
+**3. The Cases tab is written incrementally now.** A crash after batch 3 leaves three batches
+of rows rather than nothing. Both `Return Batch Result` and `Join Scored` reconcile
+rows-appended against the case count **in both directions**, so neither a short queue nor a
+duplicated one (the Sheets retry makes that possible) can pass as complete.
+
+### The `_replacement_permission_denied` defect from §19.4, fixed
+
+The detector tested `resp.status === '401'` and searched `String(resp.error)` for `unauthor`.
+n8n's `continueRegularOutput` hands a Code node an **error object**, not the HTTP body, so
+`status` was undefined and `String()` on the error rendered `[object Object]`. It read **0**
+while all 750 replacement calls were failing — a counter reporting zero for both "the grant
+landed" and "every call is denied", and the number I would have used to claim the permission
+had been granted.
+
+Now three outcomes from the nested `httpCode` and a JSON-stringified search:
+`permission_denied` (the route's known steady state — does not throw), `token_dead`, `other`.
+A bare 401/403 with no ERP marker still counts as denied but is flagged **unmarked**, so a
+change in ERP's error vocabulary surfaces as a rising number rather than silence.
+
+**The substantive half: a dead token now throws, on both the plan and replacement reads.**
+Every read after a token dies comes back empty; an empty maid history scores as "no maid
+change" and an unreadable plan as "expected amount unknown". One contract like that is a
+careful verdict. A chunk of them is a book-wide write-off wearing the same words. The plan side
+had no classifier at all before this. 52/52 offline (was 39/39).
+
+### The webhook secret is now a set, so rotating it cannot cause an outage
+
+Not the credential itself — the n8n MCP can neither create a credential nor attach one, checked
+against the whole tool surface, so that stays a UI action with the six-step sequence in
+`RUNBOOK-trigger.md`. What is done is the part that made a safe rotation impossible: with one
+literal there was no ordering that avoided an outage. `Validate Inputs` now compares against
+named slots, does not break the loop early (so the comparison count cannot leak which slot
+matched), and logs the matched **slot name** — never the value, which would land in every
+stored execution record. `offline/validate_inputs_test.js`: 36/36, covering the secret set,
+both rejection shapes, the `callback_url` exfiltration guard including the userinfo and
+traversal tricks, and CRLF injection via the bearer, with the `URL` global shadowed away.
+
+### Measured and reverted, recorded so nobody repeats it
+
+Trimming the plan's unread prose fields. `payments_info` is written by WF-E and read by
+nothing, so it looked like free weight — but measured on 44 real contracts it is **143 B**,
+not the ~400 I assumed. With `expected_basis` and `plan_line_amounts_are_ex_vat` the whole trim
+was worth **~8 MB of an ~84 MB problem**, and it cost the plan read's audit trail. Reverted.
+That is the third time in this file a per-record size estimate of mine ran ~3× high; measure
+before quoting, and minify first.
+
+### What is still not done
+
+A run. Everything above is offline-proven and deployed; nothing has been executed end to end
+against the batched tail. That needs a live ERP token from whoever fires it, and the §19
+per-instance memory hypothesis is still unsettled — the cheap test is to run it when nothing
+else is executing.

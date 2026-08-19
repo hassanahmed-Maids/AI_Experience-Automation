@@ -71,6 +71,13 @@ Archived (recoverable from n8n's archive, nothing deleted):
 | WF-B · 2-Verify | `2LaIbHqQ1A2sEBKm` |
 | WF-C · 3-Deliver | `yEF4BHYDZAnhBnYg` |
 
+Two more joined the chain on 2026-08-19, so the kept set is now **eight**:
+
+| workflow | id | why |
+|---|---|---|
+| WF-Pop · 0-Sweep Population | `RbW2fT3b6rtqVQ9H` | both population walks, so the maid salary field never reaches WF-A |
+| WF-T · 1-Score Batch | `pOa3yRIyguSyoBk4` | the scoring tail, per batch - the fix for the 93346 crash |
+
 **Left alone, and flagged rather than tidied** — not this stream's to archive:
 
 - `UY6oO1gC0rOqenc6` "CC Price by Cohort · setup result tabs" — a one-off that has already
