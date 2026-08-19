@@ -611,3 +611,75 @@ check. It is not stored in the flow.
 Offline suite **67/67**. End-to-end live: population 137/137, 93 applicants scored, 4 findings,
 AED 11,517 exposure, 56 portal rows (51 of them the booking-pattern question), 4 verifier
 decisions, all three workbook tabs written.
+
+---
+
+# Part 6 · The verifier was starved — found by questioning its own output
+
+## What `NO_TEXT` actually meant
+
+The first verifier run returned `NO_TEXT` on **all four** findings, which read as an honest
+absence: no written record, so no claim, so the findings stand. It was wrong.
+
+Probed the raw ERP payload for those exact four tickets. **Every one carries a populated `notes`
+string:**
+
+| applicant | `notes` length | character |
+|---|---|---|
+| 1952366 | 152 | a real narrative — a prior cancelled route and who approved the replacement |
+| 1373082 | 49 | booking shorthand |
+| 1948469 | 5 | booking shorthand |
+| 1961159 | 5 | booking shorthand |
+
+The notes reached the parent correctly. **They were stripped inside my own scorer:** `scoreTicket`
+rebuilds every ticket from a `base` object holding only the seven scoring fields, so by the time
+`Build Evidence Bundle` read `t.notes` it no longer existed. The model was asked to judge an empty
+record and answered accordingly.
+
+## Why this is the dangerous shape
+
+It did **not** produce a false clearance — on rule 2, no claim means the finding stands, which is
+the safe direction — so nothing in the output looked wrong. Four unanimous `NO_TEXT` answers are
+exactly what a genuinely note-less population would produce. The verifier had been rendered
+incapable of ever doing its job, and the run reported success.
+
+On **rule 1** the same defect would have been worse: a `Used` ticket carrying a real explanation
+could never be explained, so it would sit as a permanent finding no human input could resolve.
+
+## The fix, and what it changed
+
+`Select For Verifier` now re-reads the written record straight from the `0-Fetch` output instead of
+from the scored ticket. That also keeps staff-written text **out of** the portal payload and the
+workbook, which is where it belongs.
+
+Same window, same four findings, after the fix:
+
+| | before | after |
+|---|---|---|
+| `had_written_record` | `false` (wrong) | **`true`** on all 4 |
+| model verdict | `NO_TEXT` | **`NO_CLAIM`** |
+| `judged_with_written_record` | 0 | **4** |
+| findings changed | 0 | **0** |
+
+The verdict is now a real audit conclusion — *we read the note and it makes no claim that the
+refund happened outside ERP* — rather than a false *there was no note*. And it is correct on the
+evidence: those notes are booking instructions, not refund claims.
+
+## Two guards added so this cannot recur silently
+
+1. **Existence is recorded separately from judgement.** Every decision row now carries
+   `ticket_had_written_record` alongside `model_verdict`, in the flow and in the `Verdicts` tab.
+   "The model saw nothing" can never again be indistinguishable from "there was nothing to see".
+2. **A verifier tripwire.** `suspected_starved_verifier` fires when records demonstrably existed,
+   nothing was applied, and every ticket landed in auditor review — the exact signature of this
+   bug. It read `false` on the fixed run.
+3. A ticket selected for review that the enrichment step never returned now **throws** rather than
+   being judged on an unrecoverable record.
+
+## Standing lesson for this build
+
+Both bugs found in this session were of one kind: **a run that reports success while having
+quietly examined less than it appears to.** The 68 dropped applicants were caught by an assertion
+that every applicant asked for must come back. This one was caught only because someone asked why
+the answer was what it was. Where a step can be starved of its input, assert on the input's
+presence — not just on the absence of an error.
