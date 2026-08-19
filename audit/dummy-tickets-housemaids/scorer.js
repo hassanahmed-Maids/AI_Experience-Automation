@@ -239,12 +239,16 @@ function scoreCase(applicant, ctx) {
 
   const flags = [...new Set(inScope.flatMap((t) => t.flags))];
 
-  // --- Gate Order 110 (11) — repeated dummy bookings are their OWN question.
-  // Additive: it never replaces or downgrades the verdict above.
-  // repeat_threshold is UNSET (Pending Business, owner Malaz) => gate inert.
-  if (ctx.repeat_threshold === null || ctx.repeat_threshold === undefined) {
-    if (count >= 2) flags.push('repeat_threshold_unset');
-  } else if (count >= ctx.repeat_threshold) {
+  // --- Gate Order 110 (11) — repeated dummy bookings are their OWN question, and an
+  // ADDITIVE one: it routes to a reviewer ALONGSIDE whatever the money gates concluded,
+  // "separate from whether any single ticket was refunded". It therefore has to be able to
+  // SURFACE a case the money gates would have left silent — a flag alone does nothing on a
+  // clean applicant. It must NEVER replace or downgrade a verdict.
+  // Threshold = 2 by owner ruling (Hassan, 2026-08-19); pass null to switch it off.
+  const threshold = (ctx.repeat_threshold === undefined) ? 2 : ctx.repeat_threshold;
+  let needsRepeatReview = false;
+  if (threshold !== null && count >= threshold) {
+    needsRepeatReview = true;
     flags.push('repeat_bookings_route_verifier');
   }
 
@@ -254,10 +258,22 @@ function scoreCase(applicant, ctx) {
     .filter((t) => STANDARD_STATE[t.verdict] === 'finding' && t.amount_aed)
     .reduce((s, t) => s + t.amount_aed, 0);
 
+  const state = STANDARD_STATE[worst.verdict] ?? 'pending';
+
+  /** What the PORTAL shows. The repeat question can surface a case whose money verdict is
+   *  clean or pending, but never outranks a finding. */
+  const portal_state = state === 'finding' ? 'red_flag'
+    : state === 'verifier' ? 'needs_verifier'
+    : needsRepeatReview ? 'needs_verifier'
+    : state === 'clean' ? 'silent'
+    : 'pending';
+
   return {
     applicant_id: applicant.id,
     verdict: worst.verdict,
-    state: STANDARD_STATE[worst.verdict] ?? 'pending',
+    state,
+    portal_state,
+    needs_repeat_review: needsRepeatReview,
     reason: worst.reason,
     driving_ticket_id: worst.id,
     dummy_ticket_count: count,

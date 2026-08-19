@@ -245,6 +245,45 @@ const r4 = scoreCase({ id: 900004, reachable: 200, tickets: [
 ]}, CTX('2026-06-04'));
 check('R4 not-yet-due still decides the case', r4.verdict, 'awaiting_scheduled_refund');
 
+// ── OWNER RULING, Hassan 2026-08-19: repeat-booking threshold = 2 ──────────
+const CTX2 = (run_date) => ({ run_date, repeat_threshold: 2 });
+
+// T1 — the additive rule must SURFACE a clean case. Two refunded tickets: money is clean,
+// but the booking pattern still goes to a reviewer. A flag alone would have been invisible,
+// because a clean case produces no portal row.
+const t1 = scoreCase({ id: 910001, reachable: 200, tickets: [
+  T({ id: 81, status: 'REFUNDED', outcome: 'Refunded', aed: 3865, cur: 'AED' }),
+  T({ id: 82, status: 'REFUNDED', outcome: 'Refunded', aed: 4028, cur: 'AED' }),
+]}, CTX2('2026-08-19'));
+check('T1 money verdict stays clean', t1.state, 'clean');
+check('T1 but the case surfaces', t1.portal_state, 'needs_verifier');
+check('T1 flagged for repeat review', t1.needs_repeat_review, true);
+
+// T2 — one ticket is below the threshold and stays silent.
+const t2 = scoreCase({ id: 910002, reachable: 200, tickets: [
+  T({ id: 83, status: 'REFUNDED', outcome: 'Refunded', aed: 3865, cur: 'AED' }),
+]}, CTX2('2026-08-19'));
+check('T2 single ticket stays silent', t2.portal_state, 'silent');
+check('T2 not flagged', t2.needs_repeat_review, false);
+
+// T3 — THE RULE MUST NEVER DOWNGRADE A FINDING. A loss plus a refund is over the threshold,
+// so it is flagged for the booking question too, but it stays a RED.
+const t3 = scoreCase({ id: 910003, reachable: 200, tickets: [
+  T({ id: 84, status: 'REFUNDED', outcome: 'Refunded', aed: 3600, cur: 'AED' }),
+  T({ id: 85, status: 'REFUND_FAILED', outcome: 'Lost', aed: 4773.53, cur: 'AED' }),
+]}, CTX2('2026-08-19'));
+check('T3 stays a finding', t3.state, 'finding');
+check('T3 portal keeps the red', t3.portal_state, 'red_flag');
+check('T3 repeat flag still recorded', t3.needs_repeat_review, true);
+check('T3 exposure untouched', t3.exposure_aed, 4773.53);
+
+// T4 — switching the question off returns the clean case to silent.
+const t4 = scoreCase({ id: 910004, reachable: 200, tickets: [
+  T({ id: 86, status: 'REFUNDED', outcome: 'Refunded', aed: 3865, cur: 'AED' }),
+  T({ id: 87, status: 'REFUNDED', outcome: 'Refunded', aed: 4028, cur: 'AED' }),
+]}, CTX('2026-08-19'));
+check('T4 threshold off -> silent again', t4.portal_state, 'silent');
+
 // ══════════════════════════ report ══════════════════════════
 const pass = results.filter(r => r.pass).length;
 const fail = results.filter(r => !r.pass);

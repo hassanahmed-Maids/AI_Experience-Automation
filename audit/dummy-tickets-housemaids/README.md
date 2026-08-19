@@ -29,13 +29,16 @@ the person running the check** — and execute from the `Run Manually` trigger. 
 
 1. **Sign-off.** The flow is a draft and must stay one until someone who has read the spec
    approves a production run. Findings here name real clients and real money.
-2. **Two owner decisions still open**, each with its measurement in `SPEC-FINDINGS.md` Part 3:
-   - the blank refund schedule — flag it or not (1 red in 93 today) — **Jacky**
-   - the repeat-booking threshold, currently inert; 6 would yield 8 cases — **Malaz**
+2. **All four business questions are settled** (Hassan, 2026-08-19) — see `SPEC-FINDINGS.md`
+   Parts 3 and 4. Every default is a ruling; each is overridable in `params` only so an
+   alternative can be measured:
+   - blank refund schedule → **flag it** (1 red in 93)
+   - zero-amount siblings → **clean** when the money all came back (clean 61 → 82)
+   - repeat-booking threshold → **2**, which sends **49 of 93** for a booking review
+   - scope → **applicants only**; a housemaid charge is counted but caseless
 
-   Settled 2026-08-19 (Hassan): zero-amount siblings no longer make a case pending when the
-   money all came back (clean 61 → 82); and this audit checks **applicants only**, so a
-   housemaid charge in the dummy expense is out of scope, counted but caseless.
+   Note on the threshold: it drives review load only. Findings stay at 4 and exposure at
+   AED 11,517 at any threshold. A threshold of 6 would send 8 for review instead of 49.
 3. **Re-verify on the operator's own ERP account.** Everything in Part 2 was measured on a
    borrowed token; nothing should be marked `Technical Validated` until it is re-run under the
    identity that will own the findings.

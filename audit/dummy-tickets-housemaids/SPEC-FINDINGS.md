@@ -442,3 +442,71 @@ Owner: **Malaz**.
 no code change on that path. That is ERP transient failure, exactly the wobble the spec
 documents, and it is why gate 30 records an outage as `pending` and re-attempts rather than
 publishing a finding about a person. Those 7 are re-read on the next run.
+
+---
+
+# Part 4 · Remaining rulings, 2026-08-19 (Hassan) — all four now settled
+
+## R-3 · Blank refund schedule — SETTLED: flag it
+
+A dummy ticket with no automatic refund date, whose money is still out, is treated as *nobody
+scheduled a refund* and raises a red. This closes the contradiction in Part 1 §4.1: the variable
+row and gate 90's body were right, and gate 100's "could not fire" analysis is superseded.
+
+Measured effect: **1 red across 93 applicants** — the reading is not noisy. Without it a
+forgotten refund is permanently invisible to this check, which is the leak the rule exists to
+find (68 tickets / AED 194,793).
+
+Override retained as `params.empty_schedule_means_do_not_request: false`, for measurement only.
+
+**Gate 100's other half — a real `requestRefundOn` more than 30 days past — still has no live
+case.** It fired here only through the blank-schedule route. Keep the gate; do not record the
+date-based half as validated.
+
+## R-4 · Repeat-booking threshold — SETTLED: 2, "for now"
+
+This forced a **defect fix**, not just a config change.
+
+Gate 110 is **additive**: it routes to a reviewer *alongside* whatever the money gates concluded,
+"separate from whether any single ticket was refunded". The build was only attaching a flag to
+the case — and since a clean case emits **no portal row at all**, the rule did nothing whenever
+the money was fine. At the previous inert threshold that was invisible; at 2 it would have
+silently dropped most of the reviews the ruling asked for.
+
+Fixed: a case at or over the threshold is published as `needs_verifier` even when its money
+verdict is clean. Two invariants pinned by tests T1–T4:
+
+- it can **surface** a clean case (T1), and a single-ticket case stays silent (T2);
+- it can **never** downgrade a finding — a loss beside a refund is over the threshold, is flagged
+  for the booking question, and still publishes as `red_flag` with its exposure intact (T3).
+
+Both the money verdict and the booking flag travel in the case metadata (`money_verdict`,
+`money_state`, `repeat_review`), so a reviewer opening a surfaced case can see the money was fine.
+
+**Measured cost at threshold 2** — reference window, 93 applicants:
+
+| portal state | rows | reason |
+|---|---|---|
+| `red_flag` | 4 | 3 confirmed losses + 1 never-scheduled refund |
+| `needs_verifier` | **49** | all `repeat_bookings` — money clean, booking pattern reviewed |
+| `pending` | 4 | ERP unreachable, retried next run |
+| silent (no row) | 36 | clean, below threshold |
+
+**57 portal rows, 49 of them the booking question.** For comparison: a threshold of 6 yields 8
+such reviews instead of 49, and 8 yields 4. Nothing on the money side changes either way —
+findings stay at 4 and exposure at AED 11,517 under any threshold. Change with
+`params.repeat_threshold`, or `params.repeat_bookings_off: true`.
+
+## Run-to-run variance worth knowing
+
+`applicants_unreachable` measured **2, then 7, then 4** across three runs of the same window
+within two hours, with no code change on that path. That is ERP transient failure — the wobble
+the spec documents — and it is why gate 30 records an outage as `pending` and re-attempts rather
+than publishing a finding about a person. Expect the pending count to move a little run to run.
+
+## Final state of the offline suite
+
+**67 of 67 assertions green.** The spec's five test cases, one guard per "Never" clause in the
+rule bodies, E18–E20 from the live probe, R1–R4 for the zero-amount ruling, and T1–T4 for the
+repeat-booking surfacing. Mutation-tested: re-introducing the gate-90-behind-gate-100 order,
+substring `REFUND` matching, or first-ticket-wins each fails the suite.
