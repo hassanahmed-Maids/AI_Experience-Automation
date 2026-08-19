@@ -695,3 +695,85 @@ worth requesting alongside the replacements permission, because it is the only c
 agreed-amount read found anywhere. Note its own caveat from the code: it uses the
 **active** payment term, so it cannot reconstruct a rate that changed after the audited
 month.
+
+## 18. Two guards built for §17 — gate 35 and the circularity tripwire
+
+Both live in a new WF-A node, `Guards`, between `Compute Case States` and
+`Adjudicate Cases`. Neither needs an extra ERP call.
+
+### Gate 35 — was a monthly payment even due?
+
+A case whose plan starts its recurring monthly schedule **after** the audited month is closed
+`no_monthly_obligation_yet`: green, no verifier, `expected: null`, and the superseded verdict
+kept on the case so the override is auditable. It is deliberately **not** merged into
+`paid_in_full` — whether the one-time amount itself was right is a different expectation that
+no gate here can test.
+
+It fixes two live errors in opposite directions, both measured in §17: the self-clearing
+first-month shape (1103085/86/97, where `currentPayment` returned the one-time figure the
+client had just paid) and the false candidate (1101305, which read ~58% short because it
+returned the full monthly rate).
+
+The input is `plan.monthly_schedule_starts`, parsed in WF-E from the `(Monthly)` prose line.
+That the date means "schedule start" and not "next payment due" is measured, not assumed:
+over 44 live contracts it sits a median +0.8 months after `startOfContract`, 40 of 44 within
+0–2.5 months, and it stays fixed in the past on old contracts (1014657 started 2022-07-12,
+its line reads 2022-08-01).
+
+**Expected fire rate.** Only contracts whose schedule begins after the audited month — in
+practice those starting within ~1.5 months of it. A 120-contract sample from the middle of
+the population walk (pages 20/60/100) contained **none** starting after 2026-05-07, so for a
+July audit this is a small carve-out, not a filter over the book. An earlier 43% reading came
+from a sample biased to brand-new contracts (advancesearch page 0) and is not the base rate.
+
+Gate 10 and carried cases are protected: a month with nothing received belongs to the sibling
+check whatever the plan says, and a carried case was never re-scored.
+
+### The circularity tripwire
+
+Halts the run when either holds over 500+ scored cases:
+
+| test | threshold | measured norm |
+|---|---|---|
+| share of cases where `expected` equals what was received **exactly** | > 97% | **81.5%** (July 2026: 4,575 exact of 5,612) |
+| shortfall cases beyond the AED 5.00 tolerance | **zero** | 984 of 5,612 |
+
+Either shape means `expected` is being read from the payment itself — ERP's `currentPayment`
+falling through to its payment-derived tier. That failure is invisible per case, because each
+case individually looks perfectly reconciled, which is why the guard is a population test and
+why it throws rather than warns. Under 500 scored cases it stays disarmed so small test runs
+are not blocked. The error message names the check: compare a short-paying contract's
+`currentPayment.amountValue` against `getnewddInfo`'s `suggestedAmount`.
+
+Probed 2026-08-19, the circular tier is **not** firing today (1101305), so this is a
+regression tripwire — worth having precisely because the day it fires the output looks
+*better*, not worse.
+
+### Why they are a separate node, and what that costs
+
+The ideal placement for gate 35 is inside the gate chain, before gate 50. It is not there
+because `Compute Case States` is 576 lines of ordered gates, tested 13/13 against the spec's
+own cases, and shipped into n8n as a string — retyping the whole body to insert two blocks is
+how money gets moved by accident. The guards need no scorer internals, so they run on its
+output and the scorer was left untouched (verified: the deployed body still matches the repo
+copy byte for byte, modulo one trailing newline).
+
+The cost, stated rather than buried: the scorer still scores a gate-35 case internally before
+`Guards` overwrites the verdict, so the scorer's own log counts it under the original verdict.
+`Guards` logs `scorer_tally_superseded_for` to reconcile the two, and re-derives the tally it
+emits.
+
+### Tests
+
+`offline/guards_test.js` — **24/24**, driving the real scorer and then the real `Guards`
+body, the same pairing that runs in n8n: gate 35 fires on both live shapes, abstains on a
+2022 schedule, abstains on a schedule starting inside the audited month (gate 50 keeps those),
+abstains on an unparsed date, never overrides gate 10, and records what it superseded; the
+tripwire passes a realistic month, refuses an all-exact book, stays disarmed under 500 cases;
+the plan-date parser handles a normal date, a literal "Today", multiple one-time lines, an
+unparseable month, a line with no date, and an empty plan. `Guards` also refuses a payload
+with no `cases` array, and reports a missing `Join Enrichment` rather than passing silently.
+
+Every pre-existing suite still passes unchanged: `harness` 13/13, `wf-e/offline/enrich_test`
+39/39, `gate2_payments_test` 8/8, `gate2_test` 10/10, `attach_payments_test` 6/6,
+`cohort_test`.

@@ -64,7 +64,48 @@ function parseDiscount(raw) {
   };
 }
 
+// ---------------------------------------------------------- plan-line dates
+// WHY THIS EXISTS, and it is a false-clearance fix rather than a nicety. Probed live
+// 2026-08-19 on three brand-new contracts (1103085/86/97): currentPayment.amountValue
+// returned the ONE-TIME first-month figure, not the recurring rate, and it equalled what
+// the client had just paid - so the case scored as exactly-paid and self-cleared. On
+// 1101305 the reverse: the plan's recurring schedule had not started, the client paid a
+// stated one-time amount, and currentPayment returned the FULL monthly rate - which would
+// have reported that contract as ~58% short. Both errors come from the same blind spot:
+// nothing read WHEN the monthly schedule begins.
+//
+// The plan prose carries it. Measured over 44 live contracts, the date on the `(Monthly)`
+// line is the RECURRING-SCHEDULE START, not a next-payment date: median +0.8 months after
+// startOfContract, 40 of 44 within 0-2.5 months, and it stays fixed in the past on old
+// contracts (1014657 started 2022-07-12, line reads 2022-08-01). So a `(Monthly)` line
+// dated after the audited month means no monthly payment was due that month.
+//
+// Line shape: "Service Fees: <net> + <vat> VAT, on Sep 1 2026 (Monthly)". The date sits
+// between ", on " and " (", and can be the literal word "Today".
+const PLAN_MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+                      jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+function parsePlanLineDate(line) {
+  const t = s(line);
+  const at = t.indexOf(', on ');
+  if (at === -1) return { date: '', raw: '', is_today: false };
+  const rest = t.slice(at + 5);
+  const close = rest.indexOf(' (');
+  const chunk = (close === -1 ? rest : rest.slice(0, close)).trim();
+  if (chunk.toLowerCase() === 'today') return { date: '', raw: chunk, is_today: true };
+  const parts = chunk.split(' ').filter(function (x) { return x.length > 0; });
+  if (parts.length < 3) return { date: '', raw: chunk, is_today: false };
+  const mon = PLAN_MONTHS[parts[0].slice(0, 3).toLowerCase()];
+  const day = Number(String(parts[1]).replace(',', ''));
+  const year = Number(parts[2]);
+  if (!mon || !Number.isFinite(day) || !Number.isFinite(year) || day < 1 || day > 31) {
+    return { date: '', raw: chunk, is_today: false };
+  }
+  const pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  return { date: year + '-' + pad(mon) + '-' + pad(day), raw: chunk, is_today: false };
+}
+
 let unreadable = 0, withDiscount = 0, oneMonth = 0, firstMonthStub = 0, fetchFailures = 0;
+let datedMonthlyLines = 0, undatedMonthlyLines = 0;
 const out = cases.map(function (c, i) {
   const resp = responses[i] || {};
   const plan = resp.paymentPlan || {};
@@ -114,8 +155,14 @@ const out = cases.map(function (c, i) {
   // monthly is wrong.
   const paymentsInfo = Array.isArray(plan.paymentsInfo) ? plan.paymentsInfo.map(s) : [];
   const monthlyLine = paymentsInfo.filter(function (l) { return /[(]Monthly[)]/i.test(l); })[0] || '';
-  const oneTimeLine = paymentsInfo.filter(function (l) { return /[(]One[ ]*Time/i.test(l); })[0] || '';
+  const oneTimeLines = paymentsInfo.filter(function (l) { return /[(]One[ ]*Time/i.test(l); });
+  const oneTimeLine = oneTimeLines[0] || '';
   if (oneTimeLine) firstMonthStub++;
+  const monthlyDate = parsePlanLineDate(monthlyLine);
+  const oneTimeDates = oneTimeLines.map(parsePlanLineDate)
+    .filter(function (d) { return d.date || d.is_today; })
+    .map(function (d) { return d.is_today ? 'TODAY' : d.date; });
+  if (monthlyDate.date) datedMonthlyLines++; else if (monthlyLine) undatedMonthlyLines++;
 
   // ---- GATE 5 inputs: the pro-rating skip branches -----------------------
   // ERP's own formula (CalculateDiscountsWithVatService.getProRatedAmount) has three
@@ -152,6 +199,19 @@ const out = cases.map(function (c, i) {
       payments_info: paymentsInfo,
       monthly_info_line: monthlyLine,
       one_time_line: oneTimeLine,
+      // GATE 35's inputs. The scorer side compares monthly_schedule_starts against the
+      // audited month; it is emitted as a plain date rather than a verdict because WF-E does
+      // not know which month is being audited, and the gate decision belongs downstream.
+      monthly_schedule_starts: monthlyDate.date,
+      monthly_schedule_starts_raw: monthlyDate.raw,
+      monthly_schedule_date_is_today: monthlyDate.is_today,
+      one_time_dates: oneTimeDates,
+      // MEASURED 2026-08-19 AND LOAD-BEARING FOR ANYONE READING THESE LINES: the amounts in
+      // paymentsInfo prose are EX-VAT, at exactly 1.05 against currentPayment.amountValue on
+      // four contracts. Comparing a prose amount to currentPayment without adding VAT would
+      // report a 5% shortfall on the whole compliant population. Nothing in this flow reads
+      // the prose amounts - only the DATES - and it should stay that way.
+      plan_line_amounts_are_ex_vat: true,
       additional_discount: additional,
       credit_note_discount: creditNote,
       gate4_departure: (additional.present || creditNote.present) ? {
@@ -175,6 +235,7 @@ const out = cases.map(function (c, i) {
 console.log(JSON.stringify({ stage: 'wfe_project_plan', candidates: out.length,
   plan_fetch_failures: fetchFailures, unreadable_expected_amount: unreadable,
   with_a_discount: withDiscount, one_month_agreements: oneMonth,
-  with_first_month_stub: firstMonthStub }));
+  with_first_month_stub: firstMonthStub,
+  dated_monthly_lines: datedMonthlyLines, undated_monthly_lines: undatedMonthlyLines }));
 
 return out;

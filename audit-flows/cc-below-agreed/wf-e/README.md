@@ -55,6 +55,16 @@ source for the contract monthly rate — the open question in
 replacements, replacements_meta} ], _candidates, _plan_fetch_failures,
 _replacement_fetch_failures, _replacement_permission_denied, _chunk_index }`.
 
+The `plan` delta also carries **gate 35's inputs**, added 2026-08-19:
+`monthly_schedule_starts` (the `(Monthly)` prose line's date, yyyy-mm-dd),
+`monthly_schedule_starts_raw`, `monthly_schedule_date_is_today`, and `one_time_dates`. WF-A's
+`Guards` node compares the first against the audited month; WF-E emits dates rather than a
+verdict because it does not know which month is being audited. The delta also states
+`plan_line_amounts_are_ex_vat: true` — measured at exactly 1.05 against `currentPayment` on
+four contracts — because comparing a prose amount to `currentPayment` without adding VAT
+would report a 5% shortfall on the entire compliant population. **Only the dates are read;
+no prose amount is.**
+
 `Join Enrichment` merges each delta onto its case **by `case_key`**, and emits exactly the
 shape the old `Attach Replacements` handed `Merge Streams` — so `Compute Case States` was
 not touched.
@@ -100,7 +110,7 @@ the same strings and asserts they agree.
 
 ## Tests
 
-`node wf-e/offline/enrich_test.js` — **39/39**, covering all five nodes: the fan-out and
+`node wf-e/offline/enrich_test.js` — **39/39** (plus the plan-date cases in `offline/guards_test.js`), covering all five nodes: the fan-out and
 every refusal, the discount prose parsing (including "1000 over 4 months" = 250/month and
 the non-empty string describing a zero discount), an empty `amountValue` reading as unknown
 rather than zero, ERP error bodies as fetch failures, the `newHousemaid: ""` no-successor
