@@ -12,6 +12,13 @@
 > The n8n project is **`Adeeb`**. Probe the ERP with `curl`; ask **LCP** (ask-the-code) any
 > question about an ERP API or where a value comes from.
 >
+> **Read `docs/skills/erp-and-n8n-traps.md` before building a check.** It is the durable copy
+> of the skill's traps reference — the pagination trap that silently drops contracts, the three
+> auth denial shapes, the payload traps, and the call-budget recount method. Every item was
+> learned by hitting it in production. The skill's own copy lives in an ephemeral synced
+> directory, so **this repo copy is the one that survives**; update both when you learn
+> something new.
+>
 > Still current from the material below: **hard rules 1 and 2** (the ERP code is the only
 > source of truth, reached through `scripts/ask-code.sh` — see `docs/code-llm-api.md`; and
 > secrets live in `.env` only), plus `docs/glossary.md` for the business domain (CC/MV,
