@@ -861,3 +861,40 @@ this check when nothing else is executing and compare.
   month — so it is a carve-out, not a filter over the book.
 
 The circularity tripwire never got to run: it lives in `Guards`, downstream of the crash.
+
+## 20. Population staged out — and a correction to why
+
+`RbW2fT3b6rtqVQ9H` (`CC Below Agreed · 0-Sweep Population`), published 2026-08-19. Both of
+WF-A's `contract/search/page` walks now run in a sub-execution: `Get CC Contract Population`
+(mode `active`) and `Get Terminated Contracts` (mode `terminated`). Names, returned envelope
+and `Join Bulk Pulls` inputs (0 and 5) unchanged, so gate 2 and `Build Cohort` needed no edit.
+
+**The correction.** I told Moe this sweep was 9.2 MB and worth ~4.5 MB of retention. That
+number came from a **pretty-printed** probe file. Re-measured minified on a live page:
+**904 B/row**, so the active walk is **4.66 MB** and the projection saves **~2.85 MB** —
+against a tail peaking near 98 MB, roughly 3% of the problem. Stated plainly rather than let
+the pattern imply otherwise. This is the second time a pretty-printed measurement inflated a
+figure in this file (see §14 on the 59.1 MB → 44.1 MB status sweep); minify before quoting.
+
+**What actually justified building it.** Every row of this route carries
+`workerSalaryMonthlyTip` — the housemaid's salary — and no gate reads it. Unstaged it sat in
+WF-A's retained output for the whole run *and* in the stored execution record. ~5,405 active
+rows plus ~949 terminated = **~6,350 salaries readable by anyone with project access**, for
+every run ever kept. The projection drops it, plus `client.lastBlockLog`/`spouseName`/`city`/
+`blocked` and six other unread fields. Staging only the active book would have left the 949
+behind and looked finished, which is why both walks went through one sub-workflow.
+
+**One item per page, deliberately** — the opposite of WF-S. Gate 2 proves this walk
+terminated by its last page being short (`< 40`); a single 5,405-row item reads
+`5,405 >= 40` and throws on a *complete* sweep. `wf-pop/offline/population_test.js` runs the
+collapsed shape through the real gate 2 and asserts it still throws, so a later
+"simplification" fails loudly instead of blinding the terminator.
+
+`wf-pop/offline/population_test.js`: **31/31**, including a raw-vs-projected comparison
+through the real `Verify Bulk Pulls` and the real `Build Cohort` (same rows, same declared
+total, same reconciliation verdict, same page count, same cohort, first case field-for-field).
+
+One behavioural change worth knowing: `Validation OK?` lists its parallel branches in a new
+order (the two replaced nodes are now last), so the sweeps start in a different sequence.
+`Respond 200` is still first, and the sweeps are order-independent, but a run's log lines
+will not appear in the same order as in 93346.
