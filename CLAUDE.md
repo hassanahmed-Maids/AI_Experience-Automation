@@ -1,4 +1,27 @@
-# ERP → CustomerIO template migration system
+> ## ⛔ RETIRED — CustomerIO and Whimsical are no longer used (2026-08-19)
+>
+> **The team does not use CustomerIO or Whimsical any more. Do not use them, do not read
+> their conventions docs, and do not run the Systems 1–3 pipeline described below.** That
+> includes the CIO/Whimsical MCP servers, the `cio-*` and `whimsical` tooling, and every
+> agent in `.claude/agents/` whose job is drawing boards or translating campaigns
+> (cluster-analyzer, flow-diagrammer, customerio-translator, attribute-mapper,
+> design-critic, builder, verifier, the `golive-*` set, system3-reconciler).
+>
+> **What this repo is used for now:** building maids.cc **audit checks as n8n flows** from
+> Notion specs — see the `erp-audit-flow-builder` skill. Work lives under `audit/<check>/`.
+> The n8n project is **`Adeeb`**. Probe the ERP with `curl`; ask **LCP** (ask-the-code) any
+> question about an ERP API or where a value comes from.
+>
+> Still current from the material below: **hard rules 1 and 2** (the ERP code is the only
+> source of truth, reached through `scripts/ask-code.sh` — see `docs/code-llm-api.md`; and
+> secrets live in `.env` only), plus `docs/glossary.md` for the business domain (CC/MV,
+> targets, contract model) and `docs/snowflake.md` for the warehouse.
+>
+> Everything from here down is kept for history only.
+
+---
+
+# ERP → CustomerIO template migration system  *(retired — see the banner above)*
 
 Multi-agent pipeline that migrates ~500 ERP broadcast templates (WhatsApp/SMS) into CustomerIO campaign *designs*. We do NOT build in CustomerIO — we produce copy-paste-ready Whimsical boards plus validated flow-specs. The deeper goal: make each client/housemaid journey understandable to a business analyst with zero prior context (see `docs/judgment.md`).
 
