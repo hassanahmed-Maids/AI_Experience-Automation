@@ -2,13 +2,16 @@
 // 2400s and a full pass measures ~93 min, so the run is split across
 // executions rather than truncated inside one.
 //
-// 1200, not 1500: adding the third ERP call (getActiveCptInfo, measured 0.81s
-// mean over 5 samples on 2026-08-19) moved a batch of five from ~4.36s to
-// ~5.17s, which would have put a 1500-contract chunk at ~26 min against a
-// 40-min kill. 1200 restores the headroom at ~21 min.
+// 1000, not 1500. Adding the third ERP call (getActiveCptInfo) was expected to
+// cost ~0.81s per contract of ERP time, but the number that matters is the one
+// measured end to end: the 2026-08-19 smoke did 60 contracts in 107s, which is
+// 1.78s per contract once Write Cases and the 500ms pace are counted. At that
+// rate 1500 contracts is ~44 min - PAST the instance's 2400s kill - and even
+// 1200 is ~36 min, an 11% margin. 1000 lands at ~30 min, which leaves room for
+// an ERP slow patch without losing a chunk.
 const b = $input.first().json;
 const ch = (b.params && b.params.chunk) || {};
-const size = Number(ch.size || 1200);
+const size = Number(ch.size || 1000);
 const offset = Number(ch.offset || 0);
 const all = b.contracts || [];
 const slice = all.slice(offset, offset + size);

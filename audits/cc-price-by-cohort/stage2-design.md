@@ -9,8 +9,8 @@ Both draft, neither published.
 Receive Baton (passthrough)
   → Explode Contracts        slices ONE chunk of the population
   → Batch of 5 ──loop──▶ Get Contract Details → Get LiveInOut Logs
-                          → Resolve Nationality → Score Batch
-                          → Write Cases → Pace 500ms ──back to Batch
+                          → Get Active CPT → Assemble Contract Payload
+                          → Score Batch → Write Cases → Pace 500ms ──back to Batch
        └──done──▶ Stage 2 Complete → More Chunks?
                                       ├─ yes → Launch Next Chunk (no wait)
                                       └─ no  → Run Complete (asserts completeness)
@@ -19,8 +19,13 @@ Receive Baton (passthrough)
 ## Why it is chunked
 
 Measured ERP latency, 5 samples each: `get-client-details` **1.71 s** mean,
-`liveinoutlogs` **1.15 s** mean. At the 5-concurrent / 500 ms rate law that is
-**~4.36 s per batch of five**, so 5,392 contracts = 1,079 batches ≈ **78 minutes**.
+`liveinoutlogs` **1.15 s** mean, `getActiveCptInfo` **0.81 s** mean. At the
+5-concurrent / 500 ms rate law that is **~5.17 s per batch of five** in theory.
+
+**Measured end to end it is worse than that.** The 2026-08-19 smoke did 60
+contracts in 107 s — 1.78 s per contract, or ~8.9 s per batch of five, once
+`Write Cases` and the 500 ms pace are counted. Chunk sizing follows the measured
+number, not the theoretical one.
 
 This n8n instance refuses any `executionTimeout` above **2400 s (40 min)**. A
 single-execution Stage 2 would therefore have been killed around contract 2,700
@@ -43,27 +48,30 @@ the route's own `total` now aborts **unconditionally**, and `warn_only` can no
 longer suppress it — it only softens the low-population warn band. The page
 ceiling went from 200 pages (8,000 contracts) to 2,000 as a runaway backstop.
 
-## The pluggable nationality node
+## Nationality — resolved in the scorer, not in a node
 
-`Resolve Nationality` holds one constant:
+**Superseded 2026-08-19.** This section used to describe a `Resolve Nationality`
+node with a pluggable `SOURCE` constant, and asserted that
+`getActiveCptInfo.nationality` was "deliberately not an option" because it is the
+*payment term's* nationality and `cptName` "provably contains it".
 
-```js
-const SOURCE = "unavailable";
-```
+**That claim was wrong on both counts, and it was blocking the fix.**
 
-| Value | Behaviour |
-|---|---|
-| `unavailable` *(current)* | yields `null` → every contract routes to a human via `no_nationality` |
-| `baton` | reads `maid_nationality` off the Stage 1 row — correct once the dynamic API is granted |
-| `search_page` | reads `housemaid.nationality` if it ever starts populating |
+- LCP says the endpoint returns `cpt.getHousemaid().getNationality().getName()` —
+  the maid's nationality, not the term's FK. Verified against 14 contracts that
+  have a maid: it agreed with the dynamic API 14 / 14.
+- `cptName` does not contain the nationality reliably. Contract 1099770 reports
+  nationality `Ethiopian` under cptName `CC - Default - Kenyan -OMG`.
 
-**`getActiveCptInfo.nationality` is deliberately not an option.** That is the
-*payment term's* nationality — `cptName` provably contains it. Wiring it here
-would make the `payment_term_nationality_mismatch` gate compare a value with
-itself and never fire, destroying the gate that catches a term priced for the
-wrong nationality.
+The node is now **`Assemble Contract Payload`**: it collects the three ERP
+payloads and decides nothing. Resolution lives in `resolveNationality()` in
+`scorer-month.js`, where assertions cover it — live maid first, active payment
+term second, `no_nationality` pending third. Full reasoning and the population
+evidence: `erp-nationality-fallback.md`.
 
-Flipping `SOURCE` is the whole change once a surface is authorised.
+The self-comparison concern was real and survives as an explicit guard: when the
+nationality itself came from the term, `upgrading_nationality` is declared
+untestable rather than allowed to compare a value with itself.
 
 ## Field paths (probe-confirmed 2026-08-18)
 
@@ -84,6 +92,9 @@ Flipping `SOURCE` is the whole change once a surface is authorised.
 - Both HTTP nodes use `neverError` + `fullResponse`, so a per-contract failure
   records `details_unreadable_<status>` and routes to a human instead of
   aborting the chunk or silently scoring on an empty payload.
-- `payment_term_nationality_mismatch` is hard-`false` and
-  `payment_term_surface_unavailable` hard-`true` until the CPT call is wired in;
-  the gate is declared unavailable rather than quietly passing.
+- The `payment_term_nationality_mismatch` gate still wants the term's OWN
+  `NATIONALITY_ID`, which is exposed only on
+  `/accounting/contractpaymentterm/getcontractpaymentterminfo` — 401 on this
+  account (`erp-401-pagecodes.md`). It stays declared-unavailable rather than
+  being quietly satisfied by the `upgrading_nationality` test, which answers a
+  related but not identical question off a field we can actually read.
