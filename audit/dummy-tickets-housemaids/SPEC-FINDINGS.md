@@ -381,3 +381,64 @@ still change. Pass `params.immaterial_ranks_below_refunded: true` to run it the 
 plus E18–E20 added from the live findings. Mutation-tested: re-introducing the
 gate-90-behind-gate-100 order, substring `REFUND` matching, or first-ticket-wins each fails the
 suite, and substring matching turns a confirmed loss **green**.
+
+---
+
+# Part 3 · Owner rulings, 2026-08-19 (Hassan)
+
+## R-1 · Zero-amount siblings — SETTLED: flip it
+
+A case whose money all came back now reads **clean** even when a cancelled zero-amount ticket
+sits beside it. Previously it read *pending*.
+
+**Supersedes Part 1 §4.3 and Part 2 §14.** Applied to the flow and to `scorer.js`, with tests
+R1–R4 pinning both directions.
+
+Two guardrails kept deliberately:
+
+- A case holding **only** zero-amount tickets is still **pending**. Nothing in it was ever
+  verified as refunded, so there is no evidence to clear it with. (`cases_only_zero_amount_tickets`
+  = 0 in the reference window, but the path is tested.)
+- The ruling **cannot** promote a finding. A loss beside refunds and shells still decides the
+  case (test R3).
+
+Reference window before → after: **clean 61 → 82**, **pending 28 → 7**, findings unchanged at 4.
+Revert with `params.immaterial_ranks_below_refunded: false`.
+
+## R-2 · Applicants only — SETTLED
+
+A charge in expense 492 that resolves a **housemaid** rather than an applicant is **out of
+scope** for this check. Closes the open question in Part 2 §9.
+
+Behaviour: counted as `housemaid_charges_out_of_scope` in the run record, declared in
+`declared_gaps` as `APPLICANTS_ONLY_BY_RULING`, and **no case is created**. It is not dropped
+silently and not routed to a verifier who would have no question to answer. 1 of 137 rows in the
+reference window.
+
+## Still open — re-put to the owner in plain terms
+
+**The blank refund schedule** (Part 1 §4.1). Restated without jargon: some dummy tickets carry
+no automatic refund date at all. When the money is also still out, does *blank* mean "nobody set
+a refund up for this" (flag it) or "we cannot tell" (leave it)? Flagging is live and produced
+**1 red across 93 applicants**. Not flagging would make a forgotten refund permanently invisible
+to this check — the spec's own leak figure is 68 tickets / AED 194,793. Owner: **Jacky**.
+
+**The repeat-booking threshold** (Part 1 §4.2). Gate 110 asks a behaviour question, not a money
+question, and no money finding depends on it. Measured spread over 93 applicants:
+
+| tickets per applicant | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 |
+|---|---|---|---|---|---|---|---|---|---|
+| applicants | 35 | 22 | 6 | 5 | **10** | 2 | 2 | 3 | 1 |
+
+Cumulative: ≥2 = 51 · ≥3 = 29 · ≥4 = 23 · ≥5 = 18 · ≥6 = **8** · ≥8 = 4 · ≥10 = 1.
+
+**10 applicants sit at exactly 5**, which reads as normal practice rather than an outlier — so a
+threshold of 5 would flag the norm. **6 is the first count above it, and yields 8 cases.**
+Owner: **Malaz**.
+
+## One thing that moved on its own
+
+`applicants_unreachable` went **2 → 7** between two runs of the same window minutes apart, with
+no code change on that path. That is ERP transient failure, exactly the wobble the spec
+documents, and it is why gate 30 records an outage as `pending` and re-attempts rather than
+publishing a finding about a person. Those 7 are re-read on the next run.

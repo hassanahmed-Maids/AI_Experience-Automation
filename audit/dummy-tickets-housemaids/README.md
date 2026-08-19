@@ -29,11 +29,13 @@ the person running the check** — and execute from the `Run Manually` trigger. 
 
 1. **Sign-off.** The flow is a draft and must stay one until someone who has read the spec
    approves a production run. Findings here name real clients and real money.
-2. **Three owner decisions**, each with its measurement in `SPEC-FINDINGS.md`:
-   - the empty-`requestRefundAutomaticallyType` contradiction (§4.1, §13) — Jacky
-   - `immaterial` vs `refunded` case ranking, worth 26 of 93 cases (§14) — Jacky
-   - `repeat_threshold` for gate 110, currently inert with 54 candidates (§4.2) — Malaz
-   - what happens to a housemaid charge in the dummy expense (§9)
+2. **Two owner decisions still open**, each with its measurement in `SPEC-FINDINGS.md` Part 3:
+   - the blank refund schedule — flag it or not (1 red in 93 today) — **Jacky**
+   - the repeat-booking threshold, currently inert; 6 would yield 8 cases — **Malaz**
+
+   Settled 2026-08-19 (Hassan): zero-amount siblings no longer make a case pending when the
+   money all came back (clean 61 → 82); and this audit checks **applicants only**, so a
+   housemaid charge in the dummy expense is out of scope, counted but caseless.
 3. **Re-verify on the operator's own ERP account.** Everything in Part 2 was measured on a
    borrowed token; nothing should be marked `Technical Validated` until it is re-run under the
    identity that will own the findings.

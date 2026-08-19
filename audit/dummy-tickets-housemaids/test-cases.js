@@ -206,6 +206,45 @@ const e20 = scoreTicket(T({ id: 20, status: 'ISSUED', aed: 4200, cur: 'AED', aut
 check('E20 no schedule at all -> red', e20.verdict, 'refund_overdue');
 check('E20 reason names the cause', e20.reason, 'no_refund_scheduled');
 
+// ── OWNER RULING, Hassan 2026-08-19: zero-amount siblings ──────────────────
+// R1 — money all came back + a cancelled shell beside it => CLEAN, not pending.
+// This is the 26-of-93 case from the reference window.
+const r1 = scoreCase({ id: 900001, reachable: 200, tickets: [
+  T({ id: 91, status: 'REFUNDED', outcome: 'Refunded', aed: 4561.15, cur: 'AED', autoType: 'Immediately' }),
+  T({ id: 92, status: 'REFUNDED', outcome: 'Refunded', aed: 2755.13, cur: 'AED', autoType: 'Immediately' }),
+  T({ id: 93, status: 'CANCELED', aed: '', cur: '' }),
+]}, CTX('2026-08-19'));
+check('R1 refunds outrank a zero-amount shell', r1.verdict, 'refunded');
+check('R1 case is clean', r1.state, 'clean');
+check('R1 shell still listed', r1.dummy_ticket_count, 3);
+
+// R2 — a case with ONLY zero-amount tickets stays PENDING. Nothing in it was ever
+// verified as refunded, so there is no evidence to clear it with.
+const r2 = scoreCase({ id: 900002, reachable: 200, tickets: [
+  T({ id: 94, status: 'CANCELED', aed: '', cur: '' }),
+  T({ id: 95, status: 'CANCELED', aed: '', cur: '' }),
+]}, CTX('2026-08-19'));
+check('R2 only-zero-amount case stays pending', r2.state, 'pending');
+check('R2 verdict is immaterial', r2.verdict, 'immaterial');
+
+// R3 — the ruling must NEVER promote a real finding to clean. A loss beside refunds and
+// shells still decides the case.
+const r3 = scoreCase({ id: 900003, reachable: 200, tickets: [
+  T({ id: 96, status: 'REFUNDED', outcome: 'Refunded', aed: 3600, cur: 'AED' }),
+  T({ id: 97, status: 'CANCELED', aed: '', cur: '' }),
+  T({ id: 98, status: 'REFUND_FAILED', outcome: 'Lost', aed: 4773.53, cur: 'AED' }),
+]}, CTX('2026-08-19'));
+check('R3 a loss still outranks everything', r3.verdict, 'financial_loss');
+check('R3 exposure is the loss only', r3.exposure_aed, 4773.53);
+
+// R4 — a not-yet-due refund still outranks a zero-amount shell, so TC4's shape is
+// unchanged by the ruling.
+const r4 = scoreCase({ id: 900004, reachable: 200, tickets: [
+  T({ id: 99, status: 'PENDING_REFUND', aed: 4640, cur: 'AED', refundOn: '2026-06-15 00:00:00', autoType: 'CustomTime' }),
+  T({ id: 100, status: 'CANCELED', aed: '', cur: '' }),
+]}, CTX('2026-06-04'));
+check('R4 not-yet-due still decides the case', r4.verdict, 'awaiting_scheduled_refund');
+
 // ══════════════════════════ report ══════════════════════════
 const pass = results.filter(r => r.pass).length;
 const fail = results.filter(r => !r.pass);

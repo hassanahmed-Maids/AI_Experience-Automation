@@ -54,14 +54,19 @@ const GRACE_DAYS = 30; // owner ruling Jacky 2026-08-17, measured over n=3357
  *  is the spec's explicit ranking, not a slip: verifier rule 1 is ticket-scoped,
  *  so after it answers the case re-takes the worst of the REMAINING tickets and
  *  a sibling overdue red resurfaces. */
+/** OWNER RULING (Hassan, 2026-08-19): `immaterial` ranks BELOW `refunded`, so a case whose
+ *  money all came back reads clean even with a cancelled zero-amount ticket beside it. Before
+ *  the ruling it ranked above, which made 26 of 93 reference-window cases pending with nothing
+ *  in them to review. A case holding ONLY zero-amount tickets still lands pending, because
+ *  nothing in it was ever verified as refunded. */
 const SEVERITY = [
   'financial_loss',            // red      — gate 70
   'used_review',               // verifier — gate 80
   'refund_overdue',            // red      — gate 100
   'awaiting_scheduled_refund', // pending  — gate 50
   'unsettled',                 // pending  — gate 115
-  'immaterial',                // pending  — gate 90
   'refunded',                  // clean    — gate 60
+  'immaterial',                // pending  — gate 90  (below refunded, per the ruling)
   'clean_explained',           // clean    — verifier rule 1
 ];
 
