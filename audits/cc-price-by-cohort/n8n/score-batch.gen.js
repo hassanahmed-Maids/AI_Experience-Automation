@@ -678,7 +678,9 @@ if (typeof $input === 'undefined') {
       flags.push("logs_unreadable_" + j.logs_status);
       if (r.scope === "in_scope") {
         r.needs_human = true;
-        if (r.state === "green") { r.state = "pending"; r.verdict = "Can't tell"; r.reason_code = "cleared_on_a_test_but_gate_requires_review"; }
+        // above_card is a cleared outcome too, so an unreadable log must pull it
+        // back to pending exactly as it does a green.
+        if (r.state === "green" || r.state === "above_card") { r.state = "pending"; r.verdict = "Can't tell"; r.reason_code = "cleared_on_a_test_but_gate_requires_review"; }
       }
     }
 

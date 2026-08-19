@@ -37,7 +37,9 @@ if (fatal.length) {
 // SCOPE IS A THIRD OUTCOME. green/red/pending are shares of IN-SCOPE contracts,
 // never of the population: "5,000 out of scope for July" must never be readable
 // as "5,000 clean".
-const c = { green: 0, red: 0, pending: 0 };
+// above_card is a FOURTH in-scope outcome: valid, not a finding, not routed to a
+// human, and never part of the gap total. Spec owner, 2026-08-19.
+const c = { green: 0, red: 0, pending: 0, above_card: 0 };
 const byReason = {};
 const scopeReasons = {};
 let inScope = 0, outOfScope = 0;
@@ -111,9 +113,16 @@ if (haltedEarly) {
   overall = "CLEAN";
   headline = auditMonth + ": no in-scope contract was priced below the card across " + inScope + " contracts.";
 }
+// The gap total sums RED only, so it can no longer be dragged negative by
+// contracts paying above card. A negative total would now be a bug, not a fact.
+if (gapTotal < 0) {
+  throw new Error("IMPOSSIBLE GAP TOTAL: " + gapTotal + " is negative while summing only under-priced contracts."
+    + " A red verdict must mean actual < expected. Run stopped rather than reporting a shortfall that cancels itself out.");
+}
 
 const notes = [];
-notes.push("Scope: " + inScope + " in scope, " + outOfScope + " out of scope of " + populationCount + " active contracts. green/red/pending are shares of IN-SCOPE only. Out-of-scope reasons: " + JSON.stringify(scopeReasons) + ".");
+notes.push("Scope: " + inScope + " in scope, " + outOfScope + " out of scope of " + populationCount + " active contracts. green/red/above_card/pending are shares of IN-SCOPE only. Out-of-scope reasons: " + JSON.stringify(scopeReasons) + ".");
+notes.push(c.above_card + " in-scope contracts pay ABOVE the card. That is valid and is not a finding; they are excluded from red and from the gap total. Most are nationalities ERP prices above the card's collapsed Other bucket - see erp-price-matrix-mapping.md.");
 notes.push("The monthly rate is read from paymentPlan.paymentsInfo for " + auditMonth + ", never from currentPayment.");
 notes.push("One of the five spec tests is NOT implemented (upgrading_nationality) because no definition exists on the spec pages; it is scored NOT PASSED. " + couldFlipOnUnimplemented + " in-scope contracts failed every implemented test and could in principle have been cleared by it, so non-green counts are an upper bound. pro_rated is retired: a partial month is out of scope, so there is no pro-rated payment left to test.");
 if (blocked.length) notes.push("Blocked surfaces: " + blocked.join("; ") + ".");
@@ -146,6 +155,7 @@ return [{ json: {
   erp_calls_made: Number(s2.erp_calls_made === undefined ? 0 : s2.erp_calls_made),
   green: c.green,
   red: c.red,
+  above_card: c.above_card,
   pending: c.pending,
   review: review,
   unpriceable_at_start_count: unpriceableAtStart,
