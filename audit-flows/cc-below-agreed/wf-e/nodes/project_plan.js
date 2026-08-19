@@ -1,15 +1,15 @@
 // Project Plan (WF-E) - the EXPECTED side: gates 3, 4 and the inputs for gate 5.
 //
-// LIFTED FROM WF-A's `Attach Plan` AND IT MUST STAY BEHAVIOURALLY IDENTICAL. Only two
-// things changed, both mechanical: the pairing source is `Read Chunk` rather than
-// `Needs enrichment?`, and every regex is written with character classes instead of
+// LIFTED FROM WF-A's Attach Plan AND IT MUST STAY BEHAVIOURALLY IDENTICAL. Only two
+// things changed, both mechanical: the pairing source is Read Chunk rather than
+// Needs enrichment?, and every regex is written with character classes instead of
 // backslash escapes (see the note on parseDiscount). If the reasoning below and WF-A's
 // copy ever disagree, WF-A's is not the survivor - this one runs.
 //
 // v1 architecture note, carried over verbatim because it is why the shape looks like this:
-// `runOnceForAllItems`, paired positionally, emitting a slim delta. This is the shape the
+// runOnceForAllItems, paired positionally, emitting a slim delta. This is the shape the
 // sibling check had to be rewritten into after it crashed out of memory - per-item
-// `$('Node').item` lookups walk the pairing chain, and rebuilding the full case at each
+// $('Node').item lookups walk the pairing chain, and rebuilding the full case at each
 // stage retains a copy per stage.
 const cases = $('Read Chunk').all().map(function (i) { return i.json; });
 const responses = $input.all().map(function (i) { return i.json; });
@@ -28,7 +28,7 @@ if (responses.length !== cases.length) {
 
 // ---------------------------------------------------------------- discounts
 // BOTH DISCOUNT FIELDS ARE PROSE WITH A DURATION INSIDE THE VALUE, and both come back as
-// "" when absent - so `x != null` is TRUE, defaults never fire, and `Number("")` is 0 and
+// "" when absent - so x != null is TRUE, defaults never fire, and Number("") is 0 and
 // finite. "Credit Note Amount: 0 applied on Service Fee" is a NON-EMPTY string describing
 // a ZERO discount, so testing the raw field for truthiness reads no discount as a real one.
 //
@@ -74,10 +74,10 @@ function parseDiscount(raw) {
 // have reported that contract as ~58% short. Both errors come from the same blind spot:
 // nothing read WHEN the monthly schedule begins.
 //
-// The plan prose carries it. Measured over 44 live contracts, the date on the `(Monthly)`
+// The plan prose carries it. Measured over 44 live contracts, the date on the (Monthly)
 // line is the RECURRING-SCHEDULE START, not a next-payment date: median +0.8 months after
 // startOfContract, 40 of 44 within 0-2.5 months, and it stays fixed in the past on old
-// contracts (1014657 started 2022-07-12, line reads 2022-08-01). So a `(Monthly)` line
+// contracts (1014657 started 2022-07-12, line reads 2022-08-01). So a (Monthly) line
 // dated after the audited month means no monthly payment was due that month.
 //
 // Line shape: "Service Fees: <net> + <vat> VAT, on Sep 1 2026 (Monthly)". The date sits
@@ -105,12 +105,37 @@ function parsePlanLineDate(line) {
 }
 
 let unreadable = 0, withDiscount = 0, oneMonth = 0, firstMonthStub = 0, fetchFailures = 0;
+let tokenDead = 0;
+const planFailureSamples = [];
+
+// SAME CLASSIFIER AS Project Replacements, and here for the same reason: n8n's
+// continueRegularOutput returns an ERROR OBJECT, not the HTTP body, so resp.status is
+// undefined and String(resp.error) is '[object Object]'. This side never had a detector at
+// all - fetch_failed was counted and then nothing looked at WHY - which meant a token dying
+// mid-enrichment presented as a run where the expected amount was merely "unknown" on
+// thousands of contracts. Unknown is a legitimate verdict for one contract and a silent
+// write-off of the book for all of them.
+function failureText(o) {
+  let t = '';
+  try { t = JSON.stringify(o) || ''; } catch (err) { t = String(o); }
+  return t.slice(0, 4000).toLowerCase();
+}
+function isTokenDead(text) {
+  return text.indexOf('logout') !== -1 || text.indexOf('unauthenticated') !== -1 ||
+         text.indexOf('498') !== -1 || text.indexOf('token has expired') !== -1 ||
+         text.indexOf('jwt expired') !== -1;
+}
 let datedMonthlyLines = 0, undatedMonthlyLines = 0;
 const out = cases.map(function (c, i) {
   const resp = responses[i] || {};
   const plan = resp.paymentPlan || {};
   const fetchFailed = !resp.paymentPlan && !resp.currentPayment && !!(resp.error || resp.status || resp.path);
-  if (fetchFailed) fetchFailures++;
+  if (fetchFailed) {
+    fetchFailures++;
+    const text = failureText(resp);
+    if (isTokenDead(text)) tokenDead++;
+    if (planFailureSamples.length < 3) planFailureSamples.push(text.slice(0, 220));
+  }
 
   // ---- GATE 3: the expected amount is the contract's OWN rate ------------
   // currentPayment.amountValue, VAT-INCLUSIVE, exactly as returned.
@@ -232,8 +257,30 @@ const out = cases.map(function (c, i) {
   } };
 });
 
+// A DEAD TOKEN IS NOT A DATA STATE - it throws, exactly as on the replacement side. An
+// unreadable plan makes expected_amount_known false, and gate 3 then answers "cannot tell"
+// instead of scoring. That is the right answer for one contract whose plan is genuinely
+// missing. Applied to a whole chunk because the bearer expired at 22:00 UTC mid-run, it is a
+// book-wide write-off dressed up as a careful verdict.
+if (tokenDead > 0) {
+  throw new Error('WF-E: ' + tokenDead + ' of ' + responses.length + ' plan reads came back as a ' +
+    'DEAD TOKEN (logout / unauthenticated / 498). Every ERP token issued in a day dies at 22:00 ' +
+    'UTC / 02:00 Dubai, and a token can also be killed early by a logout elsewhere. Those cases ' +
+    'would score as "expected amount unknown" - a write-off of the book presented as caution. ' +
+    'Re-issue the bearer and re-run. Sample: ' + (planFailureSamples[0] || '(none captured)'));
+}
+// A chunk in which EVERY plan read failed is never a data state either, whatever the reason.
+// The route was measured at 3,851 B and 1.80 s on 7 of 7 test contracts (probe #12).
+if (responses.length > 0 && fetchFailures === responses.length) {
+  throw new Error('WF-E: all ' + responses.length + ' plan reads in this chunk failed. ' +
+    'get-client-details answered 200 on 7 of 7 probed contracts, so a clean sweep of failures is ' +
+    'access, pagecode or shape - never every contract missing a plan. Sample: ' +
+    (planFailureSamples[0] || '(none captured)'));
+}
+
 console.log(JSON.stringify({ stage: 'wfe_project_plan', candidates: out.length,
   plan_fetch_failures: fetchFailures, unreadable_expected_amount: unreadable,
+  plan_token_dead: tokenDead, plan_failure_samples: planFailureSamples,
   with_a_discount: withDiscount, one_month_agreements: oneMonth,
   with_first_month_stub: firstMonthStub,
   dated_monthly_lines: datedMonthlyLines, undated_monthly_lines: undatedMonthlyLines }));

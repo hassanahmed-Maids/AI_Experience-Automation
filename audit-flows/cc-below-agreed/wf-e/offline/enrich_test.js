@@ -232,7 +232,7 @@ function replResp(rows, total) {
   throws(() => run(JOIN, [chunkA, chunkB, { json: { enriched: [delta(1)], _chunk_index: 2 } }], nodes),
     'a case appearing in two chunks is refused rather than scored twice', 'more than one chunk');
   throws(() => run(JOIN, [{ json: { rows: [] } }], nodes),
-    'a return with no `enriched` array is refused', 'no `enriched` array');
+    'a return with no enriched array is refused', 'no enriched array');
 }
 
 // ------------------------------- 6. against the REAL client-details response
@@ -253,6 +253,101 @@ function replResp(rows, total) {
   } else {
     console.log('skip  live client-details fixture not present (set WFE_LIVE_PLAN_FIXTURE)');
   }
+}
+
+// =====================================================================================
+// FAILURE CLASSIFICATION (added 2026-08-19, fixing a detector that read 0 for everything)
+//
+// The shapes below are what n8n's continueRegularOutput actually hands a Code node when the
+// HTTP call fails - an ERROR OBJECT, not the HTTP body. Every one of these was previously
+// classified as "not a permission denial", which is how the counter read 0 while all 750
+// replacement calls in execution 93346 were failing.
+// =====================================================================================
+function n8nError(httpCode, message, extra) {
+  // The NodeApiError shape: the interesting text is NESTED, and String() on it yields
+  // '[object Object]'. That single fact is what the old detector tripped over.
+  return { error: Object.assign({
+    name: 'NodeApiError', httpCode: String(httpCode), message: message,
+    description: message, context: { httpCode: String(httpCode) }
+  }, extra || {}) };
+}
+function replRun(responses, n) {
+  const chunkItems = run(READ, [{ json: { bearer: BEARER, cases: cand(n), chunk_index: 0 } }], {}).out;
+  const planItems = run(PLAN, responses.map(() => ({ json: planResp(5712) })),
+    { 'Read Chunk': chunkItems }).out;
+  return run(REPL, responses.map(r => ({ json: r })),
+    { 'Project Plan': planItems, 'Read Chunk': chunkItems });
+}
+
+// --- the exact shape that defeated the old detector -----------------------------------
+{
+  const r = replRun([n8nError(401, '401 - {"developermessage":"INSUFFICIENT_PERMISSIONS"}'),
+                     replResp([])], 2);
+  ok(r.log.permission_denied === 1,
+     'a NESTED n8n error object with httpCode 401 is counted as a permission denial',
+     'counted ' + r.log.permission_denied + ' (the old detector counted 0 here)');
+  ok(r.log.permission_denied_unmarked === 0,
+     'an INSUFFICIENT_PERMISSIONS denial is not flagged as unmarked');
+  // Project Replacements collapses the chunk to ONE item - {enriched:[...]} - which is the
+  // whole point of the sub-workflow, so the per-case meta lives one level in.
+  const meta0 = r.out[0].json.enriched[0].replacements_meta;
+  ok(meta0.permission_denied === true && meta0.token_dead === false,
+     'the per-case meta records denied, not dead');
+  ok(r.log.token_dead === 0 && r.log.other_failures === 0,
+     'a denial is not miscounted as a dead token or an unclassified failure');
+  ok(Array.isArray(r.log.failure_samples) && r.log.failure_samples.length === 1,
+     'one raw failure sample is carried, so the next reader sees the real shape');
+}
+// --- every replacement call denied: the real steady state of this route ---------------
+{
+  const r = replRun([n8nError(401, 'INSUFFICIENT_PERMISSIONS'),
+                     n8nError(401, 'INSUFFICIENT_PERMISSIONS'),
+                     n8nError(401, 'INSUFFICIENT_PERMISSIONS')], 3);
+  ok(r.log.permission_denied === 3 && r.log.replacement_fetch_failures === 3,
+     'a fully denied route counts every call, and does NOT throw - gate 7 is built for it');
+  ok(r.out[0].json.enriched.length === 3,
+     'every candidate still comes back from a fully denied chunk');
+}
+// --- a bare 403 with no ERP marker: still a denial, but flagged as unmarked ------------
+{
+  const r = replRun([n8nError(403, 'Forbidden'), replResp([])], 2);
+  ok(r.log.permission_denied === 1 && r.log.permission_denied_unmarked === 1,
+     'a bare 403 counts as denied AND as unmarked, so a vocabulary change is visible');
+}
+// --- a dead token is a different animal and must stop the chunk -----------------------
+throws(() => replRun([n8nError(401, 'UNAUTHORIZED <LOGOUT>'), replResp([])], 2),
+  'a logged-out token throws instead of scoring empty maid histories as "no change"',
+  'DEAD TOKEN');
+throws(() => replRun([n8nError(401, 'UNAUTHENTICATED'), replResp([])], 2),
+  'UNAUTHENTICATED throws too');
+throws(() => replRun([{ error: { message: '500 - {"status":498,"error":"token has expired"}' } }], 1),
+  'the 498-inside-500 shape is recognised as a dead token, not a server error');
+// --- something genuinely unclassified is counted, never interpreted -------------------
+{
+  const r = replRun([n8nError(502, 'Bad Gateway'), replResp([])], 2);
+  ok(r.log.other_failures === 1 && r.log.permission_denied === 0 && r.log.token_dead === 0,
+     'a 502 is counted as an unclassified failure, not folded into either bucket');
+}
+
+// --- the plan side, which had no classifier at all ------------------------------------
+function planRun(responses, n) {
+  const chunkItems = run(READ, [{ json: { bearer: BEARER, cases: cand(n), chunk_index: 0 } }], {}).out;
+  return run(PLAN, responses.map(r => ({ json: r })), { 'Read Chunk': chunkItems });
+}
+throws(() => planRun([n8nError(401, 'UNAUTHORIZED <LOGOUT>'), planResp(5712)], 2),
+  'a dead token on the plan read throws rather than reporting the rate as merely unknown',
+  'DEAD TOKEN');
+throws(() => planRun([n8nError(500, 'Internal Server Error'),
+                      n8nError(500, 'Internal Server Error')], 2),
+  'a chunk where EVERY plan read failed throws - 7 of 7 probed contracts answered 200',
+  'all 2 plan reads');
+{
+  const r = planRun([n8nError(404, 'Not Found'), planResp(5712)], 2);
+  ok(r.log.plan_fetch_failures === 1 && r.log.plan_token_dead === 0,
+     'ONE unreadable plan is still a per-contract "cannot tell", not a run-stopper');
+  ok(r.out[0].json.plan.expected_amount_known === false &&
+     r.out[1].json.plan.expected_amount_known === true,
+     'the readable contract in the same chunk is unaffected');
 }
 
 console.log('\n' + pass + '/' + (pass + fail) + ' assertions passed');
