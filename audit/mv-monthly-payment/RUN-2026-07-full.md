@@ -47,18 +47,59 @@ on an open vocabulary (`DEVIATIONS.md` F16). Fixed before the bulk of the popula
 is the only reason the queue is readable — the same rate over 24,378 contracts would have been ~13,500
 cases parked awaiting a reviewer.
 
+## STOPPED — operator accounts deactivated
+
+The ERP session dropped mid-slice-4 (14:35Z), and both operator accounts were subsequently
+deactivated. There is no ERP access, so the run cannot continue and **nothing was routed around**:
+an access removal is reported, not worked past.
+
+Everything already scored has been rolled up and is on record. That needed a new entry point —
+Stage 3 was reachable only from Stage 1, which always sweeps the ERP first, so a run that died
+mid-slice left every scored case unreportable. Stage 3 now has a `Rollup In` webhook that reports an
+existing run from the Cases table with no ERP access at all, and counts cases **distinct by
+`case_key`** so a resumed slice cannot pass the completeness gate on duplicates.
+
+### Final state of this run
+
+| | |
+|---|---|
+| covered | **8,925 of 24,378 in-scope contracts (36.6%)** |
+| OK | 8,633 |
+| red flags | **60** |
+| pending (in flight) | 232 |
+| needing a human | 397 (4.4%) |
+| outstanding on findings | **AED 32,956** |
+| rollup | exec 95094, `overall: FINDINGS`, Runs row persisted |
+
+**The remaining 15,453 contracts are UNAUDITED, not clean.** The run's own notes say so, and Stage 3
+reports it PARTIAL — this is the one distinction that must never blur, because a partial run read as
+a clean month is the exact failure the whole population guard exists to prevent.
+
+### To resume, when ERP access is restored
+
+1. Health-check the surface and read the **body**, not the status code.
+2. `offset: 8900` — the start of the failing chunk, so the 7 contracts whose reads were refused are
+   actually scored. Its 25 rows were written before the breaker threw; duplicates collapse by `case_key`.
+3. Then offsets 11900, 14900, 17900, 20900, and a final slice with **no `limit`**.
+4. Slice 4's findings have **not** been through Stage 4, so none is PIL-ready. Re-run the verifier for
+   the run once scoring completes.
+
 ## Findings so far
 
 Counts only. Per-contract figures live in the Cases table, never in a run log.
 
 | red type | count |
 |---|---|
-| missing 1st-of-month payment | 6 |
-| payment amount mismatch | 7 |
+| payment amount mismatch | 42 |
+| missing 1st-of-month payment | 14 |
+| missing previous-month payment | 4 |
+| missing or invalid payment type | 0 — still never observed in production |
 
-Total outstanding on findings: **AED 10,588** (cumulative through slice 2).
-Verifier: 14 verified, 14 verdicts persisted, 13 stand as findings, 1 cleared by staff-written
-evidence, 13 PIL-ready, 0 blocked.
+Total outstanding on findings: **AED 32,956**.
+
+Verifier (slices 1–3 only): 55 verified, 55 verdicts persisted, 51 stand as findings, 2 cleared by
+staff-written evidence, 1 held for a reviewer, 51 PIL-ready, 1 blocked because the model call failed —
+which correctly left the finding standing rather than clearing it.
 
 ## Declared limits on this run
 
