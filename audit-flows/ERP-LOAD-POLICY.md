@@ -20,11 +20,39 @@ takes ERP down on five thousand, because nothing between those two runs made the
 | **Default call budget** | **2,000 calls/run** | a run that does not name a budget gets this one |
 | **Sign-off threshold** | **> 15,000 calls** | needs a human decision recorded before it fires |
 | **Paged sweeps** | `requestInterval` ≥ 250 ms, `maxRequests` set and justified | every paginated node |
+| **Page size** | **≤ 100 rows** for nested/entity responses | every paginated node — see below |
 | **Timeout** | 90 s (120 s where a page is measured slower) | every ERP node |
 
 **These replace 15 concurrent / 500 ms**, which is what every per-item node in
 `cc-below-agreed` was running: 30 req/s, three times the ceiling the build method already
 documented. Nobody chose 15; it was cloned forward.
+
+### Call count is not load — the response is (added 2026-08-20)
+
+**Every number above bounds REQUESTS. The 2026-08-19 clientmgmt incident proves that is not
+sufficient.** A sweep of **~116 requests** at `size=500`, 5 concurrent, took the entire
+clientmgmt module to nginx 503 — contract search *and* `get-client-details`, and it stayed down
+even for `size=1`. By call count that sweep is trivial: 116 requests is under a minute of the
+budget this policy would happily approve. The load was in the **response**: each `size=500` page
+carries 500 nested contract records, so 116 requests moved as much of the database as tens of
+thousands of small ones.
+
+This is a real gap in §1 and §3, found by auditing `MV Monthly Payment · 0-Sweep Population`,
+which already knew it. That flow was rebuilt after the incident at **pageSize 100, one request at
+a time**, and its sticky note states the lesson in four words: *call count is not load*.
+
+So, for any paginated or bulk read:
+
+| rule | value |
+|---|---|
+| **Page size** | **≤ 100 rows** for a nested/entity-shaped response; larger only with a measured per-page byte cost recorded next to the node |
+| **What the budget counts** | calls **and** rows. A sweep's cost is `pages × pageSize`, not `pages` |
+| **The question to ask before a sweep** | not "how many requests is this?" but "**how much of the database is this asking ERP to assemble?**" |
+
+A flow can therefore be inside every rate limit in this document and still be the heaviest thing
+hitting ERP that day. **Concurrency is the other half of the same lesson**: 3 concurrent / 750 ms
+and 2 concurrent / 500 ms are both 4 req/s, but the first holds three connections open at once.
+When the rate is identical, always take the lower peak — it is free.
 
 ### What 4 req/s costs, stated honestly
 

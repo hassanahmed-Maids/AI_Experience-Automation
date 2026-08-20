@@ -152,6 +152,36 @@ When you do ask, and the reader is a busy colleague rather than a formal stakeho
 - Plain language: no rule numbers, no endpoint names, no internal jargon.
 - Batch them into one message. Never drip-feed.
 
+**Ask the code before you ask a person.** The ERP codebase is not available locally, but it is
+queryable: the ask-the-code API (the Low Code Platform code-LLM, `scripts/ask-code.sh`, guide in
+`docs/code-llm-api.md`) answers questions about how the ERP actually behaves. Most questions that
+look like they need the spec owner are really questions about the system, and the system can be
+asked directly at no cost to anyone's attention. Do that first — it is often faster than waiting,
+and it removes the question from the list entirely rather than deferring it.
+
+**Then verify what it tells you. Never take its answer as fact.** It is a model reading a
+codebase, not the codebase. It is confidently wrong often enough that an unverified answer is a
+liability, and the failure is silent: a plausible wrong answer becomes a rule in your scorer and
+nothing downstream disagrees with it. So treat every answer as a hypothesis and close it against
+something that cannot be mistaken:
+
+- **Probe the live API** and check the field is really there, really that shape, really populated
+  on real entities. A field the code-LLM describes may be dead, renamed, or always null in
+  practice.
+- **Ask again differently.** Re-ask the same question from another angle, or ask for the method
+  and the call site rather than the behaviour. An answer that changes under rephrasing was never
+  knowledge.
+- **Make it cite.** Ask which class, method and line the answer comes from, then ask for that
+  code. An answer that cannot name its own source is a guess wearing a suit.
+- **Watch for the two specific lies.** "This template is sent from method X" often means the
+  template is *referenced* there, not sent — the send may be commented out or gated by a flag.
+  And a scheduled send is not a sent send: trace it through the dispatch method's runtime gates,
+  because a branch can be permanently suppressed and still look live in the code.
+
+Where the answer changes an outcome and you could not verify it, say so in the run summary and
+route the affected cases to a human. An unverified assumption that stays invisible is the same
+false-clearance shape as everything else in this file.
+
 **Two spec pathologies to expect.** *Internal contradictions* — a policy body and a
 test-case table giving different answers for the same case. Don't pick silently;
 implement the more conservative reading, flag it, and note both. *Undefined rules* —
