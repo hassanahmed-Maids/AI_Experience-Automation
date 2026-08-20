@@ -147,9 +147,25 @@ Every Code node emits one JSON line. In order:
     `gate35_no_monthly_obligation_yet`, `exact_share_pct`.
 11. `adjudicate_cases`, `build_runs_log`, `build_case_payload`.
 
-Results land in Google Sheet `12ModCwP5xgXhuEsYvhIfI5cSUePH4jrDhlT-pW0-DLw` — **Cases** tab
-(`gid=0`, appended per batch), Run Summary, Verifier Verdicts. The three portal callback nodes
-are disabled, so nothing is POSTed outside n8n and Sheets.
+Results land in **TWO DIFFERENT SPREADSHEETS**, not one — this line used to name a single ID and
+list all three tabs under it, which is wrong and would send someone to the wrong file. Read off
+the deployed graphs 2026-08-19:
+
+| tab | spreadsheet | written by | state |
+|---|---|---|---|
+| **Cases** (`gid=0`) | `12ModCwP5xgXhuEsYvhIfI5cSUePH4jrDhlT-pW0-DLw` | WF-T, appended per batch | active |
+| **Run Summary** | `1oCjmjGPR4dRThoX8v2CWWJw_wyaVV8FCpQhVV6osyp0` | WF-A | active |
+| **Verifier Verdicts** | `1oCjmjGPR4dRThoX8v2CWWJw_wyaVV8FCpQhVV6osyp0` | WF-B | active |
+| Verifier Verdicts | `1oCjmjGPR4dRThoX8v2CWWJw_wyaVV8FCpQhVV6osyp0` | WF-A's own copy | **disabled** — superseded by WF-B |
+
+- Cases: <https://docs.google.com/spreadsheets/d/12ModCwP5xgXhuEsYvhIfI5cSUePH4jrDhlT-pW0-DLw/edit#gid=0>
+- Run Summary + Verifier Verdicts: <https://docs.google.com/spreadsheets/d/1oCjmjGPR4dRThoX8v2CWWJw_wyaVV8FCpQhVV6osyp0/edit>
+
+The review queue (Cases) being in a separate file from the run record matters when reconciling a
+run: `rows_appended` in the `wft_return_batch` and `join_scored` log lines counts rows written to
+`12Mod…`, while the Run Summary row that describes that run lands in `1oCj…`.
+
+The three portal callback nodes are disabled, so nothing is POSTed outside n8n and Sheets.
 
 Expected shape from the measured July 2026 funnel: 5,612 CC contracts paid, **4,575 exact
 (81.5%)**, **984 short**, of which ~108 look stably under-billed at ~AED 64,000/month. An exact
