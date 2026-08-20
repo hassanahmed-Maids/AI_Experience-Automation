@@ -41,6 +41,32 @@ This is a real gap in §1 and §3, found by auditing `MV Monthly Payment · 0-Sw
 which already knew it. That flow was rebuilt after the incident at **pageSize 100, one request at
 a time**, and its sticky note states the lesson in four words: *call count is not load*.
 
+### Measured, 2026-08-20 — the numbers behind the rule
+
+Probed live with curl on `clientmgmt/contract/search/page`, ACTIVE CC contracts (population
+**5,410**), one request at a time:
+
+| page | size asked | rows returned | payload | time |
+|---|---|---|---|---|
+| 0 | 100 | **40** | 71.6 KB | 14.1 s |
+| 1 | 100 | 100 | 227.2 KB | 16.8 s |
+| 2 | 100 | 100 | 172.5 KB | 17.5 s |
+
+**~2 KB per row, and ~16 seconds per 100-row page.** Extrapolated, a `size=500` page is **~1 MB
+and ~80 seconds** — which is why ~116 of them took the module down: roughly **116 MB** of nested
+records for ERP to assemble, five at a time.
+
+Three consequences that are not obvious from the rule alone:
+
+- **Pacing barely matters on this route.** `batchInterval: 500` is meaningless when the call
+  itself takes 16 s; 2 concurrent gives about **0.125 req/s** in practice, not 4. The ceiling in
+  §1 is an upper bound, not a description.
+- **A `size=500` page would blow most of our timeouts.** At ~80 s it exceeds the 45 s and 60 s
+  timeouts in use, and sits uncomfortably close to 90 s. Anything above size 100 needs its
+  timeout re-derived, not inherited.
+- **Page 0 returns 40 rows whatever you ask for**, confirmed live. Every pager over this route
+  must special-case it or silently lose rows 40–99.
+
 So, for any paginated or bulk read:
 
 | rule | value |
