@@ -34,12 +34,17 @@ POST /webhook/cc-price-by-cohort-stage1
 Only Stage 1 has a trigger. Stages 2 and 3 are sub-workflows — never run them
 directly; they expect a baton.
 
-## History, kept on purpose
+## Archived on 2026-08-20
 
-| Flow | ID | Why it is still here |
+Both were one-shot flows that had already served their purpose. **Archived, not
+deleted** — n8n archiving is reversible and these are the provenance for two
+decisions that are otherwise only assertions in a markdown file. They no longer
+appear in the workflow list; unarchive from n8n if either is needed again.
+
+| Flow | ID | What it was for |
 |---|---|---|
-| **Setup — Result tabs** (one-off, already run) | `UY6oO1gC0rOqenc6` | Created the `Audit Runs` / `Audit Findings` tabs and seeded their headers, then read both back and failed loudly on a mismatch. Re-run only if a tab is lost. Never touches `Sheet1`. |
-| **Probe — ERP price card** (spent) | `0oB2SX1nN2D3nyIE` | Established that ERP holds today's price matrix but **no dated history**, which is why the sheet stays the source of the 49 windows and ERP is only a staleness cross-check. Findings: `erp-price-card.md`, `erp-price-matrix-mapping.md`. |
+| **Setup — Result tabs** | `UY6oO1gC0rOqenc6` | Created the `Audit Runs` / `Audit Findings` tabs and seeded their headers, then read both back and failed loudly on a mismatch. Never touched `Sheet1`. Unarchive only if a tab is lost. |
+| **Probe — ERP price card** | `0oB2SX1nN2D3nyIE` | Established that ERP holds today's price matrix but **no dated history**, which is why the sheet stays the source of the 49 windows and ERP is only a staleness cross-check. Findings: `erp-price-card.md`, `erp-price-matrix-mapping.md`. |
 
 ## Canvas conventions
 
