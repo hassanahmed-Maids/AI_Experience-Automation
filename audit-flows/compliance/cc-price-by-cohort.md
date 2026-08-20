@@ -1,13 +1,15 @@
 # ERP load compliance — CC Price by Cohort
 
 Audited 2026-08-20 against `../ERP-LOAD-POLICY.md`. Three flows, tag `audit: CC Price Cohort`.
-**IN PROGRESS — Stage 1 only.** Stages 2 and 3 not yet read.
+All three flows audited and fixed. Stage 2 was exported to disk and run through
+`tools/erp_compliance.py` — the first flow in this project checked mechanically rather than by
+reading — and **passes**.
 
 | stage | id | verdict |
 |---|---|---|
-| 1 — Population & Price Card | `7j5Z5KPvBcWRPfvy` | pacing fixed; 4 findings open |
-| 2 — Enrich & Score | `bBYbpHcWMWybDQxN` | **not yet audited** |
-| 3 — Deliver & Verify | `ZJDiRTzk6uRYBJwq` | **not yet audited** |
+| 1 — Population & Price Card | `7j5Z5KPvBcWRPfvy` | pacing fixed; lease + budget gate added |
+| 2 — Enrich & Score | `bBYbpHcWMWybDQxN` | **PASSES the checker** — breaker + declarations added |
+| 3 — Deliver & Verify | `ZJDiRTzk6uRYBJwq` | no ERP nodes; releases the lease |
 
 ## Fixed
 
@@ -37,37 +39,77 @@ itself worth removing — the guard should read the size the page list actually 
 Action: measure one page's byte cost when ERP is healthy, then either record it beside the node
 or drop to 100.
 
-### 2. §3 no pre-flight budget gate
+### ~~2. §3 no pre-flight budget gate~~ — FIXED
 
-Stage 1 knows the population (~5,401 contracts) and launches Stage 2, which reads per contract.
-Nothing projects or refuses that cost. The gate belongs immediately before `Launch Stage 2`.
+`ERP Budget Gate` now sits between `Population Guard` and `Launch Stage 2`, the last point at
+which the whole cost is known. `ERP_CALLS_PER_ENTITY = 3` (details + live-in/out logs + active
+CPT), downstream 0 because Stage 3 touches no ERP surface.
 
-### 3. §4 no ERP lease — and this chain needs the lease held ACROSS executions
+**~5,400 contracts × 3 = ~16,200 calls**, which is over §8's 15,000 sign-off threshold on its
+own. A full run therefore now requires `params.erp_call_budget` set deliberately. That is the
+intended friction, and it is consistent with what the flow already does elsewhere: Stage 3
+refuses to report a short case set for the same reason.
+
+Note the distinction this made explicit: the flow already chunks at 1,000 contracts to survive
+the 2400 s execution kill, but **chunking bounds one execution, not the run's total cost against
+ERP.** Two different limits that look like one.
+
+### ~~3. §4 no ERP lease~~ — FIXED, with the lease held ACROSS executions
 
 Stage 1 is an entry flow (webhook) that reaches ERP, so §4 applies. But it launches Stage 2 with
 **`waitForSubWorkflow: false`** — fire and forget — so Stage 1 *ends* while Stage 2 is still
 hitting ERP. A lease released when Stage 1 ends would protect almost nothing.
 
-The design that fits: **acquire in Stage 1, release in Stage 3.** The lease is a row keyed by
-`run_id`, not something an execution has to stay alive to hold, so a chain can carry it across
-executions by passing `run_id` along — which this chain already does. A crashed chain is covered
-by the 3-hour staleness takeover.
+Done as **acquire in Stage 1 (after the price-card checksum, before the first ERP call), release
+in Stage 3 (after the sheet writes are verified)**. The lease is a row keyed by `run_id`, not
+something an execution has to stay alive to hold, so the chain carries it across executions by
+passing `run_id` along — which it already did. A crashed chain is covered by the 3-hour staleness
+takeover.
 
-This is a better fit for the lease than the blocking model, and worth noting as a pattern: **the
-lease is held by the RUN, not the execution.**
+Stage 3's release is `onError: continueRegularOutput`: a lease hiccup must not fail a run whose
+report has already landed and been verified. An unreleased lease is cleaned up in 3 hours; a
+failed Stage 3 looks like a failed audit.
 
-### 4. §5 no circuit breaker in `Population Guard`
+**The pattern is worth naming: the lease is held by the RUN, not the execution.** That is also
+what sidesteps the 2400 s ceiling — nothing has to stay alive to keep holding it.
 
-It is the projection node downstream of `Get Population` and has excellent *completeness* guards —
-page-shape rules per class, an independent count from a deliberately different route, a probe page
-past the end — but nothing that notices ERP degrading.
+### ~~4. §5 no circuit breaker~~ — FIXED in Stage 2
 
-Partial mitigation already present: `Get Population` sets no `neverError`/`onError`, so a 5xx
-fails the node and stops the run after 3 retries. That is a crude abort-on-error rather than a
-breaker, and it means a single 5xx kills a run that a breaker would have let ride.
+`Assemble Contract Payload` now carries the generated block. It needed a **new call-site**: this
+node runs inside a `splitInBatches` loop and sees only 5 responses per turn, so judged one turn at
+a time the breaker would be nearly blind — the rate rule needs 20 samples and would never fire at
+all, and "5 consecutive" would mean "this entire batch", both too sensitive and too late. The
+`loop` call-site accumulates responses across every iteration via `.all(0, runIndex)`, so the
+sample grows as the chunk proceeds and the elapsed clock is a running mean over the whole chunk.
+
+`Population Guard` in Stage 1 still has no breaker. Its guards are all about *completeness* —
+page shapes, an independent count from a deliberately different route, a probe page past the end.
+Partial mitigation: `Get Population` sets no `neverError`, so a 5xx fails the node after 3 retries
+and stops the run. That is abort-on-error rather than a breaker, and it means one 5xx kills a run
+a breaker would have let ride.
+
+### 5. §5 no circuit breaker in Stage 1's `Population Guard` — still open
 
 ## Worth copying from this check
 
 Stage 1 answers the webhook **200 immediately** (`Respond 200 (accepted)`) and audits in the
 background. MV Monthly Payment does not — it holds the connection for the whole run and would 524.
 This flow gets it right.
+
+## Two defects this audit found in the CHECKER itself
+
+Both were found by deploying a correct change and being told it was wrong — which is the right
+way round, but only because the deployment was verified rather than trusted.
+
+**1. Byte-compare flagged every parameterised copy as drift.** The canonical block is generated
+with the default `--source-node`, so a flow that legitimately uses `--source-node "Explode
+Contracts"` differed in the guard's `$('...')` reference and was reported as DRIFTED. The
+deployed body was byte-identical to what the generator produced. Fixed by normalising node
+references before comparing — a checker that cries wolf on its own supported options is worse
+than no checker, because after a few false alarms nobody reads it.
+
+**2. "Acquired and never released" was wrong for a fire-and-forget chain.** Stage 1 acquires and
+Stage 3 releases; the checker saw only the acquire. Acting on that finding would have meant adding
+a release to Stage 1 that frees the lease **while Stage 2 is still calling ERP** — the exact
+collision the lease exists to prevent. Fixed with the `ERP-COMPLIANCE: lease-released-downstream`
+declaration, and the failure message now names it.

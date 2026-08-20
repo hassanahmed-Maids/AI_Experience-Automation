@@ -46,6 +46,38 @@ erpBreakerGuard({
   minCallsForBaseline: 200
 });
 """,
+ 'loop': """
+// --- call site: a BATCHED LOOP, accumulated across iterations -------------------------------
+// This flow reads its population in batches of 5 inside a splitInBatches loop, so this node sees
+// only 5 responses per turn. Judged one turn at a time the breaker would be nearly blind: the
+// rate rule needs 20 samples and would never fire at all, and "5 consecutive" would mean "this
+// entire batch", which is both too sensitive and too late.
+//
+// So the responses are accumulated across every iteration so far, using .all(0, runIndex) to
+// reach earlier runs of each node. The sample grows as the chunk proceeds, which is what makes
+// the rate rule meaningful; the elapsed clock is cumulative from the stamp, so ms/call is a
+// running mean over the whole chunk rather than a noisy per-batch figure.
+function erpBreakerAllRuns(nodeName) {
+  const out = [];
+  for (let i = 0; i < 5000; i++) {
+    let items;
+    try { items = $(nodeName).all(0, i); } catch (e) { break; }
+    if (!items || !items.length) break;
+    for (const it of items) out.push(it.json);
+  }
+  return out;
+}
+const _erpBreakerResponses = ERP_BREAKER_LOOP_NODES.reduce(function (acc, n) {
+  return acc.concat(erpBreakerAllRuns(n)); }, []);
+
+erpBreakerGuard({
+  phase: ERP_BREAKER_PHASE,
+  key: 'loop',
+  responses: _erpBreakerResponses,
+  callsMade: _erpBreakerResponses.length,
+  minCallsForBaseline: 200
+});
+""",
  'messages': """
 // --- call site: BOTH message reads of this batch --------------------------------------------
 // The two ERP nodes fan out over the same candidates and land in a Merge, so the batch to judge

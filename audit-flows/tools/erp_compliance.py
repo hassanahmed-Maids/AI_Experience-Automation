@@ -48,6 +48,7 @@ EXEMPT = {
   'gate':    'ERP-COMPLIANCE: budget-gate-in-caller',
   'lease':   'ERP-COMPLIANCE: lease-held-by-caller',
   'breaker': 'ERP-COMPLIANCE: no-breaker-because',
+  'release': 'ERP-COMPLIANCE: lease-released-downstream',
 }
 
 def canonical_breaker_core():
@@ -59,7 +60,19 @@ def canonical_breaker_core():
     return out[start:end].strip()
 
 def norm(s):
-    """Ignore whitespace-only differences; a re-indent is not a drift."""
+    """Normalise away the differences that are NOT drift, so the ones that are stand out.
+
+    Whitespace, because a re-indent is not a change of behaviour.
+
+    And node references: the block is generated with --source-node, so the guard reads
+    $('Read Chunk') in one flow and $('Explode Contracts') in another. Comparing those
+    literally reported DRIFT on every correctly parameterised copy - a checker that cries wolf
+    on its own supported options, which is precisely the failure erp_load_check.py's own
+    comments warn about: after a few false alarms nobody reads the output, and then it is worse
+    than having no checker at all. Found by deploying a byte-perfect copy and being told it had
+    drifted.
+    """
+    s = re.sub(r"\$\('[^']*'\)", "$(NODE)", s)
     return re.sub(r'\s+', ' ', s).strip()
 
 def load(path):
@@ -211,8 +224,20 @@ def audit(w, canon):
             if 'acquire' not in modes:
                 fails.append('§4 the lease workflow is called but no call passes mode "acquire".')
             if 'release' not in modes:
-                fails.append('§4 the lease is acquired and NEVER RELEASED. The staleness rule will free '
-                  'it after 3 hours, which means a 3-hour hole in the queue after every run.')
+                # A FIRE-AND-FORGET CHAIN CANNOT RELEASE WHERE IT ACQUIRED. CC Price launches its
+                # next stage without waiting and then ends, so the acquiring flow is gone long
+                # before the run is. The lease is held by the RUN - a row keyed on run_id - not by
+                # an execution, so the release belongs in the last stage. Reporting that as
+                # "never released" would be wrong AND would push someone to add a release that
+                # frees the lease while the run is still hammering ERP.
+                ex = has_exempt(w, 'release')
+                if ex:
+                    notes.append('§4 lease released downstream -> ' + ex)
+                else:
+                    fails.append('§4 the lease is acquired and NEVER RELEASED. The staleness rule will free '
+                      'it after 3 hours, which means a 3-hour hole in the queue after every run. If a later '
+                      'stage releases it - which is right for a fire-and-forget chain, where the acquiring '
+                      'execution ends before the run does - say so here with: ' + EXEMPT['release'])
             if 'acquire' in modes and 'release' in modes:
                 notes.append('§4 lease acquired and released')
     elif is_subworkflow and per_item:
