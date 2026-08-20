@@ -121,12 +121,48 @@ if (projectedTotal > budget) {
       : ''));
 }
 
+// THE CANARY CHUNK - ERP-LOAD-POLICY.md §5.
+//
+// The circuit breaker lives in WF-E's projection nodes, and a projection node does not run
+// until its HTTP node has finished every request it was given. So the breaker cannot stop
+// request 6 of 1,500; it can only refuse to start the NEXT batch. **The chunk size is
+// therefore the breaker's blast radius**: at 750 candidates x 2 calls, an ERP that is already
+// failing takes 1,500 more calls before anything of ours gets a say.
+//
+// So the FIRST chunk is deliberately small. It costs one extra sub-execution and it buys the
+// first verdict at ~100 calls instead of ~1,500 - which is the difference between noticing on
+// the way in and noticing on the way out. It is not a sample of the data (chunks are in
+// candidate order, not random) and it is not a correctness check; it is a load probe, and
+// that is all it is claimed to be.
+//
+// It deliberately does NOT set the latency baseline: 50 calls amortise fixed overhead over too
+// few requests and read slower per call than 750 would, which would inflate the baseline and
+// make the breaker LESS sensitive for the rest of the run. See minCallsForBaseline in
+// tools/erp_breaker.js - a safety measure that quietly weakens the safety check behind it is
+// worse than not having it.
+const CANARY = Number.isFinite(Number(params.erp_canary_chunk_size)) &&
+               Number(params.erp_canary_chunk_size) > 0
+  ? Math.min(Number(params.erp_canary_chunk_size), CHUNK)
+  : Math.min(50, CHUNK);
+
 const chunks = [];
-for (let i = 0; i < slim.length; i += CHUNK) {
+let cursor = 0;
+if (slim.length > CANARY) {
+  chunks.push({ json: {
+    bearer: bearer,
+    cases: slim.slice(0, CANARY),
+    chunk_index: 0,
+    is_canary: true,
+    run_id: validated.run_id || ''
+  } });
+  cursor = CANARY;
+}
+for (let i = cursor; i < slim.length; i += CHUNK) {
   chunks.push({ json: {
     bearer: bearer,
     cases: slim.slice(i, i + CHUNK),
     chunk_index: chunks.length,
+    is_canary: false,
     run_id: validated.run_id || ''
   } });
 }
@@ -144,6 +180,8 @@ if (chunks.length === 0) {
 
 console.log(JSON.stringify({ stage: 'chunk_candidates', candidates: slim.length,
   chunks: chunks.length, chunk_size: CHUNK,
+  canary_chunk_size: slim.length > CANARY ? CANARY : null,
+  calls_before_the_breaker_can_first_speak: (slim.length > CANARY ? CANARY : slim.length) * 2,
   calls_this_will_make: slim.length * 2,
   note: 'chunks run SEQUENTIALLY - this bounds memory per sub-execution, not runtime. ' +
         'The call count is unchanged and is the real cost: see VALIDATION.md section 15.' }));

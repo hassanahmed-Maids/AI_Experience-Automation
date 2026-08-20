@@ -35,7 +35,20 @@ function run(src, inputItems, nodes) {
   const logs = [];
   const out = new Function('$input', '$', 'console', src)(
     { all: () => inputItems, first: () => inputItems[0] }, $, { log: m => logs.push(m) });
-  return { out: out, log: logs.length ? JSON.parse(logs[logs.length - 1]) : {} };
+  // PICK THE STAGE LOG BY NAME, NOT BY POSITION. This used to take the last line logged, which
+  // was true right up until the circuit breaker was pasted into these nodes and started logging
+  // after the stage summary - at which point ten assertions began reading the breaker's counters
+  // and reporting that the node had stopped counting denials. Nothing was wrong with the node.
+  // Position is not identity; it was not for the nodes on the canvas either.
+  const parsed = logs.map(function (l) { try { return JSON.parse(l); } catch (e) { return {}; } });
+  const stageLogs = parsed.filter(function (l) { return String(l.stage || '').indexOf('wfe_') === 0; });
+  return { out: out,
+           log: stageLogs.length ? stageLogs[stageLogs.length - 1] : (parsed.length ? parsed[parsed.length - 1] : {}),
+           logs: parsed,
+           logOf: function (stage) {
+             const m = parsed.filter(function (l) { return l.stage === stage; });
+             return m.length ? m[m.length - 1] : null;
+           } };
 }
 
 const BEARER = 'Bearer test.token.value';
@@ -194,8 +207,14 @@ function replResp(rows, total) {
   for (let i = 0; i < 1600; i++) cases.push({ json: { case_key: 'k' + i, contract_id: 'c' + i,
     client_id: 'cl' + i, months: { '2026-07': { monthly_net: 1 } }, needs_enrichment: true } });
   const r = run(CHUNK, cases, { 'Validate Inputs': [{ json: validated }] });
-  ok(r.out.length === 3 && r.out[0].json.cases.length === 750 && r.out[2].json.cases.length === 100,
-    '1,600 candidates split into 750 + 750 + 100');
+  ok(r.out.length === 4 && r.out[0].json.cases.length === 50 &&
+     r.out[1].json.cases.length === 750 && r.out[2].json.cases.length === 750 &&
+     r.out[3].json.cases.length === 50,
+    '1,600 candidates split into a 50-candidate canary + 750 + 750 + 50');
+  ok(r.out[0].json.is_canary === true && r.out[1].json.is_canary === false,
+    'the canary is flagged as one, so a reader of the log can tell why chunk 0 is small');
+  ok(r.log.calls_before_the_breaker_can_first_speak === 100,
+    'the canary buys the first breaker verdict at 100 calls instead of 1,500, and the log says so');
   ok(Object.keys(r.out[0].json.cases[0]).length === 3,
     'only the three ids cross the boundary, not the whole case');
   ok(r.log.calls_this_will_make === 3200,
@@ -354,6 +373,57 @@ throws(() => planRun([n8nError(500, 'Internal Server Error'),
   ok(r.out[0].json.plan.expected_amount_known === false &&
      r.out[1].json.plan.expected_amount_known === true,
      'the readable contract in the same chunk is unaffected');
+}
+
+// =========================================================================================
+// THE CIRCUIT BREAKER, AS EMBEDDED IN THESE NODES (ERP-LOAD-POLICY.md §5).
+//
+// tools/offline/breaker_test.js already proves the canonical logic. What is proved HERE is the
+// COPY: that the generated block actually runs inside these two node bodies, reads the stamp
+// Read Chunk leaves, survives the absence of n8n static data, and - the one that matters -
+// does not trip on the permanent 401 that every replacement call returns.
+// =========================================================================================
+console.log('\n--- circuit breaker, in place ---');
+{
+  const denials = [];
+  for (let i = 0; i < 40; i++) denials.push(n8nError(401, 'INSUFFICIENT_PERMISSIONS'));
+  const r = replRun(denials, 40);
+  ok(r.out.length === 1 && r.out[0].json._candidates === 40,
+     'a chunk of 40 straight permission denials passes the breaker untouched');
+  const bl = r.logOf('erp_breaker');
+  ok(bl !== null, 'the breaker logged its verdict');
+  ok(bl && bl.counts.auth === 40 && bl.tripped === null,
+     'the denials are counted as auth, and nothing tripped');
+  ok(bl && bl.consecutive_max === 0,
+     '40 consecutive denials do not count as one consecutive degradation');
+  ok(bl && bl.baseline_carried === false,
+     'no static data offline, so it reports the baseline as not carried rather than inventing one');
+}
+{
+  const resp = [];
+  for (let i = 0; i < 10; i++) resp.push(planResp(5712));
+  for (let i = 0; i < 5; i++) resp.push(n8nError(503, 'Service Unavailable'));
+  for (let i = 0; i < 10; i++) resp.push(planResp(5712));
+  throws(() => planRun(resp, 25),
+    'five consecutive 503s in the plan phase stops the chunk before the replacement phase fires',
+    'ERP CIRCUIT BREAKER TRIPPED');
+}
+{
+  const resp = [];
+  for (let i = 0; i < 10; i++) resp.push(planResp(5712));
+  for (let i = 0; i < 4; i++) resp.push(n8nError(503, 'Service Unavailable'));
+  for (let i = 0; i < 10; i++) resp.push(planResp(5712));
+  const r = planRun(resp, 24);
+  ok(r.out.length === 24, 'four consecutive 503s do not stop it - a blip is not a breakdown');
+}
+{
+  // A quarter of the batch failing, never twice in a row. Nothing about this is a blip, and the
+  // consecutive rule alone would never see it.
+  const resp = [];
+  for (let i = 0; i < 60; i++) resp.push(i % 3 === 0 ? n8nError(502, 'Bad Gateway') : planResp(5712));
+  throws(() => planRun(resp, 60),
+    'scattered failure that never reaches five in a row still trips, on rate',
+    'of 60 responses were 5xx');
 }
 
 console.log('\n' + pass + '/' + (pass + fail) + ' assertions passed');

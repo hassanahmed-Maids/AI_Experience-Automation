@@ -24,4 +24,17 @@ console.log(JSON.stringify({ stage: 'wfb_select_candidates', run_id: baton.run_i
   candidates_without_client_id: noClient.length, without_client_id_keys: noClient.slice(0, 25),
   estimated_message_calls: batch.length * 2 }));
 
-return batch.map(function (c) { return { json: c }; });
+// ERP-COMPLIANCE: budget-gate-in-caller - WF-A's Chunk Candidates projects this batch's message
+// calls (ERP_CALLS_DOWNSTREAM = 2 per candidate) and refuses the whole run over budget, so
+// gating again here would re-litigate a decision already made with better information.
+// ERP-COMPLIANCE: lease-held-by-caller - WF-A acquires the ERP lease before its first call and
+// releases it on both rails; this sub-workflow runs inside that window and must not acquire its
+// own, which would deadlock against its own caller.
+//
+// THE BREAKER'S CLOCK STARTS HERE, for the same reason it does in WF-E's Read Chunk: n8n's HTTP
+// node reports no per-response timing, so the only latency signal is the batch's wall clock,
+// measured from before the first request to the node that reads the last one.
+const erpT0 = Date.now();
+
+return batch.map(function (c) { return { json: Object.assign({}, c, {
+  erp_t0: erpT0, run_id: baton.run_id }) }; });

@@ -358,5 +358,31 @@ for (const [name, src] of [['Resolve Quoted Amounts', RESOLVE], ['Build Evidence
 }
 ok(dangling.length === 0, 'no evidence-chain body reads a node that is not in WF-B', dangling.join('; '));
 
+// ============================================ THE CIRCUIT BREAKER, AS EMBEDDED IN WF-B
+// ERP-LOAD-POLICY.md §5. The canonical logic is proved in tools/offline/breaker_test.js; what
+// is proved here is that the COPY in Resolve Quoted Amounts runs, reads Select Candidates'
+// stamp, and judges the two message reads TOGETHER - a WhatsApp side that is fine and an SMS
+// side that is failing is a failing ERP, and judging them apart would halve the consecutive
+// count on each side and let a full outage sit under the threshold twice.
+console.log('\n--- circuit breaker, in place (WF-B) ---');
+{
+  const E503 = { error: { message: '503 Service Unavailable' } };
+  const cases = [], wa = [], sms = [];
+  for (let i = 0; i < 12; i++) {
+    cases.push(candidate({ contract_id: 'c' + i, case_key: 'k' + i }));
+    wa.push(i >= 8 ? E503 : []);     // 4 failures on the WhatsApp side
+    sms.push(i >= 8 ? E503 : []);    // 4 on the SMS side - neither alone reaches five
+  }
+  throws(() => runResolve(cases, wa, sms),
+    'four WhatsApp plus four SMS failures trip the breaker: eight failing calls is eight, not two lots of four',
+    'ERP CIRCUIT BREAKER TRIPPED');
+}
+{
+  const cases = [], wa = [], sms = [];
+  for (let i = 0; i < 12; i++) { cases.push(candidate({ contract_id: 'c' + i, case_key: 'k' + i })); wa.push([]); sms.push([]); }
+  const r = runResolve(cases, wa, sms);
+  ok(r.out.length === 12, 'a healthy batch passes the breaker untouched');
+}
+
 console.log('\n' + (fail ? 'FAILED ' + fail + ' / ' + (pass + fail) : 'all ' + pass + ' passed'));
 process.exit(fail ? 1 : 0);

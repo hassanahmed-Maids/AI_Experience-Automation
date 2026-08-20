@@ -16,6 +16,10 @@
 // sequentially, so the wall-clock is unchanged at roughly 26 minutes. Cutting the fan-out
 // needs a bulk source for the contract rate - the open ask-the-code question. This
 // workflow is the memory fix, and only that; do not let it read as a cost fix.
+// ERP-COMPLIANCE: budget-gate-in-caller - WF-A's Chunk Candidates gates the whole cohort before
+// the first chunk is built, so this workflow inherits a decision made with the full count.
+// ERP-COMPLIANCE: lease-held-by-caller - WF-A holds the ERP lease for the run; a sub-workflow
+// acquiring its own would deadlock against its caller.
 const incoming = $input.first().json || {};
 
 const bearer = incoming.bearer || '';
@@ -45,6 +49,14 @@ if (cases.length > CHUNK_MAX) {
     'reason it exists.');
 }
 
+// THE BREAKER'S CLOCK STARTS HERE. n8n's HTTP node reports no per-response timing anywhere -
+// not in the body, not in the headers, not with fullResponse - so the only latency signal
+// available is the batch's wall clock, measured from before the first request to the
+// projection that reads the last one. ERP-LOAD-POLICY.md §5 originally asked for a p50 over
+// the first 20 responses; that is not measurable here, and the policy has been corrected
+// rather than the number quietly faked.
+const erpT0 = Date.now();
+
 const out = [];
 let missingIds = 0;
 for (const c of cases) {
@@ -59,7 +71,7 @@ for (const c of cases) {
   // report which chunk it was without reaching back past the fan-out.
   out.push({ json: { bearer: bearer, case_key: caseKey, contract_id: contractId,
                      client_id: clientId, chunk_index: chunkIndex,
-                     run_id: incoming.run_id || null } });
+                     run_id: incoming.run_id || null, erp_t0: erpT0 } });
 }
 if (missingIds > 0) {
   throw new Error('WF-E: ' + missingIds + ' of ' + cases.length + ' candidates arrived without a ' +
