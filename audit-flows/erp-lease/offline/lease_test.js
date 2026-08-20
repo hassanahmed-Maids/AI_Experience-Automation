@@ -37,12 +37,13 @@ function row(o) {
 function ticket(o) {
   const now = Date.now();
   return Object.assign({ ticket_key: 'other-run', check_id: 'cc-non-received', state: 'waiting',
-    enqueued_at_ms: now - 60000, last_seen_ms: now - 5000, enqueued_at_iso: '' }, o);
+    operator: '', enqueued_at_ms: now - 60000, last_seen_ms: now - 5000, enqueued_at_iso: '' }, o);
 }
 function run(mode, opts) {
   const o = opts || {};
   const req = { mode: mode, run_id: o.runId || 'me', check_id: o.checkId || 'cc-below-agreed',
-                ignore_lease: o.ignore === true, max_wait_ms: o.maxWaitMs };
+                ignore_lease: o.ignore === true, max_wait_ms: o.maxWaitMs,
+                operator: o.operator };
   const rows = o.row === null ? [] : [{ json: o.row || row({}) }];
   const nodes = { 'Read Lease Request': [{ json: req }],
                   'Get Queue': (o.queue || []).map(function (t) { return { json: t }; }) };
@@ -151,7 +152,7 @@ console.log('\n--- the queue is a queue, not a scramble ---');
                            runId: 'run-B' });
   ok(q.json._action === 'queue' && q.json._waiters_ahead === 1,
      'a free lease is NOT taken by a run that is second in line');
-  ok(/asked before this one/.test(q.json._reason) && /run-A/.test(q.json._reason),
+  ok(/ahead of this one/.test(q.json._reason) && /run-A/.test(q.json._reason),
      'and it says who it is waiting behind');
 
   // The head of the queue takes it. run-A needs its OWN ticket here: a run with no ticket is
@@ -219,18 +220,90 @@ console.log('\n--- the queue is a queue, not a scramble ---');
      'the override deliberately jumps the queue - that is what it is for');
 }
 
-console.log('\n--- the wait is bounded, and says why ---');
+console.log('\n--- fair share between operators ---');
+// Several people share this workspace. Plain FIFO is unfair the moment one of them queues more
+// than one run: fire three audits and the next person waits three full holds - 45-90 minutes
+// each - through no fault of their own.
 {
   const now = Date.now();
-  const stale = ticket({ ticket_key: 'me', enqueued_at_ms: now - 25 * 60000, last_seen_ms: now - 1000 });
-  throwsWith(() => run('acquire', { queue: [stale], runId: 'me' }),
-    'a run that has queued past the limit gives up rather than waiting for ever',
-    'QUEUE TIMED OUT', '22:00 UTC', 'max_wait_ms');
-  // Queueing turns "fails immediately" into "fails only when waiting is pointless". It is NOT
-  // never-fails, and a token that dies at 22:00 UTC is why.
-  const patient = run('acquire', { queue: [stale], runId: 'me', maxWaitMs: 60 * 60000 });
+  // Hassan fires H1 H2 H3, THEN Abdullah fires A1. Under plain FIFO Abdullah is fourth.
+  const H1 = ticket({ ticket_key: 'H1', operator: 'hassan', enqueued_at_ms: now - 40000, last_seen_ms: now - 1000 });
+  const H2 = ticket({ ticket_key: 'H2', operator: 'hassan', enqueued_at_ms: now - 30000, last_seen_ms: now - 1000 });
+  const H3 = ticket({ ticket_key: 'H3', operator: 'hassan', enqueued_at_ms: now - 20000, last_seen_ms: now - 1000 });
+  const A1 = ticket({ ticket_key: 'A1', operator: 'abdullah', enqueued_at_ms: now - 10000, last_seen_ms: now - 1000 });
+  const all = [H1, H2, H3, A1];
+  const free = row({ state: 'free', holder_run_id: '' });
+
+  function pos(runId, operator) {
+    return run('acquire', { row: free, queue: all, runId: runId, operator: operator }).json._queue_position;
+  }
+  ok(pos('H1', 'hassan') === 1, 'the first run to ask is still first', pos('H1', 'hassan'));
+  ok(pos('A1', 'abdullah') === 2,
+     'the SECOND operator is second even though he queued fourth - one person cannot monopolise by firing several',
+     pos('A1', 'abdullah'));
+  ok(pos('H2', 'hassan') === 3 && pos('H3', 'hassan') === 4,
+     'and that operator keeps FIFO order within his own runs');
+
+  // Round-robin between operators, FIFO within one. Turning it on must not change anything for
+  // a queue that has only one operator in it - that is what makes it safe.
+  const onlyHassan = [H1, H2, H3];
+  const p1 = run('acquire', { row: free, queue: onlyHassan, runId: 'H1', operator: 'hassan' }).json._queue_position;
+  const p3 = run('acquire', { row: free, queue: onlyHassan, runId: 'H3', operator: 'hassan' }).json._queue_position;
+  ok(p1 === 1 && p3 === 3,
+     'with one operator waiting it behaves exactly like plain FIFO');
+}
+{
+  // A caller that passes no operator must lose nothing it had. Every run becomes its own
+  // operator, every round is 0, and the order is plain arrival order.
+  const now = Date.now();
+  const older = ticket({ ticket_key: 'first-run', enqueued_at_ms: now - 60000, last_seen_ms: now - 1000 });
+  const q = run('acquire', { row: row({ state: 'free', holder_run_id: '' }), queue: [older], runId: 'later-run' });
+  ok(q.json._action === 'queue',
+     'no operator passed means plain FIFO, so nothing regresses for a caller that does not know about this');
+
+  // A BLANK OPERATOR MUST MEAN "its own operator", not "everyone shares one bucket". The two
+  // read identically until anonymous runs compete with a named one, which is why the first
+  // version of this test could not tell them apart - it had only one anonymous waiter, and
+  // mutating the fallback to a shared 'default' left it green.
+  //
+  //   blank1 (t0), blank2 (t1), hassan H1 (t2)
+  //     own-operator  -> blank1, blank2, H1     (all round 0, plain arrival order)
+  //     shared bucket -> blank1, H1, blank2     (blank2 pushed into round 1 behind a later run)
+  const b1 = ticket({ ticket_key: 'blank1', operator: '', enqueued_at_ms: now - 30000, last_seen_ms: now - 1000 });
+  const b2 = ticket({ ticket_key: 'blank2', operator: '', enqueued_at_ms: now - 20000, last_seen_ms: now - 1000 });
+  const h1 = ticket({ ticket_key: 'H1', operator: 'hassan', enqueued_at_ms: now - 10000, last_seen_ms: now - 1000 });
+  const mixed = [b1, b2, h1];
+  const free = row({ state: 'free', holder_run_id: '' });
+  const posB2 = run('acquire', { row: free, queue: mixed, runId: 'blank2' }).json._queue_position;
+  const posH1 = run('acquire', { row: free, queue: mixed, runId: 'H1', operator: 'hassan' }).json._queue_position;
+  ok(posB2 === 2 && posH1 === 3,
+     'two runs with no operator are two operators, not one shared bucket - neither is pushed behind a later arrival',
+     'blank2=' + posB2 + ' H1=' + posH1);
+}
+
+console.log('\n--- the lease must never be the reason a run fails ---');
+{
+  const now = Date.now();
+  // Four hours in the queue. There is no default limit, so it is still waiting: a run that has
+  // done nothing wrong must not be killed by the mechanism that exists to protect ERP.
+  const veryOld = ticket({ ticket_key: 'me', enqueued_at_ms: now - 4 * HOUR, last_seen_ms: now - 1000 });
+  const patient = run('acquire', { queue: [veryOld], runId: 'me' });
   ok(patient.json._action === 'queue',
-     'raising max_wait_ms lets a run wait longer when the operator knows it is worth it');
+     'a run that has queued for four hours is STILL waiting - the queue has no default timeout');
+  ok(patient.json._max_wait_ms === Infinity,
+     'and it reports that it has no limit rather than a large one');
+
+  // A caller that would genuinely rather fail fast can still ask for a limit.
+  throwsWith(() => run('acquire', { queue: [veryOld], runId: 'me', maxWaitMs: 60 * 60000 }),
+    'an explicitly requested limit is still honoured',
+    'QUEUE TIMED OUT', 'THIS CALLER ASKED FOR A LIMIT');
+
+  // The limit is opt-in, so the message must not read as though the system chose it.
+  let msg = '';
+  try { run('acquire', { queue: [veryOld], runId: 'me', maxWaitMs: 60 * 60000 }); }
+  catch (e) { msg = e.message; }
+  ok(/no default limit/.test(msg) && /Drop it to wait indefinitely/.test(msg),
+     'and it says the limit was the caller\'s choice, not the system giving up');
 }
 
 console.log('\n--- the read-back: acquire is three nodes, so it is not atomic ---');

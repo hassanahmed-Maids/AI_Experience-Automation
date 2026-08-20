@@ -39,8 +39,7 @@
 // the honest description and it is the right one for the problem - the failure mode was never
 // malice, it was two people starting audits ten minutes apart.
 const STALE_AFTER_MS = 3 * 60 * 60 * 1000;   // ERP-LOAD-POLICY.md section 4
-const TICKET_STALE_MS = 3 * 60 * 1000;       // 3 missed polls at the 60s poll interval
-const DEFAULT_MAX_WAIT_MS = 20 * 60 * 1000;  // how long a run will queue before giving up
+const TICKET_STALE_MS = 5 * 60 * 1000;       // 3 missed polls at the 90s poll interval
 
 const req = $('Read Lease Request').first().json;
 const mode = req.mode;
@@ -48,8 +47,35 @@ const runId = req.run_id;
 const checkId = req.check_id;
 const ignore = req.ignore_lease === true;
 
+// WHO IS ASKING, for fair-share ordering. A short workspace handle - never an email address or
+// anything else that identifies a person outside this workspace, because it is written to a
+// table and printed in the run log.
+//
+// Absent, every run becomes its own operator, every round is 0, and the ordering degenerates to
+// plain FIFO - which is exactly the previous behaviour, so a caller that does not pass this
+// loses nothing it had.
+function operatorKey(op, fallbackRunId) {
+  const o = String(op === null || op === undefined ? '' : op).trim();
+  return o || ('run:' + String(fallbackRunId));
+}
+const myOperator = operatorKey(req.operator, runId);
+
+// THE QUEUE DOES NOT TIME OUT BY DEFAULT. It used to cap the wait at 20 minutes, which meant
+// the safety mechanism itself could kill a run that had done nothing wrong - and a run failing
+// because of the thing protecting ERP is the worst possible trade. A queued run now waits as
+// long as it takes.
+//
+// max_wait_ms is still honoured when a caller passes one, for the case where somebody would
+// genuinely rather fail fast than wait. Absent, there is no limit.
+//
+// WHAT THIS DOES NOT FIX, and it must not be read as fixed: an ERP token dies about four hours
+// after login and every token dies at 22:00 UTC. Waiting three hours and then starting a
+// 90-minute audit fails at the first call with a dead token. Removing the queue's own timeout
+// stops the LEASE from failing the run; it cannot make an expired token work. The thing that
+// actually makes the guarantee real is keeping holds short - slice long runs - so waits stay
+// well inside a token's life. See ERP-LOAD-POLICY.md section 4.
 const askedWait = Number(req.max_wait_ms);
-const maxWaitMs = Number.isFinite(askedWait) && askedWait >= 0 ? askedWait : DEFAULT_MAX_WAIT_MS;
+const maxWaitMs = Number.isFinite(askedWait) && askedWait > 0 ? askedWait : Infinity;
 
 // The Data Table returns zero rows when the lease has never been taken, which is a normal
 // first-run state and not an error.
@@ -80,9 +106,49 @@ const live = tickets.filter(function (t) {
   const seen = Number(t.last_seen_ms);
   return Number.isFinite(seen) && (nowMs - seen) <= TICKET_STALE_MS;
 });
-// Ordering: oldest request first, ties broken deterministically so two runs enqueued in the
-// same millisecond still agree on which of them is first.
+// ---- FAIR SHARE BETWEEN OPERATORS ---------------------------------------------------------
+// Several people share this n8n workspace, and plain FIFO is unfair the moment one of them
+// queues more than one run: fire three audits and the next person is fourth, waiting three
+// full holds through no fault of their own. The lease is per-RUN and a hold is 45-90 minutes,
+// so that is most of a working day.
+//
+// So ordering is round-robin BETWEEN operators and FIFO WITHIN each one. Each ticket gets a
+// ROUND - its index among its own operator's waiting tickets - and every operator's first
+// ticket outranks everybody's second:
+//
+//   Hassan fires H1 H2 H3, then Abdullah fires A1
+//   plain FIFO   -> H1 H2 H3 A1   (Abdullah waits three holds)
+//   fair share   -> H1 A1 H2 H3   (Abdullah waits one)
+//
+// It needs no history and no counters: the round is computed from the queue as it stands, so
+// there is no state to get out of step with reality. With one operator waiting it is identical
+// to FIFO, which is the property that makes it safe to turn on.
+//
+// NOTE what this does NOT do: it does not let two audits run at once. ERP still sees exactly
+// one. Sharing a ceiling is not the same as raising it.
+const meEntry = { ticket_key: String(runId), operator: myOperator,
+                  enqueued_at_ms: enqueuedAtMs, state: 'waiting' };
+const waiting = live.concat([meEntry]);
+
+function roundOf(t) {
+  const op = operatorKey(t.operator, t.ticket_key);
+  const e = Number(t.enqueued_at_ms) || 0;
+  const k = String(t.ticket_key);
+  let n = 0;
+  for (const o of waiting) {
+    if (operatorKey(o.operator, o.ticket_key) !== op) continue;
+    const oe = Number(o.enqueued_at_ms) || 0;
+    if (oe < e || (oe === e && String(o.ticket_key) < k)) n++;
+  }
+  return n;
+}
+const myRound = roundOf(meEntry);
+
+// Ordering: round first, then oldest request, then a deterministic tie-break so two runs
+// enqueued in the same millisecond still agree on which of them is first.
 function aheadOfMe(t) {
+  const r = roundOf(t);
+  if (r !== myRound) return r < myRound;
   const e = Number(t.enqueued_at_ms) || 0;
   if (e !== enqueuedAtMs) return e < enqueuedAtMs;
   return String(t.ticket_key) < String(runId);
@@ -145,7 +211,8 @@ if (mode === 'release') {
     // The lease is free but this run is not first in line. Taking it here is how a queue turns
     // back into a scramble.
     action = 'queue';
-    waitReason = 'the lease is free but ' + ahead.length + ' run(s) asked before this one: ' +
+    waitReason = 'the lease is free but ' + ahead.length + ' run(s) are ahead of this one in the ' +
+                 'fair-share order: ' +
                  ahead.map(function (t) { return String(t.ticket_key); }).slice(0, 5).join(', ');
   } else {
     action = 'acquire'; reason = row ? 'lease was free and this run is first in the queue'
@@ -166,24 +233,25 @@ console.log(JSON.stringify({ stage: 'erp_lease_decide', mode: mode, action: acti
   held_for_minutes: mins(age), stale: stale,
   override_used: ignore && action === 'acquire' && !heldBySelf,
   queue_position: queuePosition, waiters_ahead: ahead.length, live_waiters: live.length,
-  waited_seconds: Math.round(waitedMs / 1000), max_wait_seconds: Math.round(maxWaitMs / 1000),
+  operator: myOperator, queue_round: myRound,
+  operators_waiting: Array.from(new Set(waiting.map(function (t) {
+    return operatorKey(t.operator, t.ticket_key); }))).length,
+  waited_seconds: Math.round(waitedMs / 1000),
+  max_wait_seconds: Number.isFinite(maxWaitMs) ? Math.round(maxWaitMs / 1000) : null,
   reason: reason || waitReason || null }));
 
-// THE WAIT IS BOUNDED, and not by patience. An ERP session lasts about four hours and every
-// token dies at 22:00 UTC; an audit runs 45-90 minutes. A run that queues for hours reaches the
-// front holding a token too short to finish with, and n8n's execution timeout caps it
-// independently. So queueing turns "fails immediately" into "waits, then fails only when
-// waiting is genuinely pointless" - which is a real improvement and is NOT the same as never
-// failing. Saying otherwise would hide the failure rather than remove it.
-if (action === 'queue' && waitedMs > maxWaitMs) {
+// ONLY IF THE CALLER ASKED FOR A LIMIT. By default there is none: the lease must never be the
+// reason a run fails. A caller that would genuinely rather fail fast than wait can still pass
+// max_wait_ms and get this.
+if (action === 'queue' && Number.isFinite(maxWaitMs) && waitedMs > maxWaitMs) {
   throw new Error(
     'ERP LEASE QUEUE TIMED OUT: waited ' + Math.round(waitedMs / 60000) + ' minutes for the ERP ' +
-    'lease and gave up (limit ' + Math.round(maxWaitMs / 60000) + ' minutes). ' + String(waitReason) +
-    '. | This run was position ' + queuePosition + ' in the queue. | The wait is capped on purpose: ' +
-    'an ERP session lasts about four hours and every token dies at 22:00 UTC, so a run that queues ' +
-    'for longer reaches the front with a token too short to finish. | Re-fire with a fresh token ' +
-    'when the holder is done, raise params.max_wait_ms if you know the wait is worth it, or - if ' +
-    'you believe the holder is dead - use params.ignore_erp_lease, which is recorded on the run.');
+    'lease and gave up, because THIS CALLER ASKED FOR A LIMIT of ' + Math.round(maxWaitMs / 60000) +
+    ' minutes. ' + String(waitReason) + '. | This run was position ' + queuePosition + ' in the ' +
+    'queue. | There is no default limit - the lease is not allowed to be the reason a run fails - ' +
+    'so this only happened because params.max_wait_ms was set. Drop it to wait indefinitely, ' +
+    're-fire with a fresh token when the holder is done, or - if you believe the holder is dead - ' +
+    'use params.ignore_erp_lease, which is recorded on the run.');
 }
 
 // A NOOP MUST ECHO THE ROW BACK UNCHANGED, and getting this wrong is how the guard above would
@@ -196,6 +264,7 @@ if (action === 'queue' && waitedMs > maxWaitMs) {
 const ticket = {
   _ticket_key: String(runId),
   _ticket_check_id: String(checkId),
+  _ticket_operator: myOperator,
   // A run that is proceeding stops competing. Its ticket is settled here rather than deleted by
   // a separate node, so there is no path on which the grant lands and the ticket survives it.
   _ticket_state: action === 'queue' ? 'waiting' : 'done',
