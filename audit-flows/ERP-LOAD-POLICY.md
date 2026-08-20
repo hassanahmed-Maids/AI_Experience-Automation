@@ -105,6 +105,17 @@ loses ERP for everyone.
 
 ## 6. Enforcement, in two phases
 
+### Status, 2026-08-20
+
+| layer | state |
+|---|---|
+| §1 pacing ceiling | **enforced** — 5 violations found and fixed across WF-E, WF-B, WF-Pop |
+| §2 declared cost per entity | **done** for cc-below-agreed (`ERP_CALLS_PER_ENTITY = 2`) |
+| §3 pre-flight budget gate | **live in WF-A** (`Chunk Candidates`), 13 assertions, 6/6 mutations caught |
+| §5 circuit breaker | **not built** — next |
+| §4 one-audit-at-a-time lease | **not built** — next |
+| §6 phase 2 ERP Gateway | **not built** |
+
 **Phase 1 (now): every flow enforces it, and a static checker proves it.**
 `tools/erp_load_check.py` reads deployed workflow JSON and fails on any ERP node that exceeds
 concurrency, lacks pacing, lacks a timeout, or paginates without an interval. Run it before

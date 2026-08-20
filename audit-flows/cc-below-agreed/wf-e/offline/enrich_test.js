@@ -184,7 +184,12 @@ function replResp(rows, total) {
 
 // -------------------------------------------- 4. Chunk Candidates (in WF-A)
 {
-  const validated = { run_id: 'run-1', params: { erp_auth: { bearer: BEARER } } };
+  // erp_call_budget is set explicitly because this suite exercises CHUNKING, not the ERP
+  // pre-flight budget gate that now sits in the same node - its fixtures are deliberately
+  // larger than the 2,000-call default. The gate has its own suite,
+  // offline/preflight_gate_test.js, which is where its behaviour is pinned.
+  const validated = { run_id: 'run-1',
+    params: { erp_auth: { bearer: BEARER }, erp_call_budget: 1000000 } };
   const cases = [];
   for (let i = 0; i < 1600; i++) cases.push({ json: { case_key: 'k' + i, contract_id: 'c' + i,
     client_id: 'cl' + i, months: { '2026-07': { monthly_net: 1 } }, needs_enrichment: true } });
@@ -197,7 +202,8 @@ function replResp(rows, total) {
     'the log states the call count, which is the cost this staging does NOT reduce');
 
   const capped = run(CHUNK, cases, { 'Validate Inputs': [{ json:
-    { run_id: 'r', params: { erp_auth: { bearer: BEARER }, enrich_chunk_size: 5000 } } }] });
+    { run_id: 'r', params: { erp_auth: { bearer: BEARER }, enrich_chunk_size: 5000,
+        erp_call_budget: 1000000 } } }] });
   ok(capped.out.every(c => c.json.cases.length <= 1200),
     'a caller asking for a chunk bigger than WF-E allows is clamped, not passed through');
 
