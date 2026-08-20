@@ -89,6 +89,37 @@ it ends. A second audit finding the lease held **refuses to start**.
   run record, because the reason to reach for it (a stuck lease) is indistinguishable from the
   reason not to (another audit genuinely running).
 
+### Built — `erp-lease/`
+
+Workflow `9gVijqvtLVEhQZXz` "ERP Lease · one audit at a time", published 2026-08-20, backed by
+Data Table `erp_audit_lease` (`nje7kLNpRssRtzsf`). Call it with Execute Sub-workflow:
+
+```
+mode: 'acquire' | 'release'   run_id: <this run>   check_id: <which audit>   ignore_lease: bool
+```
+
+A refusal is **not** a return value — it throws, so the calling run dies *at* the lease rather
+than proceeding past it. Full contract in `erp-lease/README.md`.
+
+It is a **cooperative** lease, not a mutex: nothing physically stops a flow that skips the check.
+What it stops is two flows that both use it colliding by accident, which is the failure that
+actually happened.
+
+**The release path is the one that matters.** Releasing a lease you do not hold is silent — the
+other audit keeps running, the lease reads free, and the next audit starts alongside it. So a
+release only ever frees a lease this `run_id` actually holds; anything else is a no-op that names
+the real holder. The first version of `Decide Lease` got this wrong in the most expensive
+possible way: it printed the correct refusal and wrote this run's id into `holder_run_id`
+underneath it. The offline suite caught it before it ran.
+
+Verified live, against the real table: acquire (95315), refuse while held (95318), non-holder
+release is a no-op with the row unchanged (95320), holder release frees it (95321). Offline:
+18 assertions.
+
+**Not yet wired into any audit.** Adding acquire-before-first-call and release-on-both-rails to
+the 67-node WF-A needs `tools/verify_order.py` re-run (position is behaviour under
+`executionOrder: v1`) and a live smoke test, which the deactivated ERP accounts currently block.
+
 ---
 
 ## 5. The circuit breaker
@@ -112,8 +143,8 @@ loses ERP for everyone.
 | §1 pacing ceiling | **enforced** — 5 violations found and fixed across WF-E, WF-B, WF-Pop |
 | §2 declared cost per entity | **done** for cc-below-agreed (`ERP_CALLS_PER_ENTITY = 2`) |
 | §3 pre-flight budget gate | **live in WF-A** (`Chunk Candidates`), 13 assertions, 6/6 mutations caught |
+| §4 one-audit-at-a-time lease | **built + published + proven live** (`erp-lease/`, 18 assertions, 4 paths) — *not yet wired into a flow* |
 | §5 circuit breaker | **not built** — next |
-| §4 one-audit-at-a-time lease | **not built** — next |
 | §6 phase 2 ERP Gateway | **not built** |
 
 **Phase 1 (now): every flow enforces it, and a static checker proves it.**
