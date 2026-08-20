@@ -116,6 +116,12 @@ the honest response to "someone else is using ERP" is to wait, not to make a per
 re-fire by hand later. Ordering is by ticket rather than by who polls first — otherwise a run that
 waited twenty minutes can lose to one that arrived a second ago.
 
+**The lease spans a whole run, not a call** — acquire before the first ERP call, release at the
+end; every sub-workflow runs inside it. Leasing per call would be pointless, since §1 already
+governs rate. That sets the queue's scale: a holder keeps it for **45–90 minutes**, so a caller
+that runs long must pass its own `max_wait_ms` (MV Monthly Payment passes 45 min) or its queued
+successors time out every time and the queue never once succeeds.
+
 **The wait is capped (default 20 min, `max_wait_ms`)**, because an ERP session lasts about four
 hours and every token dies at 22:00 UTC while an audit runs 45–90 minutes: a run that queues for
 hours reaches the front with a token too short to finish. Queueing turns *fails immediately* into

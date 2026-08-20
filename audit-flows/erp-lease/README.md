@@ -46,6 +46,22 @@ call is therefore slow rather than fatal, and the caller needs no retry logic of
 It throws only when waiting has become pointless: the queue timed out, or the caller asked
 something unanswerable.
 
+### The lease spans a whole run, not a call
+
+Acquire before the *first* ERP call, release at the *end of the run*. Everything between — sweeps,
+per-entity enrichment, verification, delivery, and every sub-workflow, since those execute inside
+the caller's execution — is inside the lease. Leasing per call would be pointless: §1 pacing
+already governs rate; the lease governs how many audits, which only means anything across a run.
+
+**That sets the queue's scale.** A holder keeps the lease for **45–90 minutes**, so the 20-minute
+default wait would time out almost every queued run — the queue would exist and never once
+succeed. MV Monthly Payment therefore passes `max_wait_ms: 45 min` explicitly, overridable per run
+with `erp_lease_max_wait_ms`. **Any caller that runs long must pass its own.**
+
+45 rather than 90 is deliberate: a queued run still has to *finish* inside its own ERP session
+(~4 hours, and every token dies at 22:00 UTC), so waiting 90 minutes only to need another 90 is
+how a run reaches the front holding a token too short to use.
+
 **Acquire before the first ERP call. Release when the run ends, however it ends** — success rail
 and error rail both. A release that never fires is what the 3-hour staleness rule cleans up
 after, and cleaning up after it means a 3-hour hole in the queue.
@@ -186,7 +202,20 @@ And the queue, end to end — the behaviour that matters most:
 | 95532 | A releases | freed |
 | 95531 | B's next poll, 69 s after it started waiting | **granted** — no human re-fired anything |
 
-Row left `free` after 95533, so both tables are in their reset state.
+And FIFO under real contention — three waiters, queued in an order that contradicts alphabetical
+so name-ordering could not pass by accident:
+
+| exec | run | queued | granted |
+|---|---|---|---|
+| 95558 | `holder-run` | — | held first |
+| 95559 | `zeta-run` | 1st | **1st** |
+| 95560 | `alpha-run` | 2nd | **2nd** |
+| 95563 | `mike-run` | 3rd | **3rd** |
+
+Each waiter took the lease in the order it *asked*, not alphabetically and not by who happened to
+poll first. `alpha-run` did not barge ahead while `zeta-run` was being granted.
+
+Both tables left in their reset state after 95573.
 
 ## Files
 
