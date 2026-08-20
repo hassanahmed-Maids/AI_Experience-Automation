@@ -69,6 +69,9 @@ if (missingIds > 0) {
 
 console.log(JSON.stringify({ stage: 'wfe_read_chunk', chunk_index: chunkIndex,
   candidates: out.length, run_id: incoming.run_id || null,
-  note: 'one item per candidate; the two HTTP nodes fan out per item at batchSize 15 / 500ms' }));
+  note: 'one item per candidate; the two HTTP nodes fan out per item at batchSize 2 / 500ms ' +
+        '= 4 req/s, the ceiling in audit-flows/ERP-LOAD-POLICY.md (was 15 / 500ms = 30 req/s ' +
+        'until 2026-08-20, three times the documented limit, and nobody chose it - it was cloned ' +
+        'forward from a sibling check)' }));
 
 return out;
