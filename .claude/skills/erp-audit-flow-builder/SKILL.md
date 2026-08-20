@@ -227,7 +227,8 @@ before you wire anything. The shape is not four independent good ideas — it is
 of which sees exactly one thing and is blind to the others:
 
 ```
-  [1] LEASE ACQUIRE ....... is another audit already hitting ERP?
+  [0] TWO ENTRIES ......... webhook + Retry Entry -> ONE Normalize Entry node
+  [1] LEASE ACQUIRE ....... is another audit already hitting ERP? (no_wait; re-invoke if queued)
   [2] sweeps .............. paced
   [3] BUDGET GATE ......... how many calls will the per-entity phase make?
   [4] canary chunk ........ first batch small, so the breaker gets a cheap verdict
@@ -253,6 +254,22 @@ What you must do, in order:
    partial audit that looks complete is worse than a refused one.
 4. **Acquire the ERP lease before the first ERP call and release it on both rails.** A release
    that never fires leaves a 3-hour hole in the queue.
+4b. **Pass `no_wait: true` and build the self-re-invoke rail.** The acquire must never block.
+   n8n cancels any execution 2400 s after it starts and the kill is **silent** — status
+   `canceled`, nothing thrown, no error rail, the run simply vanishes — so a flow that waits
+   inside one execution has a 40-minute ceiling on its wait AND no way to report crossing it.
+   Instead: `no_wait: true` → on `queued`, pause 60 s, re-invoke this workflow, exit. Copy the
+   shape from `audit-flows/cc-price/README.md`; four things there are load-bearing and every one
+   of them failed live before it worked:
+   - **two entries, one normalizer** — the webhook and a `Retry Entry` trigger both feed a
+     `Normalize Entry` Code node, and *everything downstream reads the request from that node*.
+     `$('Run (webhook)')` throws in any execution where the webhook did not run, which is every
+     retry.
+   - **pin `run_id` in the retry payload** — otherwise the retry is a brand-new run with a new
+     queue ticket at the back of the line, and it can be overtaken for ever.
+   - **`Re-queue Self` must be fire-and-forget** (`waitForSubWorkflow: false`), or the parent
+     stays alive across attempts and meets the ceiling anyway.
+   - **skip the webhook response on retries** — there is no webhook to answer.
 5. **Generate the circuit-breaker block into every projection node** that reads a batch of ERP
    responses: `python3 audit-flows/tools/build_breaker_embed.py`. **Generate, never hand-copy** —
    a hand-copied safety check is one nobody can tell has drifted.

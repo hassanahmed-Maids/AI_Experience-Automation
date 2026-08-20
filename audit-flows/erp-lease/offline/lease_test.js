@@ -43,7 +43,7 @@ function run(mode, opts) {
   const o = opts || {};
   const req = { mode: mode, run_id: o.runId || 'me', check_id: o.checkId || 'cc-below-agreed',
                 ignore_lease: o.ignore === true, max_wait_ms: o.maxWaitMs,
-                operator: o.operator };
+                operator: o.operator, no_wait: o.noWait === true };
   const rows = o.row === null ? [] : [{ json: o.row || row({}) }];
   const nodes = { 'Read Lease Request': [{ json: req }],
                   'Get Queue': (o.queue || []).map(function (t) { return { json: t }; }) };
@@ -304,6 +304,111 @@ console.log('\n--- the lease must never be the reason a run fails ---');
   catch (e) { msg = e.message; }
   ok(/no default limit/.test(msg) && /Drop it to wait indefinitely/.test(msg),
      'and it says the limit was the caller\'s choice, not the system giving up');
+}
+
+console.log('\n--- no_wait: the caller decides, so no execution has to sit and wait ---');
+// n8n cancels any execution 2400s after it starts, and a queued run that crosses that line is
+// killed with status "canceled" rather than "error" - it throws nothing and simply vanishes.
+// So the queue must be able to answer IMMEDIATELY and let the caller re-invoke itself, which
+// is the only shape in which waiting is genuinely unbounded.
+{
+  const now = Date.now();
+  const q = run('acquire', { queue: [], runId: 'me', noWait: true });
+  ok(q.json._action === 'queue' && q.json._proceed === false,
+     'a held lease still decides QUEUE - no_wait changes who waits, not who wins');
+  ok(q.json._write === false && q.json.holder_run_id === 'other-run',
+     'and a no_wait run still does not touch the lease row');
+  ok(q.json._ticket_state === 'waiting',
+     'its ticket stays WAITING, so it keeps its place across re-invocations rather than going to the back');
+
+  // The position is what a caller reports and a human acts on.
+  const ahead = ticket({ ticket_key: 'run-A', enqueued_at_ms: now - 600000, last_seen_ms: now - 1000 });
+  const q2 = run('acquire', { row: row({ state: 'free', holder_run_id: '' }), queue: [ahead],
+                              runId: 'me', noWait: true });
+  ok(q2.json._queue_position === 2, 'and it reports its position, not just a refusal', q2.json._queue_position);
+}
+{
+  // A re-invoking caller must NOT pass max_wait_ms: waitedMs accumulates across attempts via the
+  // persisted ticket, so a limit would eventually kill the very run that is politely retrying.
+  const now = Date.now();
+  const old = ticket({ ticket_key: 'me', enqueued_at_ms: now - 3 * HOUR, last_seen_ms: now - 1000 });
+  const q = run('acquire', { queue: [old], runId: 'me', noWait: true });
+  ok(q.json._action === 'queue',
+     'a run three hours into re-invoking is still queued, because no_wait callers pass no limit');
+}
+
+{
+  // THE TWO WAYS THIS ACTUALLY BROKE IN PRODUCTION, both on 2026-08-20.
+  const now = Date.now();
+  const old = ticket({ ticket_key: 'me', enqueued_at_ms: now - 3 * HOUR, last_seen_ms: now - 1000 });
+
+  // (1) The trigger declares max_wait_ms as a NUMBER, and n8n fills a declared-but-unsent
+  // number field with 0. So "I passed nothing" reaches this node as askedWait === 0, and an
+  // earlier `askedWait >= 0` read that as a zero-millisecond limit. Execution 95750 died with
+  // "limit 0 minutes" on its second attempt having asked for no limit at all.
+  // Caught rather than thrown, so a regression reports a FAIL line instead of killing the suite.
+  function tryRun(opts) {
+    try { return { json: run('acquire', opts).json, err: null }; }
+    catch (e) { return { json: null, err: e.message }; }
+  }
+  const zero = tryRun({ queue: [old], runId: 'me', noWait: true, maxWaitMs: 0 });
+  ok(zero.json && zero.json._action === 'queue' && zero.json._max_wait_ms === Infinity,
+     'max_wait_ms 0 means ABSENT, not "give up instantly" - n8n sends 0 for an unsent number field',
+     zero.err ? 'threw: ' + zero.err : String(zero.json && zero.json._max_wait_ms));
+
+  // (2) And even an explicit limit must not kill a no_wait caller. It is not waiting inside
+  // this workflow; waitedMs is the age of the RUN's ticket across every re-invocation, which
+  // grows without bound by design. The previous test only HOPED such a caller passed no limit.
+  const capped = tryRun({ queue: [old], runId: 'me', noWait: true, maxWaitMs: 60000 });
+  ok(capped.json && capped.json._action === 'queue',
+     'a no_wait caller is never timed out even when it explicitly passes max_wait_ms',
+     capped.err ? 'threw: ' + capped.err : 'did not queue');
+
+  // The same limit still bites a caller that IS waiting inside the workflow.
+  throwsWith(() => run('acquire', { queue: [old], runId: 'me', maxWaitMs: 60000 }),
+    'and the limit still applies to a blocking caller, so no_wait is the exemption - not a removal',
+    'QUEUE TIMED OUT');
+}
+
+console.log('\n--- the projection: Decide Lease can only read what Read Lease Request emits ---');
+// THE BLIND SPOT THIS SECTION EXISTS TO CLOSE. Every test above hands Decide Lease a req built
+// by hand, so the suite passed for weeks while the DEPLOYED Read Lease Request dropped operator
+// and no_wait from its output entirely - fair-share silently degraded to FIFO and no_wait
+// callers silently entered the polling loop. A node's contract with the node before it has to
+// be tested through that node, not around it.
+{
+  const REQSRC = fs.readFileSync(path.join(__dirname, '..', 'nodes', 'read_lease_request.js'), 'utf8');
+  function readRequest(incoming) {
+    const logs = [];
+    const out = new Function('$input', 'console', REQSRC)(
+      { all: () => [{ json: incoming }], first: () => ({ json: incoming }) },
+      { log: m => logs.push(m) });
+    return out[0].json;
+  }
+  // Exactly what the When Called trigger delivers for a self-re-invoking caller: every declared
+  // field present, the unsent number filled in as 0.
+  const req = readRequest({ mode: 'acquire', run_id: 'me', check_id: 'cc-price-by-cohort',
+                            ignore_lease: false, max_wait_ms: 0, operator: 'hassan', no_wait: true });
+  ok(req.no_wait === true, 'no_wait survives the projection - dropping it sends the caller into the polling loop');
+  ok(req.operator === 'hassan', 'operator survives it - dropping it degrades fair-share to plain FIFO');
+  ok(req.max_wait_ms === 0, 'and max_wait_ms is passed through RAW, so Decide Lease can tell 0 from absent');
+
+  // Now drive Decide Lease with THAT object rather than a hand-made one.
+  const now = Date.now();
+  const nodes = { 'Read Lease Request': [{ json: req }],
+                  'Get Queue': [{ json: ticket({ ticket_key: 'me', enqueued_at_ms: now - 3 * HOUR,
+                                                 operator: 'hassan', last_seen_ms: now - 1000 }) }] };
+  const $ = (n) => ({ all: () => nodes[n], first: () => nodes[n][0] });
+  const out = new Function('$input', '$', 'console', SRC)(
+    { all: () => [{ json: row({}) }], first: () => ({ json: row({}) }) }, $, { log: () => {} });
+  ok(out[0].json._action === 'queue' && out[0].json._ticket_operator === 'hassan',
+     'end to end, a real trigger payload queues under its own operator and is never timed out',
+     out[0].json._action + '/' + out[0].json._ticket_operator);
+
+  // An operator that is not passed must not become a shared bucket - each run gets its own.
+  const bare = readRequest({ mode: 'acquire', run_id: 'me', check_id: 'c' });
+  ok(bare.operator === '' && bare.no_wait === false,
+     'and an old caller that passes neither still produces a valid request (plain FIFO, blocking)');
 }
 
 console.log('\n--- the read-back: acquire is three nodes, so it is not atomic ---');

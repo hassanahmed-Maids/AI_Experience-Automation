@@ -101,3 +101,48 @@ Format: `YYYY-MM-DD — decision — why`. Newest at top. Log every judgment cal
 - 2026-08-20 — Measured the load behind §1's page-size rule rather than assuming it. `clientmgmt/contract/search/page`, ACTIVE CC (population 5,410): ~**2 KB per row** and ~**16 s per 100-row page** (14.1 s / 16.8 s / 17.5 s across three pages). A `size=500` page extrapolates to ~1 MB and ~80 s, so the 2026-08-19 sweep of ~116 such requests asked ERP to assemble roughly **116 MB** of nested records five at a time. Three non-obvious consequences now in the policy: pacing barely matters on this route (`batchInterval: 500` is meaningless when the call takes 16 s — 2 concurrent is ~0.125 req/s, not 4); a `size=500` page at ~80 s would blow the 45 s and 60 s timeouts in use; and **page 0 returns 40 rows whatever size is asked for**, confirmed live, so every pager must special-case it or lose rows 40-99.
 - 2026-08-20 — **Measured the 2400s execution ceiling against an offloaded wait, and it is enforced.** Execution 95598 queued at 12:28:30 with no wait limit, polled past the 13:08:30 ceiling while parked, and was CANCELED at 13:09:43 - the first resume after the limit. So an offloaded wait (>65s, `status: waiting` with a `waitTill`) releases the worker, which makes waiting cheap in CAPACITY, but the timeout clock is wall-clock from start and is checked on resume: parking buys nothing against the ceiling. Worse, the kill is SILENT - status `canceled`, not `error`, so the lease never threw its own message and the run simply vanished. An unbounded wait therefore produces the least legible failure available, which inverts the earlier reasoning: a cap below the ceiling is not giving up early, it is the difference between a message and a disappearance. Callers now set `wait budget = 2400s - own runtime - margin` (MV 10 min, CC Price 25 min); MV's previous 45 minutes was above the ceiling and could never have fired. Hassan's requirement that a run must never fail because of the lease is achievable ONLY by not blocking: try, and on `queue` re-invoke self with the same payload and exit, so no execution waits long. `CC Below Agreed · 2-Verify` already self-calls per batch, so the pattern is proven here; not built yet.
 
+
+## 2026-08-20 — the ERP lease never blocks: `no_wait` + self-re-invoke
+
+**Decision.** An audit flow blocked on the ERP lease re-invokes itself rather than waiting.
+The acquire passes `no_wait: true`, the lease answers immediately (`granted`, or `queued` with a
+position), and on `queued` the flow pauses 60 s, calls itself fire-and-forget, and exits.
+
+**Why.** Moe's requirement was explicit: *"idc how much an operator waits for the flows to finish
+as long as it finishes and never times out or errors because of that safety mechanism."* Waiting
+inside one execution cannot satisfy that. This instance cancels any execution 2400 s after it
+starts; offloaded waits do not stop that clock (the timeout is wall-clock from start, enforced on
+resume); and the kill is **silent** — status `canceled`, nothing thrown, no error rail. Measured:
+execution 95598 queued 12:28:30, canceled 13:09:43, no message. So blocking capped the wait at 40
+minutes *and* made exceeding it invisible. Re-invoking keeps every execution seconds long, so the
+ceiling never applies and the wait is genuinely unbounded.
+
+**Removed with it: the queue's default 20-minute cap.** A run failing because of the thing
+protecting ERP is the worst trade available. `max_wait_ms` survives as an explicit opt-in for a
+caller that would rather fail fast, and a `no_wait` caller is exempt even from that — its
+`waited_ms` is the age of the run's ticket across every re-invocation, which grows without bound
+by design.
+
+**What this does NOT fix**, and must not be read as fixing: an ERP token dies about four hours
+after login and every token dies at 22:00 UTC. A run that queues for hours reaches the front with
+a token too short to finish. Removing the lease's timeout stops the *lease* from failing the run;
+it cannot make a dead token work. Short holds — slicing long runs — are what make the guarantee
+real.
+
+**Three things found by building it, all worth remembering:**
+
+1. **n8n sends `0` for a declared-but-unsent number field.** The `When Called` trigger declares
+   `max_wait_ms` as a number, so a caller that omits it arrives with `0`, not `undefined`. A
+   `>= 0` test read that as a zero-millisecond limit and killed execution 95750 with *"limit 0
+   minutes"* on its second attempt, having asked for no limit at all.
+2. **Editing a published workflow creates a draft; live callers keep serving the active version.**
+   The `no_wait` support sat unpublished while every run executed the old lease body. Publish,
+   then test — and `get_workflow_details` returns the *draft*, so it cannot tell you what is live.
+3. **A node's contract with the node before it has to be tested through that node.** The offline
+   suite fed `Decide Lease` a hand-built request, so it passed for days while the deployed `Read
+   Lease Request` dropped `operator` and `no_wait` from its output entirely — fair-share silently
+   degraded to FIFO and `no_wait` callers silently entered the polling loop. The suite now drives
+   the real projection end-to-end (63 assertions, 5/5 mutants caught).
+
+**Written into:** `ERP-LOAD-POLICY.md` §4 and §7 (requirement 6), the skill's Phase 5b step 4b,
+`audit-flows/cc-price/README.md` (the reference implementation), `audit-flows/erp-lease/`.

@@ -101,10 +101,16 @@ console.log(JSON.stringify({ stage: 'erp_lease_result', mode: req.mode, action: 
 
 // The CONFIRMED row is reported, not the intended one. They agree on every path that reaches
 // here, and reporting the read-back is what makes that a fact rather than an assumption.
+// A no_wait caller needs to know WHERE it is, not just that it did not get in: the position is
+// what tells a human whether to wait for it or go and find out why.
 return [{ json: {
   lease: 'erp',
   action: action,
   granted: action === 'acquire',
+  queued: action === 'queue',
+  queue_position: Number(decided._queue_position) || null,
+  waiters_ahead: Number(decided._waiters_ahead) || 0,
+  waited_ms: Number(decided._waited_ms) || 0,
   state: confirmed.state,
   holder_run_id: holder,
   holder_check_id: String(confirmed.holder_check_id || ''),

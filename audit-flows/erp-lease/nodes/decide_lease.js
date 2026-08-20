@@ -10,8 +10,8 @@
 // WHY IT QUEUES RATHER THAN REFUSES. The first version threw at a held lease, which is correct
 // but useless: the honest response to "someone else is using ERP" is to wait, not to make a
 // person notice and re-fire by hand twenty minutes later. So a blocked run now takes a ticket
-// and polls. What it CANNOT do is wait for ever, and pretending otherwise would hide the
-// failure rather than remove it - see THE WAIT IS BOUNDED below.
+// and waits its turn, for as long as that takes - see THE QUEUE DOES NOT TIME OUT BY DEFAULT
+// below for why there is no cap, and what that does and does not guarantee.
 //
 // WHY A TICKET AND NOT JUST A RETRY. Polling alone is not a queue. Without a ticket, whoever
 // happens to poll in the instant after a release wins, so a run that has waited twenty minutes
@@ -74,8 +74,23 @@ const myOperator = operatorKey(req.operator, runId);
 // stops the LEASE from failing the run; it cannot make an expired token work. The thing that
 // actually makes the guarantee real is keeping holds short - slice long runs - so waits stay
 // well inside a token's life. See ERP-LOAD-POLICY.md section 4.
+//
+// AND ZERO MEANS ABSENT, not "give up instantly". The When Called trigger declares max_wait_ms
+// as a NUMBER, and n8n fills a declared-but-unsent number field with 0 - so a caller that omits
+// it entirely arrives here with askedWait === 0. An earlier version tested `askedWait >= 0` and
+// therefore read that as a zero-millisecond limit: execution 95750 was killed with "ERP LEASE
+// QUEUE TIMED OUT ... (limit 0 minutes)" on its second attempt, having asked for no limit at
+// all. `> 0` is the whole fix and it is not cosmetic.
 const askedWait = Number(req.max_wait_ms);
 const maxWaitMs = Number.isFinite(askedWait) && askedWait > 0 ? askedWait : Infinity;
+
+// A NO_WAIT CALLER IS NEVER TIMED OUT, whatever it passed. It is not waiting inside this
+// workflow at all - it asks, gets an answer, and re-invokes itself later - so waitedMs here is
+// the age of the RUN's ticket across every attempt, which grows without bound BY DESIGN. Any
+// finite cap measured against it would eventually kill a run that is behaving exactly as the
+// self-re-invoke pattern intends. A no_wait caller that wants to give up can simply stop
+// re-invoking; that decision belongs to it, not to the lease.
+const noWait = req.no_wait === true;
 
 // The Data Table returns zero rows when the lease has never been taken, which is a normal
 // first-run state and not an error.
@@ -236,6 +251,7 @@ console.log(JSON.stringify({ stage: 'erp_lease_decide', mode: mode, action: acti
   operator: myOperator, queue_round: myRound,
   operators_waiting: Array.from(new Set(waiting.map(function (t) {
     return operatorKey(t.operator, t.ticket_key); }))).length,
+  no_wait: noWait,
   waited_seconds: Math.round(waitedMs / 1000),
   max_wait_seconds: Number.isFinite(maxWaitMs) ? Math.round(maxWaitMs / 1000) : null,
   reason: reason || waitReason || null }));
@@ -243,7 +259,7 @@ console.log(JSON.stringify({ stage: 'erp_lease_decide', mode: mode, action: acti
 // ONLY IF THE CALLER ASKED FOR A LIMIT. By default there is none: the lease must never be the
 // reason a run fails. A caller that would genuinely rather fail fast than wait can still pass
 // max_wait_ms and get this.
-if (action === 'queue' && Number.isFinite(maxWaitMs) && waitedMs > maxWaitMs) {
+if (action === 'queue' && !noWait && Number.isFinite(maxWaitMs) && waitedMs > maxWaitMs) {
   throw new Error(
     'ERP LEASE QUEUE TIMED OUT: waited ' + Math.round(waitedMs / 60000) + ' minutes for the ERP ' +
     'lease and gave up, because THIS CALLER ASKED FOR A LIMIT of ' + Math.round(maxWaitMs / 60000) +

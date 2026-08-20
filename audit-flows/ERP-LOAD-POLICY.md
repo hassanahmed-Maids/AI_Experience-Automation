@@ -161,24 +161,42 @@ Two facts follow, and both are load-bearing:
   but the timeout clock is wall-clock from start and is enforced on resume. Parking buys you
   nothing against the ceiling.
 - **The kill is silent.** Status is `canceled`, not `error`. The lease never threw its own
-  message; the run simply vanished. **An unbounded wait therefore produces the least legible
-  failure available** — which is why every caller sets a budget *below* the ceiling, so it fails
-  with an explanation instead of disappearing.
+  message; the run simply vanished. **An unbounded wait inside one execution therefore produces
+  the least legible failure available** — it does not fail loudly, it disappears.
 
-So a blocking caller's arithmetic is fixed: **wait budget = 2400 s − the run's own duration −
-margin.** MV Monthly Payment allows 10 minutes (its execution spans a whole slice); CC Price
-allows 25 (it sweeps, hands off fire-and-forget, and ends).
+A caller that still blocks has fixed arithmetic: **wait budget = 2400 s − the run's own duration −
+margin**, so it fails with an explanation instead of vanishing. MV Monthly Payment allows 10
+minutes (its execution spans a whole slice). **CC Price no longer blocks at all** — it uses the
+`no_wait` self-re-invoke below, which is the only shape in which the wait is genuinely unbounded,
+and is what every new flow should use.
 
-**Waiting indefinitely needs the caller to stop blocking** — try, and on `queue` re-invoke itself
-with the same payload and exit, so no single execution ever waits long. `CC Below Agreed · 2-Verify`
-already self-calls per batch, so the pattern is proven here. Not built yet.
+**Waiting indefinitely needs the caller to stop blocking — and that is now built.** The caller
+passes `no_wait: true`; the lease answers immediately with `granted` or with `queued` plus a
+position, and on `queued` the flow re-invokes *itself* with the same payload and exits. No
+execution ever waits long, so the 2400 s ceiling stops applying to the wait. See §7 and
+`cc-price/README.md`, which documents the five things that make the pattern correct — the
+run_id pin being the one that is not obvious.
 
-**The wait is capped (default 20 min, `max_wait_ms`)**, because an ERP session lasts about four
-hours and every token dies at 22:00 UTC while an audit runs 45–90 minutes: a run that queues for
-hours reaches the front with a token too short to finish. Queueing turns *fails immediately* into
-*fails only when waiting is pointless* — it is **not** never-fails, and treating it as such would
-hide the failure rather than remove it. A queued run also holds an n8n execution slot while it
-waits.
+**There is no default wait cap.** There used to be one (20 minutes), and it was wrong: it meant
+the mechanism protecting ERP could kill a run that had done nothing wrong, which is the worst
+trade available here. `max_wait_ms` is still honoured when a caller explicitly asks to fail fast,
+and a `no_wait` caller is exempt even then — its `waited_ms` is the age of the *run's* ticket
+across every re-invocation, so it grows without bound by design and any finite cap would
+eventually kill a run behaving exactly as intended.
+
+**Two traps, both hit live on 2026-08-20 (executions 95750, 95726).** The `When Called` trigger
+declares `max_wait_ms` as a **number**, and n8n fills a declared-but-unsent number field with
+**0**, not `undefined` — so "I passed nothing" and "I want a zero-millisecond limit" arrive
+identically and a `>= 0` test reads the former as the latter. And **editing a published workflow
+creates a draft while live callers keep serving the active version**, so a lease fix can sit
+unpublished while every run executes the old body. Publish, then test.
+
+**What removing the cap does NOT fix, and must not be read as fixing:** an ERP session lasts about
+four hours and every token dies at 22:00 UTC while an audit runs 45–90 minutes. A run that queues
+for hours reaches the front with a token too short to finish. Removing the queue's own timeout
+stops the *lease* from failing the run; it cannot make an expired token work. The thing that makes
+the guarantee real is **keeping holds short** — slice long runs — so waits stay well inside a
+token's life.
 
 Queueing **cannot be store-and-forward**: the run payload carries the ERP bearer token, and
 persisting that to replay later would be storing a credential. The waiting run stays alive in its
@@ -347,9 +365,14 @@ path a run takes, and each one catches what the one before it cannot see. Writte
 ```
   params in
      |
+     +-- [0] TWO ENTRIES, ONE NORMALIZER  webhook + Retry Entry -> Normalize Entry
+     |          everything downstream reads the request from HERE, never from a trigger
+     |
      +-- [1] LEASE ACQUIRE  ......... is another audit already hitting ERP?
-     |          erp-lease, mode: acquire, before the FIRST ERP call
-     |          refuses by THROWING, so the run dies here rather than proceeding past it
+     |          erp-lease, mode: acquire, no_wait: true, before the FIRST ERP call
+     |          granted -> carry on;  queued -> pause 60 s, RE-INVOKE SELF, exit
+     |          it does not throw and it does not block: the wait is unbounded because
+     |          no single execution ever waits
      |
      +-- [2] sweeps ................. paced: interval >= 250 ms, maxRequests set
      |
@@ -382,8 +405,16 @@ because a second audit started ten minutes later.
 | 3 | a pre-flight budget gate before the per-entity phase | the last Code node before the first per-entity call | `tools/erp_compliance.py` |
 | 4 | the circuit-breaker block in every projection node that reads a batch of ERP responses | generated, pasted | `tools/erp_compliance.py` (byte-compare against the generated block) |
 | 5 | lease acquire before the first ERP call, release on both rails | Execute Sub-workflow → `9gVijqvtLVEhQZXz` | `tools/erp_compliance.py` |
+| 6 | the acquire passes `no_wait: true` and the flow re-invokes itself on `queued` | Retry Entry + Normalize Entry + Build Retry Payload + Re-queue Self | by reading the flow — see `cc-price/README.md` |
 
-Run `python3 tools/erp_compliance.py --all` to audit every flow against all five. It is the
+Requirement 6 is the newest and the least obvious. Its four failure modes are all silent, and
+three of them were live at some point on 2026-08-20: a downstream node referencing `$('Run
+(webhook)')` throws on every retry; a retry that does not pin `run_id` takes a fresh queue ticket
+and can be overtaken for ever; a `Re-queue Self` that waits for the sub-workflow keeps the parent
+alive and re-introduces the ceiling it was built to escape; and an acquire that blocks instead of
+queueing dies at 2400 s with status `canceled` and no error at all.
+
+Run `python3 tools/erp_compliance.py --all` to audit every flow against the first five. It is the
 retrofit tool as well as the pre-publish gate: point it at an existing flow and it names what is
 missing and where it belongs.
 
