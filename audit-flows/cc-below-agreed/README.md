@@ -18,11 +18,32 @@
 > the one path in that node that produced a false clearance. Deploy it to WF-B
 > (`2LaIbHqQ1A2sEBKm`) the same way and diff to confirm.
 >
+> **Third and fourth, added 2026-08-20 — the ERP circuit breaker** (`ERP-LOAD-POLICY.md` §5):
+>
+> | file | flow | what changed |
+> |---|---|---|
+> | `wf-e/nodes/read_chunk.js` | WF-E `NDk03cYGF4XSXsk5` | stamps `erp_t0`, declares its gate and lease are held by WF-A |
+> | `wf-e/nodes/project_plan.js` | WF-E | breaker block — a trip here stops the chunk's replacement phase |
+> | `wf-e/nodes/project_replacements.js` | WF-E | breaker block over the whole chunk |
+> | `wf-b/nodes/select_candidates.js` | WF-B `2LaIbHqQ1A2sEBKm` | stamps `erp_t0`, same declarations |
+> | `wf-b/nodes/resolve_quoted_amounts.js` | WF-B | breaker block over both message reads together |
+> | `wf-e/wfa/chunk_candidates.js` | WF-A `uJ8UVNKdN2s5PHHA` | canary first chunk (50) |
+>
+> These were **not** hand-transmitted: the bodies run to ~30 KB and carry backslash escapes,
+> which is exactly the material that gets corrupted in transit. Paste them from the repo
+> through the n8n UI and diff, as above. Nothing can run until the ERP accounts are
+> reactivated anyway, so nothing is lost by waiting for a channel that cannot damage them.
+>
 > Not urgent in itself — the reference sits inside a `try/catch` so it cannot crash, and
 > `Join Scored` throws hard before the empty-cases path can be reached. It is listed here
 > only because **repo and deployment must not silently drift**, which is the trap that
 > produced the bug in the first place. Every other node in this repo matches its deployed
 > version as of 2026-08-19.
+>
+> After deploying, prove it rather than assume it:
+> `get_workflow_details` each flow into `audit-flows/exports/`, then
+> `python3 audit-flows/tools/erp_compliance.py --all` — which re-generates the breaker block
+> and compares it byte-for-byte against what is live.
 
 Spec: Notion "CC Monthly Payments Below Agreed Amount" v1.5 · flow `uJ8UVNKdN2s5PHHA` (DRAFT, never published)
 

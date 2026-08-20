@@ -14,6 +14,13 @@ published/active. Base URL `https://sami-team.app.n8n.cloud/workflow/<id>`.
 | 7 | **WF-B** · 2-Verify | `2LaIbHqQ1A2sEBKm` | 22 | verifies candidates against message evidence; self-calls per batch |
 | 8 | **WF-C** · 3-Deliver | `yEF4BHYDZAnhBnYg` | 4 (3 + 1 sticky) | one Run Summary row |
 
+### Shared, not owned by this check
+
+| flow | id | role |
+|---|---|---|
+| **ERP Lease** · one audit at a time | `9gVijqvtLVEhQZXz` | ERP-LOAD-POLICY.md §4. Every audit acquires before its first ERP call and releases when the run ends. Published 2026-08-20; **not yet wired into WF-A**. See `audit-flows/erp-lease/README.md`. |
+| **ERP Breaker Sandbox (no ERP)** | `GgqCYYnmRcC6cUet` | A test rig, not a step in anything. Answers the one question no offline suite can: whether n8n static data exists in the Code sandbox and survives between executions. Left unpublished so its schedule cannot fire. |
+
 Everything heavy runs in a sub-execution because n8n retains every node's output for the life
 of an execution — ending a sub-execution is the only thing that frees it.
 
