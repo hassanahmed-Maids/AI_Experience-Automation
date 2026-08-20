@@ -148,6 +148,31 @@ governs rate. That sets the queue's scale: a holder keeps it for **45–90 minut
 that runs long must pass its own `max_wait_ms` (MV Monthly Payment passes 45 min) or its queued
 successors time out every time and the queue never once succeeds.
 
+### The 2400-second ceiling, measured — and what it means for waiting
+
+**This instance cancels any execution 2400 seconds (40 minutes) after it starts.** Measured
+2026-08-20: execution `95598` queued at 12:28:30 with no wait limit, polled happily past the
+13:08:30 ceiling while parked, and was **canceled at 13:09:43 — the first moment it woke up**.
+
+Two facts follow, and both are load-bearing:
+
+- **Offloaded waits still count.** A poll longer than 65 s parks the execution and releases its
+  worker (confirmed: `status: waiting` with a `waitTill`), so waiting is cheap in *capacity* —
+  but the timeout clock is wall-clock from start and is enforced on resume. Parking buys you
+  nothing against the ceiling.
+- **The kill is silent.** Status is `canceled`, not `error`. The lease never threw its own
+  message; the run simply vanished. **An unbounded wait therefore produces the least legible
+  failure available** — which is why every caller sets a budget *below* the ceiling, so it fails
+  with an explanation instead of disappearing.
+
+So a blocking caller's arithmetic is fixed: **wait budget = 2400 s − the run's own duration −
+margin.** MV Monthly Payment allows 10 minutes (its execution spans a whole slice); CC Price
+allows 25 (it sweeps, hands off fire-and-forget, and ends).
+
+**Waiting indefinitely needs the caller to stop blocking** — try, and on `queue` re-invoke itself
+with the same payload and exit, so no single execution ever waits long. `CC Below Agreed · 2-Verify`
+already self-calls per batch, so the pattern is proven here. Not built yet.
+
 **The wait is capped (default 20 min, `max_wait_ms`)**, because an ERP session lasts about four
 hours and every token dies at 22:00 UTC while an audit runs 45–90 minutes: a run that queues for
 hours reaches the front with a token too short to finish. Queueing turns *fails immediately* into
