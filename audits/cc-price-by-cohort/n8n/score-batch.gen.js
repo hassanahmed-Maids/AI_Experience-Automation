@@ -318,6 +318,28 @@ function resolveNationality(c) {
   return { value: '', source: null };
 }
 
+// The living axis is the OTHER half of the cohort key, and it is the half with
+// no independent check. For a contract with a maid it comes from the population's
+// maidLiveOut; for a MAID-LESS contract that field is blank too, so the glue falls
+// back to details.liveOut - the least-verified input in the whole check, now
+// deciding the cohort for exactly the 231 contracts the payment-term fallback
+// just made scoreable.
+//
+// getActiveCptInfo's `type` is a second, independent read of the same fact.
+// Sampled across 15 contracts on 2026-08-19 it agreed with maidLiveOut 15/15
+// (5 live-out reporting "Live Out", 10 live-in reporting "Long Term").
+//
+// Only those two values are definitive. Weekly plans, one-month agreements and
+// anything unrecognised return null and produce no cross-check, because guessing
+// the axis is worse than not checking it: live-in is the cheaper cohort, so a
+// wrong guess clears real under-pricing.
+function cptLiveOut(cptType) {
+  const v = String(cptType === null || cptType === undefined ? '' : cptType).trim().toLowerCase();
+  if (v === 'live out' || v === 'live_out') return true;
+  if (v === 'long term' || v === 'long_term') return false;
+  return null;
+}
+
 function outOfScope(out, reason, detail) {
   out.scope = 'out_of_scope';
   out.scope_reason = reason;
@@ -463,6 +485,20 @@ function scoreMonth(c, card, opts) {
   });
   if (switchedInMonth) {
     out.flags.push('living_switch_in_month');
+    out.needs_human = true;
+  }
+
+  // Compare the two CURRENT readings of the living axis - the contract's own
+  // value and the active term's - never the historical one, so a legitimate
+  // switch after the audit month cannot manufacture a conflict.
+  const cptLo = cptLiveOut(c.cpt_type);
+  out.cpt_live_out = cptLo;
+  if (cptLo !== null && (c.live_out === true || c.live_out === false) && cptLo !== c.live_out) {
+    // Do not pick a side. The two sources disagree about which half of the price
+    // card applies, so the cohort - and therefore the expected price - is not
+    // established. needs_human is one-way, so this pulls a green or an above_card
+    // back to pending through the machinery already in place.
+    out.flags.push('living_axis_conflict');
     out.needs_human = true;
   }
 
@@ -679,7 +715,7 @@ function scoreMonth(c, card, opts) {
 if (typeof $input === 'undefined') {
   // Required as a module by test-node-parity.js, which proves the SHIPPED body
   // still agrees with scorer-month.js on every harness case.
-  module.exports = { scoreMonth, resolveMonthlyRate, parseEntry, monthBounds, lastCompletedMonth, liveOutAt, resolveNationality };
+  module.exports = { scoreMonth, resolveMonthlyRate, parseEntry, monthBounds, lastCompletedMonth, liveOutAt, resolveNationality, cptLiveOut };
 } else {
   const baton = $("Receive Baton").first().json;
   const params = baton.params;
@@ -742,6 +778,8 @@ if (typeof $input === 'undefined') {
       retired_tests: "pro_rated",
       cpt_nationality: "",
       cpt_status: 0,
+      cpt_type: "",
+      living_axis_conflict: false,
       card_price_for_term_nationality: 0,
       flags: "",
       needs_human: false,
@@ -784,6 +822,7 @@ if (typeof $input === 'undefined') {
       maid_nationality: str(row.nationality_inline),
       cpt_nationality: cptOk ? str(j.cpt_nationality) : "",
       cpt_surface: cptOk ? "available" : "unavailable",
+      cpt_type: cptOk ? str(j.cpt_type) : "",
       live_out: coerceBool(pick(row.live_out_inline, d.liveOut)),
       contract_start_date: pick(row.start_inline, d.contractStartDate),
       date_of_termination: d.dateOfTermination || null,
@@ -839,6 +878,8 @@ if (typeof $input === 'undefined') {
       nationality_source: str(r.nationality_source),
       cpt_nationality: str(r.cpt_nationality),
       cpt_status: j.cpt_status === undefined || j.cpt_status === null ? 0 : Number(j.cpt_status),
+      cpt_type: str(c.cpt_type),
+      living_axis_conflict: flags.indexOf("living_axis_conflict") !== -1,
       card_price_for_term_nationality: r.card_price_for_term_nationality === null || r.card_price_for_term_nationality === undefined ? 0 : r.card_price_for_term_nationality,
       payment_term_nationality_mismatch: flags.indexOf("nationality_upgraded_since_pricing") !== -1,
       payment_term_surface_unavailable: flags.indexOf("upgrading_nationality_surface_unavailable") !== -1,

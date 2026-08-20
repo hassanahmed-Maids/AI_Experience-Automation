@@ -14,7 +14,7 @@ const TARGET = process.env.SCORER || 'sources';
 const M = TARGET === 'sources'
   ? Object.assign({}, require('./scorer-month'), require('./paymentsinfo'))
   : require(TARGET);
-const { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, parseEntry, resolveMonthlyRate, resolveNationality } = M;
+const { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, parseEntry, resolveMonthlyRate, resolveNationality, cptLiveOut } = M;
 const card = require('./card.json');
 
 let pass = 0, fail = 0;
@@ -432,6 +432,54 @@ check('upgrade: above-card wins over an upgrade excuse',
     payments_info: ['Service Fees: 6000 + 300 VAT, on Jun 10 2020 (Monthly)'] }),
     card, { audit_month: '2026-07' }).state,
   'above_card');
+
+// === living-axis cross-check ================================================
+//
+// The cohort has two halves and only the nationality half had a second opinion.
+// getActiveCptInfo's `type` supplies one for the living half.
+
+check('axis: only "Live Out" and "Long Term" are definitive',
+  ['Live Out', 'LIVE_OUT', 'Long Term', 'Weekly', 'OneMonthAgreement', '', null].map(cptLiveOut),
+  [true, true, false, null, null, null, null]);
+
+check('axis: agreement produces no flag',
+  scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Filipina', cpt_type: 'Long Term',
+    payments_info: PAYS_FIL }), card, { audit_month: '2026-07' }).flags.indexOf('living_axis_conflict'),
+  -1);
+
+// The case that prompted this: a maid-less contract whose living axis came from
+// details.liveOut, priced as live-in, while the term says live-out.
+check('axis: a disagreement pulls a green back to a human',
+  view(scoreMonth(natCase({ maid_nationality: '', cpt_nationality: 'Filipina', cpt_type: 'Live Out',
+    payments_info: PAYS_FIL }), card, { audit_month: '2026-07' }),
+    ['state', 'reason_code', 'needs_human']),
+  { state: 'pending', reason_code: 'cleared_on_a_test_but_gate_requires_review', needs_human: true });
+
+check('axis: the reviewer is told which gate fired',
+  scoreMonth(natCase({ maid_nationality: '', cpt_nationality: 'Filipina', cpt_type: 'Live Out',
+    payments_info: PAYS_FIL }), card, { audit_month: '2026-07' }).flags.indexOf('living_axis_conflict') !== -1,
+  true);
+
+// An above-card contract is a cleared outcome too, so it must not escape either.
+check('axis: a disagreement pulls an above_card back to a human',
+  scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Filipina', cpt_type: 'Live Out',
+    payments_info: ['Service Fees: 6000 + 300 VAT, on Jun 10 2020 (Monthly)'] }),
+    card, { audit_month: '2026-07' }).reason_code,
+  'above_card_but_gate_requires_review');
+
+check('axis: an unrecognised term type produces no cross-check, never a guess',
+  scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Filipina', cpt_type: 'Weekly',
+    payments_info: PAYS_FIL }), card, { audit_month: '2026-07' }).flags.indexOf('living_axis_conflict'),
+  -1);
+
+// A conflict compares two CURRENT readings, so a live-out contract whose logs put
+// it live-in during the audit month is NOT a conflict - that is just history.
+check('axis: history is not a conflict - both sides are read as of now',
+  scoreMonth(natCase({ maid_nationality: 'Filipina', cpt_nationality: 'Filipina', cpt_type: 'Live Out',
+    live_out: true, payments_info: ['Service Fees: 5440 + 272 VAT, on Jun 10 2020 (Monthly)'],
+    live_in_out_logs: [{ date: '2026-08-05', oldValue: 'IN', newValue: 'OUT' }] }),
+    card, { audit_month: '2026-07' }).flags.indexOf('living_axis_conflict'),
+  -1);
 
 // ---------------------------------------------------------------------------
 console.log(failures.length ? failures.join('\n\n') + '\n' : '');

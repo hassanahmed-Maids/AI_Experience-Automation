@@ -125,6 +125,28 @@ function resolveNationality(c) {
   return { value: '', source: null };
 }
 
+// The living axis is the OTHER half of the cohort key, and it is the half with
+// no independent check. For a contract with a maid it comes from the population's
+// maidLiveOut; for a MAID-LESS contract that field is blank too, so the glue falls
+// back to details.liveOut - the least-verified input in the whole check, now
+// deciding the cohort for exactly the 231 contracts the payment-term fallback
+// just made scoreable.
+//
+// getActiveCptInfo's `type` is a second, independent read of the same fact.
+// Sampled across 15 contracts on 2026-08-19 it agreed with maidLiveOut 15/15
+// (5 live-out reporting "Live Out", 10 live-in reporting "Long Term").
+//
+// Only those two values are definitive. Weekly plans, one-month agreements and
+// anything unrecognised return null and produce no cross-check, because guessing
+// the axis is worse than not checking it: live-in is the cheaper cohort, so a
+// wrong guess clears real under-pricing.
+function cptLiveOut(cptType) {
+  const v = String(cptType === null || cptType === undefined ? '' : cptType).trim().toLowerCase();
+  if (v === 'live out' || v === 'live_out') return true;
+  if (v === 'long term' || v === 'long_term') return false;
+  return null;
+}
+
 function outOfScope(out, reason, detail) {
   out.scope = 'out_of_scope';
   out.scope_reason = reason;
@@ -270,6 +292,20 @@ function scoreMonth(c, card, opts) {
   });
   if (switchedInMonth) {
     out.flags.push('living_switch_in_month');
+    out.needs_human = true;
+  }
+
+  // Compare the two CURRENT readings of the living axis - the contract's own
+  // value and the active term's - never the historical one, so a legitimate
+  // switch after the audit month cannot manufacture a conflict.
+  const cptLo = cptLiveOut(c.cpt_type);
+  out.cpt_live_out = cptLo;
+  if (cptLo !== null && (c.live_out === true || c.live_out === false) && cptLo !== c.live_out) {
+    // Do not pick a side. The two sources disagree about which half of the price
+    // card applies, so the cohort - and therefore the expected price - is not
+    // established. needs_human is one-way, so this pulls a green or an above_card
+    // back to pending through the machinery already in place.
+    out.flags.push('living_axis_conflict');
     out.needs_human = true;
   }
 
@@ -478,4 +514,4 @@ function scoreMonth(c, card, opts) {
   return out;
 }
 
-module.exports = { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, cardChangedMidMonth, resolveNationality, TOLERANCE };
+module.exports = { scoreMonth, monthBounds, lastCompletedMonth, liveOutAt, cardChangedMidMonth, resolveNationality, cptLiveOut, TOLERANCE };

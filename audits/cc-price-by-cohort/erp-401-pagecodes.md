@@ -26,12 +26,24 @@ the same token seconds either side of the three failures.
 Thirty minutes later, at 18:39 Dubai, **every** route returned the identical
 `UNAUTHORIZED <LOGOUT>` body — `getActiveCptInfo`, the `getactivecccontracts`
 dynamic API, even `/lowcode/c2d/sessions`. The JWT's `exp` was still six hours
-away. The ERP had invalidated the session server-side.
+away, so I recorded it as ERP invalidating the session.
 
-So the same string covers two different conditions:
+**That was wrong, and Hassan supplied the actual cause: both his and Abdullah's
+ERP accounts had been deactivated.** Shortly afterwards the same call started
+answering HTTP 500 `Token not valid, {Token is expired}` instead — a third
+message for one underlying condition.
 
-1. **the session is gone** (everything 401s), and
-2. **this (user, pagecode, API) tuple is denied** (that route 401s, others 200).
+So the same `UNAUTHORIZED <LOGOUT>` string covers at least three conditions:
+
+1. **this (user, pagecode, API) tuple is denied** (that route 401s, others 200),
+2. **the session is gone**, and
+3. **the account itself is deactivated** (everything 401s).
+
+The operationally useful split is only two-way, and a control probe gives it to
+you: **route-specific** (control answers 200 → the denial is real, go ask for the
+grant) versus **global** (control also fails → it is a credential problem, and
+you have learned nothing about the route). Distinguishing a dead session from a
+dead account is not something the API will tell you — ask the account owner.
 
 LCP predicted exactly this: `BaseController.unauthorizedReponse()` is a generic
 hard-deny, and the branch conditions that would separate the cases live in the
@@ -49,13 +61,16 @@ Distinct from the three already recorded, and added to the skill:
 | edge 403, HTML, `server: awselb/2.0` | path does not exist | fix the URL (usually a missing module prefix) |
 | 401 + `developermessage: API_NOT_FOUND_FOR_PAGE` | pagecode not registered against this API | register the API on the page |
 | 401 + `INSUFFICIENT_PERMISSIONS` | API mapped, grant missing | grant the permission |
-| 401 + `UNAUTHORIZED <LOGOUT>` | **either** the session is dead **or** this (user, pagecode, API) tuple is denied | control-probe first; if the control also fails, get a fresh token, then re-test |
+| 401 + `UNAUTHORIZED <LOGOUT>` | **ambiguous** — route denied, session dead, **or** account deactivated | control-probe first; if the control also fails it is a credential problem, not a route problem |
+| 500 + `Token not valid, {Token is expired}` | same credential problem, later in its lifecycle | new credential required |
 
-## Sessions die before the JWT expires
+## Credentials die before the JWT expires
 
 Worth its own line, because it changes how a long run must be read. The 18:36
-smoke completed on this token; by 18:39 the session was gone, with `exp` at
-22:00. **`exp` is not a liveness guarantee.**
+smoke completed on this token; by 18:39 every route was refusing it, with `exp`
+at 22:00. **`exp` is not a liveness guarantee** — it says when the token stops
+being valid at the latest, not that it is valid now. Here the cause was account
+deactivation, but a run cannot tell the difference and must not try.
 
 The flow degrades safely: the HTTP nodes use full-response mode with
 `onError: continueRegularOutput`, so a mid-run 401 records a non-200 status and

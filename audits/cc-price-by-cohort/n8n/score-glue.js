@@ -6,7 +6,7 @@
 if (typeof $input === 'undefined') {
   // Required as a module by test-node-parity.js, which proves the SHIPPED body
   // still agrees with scorer-month.js on every harness case.
-  module.exports = { scoreMonth, resolveMonthlyRate, parseEntry, monthBounds, lastCompletedMonth, liveOutAt, resolveNationality };
+  module.exports = { scoreMonth, resolveMonthlyRate, parseEntry, monthBounds, lastCompletedMonth, liveOutAt, resolveNationality, cptLiveOut };
 } else {
   const baton = $("Receive Baton").first().json;
   const params = baton.params;
@@ -69,6 +69,8 @@ if (typeof $input === 'undefined') {
       retired_tests: "pro_rated",
       cpt_nationality: "",
       cpt_status: 0,
+      cpt_type: "",
+      living_axis_conflict: false,
       card_price_for_term_nationality: 0,
       flags: "",
       needs_human: false,
@@ -111,6 +113,7 @@ if (typeof $input === 'undefined') {
       maid_nationality: str(row.nationality_inline),
       cpt_nationality: cptOk ? str(j.cpt_nationality) : "",
       cpt_surface: cptOk ? "available" : "unavailable",
+      cpt_type: cptOk ? str(j.cpt_type) : "",
       live_out: coerceBool(pick(row.live_out_inline, d.liveOut)),
       contract_start_date: pick(row.start_inline, d.contractStartDate),
       date_of_termination: d.dateOfTermination || null,
@@ -166,6 +169,8 @@ if (typeof $input === 'undefined') {
       nationality_source: str(r.nationality_source),
       cpt_nationality: str(r.cpt_nationality),
       cpt_status: j.cpt_status === undefined || j.cpt_status === null ? 0 : Number(j.cpt_status),
+      cpt_type: str(c.cpt_type),
+      living_axis_conflict: flags.indexOf("living_axis_conflict") !== -1,
       card_price_for_term_nationality: r.card_price_for_term_nationality === null || r.card_price_for_term_nationality === undefined ? 0 : r.card_price_for_term_nationality,
       payment_term_nationality_mismatch: flags.indexOf("nationality_upgraded_since_pricing") !== -1,
       payment_term_surface_unavailable: flags.indexOf("upgrading_nationality_surface_unavailable") !== -1,
