@@ -105,6 +105,18 @@ It is a **cooperative** lease, not a mutex: nothing physically stops a flow that
 What it stops is two flows that both use it colliding by accident, which is the failure that
 actually happened.
 
+**Acquire is not atomic, and is checked after the fact.** Read, decide and write are three
+separate nodes, so two audits starting in the same instant could both see `free`, both write, and
+both proceed. The Data Table has no compare-and-swap, so the lease instead writes, settles
+1500 ms, **reads the row back, and refuses if it does not name this run** — exactly one winner,
+because the row holds exactly one `holder_run_id`. The loser holds nothing and must not release
+anything; it cannot damage the winner, since a release from a non-holder is already a no-op.
+
+This narrows the race rather than closing it. The honest guarantee is **two audits starting more
+than about a second apart cannot both proceed** — which covers two people starting runs minutes
+apart, and does *not* cover simultaneous programmatic fan-out. If audits are ever fired by a
+scheduler, revisit this.
+
 **The release path is the one that matters.** Releasing a lease you do not hold is silent — the
 other audit keeps running, the lease reads free, and the next audit starts alongside it. So a
 release only ever frees a lease this `run_id` actually holds; anything else is a no-op that names
@@ -113,8 +125,10 @@ possible way: it printed the correct refusal and wrote this run's id into `holde
 underneath it. The offline suite caught it before it ran.
 
 Verified live, against the real table: acquire (95315), refuse while held (95318), non-holder
-release is a no-op with the row unchanged (95320), holder release frees it (95321). Offline:
-18 assertions.
+release is a no-op with the row unchanged (95320), holder release frees it (95321); re-verified
+through the read-back at 95373/95374/95375. Offline: **29 assertions, 7/7 mutations of the
+read-back caught.** The lost-race branch is offline-only — exercising it live needs the row to
+change between the write and the read-back, which no single manual run can produce.
 
 **Not yet wired into any audit.** Adding acquire-before-first-call and release-on-both-rails to
 the 67-node WF-A needs `tools/verify_order.py` re-run (position is behaviour under
@@ -205,7 +219,7 @@ replacement phase fires, scattered 502s trip on rate.
 | §1 pacing ceiling | **enforced** — 5 violations found and fixed across WF-E, WF-B, WF-Pop |
 | §2 declared cost per entity | **done** for cc-below-agreed (`ERP_CALLS_PER_ENTITY = 2`) |
 | §3 pre-flight budget gate | **live in WF-A** (`Chunk Candidates`), 13 assertions, 6/6 mutations caught |
-| §4 one-audit-at-a-time lease | **built + published + proven live** (`erp-lease/`, 18 assertions, 4 paths) — *not yet wired into a flow* |
+| §4 one-audit-at-a-time lease | **built + published + proven live**, with write-read-verify (`erp-lease/`, 29 assertions, 7/7 mutations) — *not yet wired into a flow* |
 | §5 circuit breaker | **built + tested** (`tools/erp_breaker.js`, 41 + 62 assertions, 8/8 mutations) — *embedded in WF-E in the repo, not yet deployed* |
 | §6 phase 2 ERP Gateway | **not built** |
 

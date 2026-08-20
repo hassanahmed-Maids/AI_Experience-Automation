@@ -13,6 +13,7 @@
 // keeps running, the lease reads free, and the NEXT audit starts alongside it.
 const fs = require('fs'), path = require('path');
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'nodes', 'decide_lease.js'), 'utf8');
+const RESULT = fs.readFileSync(path.join(__dirname, '..', 'nodes', 'return_lease_result.js'), 'utf8');
 
 let pass = 0, fail = 0;
 function ok(cond, label, detail) {
@@ -45,6 +46,21 @@ function run(mode, opts) {
     { all: () => rows, first: () => rows[0] }, $, { log: m => logs.push(m) });
   return { json: (out || [])[0] ? out[0].json : null,
            log: logs.map(x => { try { return JSON.parse(x); } catch (e) { return {}; } }).pop() || {} };
+}
+
+// Runs Return Lease Result against a chosen READ-BACK row, which is the whole point: the node
+// has to behave differently depending on what the store says AFTER the write, not what this run
+// intended to write.
+function verify(mode, decidedJson, readBackRow, runId) {
+  const req = { mode: mode, run_id: runId || 'me', check_id: 'cc-below-agreed', ignore_lease: false };
+  const nodes = { 'Read Lease Request': [{ json: req }], 'Decide Lease': [{ json: decidedJson }] };
+  const $ = (n) => { if (!(n in nodes)) throw new Error('unexpected $(' + n + ')'); return { all: () => nodes[n], first: () => nodes[n][0] }; };
+  const back = readBackRow === null ? [] : [{ json: readBackRow }];
+  const logs = [];
+  const out = new Function('$input', '$', 'console', RESULT)(
+    { all: () => back, first: () => back[0] }, $, { log: m => logs.push(m) });
+  return { json: (out || [])[0] ? out[0].json : null,
+           logs: logs.map(x => { try { return JSON.parse(x); } catch (e) { return {}; } }) };
 }
 
 console.log('--- acquiring ---');
@@ -108,6 +124,75 @@ ok(r.json._action === 'noop', 'releasing when no lease row exists is a no-op');
 console.log('\n--- an unrecognised mode is refused, not guessed ---');
 throwsWith(() => run('maybe', {}), 'mode must be acquire or release',
   'mode must be', 'no default');
+
+console.log('\n--- the read-back: acquire is three nodes, so it is not atomic ---');
+// Get Lease Row -> Decide Lease -> Write Lease. Two audits starting in the same instant can
+// both read "free", both decide acquire, and both write - last write wins and BOTH proceed
+// believing they are alone. There is no compare-and-swap on the Data Table, so the write is
+// checked after the fact instead.
+{
+  const decidedAcquire = { lease_key: 'erp', state: 'held', holder_run_id: 'me',
+    holder_check_id: 'cc-below-agreed', acquired_at_iso: '', acquired_at_ms: Date.now(),
+    _action: 'acquire', _reason: 'lease was free', _write: true };
+
+  const won = verify('acquire', decidedAcquire, row({ state: 'held', holder_run_id: 'me' }), 'me');
+  ok(won.json && won.json.granted === true && won.json.verified === true,
+     'the run whose id is in the row after the settle proceeds');
+  ok(won.json.holder_run_id === 'me',
+     'the CONFIRMED row is reported, not the one we intended to write');
+
+  throwsWith(() => verify('acquire', decidedAcquire, row({ state: 'held', holder_run_id: 'other-run' }), 'me'),
+    'the run that lost the race refuses, instead of two audits both believing they are alone',
+    'LOST THE RACE', 'other-run');
+  throwsWith(() => verify('acquire', decidedAcquire, row({ state: 'held', holder_run_id: 'other-run' }), 'me'),
+    'and it is told not to release what it does not hold',
+    'must not release');
+
+  // Exactly one winner falls out of the store holding exactly one holder_run_id: the two runs
+  // do not have to agree with each other, they only have to agree with the row.
+  const a = () => verify('acquire', decidedAcquire, row({ state: 'held', holder_run_id: 'run-A' }), 'run-A');
+  let bThrew = false;
+  try { verify('acquire', decidedAcquire, row({ state: 'held', holder_run_id: 'run-A' }), 'run-B'); }
+  catch (e) { bThrew = true; }
+  ok(a().json.granted === true && bThrew,
+     'of two runs reading the same row back, exactly one proceeds and one dies');
+
+  throwsWith(() => verify('acquire', decidedAcquire, null, 'me'),
+    'a row that vanished between write and read-back stops the run rather than being guessed at',
+    'read back NOTHING');
+}
+{
+  const decidedRelease = { lease_key: 'erp', state: 'free', holder_run_id: '', holder_check_id: '',
+    acquired_at_iso: '', acquired_at_ms: 0, _action: 'release', _reason: 'released by its holder',
+    _write: true };
+  const freed = verify('release', decidedRelease, row({ state: 'free', holder_run_id: '' }), 'me');
+  ok(freed.json && freed.json.state === 'free' && freed.json.granted === false,
+     'a release that landed reports the lease free');
+
+  throwsWith(() => verify('release', decidedRelease, row({ state: 'held', holder_run_id: 'me' }), 'me'),
+    'a release that did NOT land throws - otherwise the next audit is blocked for three hours by a finished run',
+    'did not land');
+
+  // Someone else acquiring in the settle window is legitimate, not a failure: we released, they
+  // took it. Treating that as an error would make every busy handover look like a defect.
+  const handedOver = verify('release', decidedRelease, row({ state: 'held', holder_run_id: 'next-run' }), 'me');
+  ok(handedOver.json && handedOver.json.holder_run_id === 'next-run',
+     'another run acquiring during the settle window is a handover, not a fault');
+}
+{
+  // The no-op is the branch that already had one silent-steal bug in it. The read-back is a
+  // second, independent chance to catch the same class of defect.
+  const decidedNoop = { lease_key: 'erp', state: 'held', holder_run_id: 'other-run',
+    holder_check_id: 'cc-non-received', acquired_at_iso: '', acquired_at_ms: Date.now() - 60000,
+    _action: 'noop', _reason: 'lease is held by run other-run, not by this run', _write: false };
+  const nooped = verify('release', decidedNoop, row({ state: 'held', holder_run_id: 'other-run' }), 'me');
+  ok(nooped.json && nooped.json.action === 'noop' && nooped.json.holder_run_id === 'other-run',
+     'a no-op release reads back the other run still holding it');
+
+  throwsWith(() => verify('release', decidedNoop, row({ state: 'held', holder_run_id: 'me' }), 'me'),
+    'a no-op that wrote US into the row is caught by the read-back too, not just by Decide Lease',
+    'no-op', 'silently steals');
+}
 
 console.log('\n' + (fail ? 'FAILED ' + fail + ' / ' + (pass + fail) : 'all ' + pass + ' passed'));
 process.exit(fail ? 1 : 0);

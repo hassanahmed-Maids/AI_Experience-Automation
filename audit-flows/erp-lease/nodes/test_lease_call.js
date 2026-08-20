@@ -11,6 +11,10 @@
 //   acquire / the current holder  -> re-acquires (idempotent, for retries)
 //   release / the current holder  -> frees it
 //   release / anyone else         -> no-op, and says whose it is
+//
+// What CANNOT be exercised from here is the lost-race branch: it needs the row to change
+// between Write Lease and Verify Lease Row, which one manual click cannot produce. That
+// branch is pinned offline instead - offline/lease_test.js, 7 of 7 mutations caught.
 const TEST_MODE = 'release';                       // 'acquire' | 'release'
 const TEST_RUN_ID = 'manual-harness-inert';        // matches no real run, so release is a no-op
 const TEST_CHECK_ID = 'manual-harness';

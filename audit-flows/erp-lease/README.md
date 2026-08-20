@@ -31,9 +31,11 @@ ignore_lease: true to override         (optional, default false)
 Returns:
 
 ```
-{ lease, action, granted, state, holder_run_id, holder_check_id,
+{ lease, action, granted, state, holder_run_id, holder_check_id, verified,
   took_over_stale_lease, override_used, reason, run_id, check_id }
 ```
+
+The row reported is the one read **back** after the write, not the one we meant to write.
 
 `action` is one of `acquire` | `release` | `noop`. A refusal is **not** a return value — it
 throws, so the calling run dies at the lease instead of proceeding past it.
@@ -44,6 +46,37 @@ after, and cleaning up after it means a 3-hour hole in the queue.
 
 There is no default `mode`: guessing `acquire` would block the queue, and guessing `release`
 would free a lease held by someone else.
+
+## It is not a mutex, and the read-back is why that matters
+
+`Get Lease Row` → `Decide Lease` → `Write Lease` are three separate nodes, so **acquire is not
+atomic**. Two audits starting within the same instant can both read `free`, both decide to
+acquire, and both write — last write wins, and both proceed believing they are alone. That is
+the exact state the lease exists to prevent, reached through the lease itself. n8n's Data Table
+has no compare-and-swap, so the write cannot be made conditional on the row still reading free.
+
+So the write is checked after the fact: **write, settle 1500 ms, read the row back, and refuse
+if it does not name you.** Exactly one winner falls out of the store holding exactly one
+`holder_run_id` — the two runs never have to agree with each other, only with the row.
+
+The loser holds nothing and is told not to release anything. It could not damage the winner
+anyway: a release from a non-holder is already a no-op by construction, a property built for a
+different reason that pays for itself again here.
+
+**1500 ms is measured, not chosen by taste.** `Get Lease Row` and `Write Lease` each complete in
+~90 ms on this instance, so a competitor's whole read-decide-write span is well under 300 ms. It
+is paid once per run, against an audit that takes 45–90 minutes.
+
+**This narrows the race; it does not close it.** A competitor stalled longer than the settle
+window is still missed. The honest guarantee is: *two audits starting more than about a second
+apart cannot both proceed* — which covers the real failure mode, two people starting runs
+minutes apart. Against simultaneous programmatic fan-out it is not sufficient, so if audits ever
+get fired by a scheduler or a batch trigger, this needs revisiting.
+
+**What not to reach for:** filtering the upsert on `state = 'free'` looks like a conditional
+write, but n8n finds no match when the lease is held and **inserts a second row** instead, after
+which `Get Lease Row` returns whichever comes back first. That turns a small race into a
+nondeterministic one.
 
 ## The three ways a lease goes wrong
 
@@ -72,8 +105,13 @@ the explicit unchanged-row echo exist, and why the downstream upsert being uncon
 
 ## Tests
 
-`node offline/lease_test.js` — **18 assertions, all passing.** Pure functions over the real node
-bodies; no n8n, no network.
+`node offline/lease_test.js` — **29 assertions, all passing; 7 of 7 mutations of the read-back
+caught.** Pure functions over the real node bodies; no n8n, no network.
+
+The **lost-race branch is offline-only, and that is a limitation worth stating**: exercising it
+live needs the row to change between `Write Lease` and `Verify Lease Row`, which no single
+manual click can produce. The offline suite pins it — including that of two runs reading the
+same row back, exactly one proceeds — but no execution id here proves it.
 
 Live, against the real Data Table:
 
@@ -84,7 +122,15 @@ Live, against the real Data Table:
 | 95320 | run B releases A's lease | **no-op** — row written back unchanged, `state: held`, holder still A |
 | 95321 | run A releases its own lease | freed, `state: free`, holder cleared |
 
-Row left `free` after 95321, so the table is in its reset state.
+Re-verified through the read-back after the hardening landed:
+
+| exec | path | result |
+|---|---|---|
+| 95373 | run A acquires | `granted: true`, `verified: true`, settle measured at 1,507 ms |
+| 95374 | run B releases A's lease | no-op, and the read-back still shows A holding it |
+| 95375 | run A releases its own | `state: free`, holder cleared |
+
+Row left `free` after 95375, so the table is in its reset state.
 
 ## Files
 
@@ -92,7 +138,8 @@ Row left `free` after 95321, so the table is in its reset state.
 |---|---|
 | `nodes/read_lease_request.js` | Read Lease Request — validates input, refuses a blank `run_id` |
 | `nodes/decide_lease.js` | Decide Lease — the whole decision, the only file worth reading closely |
-| `nodes/return_lease_result.js` | Return Lease Result — small honest answer for the caller |
+| `nodes/settle.js` | Settle — the 1500 ms pause before the read-back |
+| `nodes/return_lease_result.js` | Return Lease Result — verifies the read-back, then answers the caller |
 | `nodes/test_lease_call.js` | Test Lease Call — manual harness, inert by default |
 | `offline/lease_test.js` | the suite |
 
