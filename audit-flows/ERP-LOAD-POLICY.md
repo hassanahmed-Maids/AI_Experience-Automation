@@ -108,7 +108,24 @@ Per-flow ceilings multiply. VALIDATION §19 records two audits crashing in the s
 within ten minutes — at the old settings that was 60 req/s at ERP.
 
 A flow acquires a **lease** before its first ERP call and releases it when the run ends, however
-it ends. A second audit finding the lease held **refuses to start**.
+it ends. A second audit finding the lease held **takes a ticket and queues**, polling every 60 s
+until it reaches the head of the queue.
+
+**It queues rather than refusing.** Throwing was the first design and it was correct but useless:
+the honest response to "someone else is using ERP" is to wait, not to make a person notice and
+re-fire by hand later. Ordering is by ticket rather than by who polls first — otherwise a run that
+waited twenty minutes can lose to one that arrived a second ago.
+
+**The wait is capped (default 20 min, `max_wait_ms`)**, because an ERP session lasts about four
+hours and every token dies at 22:00 UTC while an audit runs 45–90 minutes: a run that queues for
+hours reaches the front with a token too short to finish. Queueing turns *fails immediately* into
+*fails only when waiting is pointless* — it is **not** never-fails, and treating it as such would
+hide the failure rather than remove it. A queued run also holds an n8n execution slot while it
+waits.
+
+Queueing **cannot be store-and-forward**: the run payload carries the ERP bearer token, and
+persisting that to replay later would be storing a credential. The waiting run stays alive in its
+own execution.
 
 - The lease carries the holder's `run_id` and an acquisition timestamp.
 - A lease older than **3 hours** is treated as stale and may be taken — a crashed run must not
@@ -247,7 +264,7 @@ replacement phase fires, scattered 502s trip on rate.
 | §1 pacing ceiling | **enforced** — 5 violations found and fixed across WF-E, WF-B, WF-Pop |
 | §2 declared cost per entity | **done** for cc-below-agreed (`ERP_CALLS_PER_ENTITY = 2`) |
 | §3 pre-flight budget gate | **live in WF-A** (`Chunk Candidates`), 13 assertions, 6/6 mutations caught |
-| §4 one-audit-at-a-time lease | **built + published + proven live**, with write-read-verify (`erp-lease/`, 29 assertions, 7/7 mutations) — *not yet wired into a flow* |
+| §4 one-audit-at-a-time lease | **built + published + proven live** — FIFO queue, write-read-verify (`erp-lease/`, 42 assertions, 8/8 mutations) — *wired into MV Monthly Payment only* |
 | §5 circuit breaker | **built + tested** (`tools/erp_breaker.js`, 41 + 62 assertions, 8/8 mutations) — *embedded in WF-E in the repo, not yet deployed* |
 | §6 phase 2 ERP Gateway | **not built** |
 

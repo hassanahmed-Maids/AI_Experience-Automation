@@ -34,12 +34,18 @@ function row(o) {
   return Object.assign({ lease_key: 'erp', state: 'held', holder_run_id: 'other-run',
     holder_check_id: 'cc-non-received', acquired_at_iso: '', acquired_at_ms: Date.now() - 60000 }, o);
 }
+function ticket(o) {
+  const now = Date.now();
+  return Object.assign({ ticket_key: 'other-run', check_id: 'cc-non-received', state: 'waiting',
+    enqueued_at_ms: now - 60000, last_seen_ms: now - 5000, enqueued_at_iso: '' }, o);
+}
 function run(mode, opts) {
   const o = opts || {};
   const req = { mode: mode, run_id: o.runId || 'me', check_id: o.checkId || 'cc-below-agreed',
-                ignore_lease: o.ignore === true };
+                ignore_lease: o.ignore === true, max_wait_ms: o.maxWaitMs };
   const rows = o.row === null ? [] : [{ json: o.row || row({}) }];
-  const nodes = { 'Read Lease Request': [{ json: req }] };
+  const nodes = { 'Read Lease Request': [{ json: req }],
+                  'Get Queue': (o.queue || []).map(function (t) { return { json: t }; }) };
   const $ = (n) => { if (!(n in nodes)) throw new Error('unexpected $(' + n + ')'); return { all: () => nodes[n], first: () => nodes[n][0] }; };
   const logs = [];
   const out = new Function('$input', '$', 'console', SRC)(
@@ -73,12 +79,18 @@ r = run('acquire', { row: row({ holder_run_id: 'me' }) });
 ok(r.json._action === 'acquire' && /idempotent/.test(r.json._reason),
    'the SAME run re-acquiring is idempotent, so a retry cannot deadlock against itself');
 
-console.log('\n--- refusing: the reason the lease exists ---');
-throwsWith(() => run('acquire', {}),
-  'a lease held by another audit REFUSES the second one',
-  'ERP LEASE HELD', 'cc-non-received', 'other-run', 'ignore_erp_lease');
-throwsWith(() => run('acquire', {}),
-  'the refusal explains WHY two audits are the problem', '4 req/s', '§4');
+console.log('\n--- queueing: the reason the lease exists ---');
+// A held lease no longer THROWS. Throwing was correct but useless: the honest response to
+// "someone else is using ERP" is to wait, not to make a person re-fire by hand later.
+r = run('acquire', {});
+ok(r.json._action === 'queue' && r.json._proceed === false,
+   'a lease held by another audit QUEUES the second one instead of refusing it', r.json._action);
+ok(r.json._write === false && r.json.holder_run_id === 'other-run',
+   'a queued run does not touch the lease row at all');
+ok(r.json._ticket_state === 'waiting' && r.json._ticket_key === 'me',
+   'a queued run takes a ticket so its place in line is recorded');
+ok(r.json._queue_position === 1,
+   'with no other waiters it is first in line, and will get the lease when the holder releases');
 
 console.log('\n--- a crashed run must not block the queue for ever ---');
 r = run('acquire', { row: row({ acquired_at_ms: Date.now() - 4 * HOUR }) });
@@ -88,8 +100,9 @@ ok(/two audits are now hitting ERP together/.test(r.json._reason),
    'the takeover names its own risk rather than presenting itself as safe');
 // The boundary matters: too eager and a live audit gets trampled, too slow and a crash blocks
 // the queue past the point anyone waits.
-throwsWith(() => run('acquire', { row: row({ acquired_at_ms: Date.now() - 2 * HOUR }) }),
-  'a 2-hour-old lease is NOT yet stale and is still refused', 'ERP LEASE HELD');
+r = run('acquire', { row: row({ acquired_at_ms: Date.now() - 2 * HOUR }) });
+ok(r.json._action === 'queue',
+   'a 2-hour-old lease is NOT yet stale - the second run queues rather than trampling a live audit');
 
 console.log('\n--- the override is allowed, and recorded ---');
 r = run('acquire', { ignore: true });
@@ -124,6 +137,101 @@ ok(r.json._action === 'noop', 'releasing when no lease row exists is a no-op');
 console.log('\n--- an unrecognised mode is refused, not guessed ---');
 throwsWith(() => run('maybe', {}), 'mode must be acquire or release',
   'mode must be', 'no default');
+
+console.log('\n--- the queue is a queue, not a scramble ---');
+// Polling alone is not a queue. Without ordering, whoever polls in the instant after a release
+// wins, so a run that has waited twenty minutes can lose to one that arrived a second ago -
+// repeatedly. These pin the ordering.
+{
+  const now = Date.now();
+  const older = ticket({ ticket_key: 'run-A', enqueued_at_ms: now - 600000, last_seen_ms: now - 1000 });
+
+  // Lease FREE but someone asked first: taking it here is how a queue turns back into a scramble.
+  let q = run('acquire', { row: row({ state: 'free', holder_run_id: '' }), queue: [older],
+                           runId: 'run-B' });
+  ok(q.json._action === 'queue' && q.json._waiters_ahead === 1,
+     'a free lease is NOT taken by a run that is second in line');
+  ok(/asked before this one/.test(q.json._reason) && /run-A/.test(q.json._reason),
+     'and it says who it is waiting behind');
+
+  // The head of the queue takes it. run-A needs its OWN ticket here: a run with no ticket is
+  // arriving for the first time and enqueues at now, so it is legitimately behind anyone already
+  // waiting. Getting that wrong in the fixture is what this comment is for - the first version of
+  // this test gave run-A no ticket and then expected it to be first.
+  q = run('acquire', { row: row({ state: 'free', holder_run_id: '' }),
+                       queue: [ticket({ ticket_key: 'run-A', enqueued_at_ms: now - 600000, last_seen_ms: now - 1000 }),
+                               ticket({ ticket_key: 'run-B', enqueued_at_ms: now - 1000 })],
+                       runId: 'run-A' });
+  ok(q.json._action === 'acquire' && q.json._proceed === true,
+     'the run that asked FIRST gets the free lease');
+  ok(q.json._ticket_state === 'done',
+     'and its ticket is settled in the same write, so no path grants the lease and leaves the ticket waiting');
+}
+{
+  // A ticket that has stopped polling belongs to a run that is gone. Without this, one crashed
+  // waiter blocks every later audit for ever - the queue would develop the exact failure the
+  // lease's own staleness rule exists to prevent.
+  const now = Date.now();
+  const dead = ticket({ ticket_key: 'run-dead', enqueued_at_ms: now - 900000, last_seen_ms: now - 600000 });
+  const q = run('acquire', { row: row({ state: 'free', holder_run_id: '' }), queue: [dead], runId: 'me' });
+  ok(q.json._action === 'acquire',
+     'a waiter that stopped polling is ignored for ordering, so a dead run cannot block the queue');
+}
+{
+  // Re-stamping enqueued_at_ms on every poll would send a waiting run to the back of its own
+  // queue on each tick. That is a starvation bug that only appears under contention - which is
+  // the only time it matters.
+  const now = Date.now();
+  const mineOld = ticket({ ticket_key: 'me', enqueued_at_ms: now - 900000, last_seen_ms: now - 1000 });
+  const rival = ticket({ ticket_key: 'run-Z', enqueued_at_ms: now - 300000, last_seen_ms: now - 1000 });
+  const q = run('acquire', { row: row({ state: 'free', holder_run_id: '' }),
+                             queue: [mineOld, rival], runId: 'me' });
+  ok(q.json._action === 'acquire',
+     'a run keeps its original place across polls rather than going to the back of its own queue');
+  ok(q.json._ticket_enqueued_at_ms === mineOld.enqueued_at_ms,
+     'the ticket carries the time this run FIRST asked, not the time of the latest poll');
+}
+{
+  // Two runs enqueued in the same millisecond must still agree on which is first, or both take
+  // the lease and the queue has produced the collision it exists to prevent.
+  const now = Date.now();
+  // BOTH runs need a ticket at the SAME millisecond, or there is no tie to break. The first
+  // version of this test gave zzz-run no ticket, so it enqueued at `now`, lost on time alone,
+  // and the assertion passed without the tie-break ever running - caught by mutating the
+  // tie-break to a no-op and watching this test stay green.
+  const same = now - 60000;
+  const tieA = ticket({ ticket_key: 'aaa-run', enqueued_at_ms: same, last_seen_ms: now - 1000 });
+  const tieZ = ticket({ ticket_key: 'zzz-run', enqueued_at_ms: same, last_seen_ms: now - 1000 });
+  const qz = run('acquire', { row: row({ state: 'free', holder_run_id: '' }), queue: [tieA, tieZ],
+                              runId: 'zzz-run' });
+  const qa = run('acquire', { row: row({ state: 'free', holder_run_id: '' }), queue: [tieA, tieZ],
+                              runId: 'aaa-run' });
+  ok(qz.json._action === 'queue' && qa.json._action === 'acquire',
+     'an exact tie on enqueue time is broken deterministically - exactly one of the two proceeds');
+}
+{
+  // The override exists to escape a lease that should not be there. Making it wait its turn
+  // behind the queue it is trying to escape would defeat it.
+  const now = Date.now();
+  const ahead = ticket({ ticket_key: 'run-A', enqueued_at_ms: now - 600000, last_seen_ms: now - 1000 });
+  const q = run('acquire', { queue: [ahead], runId: 'me', ignore: true });
+  ok(q.json._action === 'acquire' && /OVERRIDE/.test(q.json._reason),
+     'the override deliberately jumps the queue - that is what it is for');
+}
+
+console.log('\n--- the wait is bounded, and says why ---');
+{
+  const now = Date.now();
+  const stale = ticket({ ticket_key: 'me', enqueued_at_ms: now - 25 * 60000, last_seen_ms: now - 1000 });
+  throwsWith(() => run('acquire', { queue: [stale], runId: 'me' }),
+    'a run that has queued past the limit gives up rather than waiting for ever',
+    'QUEUE TIMED OUT', '22:00 UTC', 'max_wait_ms');
+  // Queueing turns "fails immediately" into "fails only when waiting is pointless". It is NOT
+  // never-fails, and a token that dies at 22:00 UTC is why.
+  const patient = run('acquire', { queue: [stale], runId: 'me', maxWaitMs: 60 * 60000 });
+  ok(patient.json._action === 'queue',
+     'raising max_wait_ms lets a run wait longer when the operator knows it is worth it');
+}
 
 console.log('\n--- the read-back: acquire is three nodes, so it is not atomic ---');
 // Get Lease Row -> Decide Lease -> Write Lease. Two audits starting in the same instant can

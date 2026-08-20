@@ -1,7 +1,8 @@
 # ERP Lease — one audit at a time
 
 **Workflow:** `9gVijqvtLVEhQZXz` · "ERP Lease · one audit at a time" (published 2026-08-20)
-**Data table:** `erp_audit_lease` (`nje7kLNpRssRtzsf`), project `gxKXV4pckO4b4pQM`
+**Data tables:** `erp_audit_lease` (`nje7kLNpRssRtzsf`) and `erp_audit_queue` (`7BmoYNaqNL8lVu2q`),
+project `gxKXV4pckO4b4pQM`
 **Policy:** `../ERP-LOAD-POLICY.md` §4
 
 ## Why this exists
@@ -25,7 +26,8 @@ Call it with the Execute Sub-workflow node.
 mode:         'acquire' | 'release'    (required, no default — see below)
 run_id:       this run's id            (required)
 check_id:     which audit              (required)
-ignore_lease: true to override         (optional, default false)
+ignore_lease: true to override         (optional, default false — jumps the queue)
+max_wait_ms:  how long to queue        (optional, default 20 min)
 ```
 
 Returns:
@@ -37,8 +39,12 @@ Returns:
 
 The row reported is the one read **back** after the write, not the one we meant to write.
 
-`action` is one of `acquire` | `release` | `noop`. A refusal is **not** a return value — it
-throws, so the calling run dies at the lease instead of proceeding past it.
+`action` is one of `acquire` | `release` | `noop`. **A blocked run does not return and does not
+throw — it queues**, polling every 60 seconds until it reaches the head, then returns granted. The
+call is therefore slow rather than fatal, and the caller needs no retry logic of its own.
+
+It throws only when waiting has become pointless: the queue timed out, or the caller asked
+something unanswerable.
 
 **Acquire before the first ERP call. Release when the run ends, however it ends** — success rail
 and error rail both. A release that never fires is what the 3-hour staleness rule cleans up
@@ -46,6 +52,47 @@ after, and cleaning up after it means a 3-hour hole in the queue.
 
 There is no default `mode`: guessing `acquire` would block the queue, and guessing `release`
 would free a lease held by someone else.
+
+## It queues rather than refuses
+
+The first version threw at a held lease. That was correct and useless: the honest response to
+"someone else is using ERP" is to wait, not to make a person notice and re-fire by hand twenty
+minutes later. A blocked run now takes a **ticket** and polls every 60 s until it is at the head.
+
+**A ticket, not just a retry.** Polling alone is not a queue — whoever happens to poll in the
+instant after a release wins, so a run that has waited twenty minutes can lose to one that arrived
+a second ago, repeatedly. The ticket records when each run *first* asked, and the lease is granted
+only to the head of the queue. That is the whole difference between retrying and queueing.
+
+The ticket is refreshed (`last_seen_ms`) on every poll, so a waiter that dies stops being counted
+after three missed polls and cannot block the queue behind it. Its `enqueued_at_ms` is *not*
+refreshed — re-stamping it each poll would send a waiting run to the back of its own queue every
+tick, a starvation bug that only appears under contention.
+
+### The wait is bounded, and this is not "never fails"
+
+Capped at **20 minutes** by default (`max_wait_ms`). Not out of impatience: an ERP session lasts
+about four hours and every token dies at 22:00 UTC, while an audit runs 45–90 minutes. A run that
+queues for hours reaches the front holding a token too short to finish with, and n8n's execution
+timeout caps it independently.
+
+So queueing turns *"fails immediately"* into *"waits, then fails only when waiting is genuinely
+pointless."* That is a real improvement and it is **not** the same as never failing. Building it as
+though it were would hide the failure instead of removing it.
+
+**A queued run holds an n8n execution slot while it waits.** The 60 s poll is deliberately under
+n8n's 65 s offload threshold, so the wait stays in memory and behaves predictably inside a
+sub-workflow — at the cost of occupying a worker. With two or three audits that is the right
+trade; with many it would not be.
+
+**Queueing cannot be store-and-forward**, and that is a hard constraint rather than a design
+preference. A real job queue would record the request and re-fire it later, but the run payload
+carries the ERP bearer token, and persisting that to a table to replay is storing a credential.
+The token travels per run and is never stored — so the waiting run stays alive in its own
+execution, holding its token in memory exactly as it already does.
+
+**The override deliberately jumps the queue.** Its whole purpose is to get past a lease that
+should not be there; making it wait behind the queue it is trying to escape would defeat it.
 
 ## It is not a mutex, and the read-back is why that matters
 
@@ -130,7 +177,16 @@ Re-verified through the read-back after the hardening landed:
 | 95374 | run B releases A's lease | no-op, and the read-back still shows A holding it |
 | 95375 | run A releases its own | `state: free`, holder cleared |
 
-Row left `free` after 95375, so the table is in its reset state.
+And the queue, end to end — the behaviour that matters most:
+
+| exec | path | result |
+|---|---|---|
+| 95530 | A acquires a free lease | granted |
+| 95531 | B acquires while A holds | **queues**, takes a ticket, polls |
+| 95532 | A releases | freed |
+| 95531 | B's next poll, 69 s after it started waiting | **granted** — no human re-fired anything |
+
+Row left `free` after 95533, so both tables are in their reset state.
 
 ## Files
 
@@ -139,6 +195,7 @@ Row left `free` after 95375, so the table is in its reset state.
 | `nodes/read_lease_request.js` | Read Lease Request — validates input, refuses a blank `run_id` |
 | `nodes/decide_lease.js` | Decide Lease — the whole decision, the only file worth reading closely |
 | `nodes/settle.js` | Settle — the 1500 ms pause before the read-back |
+| — | `Get Queue` / `Write Ticket` / `Lease Granted?` / `Wait In Queue` — the FIFO queue (no code) |
 | `nodes/return_lease_result.js` | Return Lease Result — verifies the read-back, then answers the caller |
 | `nodes/test_lease_call.js` | Test Lease Call — manual harness, inert by default |
 | `offline/lease_test.js` | the suite |
