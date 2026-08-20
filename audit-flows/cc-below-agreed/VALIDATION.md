@@ -1368,3 +1368,53 @@ WF-C (one node, `Build Summary`, reads the baton and writes one row) and the liv
 everything above — no execution has ever reached WF-B. The four extracted bodies are now
 versioned, so the next refactor that moves a node will show up in `tools/seam_check.py` instead
 of surviving to a run.
+
+## 26. The Cases rows were being written into the SIBLING check's workbook
+
+Spotted by Hassan on being handed the sheet URLs — "the first one is another flow I think." It
+was.
+
+**What was happening.** `Cases -> Google Sheet` in WF-T appended this check's case rows to
+`12ModCwP5xgXhuEsYvhIfI5cSUePH4jrDhlT-pW0-DLw`, tab `gid=0`. That workbook is
+**"Client non recieved payment check for - whole flow"**, and `CC Non Received Monthly Payments`
+(`Qq473Ygj543jxPUN`) writes all three of its own tabs into it — Cases at `gid=0`, Run Summary at
+`1545550518`, Verifier Verdicts at `812480897`. So this check's review queue was landing in
+another audit's review queue, on the same tab as its cases.
+
+**It is a regression from the WF-T split, and the version history dates it to 25 minutes.**
+
+| | document | tab | cellFormat |
+|---|---|---|---|
+| WF-A version `f39960b3`, 12:25 | `1oCj…yp0` "CC Below Agreed Amount — run output" | `Cases`, by **name** | `USER_ENTERED` |
+| WF-T after `7d3b8ebc`, 12:50 | `12Mod…DLw` "Client non recieved payment check…" | `gid=0`, by **id** | *(dropped)* |
+
+WF-T was cloned from the CC Non Received golden — the right call, and the rails it inherited are
+why the batching worked — but the clone carried the golden's Sheets target with it. Three things
+changed in one move: the document, the tab-selection mode, and the cell format.
+
+**Why nothing caught it.** Every guard in the chain measures whether the append *succeeded*, not
+where it landed. `Return Batch Result` reconciles `rows_appended` against the batch's case count
+and `Join Scored` repeats it run-level — and both passed, because the write genuinely worked. A
+misfiled write is indistinguishable from a correct one to any check that counts rows. This is the
+same shape as the other defects this week: not a crash, not a wrong number, but a correct-looking
+operation pointed at the wrong thing.
+
+**Blast radius.** Execution 94122 put **4 rows** into the sibling's Cases tab (run_id
+`claude-cap-20260819T135328Z`). An uncapped run would have put roughly **5,600**. Those 4 rows
+should be deleted from `12Mod…`, not from this check's workbook.
+
+**Fixed and published** (WF-T `e49dc7fd`): document, by-name tab selection and `USER_ENTERED` all
+restored to the pre-split values, credential `Hassan Maids Account` intact. This one WAS deployed,
+unlike the two pending node-body changes, because it is a small parameter change whose correct
+value is evidenced by the pre-split version rather than reasoned out — and because leaving it
+meant continuing to write into another team's file.
+
+**One thing still unverified.** The pre-split config was never exercised either: the flow has
+never completed a sheet write to `1oCj…`, so nobody has confirmed a tab literally named `Cases`
+exists in that workbook. Selecting by name fails loudly if it does not, which is the right
+failure — but it should be confirmed by eye before the next run rather than discovered by it.
+
+**Worth generalising.** When a flow is cloned from a golden, the rails are the point and the
+*targets* are the hazard: sheet ids, tab ids, callback URLs, credential bindings. `tools/seam_check.py`
+does not look at these. A cheap addition would be to assert that every Sheets node in a check
+points at that check's own document id.
