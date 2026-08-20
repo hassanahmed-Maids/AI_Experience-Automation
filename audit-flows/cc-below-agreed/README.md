@@ -12,6 +12,12 @@
 > WF-A. Verify by diffing the deployed `jsCode` against `nodes/Build_Runs_Log.js`; they
 > must be byte-identical.
 >
+> **Second pending change, same rule:** `wf-b/nodes/merge_agent_verdicts.js` now fails CLOSED
+> when the model omits `evidence_class`. Before, the cap read `evidenceClass && evidenceClass
+> !== 'JUSTIFIED'`, so an absent class was falsy and `Agent Justified` cleared the candidate —
+> the one path in that node that produced a false clearance. Deploy it to WF-B
+> (`2LaIbHqQ1A2sEBKm`) the same way and diff to confirm.
+>
 > Not urgent in itself — the reference sits inside a `try/catch` so it cannot crash, and
 > `Join Scored` throws hard before the empty-cases path can be reached. It is listed here
 > only because **repo and deployment must not silently drift**, which is the trap that

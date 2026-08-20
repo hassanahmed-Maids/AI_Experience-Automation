@@ -1284,3 +1284,87 @@ model → `Merge Agent Verdicts` → `Build Verdict Rows` → `Prepare Handoff`)
 `baton_hops.js` covers the baton arithmetic across hops but not the evidence chain, whose
 riskiest node — `Resolve Quoted Amounts`, which decides Underpaid vs Under-billed — is also the
 one with no repo file until today and no test now. That is the next target.
+
+## 25. The WF-B evidence chain — two findings in the code that decides Underpaid vs Under-billed
+
+`wf-b/offline/evidence_chain.js`, 46 assertions, covers `Resolve Quoted Amounts → Build Evidence
+Bundle → Merge Agent Verdicts → Build Verdict Rows`. None of those four had a repo file before
+today, let alone a test. `baton_hops.js` covers the baton arithmetic across batches; it never
+touched the evidence chain.
+
+This is the code the whole check turns on. Arithmetic yields a CANDIDATE and can never yield a
+finding, because `currentPayment.amountValue` is the contractual rate and is not reliably what
+was billed. Only what we actually *quoted* separates "Underpaid" from "Under-billed", and that
+reading happens here.
+
+### Finding 1 — a missing `evidence_class` cleared the candidate. Fixed.
+
+`Merge Agent Verdicts` carries two caps against false clearance. Cap 1 read:
+
+```js
+if (verdict === 'Agent Justified' && evidenceClass && evidenceClass !== 'JUSTIFIED')
+```
+
+`evidenceClass` comes only from `v.evidence_class`. Omit the field and it is `''` — falsy — so
+the guard is skipped and `Agent Justified` clears the case. Measured on the real body:
+
+| `evidence_class` | verdict before the fix |
+|---|---|
+| `EXPLAINED` | capped to Auditor Review |
+| `AMBIGUOUS` | capped to Auditor Review |
+| `JUSTIFIED` | **Agent Justified** (cleared) |
+| *omitted* | **Agent Justified** (cleared) |
+
+The Verdict Schema marks the field required, so it should not go missing — but this node's own
+comment says its stops are *"enforced in code rather than trusted to the prompt"*, and a guard
+that depends on the parser is trusting the prompt. Now fails closed: the `evidenceClass &&`
+truthiness test is gone, and the capped case records `"(none supplied)"` rather than an empty
+class. **Repo only — see the README banner.**
+
+### Finding 2 — `Agent Justified` is unreachable through the model. NOT fixed, and deliberately.
+
+The cap clears only on `evidence_class === 'JUSTIFIED'`. That value is **not a member of the
+Verdict Schema's enum**, which is `UNDER_BILLED / UNDERPAID / EXPLAINED / AMBIGUOUS / NO QUOTE /
+UNRESOLVED`. Its clearing class is `EXPLAINED`. So every schema-valid `Agent Justified` is
+downgraded, and one of the four verdicts can never fire through the model path.
+
+This is **fail-safe** — it over-reviews and never clears wrongly — so it is not urgent. But it
+means the model can never clear a candidate: every case it justifies still reaches an auditor,
+which is a real cost on a check whose design point is that 983 of 984 candidates are settled
+without the model.
+
+**Not changed here, on purpose.** Making `EXPLAINED` clear would *start* clearing cases that
+today go to a human, on a check whose expensive failure is false clearance. That is a business
+decision for the owner, not a refactor. Both readings are pinned by tests so whichever way it
+goes, the other becomes a visible failure rather than a silent drift.
+
+### What else the suite pins
+
+The 1054346 discriminator end to end: the `monthly_reminder` family resolving 4,715 from
+position `{3}` and the `online_reminder` family resolving 2,100 from position `{1}`, on the same
+contract, kept as separate figures — collapsing them is what makes the two findings
+indistinguishable. Per-family amount index (not a global position). Comma-grouped and
+`AED`-prefixed amounts. An unparseable amount yielding no quote rather than a coerced number.
+Unknown templates counted by name so the 2026-08-14 bake can be refreshed, and never producing
+a quote. Templates with no amount skipped. `sentDate` as the only date source, since
+`creationDate` and `dateOfMessage` are null on every real row. The positional pairing guard.
+Cap 2 — no Finding without a resolved quote — with its counter and case keys. The unreviewed
+fallback failing closed on a missing, errored or invalid model answer. `verifier_down` and
+`pairing_ok` computed against bundles *routed* rather than answered. The agent-review endpoint
+derived from the validated callback URL, throwing rather than guessing. And the separate cursor:
+a deterministic case sitting between two model cases must not consume a model verdict, which
+would shift every later verdict onto the wrong contract with `pairing_ok` still true.
+
+### Proven to bite
+
+Eight mutations of the real node bodies, all caught — including the cursor bug, caught by
+exactly the assertion written for it. Two further attempts were discarded rather than counted:
+one broke the node's syntax and one used a non-existent anchor. A mutation that does not compile
+proves nothing, and counting it would overstate the coverage.
+
+### Still unproven
+
+WF-C (one node, `Build Summary`, reads the baton and writes one row) and the live behaviour of
+everything above — no execution has ever reached WF-B. The four extracted bodies are now
+versioned, so the next refactor that moves a node will show up in `tools/seam_check.py` instead
+of surviving to a run.
