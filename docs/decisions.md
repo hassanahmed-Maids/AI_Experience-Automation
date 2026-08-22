@@ -224,3 +224,43 @@ canonical file that was wrong. **Identical is not correct.**
 (re-generating all embeds is now one command, because "generated, never hand-copied" only holds
 while re-generating is easier than patching), `tools/offline/breaker_test.js`,
 `cc-price/offline/population_guard_test.js`, `compliance/cc-price-by-cohort.md`.
+
+## 2026-08-22 — the CC Below Agreed breaker was never deployed, only committed
+
+**What was found.** Asked to deploy three re-generated breaker embeds, I fetched WF-E and found
+it had **no breaker at all** — and neither did WF-B. The repo had carried the embeds since
+2026-08-20 and the live flows had never received them. The README banner (which I had written
+earlier the same day) described them as "one change behind"; they were an absence, not drift.
+That is corrected in the banner.
+
+**Why the checker never said so.** `erp_compliance.py --all` reads `audit-flows/exports/`, and
+no export of WF-E or WF-B had ever been placed there. A tool that audits a directory reports
+nothing about the flows nobody exported into it, and a green `--all` reads as "everything is
+compliant". Both are now exported, so the next `--all` covers them.
+
+**Six nodes deployed, not three.** The two stamp nodes (`Read Chunk`, `Select Candidates`) are
+not optional extras: the guard reads `erp_t0` off them, and without it the latency detector can
+never fire — a breaker present and able to speak on only two of its three rules. Shipping the
+embeds alone would have been a safety check that looked complete.
+
+**And a third thing, which is the one worth remembering.** WF-B's two message nodes had **no
+`onError` at all**, so an ERP failure killed the execution and `Resolve Quoted Amounts` never
+ran. The breaker would have been installed in a node that provably cannot see a failure. Its own
+body already assumed otherwise — `fetchFailed()`, `failedReads`, `read_failed` on every case only
+mean anything if failed responses arrive as items — so the node's configuration had been
+contradicting its own code since it was written. This is the same shape as Stage 1's
+`Get Population`, found the same day: **a breaker and an error rail want opposite `onError`
+settings, and on any node whose batch the breaker must judge, the breaker wins.**
+
+**Deployment method, since the README warns these bodies get corrupted in transit.** Every node
+was byte-compared against its repo file immediately after deploy. Two whitespace differences
+surfaced that way and were resolved by normalising the repo (one stray blank line before a block,
+one trailing blank line at EOF that no sibling file had) rather than re-pasting 30 KB and risking
+a real error where none existed. All seven backslash escapes in `resolve_quoted_amounts.js`
+survived intact — verified by count and by diff, not by eye.
+
+**Left deliberately undeployed**, because they are behaviour changes beyond the breaker:
+`Build_Runs_Log.js`, `merge_agent_verdicts.js`, and the canary first chunk in WF-A. Also open:
+WF-B holds WF-A's lease and never releases it, and both its hand-offs are fire-and-forget — the
+same defect fixed in CC Price the same day. `erp_compliance.py` warns rather than fails there
+because it cannot see whether the caller waits; WF-A does not.

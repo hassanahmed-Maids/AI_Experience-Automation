@@ -285,6 +285,7 @@ console.log(JSON.stringify({ stage: 'wfe_project_plan', candidates: out.length,
   with_first_month_stub: firstMonthStub,
   dated_monthly_lines: datedMonthlyLines, undated_monthly_lines: undatedMonthlyLines }));
 
+
 // ===================== ERP CIRCUIT BREAKER (ERP-LOAD-POLICY.md §5) =====================
 // GENERATED - do not edit here. Canonical: audit-flows/tools/erp_breaker.js
 // Re-generate with: python3 audit-flows/tools/build_breaker_embed.py --call-site plan

@@ -2,56 +2,43 @@
 
 > ## ⚠ PENDING DEPLOYMENT — do this BEFORE the next run
 >
-> **The three breaker embeds in this check are one change behind the deployed flows.**
-> `wf-e/nodes/project_plan.js`, `wf-e/nodes/project_replacements.js` and
-> `wf-b/nodes/resolve_quoted_amounts.js` were re-generated on 2026-08-22 after a real bug was
-> fixed in the canonical classifier: the bare `502`/`503`/`504` scan ran over the WHOLE response
-> item, so a healthy body whose DATA contained those digits — a contract id of 503, an id of
-> 1502, an amount of 5040 — was counted as a server error. Five such items in a row trip the
-> breaker against a perfectly healthy ERP, and WF-E ships per-contract payloads full of ids.
+> **DEPLOYED 2026-08-22 — the ERP circuit breaker is now live in WF-E and WF-B.** It had never
+> been deployed at all: the repo carried the embeds since 2026-08-20 and the live flows had no
+> breaker in them, so this was an absence rather than drift. Six nodes went out, each verified
+> byte-identical to its repo file after deploy:
 >
-> **To deploy:** `python3 tools/regen_breaker_embeds.py` (already run — the repo files are
-> current), then paste each file into its node and publish. `python3 tools/erp_compliance.py
-> --all` reports the deployed copies as DRIFTED until you do.
->
->
-> `nodes/Build_Runs_Log.js` in this repo is **one change ahead of the deployed WF-A**
-> (`uJ8UVNKdN2s5PHHA`). The node's zero-cases fallback named `$('Compute Case States')`,
-> which moved into WF-T when the tail was batched, so it had been dead since that refactor.
-> The repo version names `$('Join Scored')` instead.
->
-> **To deploy:** paste the repo file into WF-A's `Build Runs Log` node (n8n UI is safest —
-> the body carries regexes whose escaping is easy to corrupt in transit), then publish
-> WF-A. Verify by diffing the deployed `jsCode` against `nodes/Build_Runs_Log.js`; they
-> must be byte-identical.
->
-> **Second pending change, same rule:** `wf-b/nodes/merge_agent_verdicts.js` now fails CLOSED
-> when the model omits `evidence_class`. Before, the cap read `evidenceClass && evidenceClass
-> !== 'JUSTIFIED'`, so an absent class was falsy and `Agent Justified` cleared the candidate —
-> the one path in that node that produced a false clearance. Deploy it to WF-B
-> (`2LaIbHqQ1A2sEBKm`) the same way and diff to confirm.
->
-> **Third and fourth, added 2026-08-20 — the ERP circuit breaker** (`ERP-LOAD-POLICY.md` §5):
->
-> | file | flow | what changed |
+> | node | flow | what it does |
 > |---|---|---|
-> | `wf-e/nodes/read_chunk.js` | WF-E `NDk03cYGF4XSXsk5` | stamps `erp_t0`, declares its gate and lease are held by WF-A |
-> | `wf-e/nodes/project_plan.js` | WF-E | breaker block — a trip here stops the chunk's replacement phase |
-> | `wf-e/nodes/project_replacements.js` | WF-E | breaker block over the whole chunk |
-> | `wf-b/nodes/select_candidates.js` | WF-B `2LaIbHqQ1A2sEBKm` | stamps `erp_t0`, same declarations |
-> | `wf-b/nodes/resolve_quoted_amounts.js` | WF-B | breaker block over both message reads together |
-> | `wf-e/wfa/chunk_candidates.js` | WF-A `uJ8UVNKdN2s5PHHA` | canary first chunk (50) |
+> | `Read Chunk` | WF-E `NDk03cYGF4XSXsk5` | stamps `erp_t0`, declares gate + lease held by WF-A |
+> | `Project Plan` | WF-E | breaker — a trip stops the chunk's replacement phase, 750 calls |
+> | `Project Replacements` | WF-E | breaker over the whole chunk |
+> | `Select Candidates` | WF-B `2LaIbHqQ1A2sEBKm` | stamps `erp_t0`, same declarations |
+> | `Resolve Quoted Amounts` | WF-B | breaker over both message reads together |
+> | `Get Messages (WhatsApp)` / `(SMS)` | WF-B | `onError: continueRegularOutput` + `alwaysOutputData` |
 >
-> These were **not** hand-transmitted: the bodies run to ~30 KB and carry backslash escapes,
-> which is exactly the material that gets corrupted in transit. Paste them from the repo
-> through the n8n UI and diff, as above. Nothing can run until the ERP accounts are
-> reactivated anyway, so nothing is lost by waiting for a channel that cannot damage them.
+> **The stamps are not optional extras.** The guard reads `erp_t0` off the stamp node; without
+> it the latency detector can never fire and every batch reports `baseline_carried: false` for
+> ever — a safety check that looks present and can only speak on two of its three rules.
 >
-> Not urgent in itself — the reference sits inside a `try/catch` so it cannot crash, and
-> `Join Scored` throws hard before the empty-cases path can be reached. It is listed here
-> only because **repo and deployment must not silently drift**, which is the trap that
-> produced the bug in the first place. Every other node in this repo matches its deployed
-> version as of 2026-08-19.
+> **Nor is that last row.** Both message nodes had *no* `onError`, so an ERP failure killed the
+> execution and `Resolve Quoted Amounts` never ran — leaving the breaker blind to exactly the
+> failures it exists to catch. The node body already assumed otherwise (`fetchFailed`,
+> `failedReads`, `read_failed` on every case), so the config contradicted its own code.
+>
+> `python3 tools/erp_compliance.py --all` now reports **PASS** for WF-E and WF-B (WF-B carries
+> one WARN, below).
+>
+> ### Still outstanding
+>
+> | item | flow | why it was not shipped here |
+> |---|---|---|
+> | `nodes/Build_Runs_Log.js` | WF-A | unrelated to the breaker — the zero-cases fallback names a node that moved into WF-T |
+> | `wf-b/nodes/merge_agent_verdicts.js` | WF-B | unrelated — fails CLOSED when the model omits `evidence_class` |
+> | `wf-e/wfa/chunk_candidates.js` | WF-A | the **canary first chunk (50)**. §5's blast-radius control, not the embed: without it the first verdict costs a full 1,200-candidate chunk instead of ~100 calls |
+> | error-path lease release | WF-B | `erp_compliance.py` warns that WF-B is a middle link in a fire-and-forget chain (`Next Batch (self)`, `Finish (WF-C)` both launch without waiting) holding a lease it never releases. If a batch dies, the chain stops and nothing frees the lease. The tool cannot see whether WF-A waits, so it warns rather than fails — but WF-A launches WF-B without waiting, so this is real |
+>
+> The first three are behaviour changes beyond "deploy the breaker" and are left for a
+> deliberate decision. The fourth is the same defect fixed in CC Price on 2026-08-22.
 >
 > After deploying, prove it rather than assume it:
 > `get_workflow_details` each flow into `audit-flows/exports/`, then

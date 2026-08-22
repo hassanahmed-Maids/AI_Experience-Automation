@@ -444,4 +444,3 @@ console.log(JSON.stringify({ stage: 'resolve_quoted_amounts', candidates: out.le
         'refresh from /clientmgmt/clientbroadcast/templates - it is a snapshot, not a live read.' }));
 
 return out;
-
