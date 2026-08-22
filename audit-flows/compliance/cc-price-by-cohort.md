@@ -113,3 +113,43 @@ Stage 3 releases; the checker saw only the acquire. Acting on that finding would
 a release to Stage 1 that frees the lease **while Stage 2 is still calling ERP** — the exact
 collision the lease exists to prevent. Fixed with the `ERP-COMPLIANCE: lease-released-downstream`
 declaration, and the failure message now names it.
+
+## Found live, 2026-08-20: a failed Stage 1 leaves the lease held for three hours
+
+Run `selfreq-test-2` acquired the lease and then died at `Get Population (dynamic API)`
+(HTTP 500, `java.lang.SecurityException: Access denied` — Hassan's account still lacks the
+`getactivecccontracts` grant, re-confirmed). Stage 1 has **no error rail**, so nothing released
+the lease. It stayed held by a run that no longer existed until it was freed by hand two days
+later; without that, every other audit would have queued behind a corpse for the full 3-hour
+staleness window.
+
+**This is not the `lease-released-downstream` exemption doing its job — it is the hole in it.**
+The exemption is correct for the SUCCESS path: Stage 1 hands off to Stage 2 fire-and-forget and
+ends, so releasing in Stage 1 would free the lease while Stage 2 is still calling ERP, and
+Stage 3 releases it instead. But on the ERROR path Stage 2 never launches, so *no* stage
+releases it. The declaration silences the checker on both paths when only one of them is safe.
+
+Two things follow:
+
+- **CC Price Stage 1 needs an error rail that releases the lease** — reachable only when the
+  failure happens *before* Stage 2 is launched. After the handoff, releasing is still wrong.
+  Same for Stage 2: a failure there must release, because Stage 3 will never run.
+- **`erp_compliance.py` should not accept `lease-released-downstream` on its own.** A flow that
+  declares it should also have to show an error-path release, or the declaration is a promise
+  nobody keeps. Right now the checker is green on a flow that strands the lease on every failure.
+
+The stale-takeover guard did eventually clear it — attempt 94 took the lease over at 181 minutes
+with a loud message naming the previous holder — so the queue does not deadlock for ever. That is
+the backstop working, not the design working.
+
+## Confirmed working, same run: the self-re-invoke wait
+
+The same run is the best evidence the `no_wait` rail behaves as designed:
+
+| | |
+|---|---|
+| attempts | **94**, each a separate execution of ~65 s |
+| total wait | **101 minutes** — 2.5x the 2400 s ceiling that used to kill a blocking run silently |
+| ticket | persisted throughout: `waited_ms` measured the RUN (6,065,777 ms), not the execution |
+| position | held at 1 the whole time; never sent to the back of the queue |
+| outcome | granted, then failed on its own merits (the missing grant), not on the lease |
