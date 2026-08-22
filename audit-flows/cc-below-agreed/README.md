@@ -2,6 +2,19 @@
 
 > ## ⚠ PENDING DEPLOYMENT — do this BEFORE the next run
 >
+> **The three breaker embeds in this check are one change behind the deployed flows.**
+> `wf-e/nodes/project_plan.js`, `wf-e/nodes/project_replacements.js` and
+> `wf-b/nodes/resolve_quoted_amounts.js` were re-generated on 2026-08-22 after a real bug was
+> fixed in the canonical classifier: the bare `502`/`503`/`504` scan ran over the WHOLE response
+> item, so a healthy body whose DATA contained those digits — a contract id of 503, an id of
+> 1502, an amount of 5040 — was counted as a server error. Five such items in a row trip the
+> breaker against a perfectly healthy ERP, and WF-E ships per-contract payloads full of ids.
+>
+> **To deploy:** `python3 tools/regen_breaker_embeds.py` (already run — the repo files are
+> current), then paste each file into its node and publish. `python3 tools/erp_compliance.py
+> --all` reports the deployed copies as DRIFTED until you do.
+>
+>
 > `nodes/Build_Runs_Log.js` in this repo is **one change ahead of the deployed WF-A**
 > (`uJ8UVNKdN2s5PHHA`). The node's zero-cases fallback named `$('Compute Case States')`,
 > which moved into WF-T when the tail was batched, so it had been dead since that refactor.

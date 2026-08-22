@@ -82,6 +82,29 @@ function erpBreakerClassify(item) {
 
   function has(s) { return text.indexOf(s) !== -1; }
 
+  // A BARE THREE-DIGIT SCAN MUST NOT BE POINTED AT A SUCCESSFUL BODY, and for a long time it
+  // was. `has('503')` matched anywhere in the item's JSON, so a healthy response classified as
+  // a server error the moment its DATA happened to contain those digits - a contract id of 503,
+  // an id of 1502, or an amount of 5040, which is not hypothetical: 5040 is a real price on the
+  // CC price card. Stage 2 ships per-contract payloads full of ids and amounts, so five
+  // consecutive ordinary contracts could trip the breaker against a perfectly healthy ERP.
+  //
+  // That is the crying-wolf failure this file warns about elsewhere, and the reaction to a
+  // spurious trip is to raise the thresholds until it stops - at which point it detects nothing.
+  //
+  // So the bare digits are scanned ONLY over the error region: what n8n puts under `error`, and
+  // a top-level string `message`. The distinctive PHRASES stay on the full text, because they do
+  // not appear in id data and they are what catches a Spring error body nested under `body` -
+  // the one shape where the status code is not reachable as a number.
+  let errText = '';
+  const errBits = [];
+  if (o.error !== undefined && o.error !== null) errBits.push(o.error);
+  if (typeof o.message === 'string') errBits.push(o.message);
+  try { errText = JSON.stringify(errBits) || ''; } catch (e) { errText = String(errBits); }
+  errText = errText.slice(0, 4000).toLowerCase();
+
+  function hasErr(s) { return errText.indexOf(s) !== -1; }
+
   // AUTH FIRST, and deliberately so. A 401 arriving in an n8n error object often also carries
   // the word "error" and a 500-ish wrapper; classified in the other order, the permanent 401
   // on every replacement call would read as a server error and trip the breaker on every run.
@@ -96,7 +119,8 @@ function erpBreakerClassify(item) {
   }
   if ((code !== null && code >= 500 && code < 600) ||
       has('internal server error') || has('bad gateway') || has('service unavailable') ||
-      has('gateway time-out') || has('gateway timeout') || has('502') || has('503') || has('504')) {
+      has('gateway time-out') || has('gateway timeout') ||
+      hasErr('502') || hasErr('503') || hasErr('504')) {
     return 'server_error';
   }
   // Connection-level failure. This is what an ERP that has stopped answering looks like from

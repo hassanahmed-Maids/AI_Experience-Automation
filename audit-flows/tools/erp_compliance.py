@@ -85,13 +85,38 @@ def code_of(n):
 def all_text(n):
     return json.dumps(n.get('parameters') or {}) + ' ' + str(n.get('notes') or '')
 
-def has_exempt(w, kind):
+def _excerpt(blob, tag):
+    """The declaration itself, one line of it, for printing back at the reader."""
+    i = blob.index(tag)
+    line = blob[i:i + 160]
+    # Split on BOTH a real newline and an escaped one: the tag turns up in raw jsCode (real
+    # newlines) and in the JSON dump of parameters (escaped), and handling only the escaped
+    # form made multi-line declarations bleed into the next comment line when printed.
+    for sep in ('\n', '\\n'):
+        line = line.split(sep)[0]
+    return line.strip()
+
+def has_exempt_node(n, kind):
+    """Is the declaration in THIS node?
+
+    §5's exemption has to be node-scoped and the others do not, which is not a stylistic
+    preference. "This flow's budget gate lives in its caller" is a claim about the flow, so
+    anywhere in the flow is the right place to say it. "This node needs no breaker" is a claim
+    about ONE node, and while it was looked up flow-wide a single declaration silenced the
+    requirement for every projection node in the flow - so removing a real breaker somewhere
+    else would have kept reporting green. That is the shape of blind spot this tool exists to
+    remove, and it was sitting inside the tool.
+    """
     tag = EXEMPT[kind]
+    blob = code_of(n) + ' ' + all_text(n)
+    return _excerpt(blob, tag) if tag in blob else None
+
+def has_exempt(w, kind):
+    """Is the declaration anywhere in the flow? For claims that are ABOUT the whole flow."""
     for n in w.get('nodes') or []:
-        blob = code_of(n) + ' ' + all_text(n)
-        if tag in blob:
-            i = blob.index(tag)
-            return blob[i:i + 160].split('\\n')[0].strip()
+        found = has_exempt_node(n, kind)
+        if found:
+            return found
     return None
 
 def downstream(w, name):
@@ -247,14 +272,18 @@ def audit(w, canon):
             d = node_by_name(w, dname)
             body = code_of(d)
             if BREAKER_BEGIN not in body:
-                ex = has_exempt(w, 'breaker')
+                # NODE-scoped, not flow-scoped. See has_exempt_node.
+                ex = has_exempt_node(d, 'breaker')
                 if ex:
                     notes.append('§5 breaker in "' + dname + '": exempted -> ' + ex)
                 else:
                     fails.append('§5 NO CIRCUIT BREAKER in "' + dname + '", which reads the batch from '
                       '"' + src.get('name') + '". That node already sees every response and is the only '
                       'place that can tell ERP has started failing. Generate it: python3 '
-                      'tools/build_breaker_embed.py --call-site plan')
+                      'tools/build_breaker_embed.py --call-site plan --source-node "<the node that '
+                      'stamps run_id and erp_t0>". If this node genuinely cannot be judged - a batch '
+                      'of ONE response reaches none of the three thresholds - put ' + EXEMPT['breaker'] +
+                      ' IN THIS NODE saying which threshold cannot fire and what stops the run instead.')
                 continue
             try:
                 seg = body[body.index(BREAKER_BEGIN):body.index(BREAKER_END)]

@@ -145,5 +145,39 @@ const empty = B.erpBreakerEvaluate({ phase: 'plan', responses: [] });
 ok('an empty batch does not trip', empty.trip === null);
 eq('...and reports nothing measured', empty.ms_per_call, null);
 
+console.log('\n--- a healthy body is not a server error just because of its digits ---');
+// FOUND 2026-08-22 while embedding the breaker into CC Price Stage 1. The bare code scan ran
+// over the WHOLE item, so any successful response whose DATA contained 502/503/504 anywhere was
+// classified as a server error. Not hypothetical: 5040 is a real price on the CC price card and
+// contains "504", and Stage 2 ships per-contract payloads full of ids and amounts - so five
+// ordinary contracts in a row could trip the breaker against a perfectly healthy ERP. The
+// reaction to a spurious trip is to raise the thresholds until it stops, at which point the
+// breaker detects nothing at all.
+eq('a contract id of 503 is data, not a status code',
+   B.erpBreakerClassify({ body: [{ contractId: 503 }], statusCode: 200 }), 'ok');
+eq('1502 does not match 502 as a substring either',
+   B.erpBreakerClassify({ body: [{ contractId: 1502, clientId: 6318 }], statusCode: 200 }), 'ok');
+eq('nor does AED 5040 - a real price on the card this check audits',
+   B.erpBreakerClassify({ body: { price_inc_vat: 5040 }, statusCode: 200 }), 'ok');
+
+console.log('\n--- ...while every shape a real 5xx arrives in is still caught ---');
+eq('the n8n error object, where the code is only in the message text',
+   B.erpBreakerClassify({ error: { message: '503 - {"status":503,"error":"Service Unavailable"}' } }), 'server_error');
+eq('a bare 502 in the error region',
+   B.erpBreakerClassify({ error: { message: '502 Bad Gateway' } }), 'server_error');
+eq('an explicit numeric status',
+   B.erpBreakerClassify({ statusCode: 500 }), 'server_error');
+eq('a Spring error body nested under body, caught by the PHRASE - which is why the phrase scans still run over the whole item',
+   B.erpBreakerClassify({ body: { status: 503, error: 'Service Unavailable' }, statusCode: 200 }), 'server_error');
+// THESE TWO CARRY NO PHRASE AT ALL, so only the bare-digit scan can classify them. Without
+// them the cases above pass on "bad gateway" and "service unavailable" and the digit scan could
+// be deleted outright with every test still green - which is what mutation testing reported.
+eq('a bare 504 in the error region, with no phrase to fall back on',
+   B.erpBreakerClassify({ error: { message: '504 - {}' } }), 'server_error');
+eq('and the same in a top-level message, which is why message is part of the error region',
+   B.erpBreakerClassify({ message: '503 - upstream closed' }), 'server_error');
+eq('a top-level string message is part of the error region',
+   B.erpBreakerClassify({ message: 'connect ETIMEDOUT 10.0.0.1:443' }), 'timeout');
+
 console.log('\n' + (fail === 0 ? 'all ' + pass + ' passed' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail === 0 ? 0 : 1);

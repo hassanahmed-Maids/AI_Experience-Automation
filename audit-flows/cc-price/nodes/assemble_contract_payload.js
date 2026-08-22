@@ -1,192 +1,52 @@
-// Project Replacements + Return (WF-E) - the COVERAGE side, then collapse the whole chunk
-// to ONE item and let this execution die with the raw bodies.
+// Collects the three per-contract ERP payloads into one object per contract and
+// hands them to Score Batch. It deliberately does NOT decide the nationality any
+// more - that decision moved into the scorer (resolveNationality), where it is
+// covered by assertions instead of living untested in a node body.
 //
-// LIFTED FROM WF-A's Attach Replacements, minus the assembly. That node was also the
-// point where the two enrichment deltas were joined back onto the full case; here the join
-// happens in WF-A's Join Enrichment, because the full cases must not cross this boundary
-// twice. What crosses is the DELTA per candidate - plan + replacements - which is what the
-// scorer actually reads.
-//
-// NO RECORDS FOR A CONTRACT IS NOT "no maid was ever placed". It far more often means the
-// contract simply never had a change - the original maid is still there and coverage starts
-// at the contract's own tag date. So this records an absence of RECORDS, and gate 7 decides
-// what that means.
-//
-// GATE 7 also carries the same-day rule: on 1054346 the outgoing maid left 12:28 and the
-// incoming arrived 13:35 the SAME DAY (26 Jun), so July was fully covered even though the
-// contract's tag date reads 2026-08-03. A same-day swap is not a coverage gap, and the tag
-// date does not answer the coverage question at all.
-const planDeltas = $('Project Plan').all().map(function (i) { return i.json; });
-const responses = $input.all().map(function (i) { return i.json; });
+// The third call, Get Active CPT, is what makes a maid-less contract scoreable.
+// Verified on the live population 2026-08-19: all 292 blank-nationality rows are
+// blank because NO MAID is attached, and the active payment term keeps its own
+// housemaid link, so the term still knows the nationality the contract was
+// priced for. See erp-nationality-fallback.md.
+const out = [];
+const items = $input.all();
+for (let i = 0; i < items.length; i++) {
+  const row = $("Batch of 5").all()[i].json;
+  const det = $("Get Contract Details").all()[i].json;
+  const logs = $("Get LiveInOut Logs").all()[i].json;
+  const cpt = items[i].json;
 
-function s(v) { return v === null || v === undefined ? '' : String(v); }
+  // getActiveCptInfo answers 200 with a PARTIAL object when the contract has
+  // zero or more than one active term - LCP confirmed the controller swallows
+  // the BusinessException, so the cpt keys are simply absent rather than an
+  // error. A 200 with no nationality is therefore "no single active term", not
+  // "no switch", and it must not read as a clean comparison.
+  const body = (cpt && cpt.body) || {};
+  const cptNat = body.nationality === undefined || body.nationality === null ? "" : String(body.nationality).trim();
+  const cptStatus = cpt && cpt.statusCode !== undefined ? cpt.statusCode : null;
 
-if (responses.length !== planDeltas.length) {
-  throw new Error('Project Replacements: ' + responses.length + ' replacement responses for ' +
-    planDeltas.length + ' candidates. Positional pairing is broken, so a case would be given ' +
-    'another contract\'s maid history - refusing to guess which.');
+  out.push({ json: {
+    row: row,
+    details_status: det.statusCode === undefined ? null : det.statusCode,
+    details: det.body === undefined ? null : det.body,
+    logs_status: logs.statusCode === undefined ? null : logs.statusCode,
+    logs: logs.body === undefined ? null : logs.body,
+    cpt_status: cptStatus === 200 && cptNat === "" ? 204 : cptStatus,
+    cpt_nationality: cptNat,
+    // Kept for the reviewer: ERP's own idea of the monthly amount and of the
+    // living axis, both independent of the Google-Sheet card.
+    cpt_type: body.type === undefined ? null : body.type,
+    cpt_name: body.cptName === undefined ? null : body.cptName
+  } });
 }
 
-// ---------------------------------------------------------------------------------------
-// CLASSIFYING A FAILED CALL, because the previous version of this could not.
-//
-// THE BUG THIS REPLACES: the old detector tested String(resp.status) === '401' and searched
-// String(resp.error) for 'unauthor'. n8n's continueRegularOutput does NOT hand back the HTTP
-// body on a failure - it hands back an ERROR OBJECT - so resp.status was undefined and
-// String(resp.error) rendered '[object Object]'. The counter therefore read 0 while all 750
-// replacement calls were failing, and a counter that reports zero for both "the grant landed"
-// and "every call is denied" is worse than no counter at all: it was the number I would have
-// used to say the permission had been granted.
-//
-// THREE OUTCOMES, NOT ONE, and separating them is the point:
-//   permission_denied  401/403 + INSUFFICIENT_PERMISSIONS. The KNOWN steady state of
-//                      /complaints/replacement on this account (probes #6 and #13). Coverage
-//                      is read from what remains; gate 7 decides what an absence means.
-//   token_dead         UNAUTHORIZED <LOGOUT> / UNAUTHENTICATED, or the 498-inside-500 shape.
-//                      A DIFFERENT ANIMAL ENTIRELY: the token died mid-run, so every read
-//                      after it is empty, and empty reads score as "no maid change" and
-//                      "no discount" - which clears cases that should not clear. This one
-//                      throws.
-//   other              anything else. Counted, never interpreted.
-function httpCodeOf(o) {
-  const e = o.error && typeof o.error === 'object' ? o.error : {};
-  const ctx = e.context && typeof e.context === 'object' ? e.context : {};
-  const cands = [o.status, o.statusCode, o.httpCode, o.code,
-                 e.httpCode, e.status, e.statusCode, e.code, ctx.httpCode];
-  for (let i = 0; i < cands.length; i++) {
-    const n = Number(cands[i]);
-    if (Number.isFinite(n) && n >= 100 && n <= 599) return n;
-  }
-  return null;
-}
-// JSON.stringify, not String(): the marker lives in a nested message/description and String()
-// flattens the whole object to '[object Object]', which is exactly how this went wrong before.
-// Bounded, because an n8n error carries a stack.
-function failureText(o) {
-  let t = '';
-  try { t = JSON.stringify(o) || ''; } catch (err) { t = String(o); }
-  return t.slice(0, 4000).toLowerCase();
-}
-function isTokenDead(text) {
-  return text.indexOf('logout') !== -1 || text.indexOf('unauthenticated') !== -1 ||
-         text.indexOf('498') !== -1 || text.indexOf('token has expired') !== -1 ||
-         text.indexOf('jwt expired') !== -1;
-}
-function isPermissionDenied(code, text) {
-  if (text.indexOf('insufficient_permissions') !== -1) return true;
-  if (text.indexOf('securityexception') !== -1 || text.indexOf('access denied') !== -1) return true;
-  // A bare 401/403 with no ERP marker at all: treat as a denial rather than a dead token,
-  // because that is the measured shape of this route, but it is counted as UNMARKED so a
-  // change in ERP's error vocabulary shows up as this number rising instead of as silence.
-  return (code === 401 || code === 403);
-}
-
-let failed = 0, truncated = 0, denied = 0, withRows = 0;
-let tokenDead = 0, otherFail = 0, unmarkedDenial = 0;
-const failureSamples = [];
-const enriched = planDeltas.map(function (d, i) {
-  const resp = responses[i] || {};
-  const rows = Array.isArray(resp.content) ? resp.content : [];
-  const fetchFailed = !Array.isArray(resp.content) &&
-    !!(resp.error || resp.status || resp.message || resp.path);
-  if (fetchFailed) failed++;
-  // The 401 is the KNOWN state of this route on this account, not a surprise, and it is
-  // counted separately so a permission grant landing shows up as this number falling to
-  // zero rather than as a silent change in verdicts.
-  let deniedHere = false, deadHere = false;
-  if (fetchFailed) {
-    const code = httpCodeOf(resp);
-    const text = failureText(resp);
-    deadHere = isTokenDead(text);
-    deniedHere = !deadHere && isPermissionDenied(code, text);
-    if (deadHere) tokenDead++;
-    else if (deniedHere) {
-      denied++;
-      if (text.indexOf('insufficient_permissions') === -1) unmarkedDenial++;
-    } else otherFail++;
-    // A bounded sample of the raw shapes, so the next person debugging this reads what ERP
-    // and n8n actually sent instead of inferring it from a counter. No ids, no amounts.
-    if (failureSamples.length < 3) failureSamples.push(text.slice(0, 220));
-  }
-  if (rows.length > 0) withRows++;
-
-  const declared = Object.prototype.hasOwnProperty.call(resp, 'totalElements') ? resp.totalElements : null;
-  const declaredUsable = declared !== null && declared !== '' && Number.isFinite(Number(declared));
-  const isTruncated = declaredUsable ? rows.length < Number(declared) : null;
-  if (isTruncated === true) truncated++;
-
-  return {
-    case_key: d.case_key,
-    contract_id: d.contract_id,
-    client_id: d.client_id,
-    plan: d.plan,
-    replacements: rows.map(function (r) {
-      // oldHousemaid / newHousemaid are an object {id,label} OR an EMPTY STRING.
-      // newHousemaid === "" means the maid left with NO SUCCESSOR - the signal gate 7 turns
-      // on - so a truthiness or null check must handle it explicitly.
-      function maid(v) {
-        if (v && typeof v === 'object') return { id: s(v.id), label: s(v.label) };
-        return { id: '', label: '', empty: true };
-      }
-      return {
-        // ERP's own docs spell this field two ways; read both rather than silently getting
-        // an empty date and dropping the event from the timeline.
-        date: s(r.replacementDate || r.replacmentDate).slice(0, 10),
-        old_housemaid: maid(r.oldHousemaid),
-        new_housemaid: maid(r.newHousemaid),
-        old_days_with_client: Number.isFinite(Number(r.oldHousemaidDaysSpentWithClient))
-          ? Number(r.oldHousemaidDaysSpentWithClient) : null,
-        reason: s(r.replacementReason),
-        done: r.done === true
-      };
-    }),
-    replacements_meta: {
-      fetch_failed: fetchFailed,
-      permission_denied: deniedHere,
-      token_dead: deadHere,
-      rows: rows.length,
-      declared_total: declaredUsable ? Number(declared) : null,
-      // This endpoint DOES carry a real totalElements, so a short read is visible here -
-      // unlike the payment sweep. A truncated walk would hide a maid change and move a
-      // verdict, so it is flagged rather than assumed complete.
-      truncated: isTruncated
-    }
-  };
-});
-
-// A DEAD TOKEN IS NOT A DATA STATE. Every read after the token dies comes back empty, and
-// an empty replacement history reads as "the original maid is still there" - which closes
-// gate 7's coverage question in the client's favour on cases nobody actually looked at. So
-// this throws rather than returning a chunk of confidently unenriched cases. A permission
-// denial does NOT throw: it is the known steady state and gate 7 is built for it.
-if (tokenDead > 0) {
-  throw new Error('WF-E: ' + tokenDead + ' of ' + responses.length + ' replacement reads came back ' +
-    'as a DEAD TOKEN (logout / unauthenticated / 498), not a permission denial. Every read after ' +
-    'a token dies is empty, and an empty maid history scores as "no change" - so this chunk would ' +
-    'clear cases nobody read. Re-issue the bearer and re-run. Sample: ' +
-    (failureSamples[0] || '(none captured)'));
-}
-
-// EVERY CANDIDATE COMES BACK, including the ones whose calls failed. A chunk that returned
-// fewer deltas than it was given would leave WF-A holding cases with no enrichment and no
-// way to tell that from a case that was never sent - which is how a contract gets scored
-// against a rate nobody read.
-if (enriched.length !== planDeltas.length) {
-  throw new Error('WF-E: returning ' + enriched.length + ' deltas for ' + planDeltas.length +
-    ' candidates. The caller cannot distinguish a missing delta from an unsent candidate.');
-}
-
-console.log(JSON.stringify({ stage: 'wfe_project_replacements', candidates: enriched.length,
-  replacement_fetch_failures: failed, permission_denied: denied,
-  permission_denied_unmarked: unmarkedDenial, token_dead: tokenDead, other_failures: otherFail,
-  failure_samples: failureSamples,
-  with_replacement_rows: withRows, truncated_histories: truncated,
-  note: 'ONE item out; the raw plan and replacement bodies die with this sub-execution, ' +
-        'which is the entire point of the workflow' }));
+// Which nodes' responses the breaker judges, and what to call this phase in its message.
+const ERP_BREAKER_LOOP_NODES = ['Get Contract Details', 'Get LiveInOut Logs', 'Get Active CPT'];
+const ERP_BREAKER_PHASE = 'Assemble Contract Payload (CC Price Stage 2)';
 
 // ===================== ERP CIRCUIT BREAKER (ERP-LOAD-POLICY.md §5) =====================
 // GENERATED - do not edit here. Canonical: audit-flows/tools/erp_breaker.js
-// Re-generate with: python3 audit-flows/tools/build_breaker_embed.py --call-site chunk
+// Re-generate with: python3 audit-flows/tools/build_breaker_embed.py --call-site loop --source-node "Explode Contracts"
 //
 // Pacing (§1) bounds requests per second. The pre-flight gate (§3) bounds how many there
 // are. Neither notices that ERP has ALREADY STARTED FAILING and keeps feeding it the
@@ -371,7 +231,7 @@ function erpBreakerStatic() {
   try { return $getWorkflowStaticData('global') || {}; } catch (e) { return null; }
 }
 function erpBreakerGuard(opts) {
-  const src = $('Read Chunk').first().json || {};
+  const src = $('Explode Contracts').first().json || {};
   const runId = String(src.run_id || '');
   const t0 = Number(src.erp_t0);
   const elapsed = Number.isFinite(t0) && t0 > 0 ? Date.now() - t0 : null;
@@ -413,30 +273,36 @@ function erpBreakerGuard(opts) {
       ms_per_call: v.ms_per_call, calls: opts.callsMade, run_id: runId || null }));
   }
 }
-// --- call site: the WHOLE CHUNK ---------------------------------------------------------
-// Measured from Read Chunk's stamp, so this covers BOTH phases and is divided by both phases'
-// calls. It is a chunk mean, not a replacements mean, and it is named that way on purpose: the
-// two HTTP nodes cannot be timed apart without a stamp between them, and adding a field to
-// every delta to carry one would cross the WF-E boundary for the sake of a number.
+// --- call site: a BATCHED LOOP, accumulated across iterations -------------------------------
+// This flow reads its population in batches of 5 inside a splitInBatches loop, so this node sees
+// only 5 responses per turn. Judged one turn at a time the breaker would be nearly blind: the
+// rate rule needs 20 samples and would never fire at all, and "5 consecutive" would mean "this
+// entire batch", which is both too sensitive and too late.
+//
+// So the responses are accumulated across every iteration so far, using .all(0, runIndex) to
+// reach earlier runs of each node. The sample grows as the chunk proceeds, which is what makes
+// the rate rule meaningful; the elapsed clock is cumulative from the stamp, so ms/call is a
+// running mean over the whole chunk rather than a noisy per-batch figure.
+function erpBreakerAllRuns(nodeName) {
+  const out = [];
+  for (let i = 0; i < 5000; i++) {
+    let items;
+    try { items = $(nodeName).all(0, i); } catch (e) { break; }
+    if (!items || !items.length) break;
+    for (const it of items) out.push(it.json);
+  }
+  return out;
+}
+const _erpBreakerResponses = ERP_BREAKER_LOOP_NODES.reduce(function (acc, n) {
+  return acc.concat(erpBreakerAllRuns(n)); }, []);
+
 erpBreakerGuard({
-  phase: 'Project Replacements (WF-E)',
-  key: 'chunk',
-  responses: responses,
-  callsMade: responses.length * 2,
+  phase: ERP_BREAKER_PHASE,
+  key: 'loop',
+  responses: _erpBreakerResponses,
+  callsMade: _erpBreakerResponses.length,
   minCallsForBaseline: 200
 });
 // =================== END ERP CIRCUIT BREAKER ===================
 
-return [{ json: {
-  enriched: enriched,
-  _projected_by: 'CC Below Agreed - 0-Enrich Candidates',
-  _candidates: enriched.length,
-  _plan_fetch_failures: $('Project Plan').all().filter(function (i) {
-    return i.json.plan && i.json.plan.fetch_failed === true; }).length,
-  _replacement_fetch_failures: failed,
-  _replacement_permission_denied: denied,
-  _replacement_permission_denied_unmarked: unmarkedDenial,
-  _replacement_other_failures: otherFail,
-  _chunk_index: $('Read Chunk').first().json.chunk_index === undefined
-    ? null : $('Read Chunk').first().json.chunk_index
-} }];
+return out;

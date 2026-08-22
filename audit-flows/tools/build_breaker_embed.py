@@ -7,7 +7,7 @@ every node of every flow and stayed there: a copy nobody could tell had drifted.
 are generated, and tools/erp_compliance.py re-generates the block and compares it byte-for-byte
 against what is deployed. A drifted copy is a finding, not a matter of opinion.
 
-Usage:  python3 tools/build_breaker_embed.py [--call-site plan|chunk|messages]
+Usage:  python3 tools/build_breaker_embed.py [--call-site plan|chunk|messages|loop|pages]
                                             [--source-node "Read Chunk"] > block.js
 
 --source-node names the node that stamps `erp_t0` and carries `run_id`, because it is not
@@ -89,6 +89,36 @@ erpBreakerGuard({
   key: 'messages',
   responses: waResp.concat(smsResp),
   callsMade: waResp.length + smsResp.length,
+  minCallsForBaseline: 200
+});
+""",
+ 'pages': """
+// --- call site: a PAGED SWEEP that enumerates its own pages ---------------------------------
+// One item per page, straight from the population fetch, in page order.
+//
+// BE HONEST ABOUT WHAT CAN FIRE HERE, because a breaker that looks present and cannot speak is
+// worse than none. A population sweep is ~12 pages, so of the three detectors:
+//   - consecutive (5)     CAN fire. Five pages failing in a row is ERP falling over, and this
+//                         is the last gate before the per-entity phase spends ~16,000 calls.
+//   - rate (>=20 samples) CANNOT. Twelve responses never reach the minimum, by design: a
+//                         quarter of twelve is three, and three bad pages is not a diagnosis.
+//   - latency (3x)        CANNOT. The baseline is only ever taken from a batch of >=200 calls,
+//                         so a 12-call sweep neither sets one nor is measured against one.
+//
+// AND IT DOES NOT CHANGE WHETHER THIS RUN STOPS. The guard below this block already refuses on
+// a single malformed page, which is stricter than five. What the breaker changes is WHAT THE
+// OPERATOR IS TOLD: the shape check reports "expected a bare array... the account lacks the
+// grant", which is the wrong diagnosis to hand someone while ERP is on fire, and it counts auth
+// separately so a dead token is never reported as degradation. Per section 5 the message is the
+// thing anyone actually reads at the moment a run dies.
+//
+// It must therefore run BEFORE the shape check, or the shape check throws first and this never
+// speaks.
+erpBreakerGuard({
+  phase: ERP_BREAKER_PHASE,
+  key: 'pages',
+  responses: responses,
+  callsMade: responses.length,
   minCallsForBaseline: 200
 });
 """,

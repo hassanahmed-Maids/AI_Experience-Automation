@@ -203,3 +203,51 @@ hour. The declaration is now a sticky note on the canvas rather than a hidden no
 Coverage: 26 assertions, 11/11 mutants caught. Stages 1 and 2 verified against their real
 exports; Stage 3 against a graph fixture in `tools/offline/fixtures/` (it has no ERP HTTP nodes,
 so §4 is the whole of its applicable audit).
+
+## Fixed, 2026-08-22: the §5 breaker gap — and the bug found while fixing it
+
+Two nodes were flagged. They needed opposite answers, which is the point:
+
+**`Population Guard`** reads the 12-page population sweep, so it is that batch's projection node
+and now carries the generated block (`--call-site pages --source-node "Build Page List"`).
+`Get Population` moves from `continueErrorOutput` to `continueRegularOutput` — a node that routes
+its failures away from the projection node leaves that node **blind**, so the failures have to
+arrive as items for the breaker to classify them. Its error-rail wire is removed with it;
+`Population Guard`'s own error output still reaches `Release Lease (error)`, so a trip still
+frees the lease.
+
+The call site says plainly what a 12-page batch can and cannot do: **consecutive (5) can fire;
+rate cannot** (12 responses never reach the 20-sample floor); **latency cannot** (the baseline is
+only taken from batches of 200+). And it does not change *whether* this run stops — the shape
+check below already refuses on a single malformed page, which is stricter. What it changes is
+**what the operator is told**: the shape check reports "the account lacks the getactivecccontracts
+grant", which is the wrong thing to hand someone while ERP is on fire. It therefore runs *before*
+that check, and `cc-price/offline/population_guard_test.js` pins the ordering.
+
+**`Build Page List`** reads a batch of **one** — `Get Independent Count` makes a single request.
+No detector can reach its threshold on one response, so a breaker there would be present and
+permanently mute, which reads as coverage and is not. It carries a `no-breaker-because`
+declaration naming which threshold cannot fire and what stops the run instead.
+
+### The exemption was flow-scoped, so declaring it would have silenced the other node
+
+`has_exempt` scanned the whole workflow. One `no-breaker-because` anywhere silenced §5 for
+**every** projection node in that flow — so the declaration above would have covered
+`Population Guard` too, and removing its breaker later would have kept reporting green. Breaker
+exemptions are now node-scoped (`has_exempt_node`); the gate and lease exemptions stay
+flow-scoped, because those are claims *about the flow*. A blind spot inside the tool that finds
+blind spots.
+
+### And the classifier was reading data as status codes
+
+Writing the in-place test with realistic contract ids surfaced it immediately: the bare
+`502`/`503`/`504` scan ran over the **whole item**, so `contractId: 503`, `contractId: 1502` and
+`price_inc_vat: 5040` all classified as `server_error`. 5040 is a real price on the card this
+check audits. Five ordinary contracts in a row would have tripped the breaker in Stage 2 against
+a healthy ERP. Fixed in the canonical file, all five embeds re-generated
+(`tools/regen_breaker_embeds.py`), Stage 1 and Stage 2 redeployed and verified byte-identical to
+their repo files. **The three CC Below Agreed embeds are re-generated in the repo but not yet
+deployed** — see that check's README banner.
+
+Suites: breaker 51 (7/7 mutants), population-guard-in-place 13, compliance 30 (11/11 mutants),
+lease 63, WF-E in-place 62 — all green.

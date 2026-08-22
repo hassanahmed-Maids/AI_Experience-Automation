@@ -265,5 +265,42 @@ f, w, n = audit(nodes, conns)
 ok('middle link in a fire-and-forget chain' not in w,
    'a synchronous hand-off draws no mid-chain warning', w[:200])
 
+print('\n--- the breaker exemption is NODE-scoped, not flow-scoped ---')
+# It was flow-scoped, and that meant one "no-breaker-because" anywhere silenced the requirement
+# for EVERY projection node in the flow. Two ERP nodes, one legitimately unjudgeable and one not,
+# and the tool reported green for both. A blind spot inside the tool that finds blind spots.
+def two_erp_flow(exempt_in=None, breaker_in=()):
+    BEGIN = C.BREAKER_BEGIN + ' ==\n' + CANON + '\n// --- call site\n' + C.BREAKER_END
+    def proj(name):
+        js = BEGIN if name in breaker_in else '// projection\n'
+        if name == exempt_in:
+            js += "\n// " + C.EXEMPT['breaker'] + " one response cannot reach any threshold.\n"
+        return {'name': name, 'type': 'n8n-nodes-base.code', 'typeVersion': 2,
+                'parameters': {'jsCode': js}}
+    nodes = [
+        {'name': 'Run (webhook)', 'type': 'n8n-nodes-base.webhook', 'typeVersion': 2.1, 'parameters': {}},
+        lease_node('Acquire', 'acquire'), lease_node('Release', 'release'),
+        erp_http('Count One'), erp_http('Fetch Pages'),
+        proj('Read Count'), proj('Read Pages'),
+    ]
+    conns = {'Run (webhook)': {'main': [[{'node': 'Acquire'}]]},
+             'Acquire': {'main': [[{'node': 'Count One'}]]},
+             'Count One': {'main': [[{'node': 'Read Count'}]]},
+             'Read Count': {'main': [[{'node': 'Fetch Pages'}]]},
+             'Fetch Pages': {'main': [[{'node': 'Read Pages'}]]}}
+    return nodes, conns
+
+f, w, n = audit(*two_erp_flow())
+ok(f.count('NO CIRCUIT BREAKER') == 2, 'both projection nodes are flagged when neither is covered', f[:120])
+
+f, w, n = audit(*two_erp_flow(exempt_in='Read Count'))
+ok('NO CIRCUIT BREAKER in "Read Pages"' in f,
+   'a declaration in ONE node does not silence the other', f[:200])
+ok('exempted' in n and 'Read Count' in n, 'and the declared node is reported as exempt, not failed')
+
+f, w, n = audit(*two_erp_flow(exempt_in='Read Count', breaker_in=('Read Pages',)))
+ok('NO CIRCUIT BREAKER' not in f,
+   'declaring one and embedding the other clears §5', f[:200])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)

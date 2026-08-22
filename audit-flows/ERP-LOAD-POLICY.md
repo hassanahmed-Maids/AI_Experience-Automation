@@ -313,6 +313,32 @@ latency check is live in real runs and **inert on the canvas**. Every batch ther
 `baseline_carried`, because a latency check that silently never fires is the false-clearance shape
 this project keeps finding.
 
+### The classifier read data as status codes (found 2026-08-22, live in three flows)
+
+`erpBreakerClassify` scanned the item's **whole JSON** for the bare strings `502`, `503`, `504`.
+Those scans exist for the n8n error object, where the HTTP code sits nowhere predictable except
+the message text — but pointed at a *successful* body they match data:
+
+| item | old verdict |
+|---|---|
+| `{body:[{contractId: 503}], statusCode: 200}` | `server_error` |
+| `{body:[{contractId: 1502}], statusCode: 200}` | `server_error` (substring) |
+| `{body:{price_inc_vat: 5040}, statusCode: 200}` | `server_error` (substring) |
+
+**5040 is a real price on the CC price card**, and Stage 2 ships per-contract payloads full of
+ids and amounts. Five ordinary contracts in a row would have tripped the breaker against a
+perfectly healthy ERP — on the flow that makes ~16,000 calls — and the documented reaction to a
+spurious trip is to raise thresholds until it stops, at which point it detects nothing.
+
+The bare digits are now scanned only over the **error region** (`o.error`, and a top-level string
+`message`). The distinctive phrases still scan the whole item, because they are what catches a
+Spring error body nested under `body`, the one shape where the status code is not reachable as a
+number. Pinned by four fixtures that carry **no phrase at all**, so the digit scan cannot be
+deleted with the suite still green — which is what mutation testing reported the first time.
+
+It was found by embedding the breaker into a node whose fixtures used realistic contract ids.
+Fixtures with tidy `{id: 1, 2, 3}` data would never have shown it.
+
 ### Built — `tools/erp_breaker.js`
 
 Canonical logic plus `tools/build_breaker_embed.py`, which **generates** the block that is pasted
@@ -321,7 +347,7 @@ into each projection node. Generated rather than hand-copied for one reason: han
 tell had drifted. `tools/erp_compliance.py` re-generates the block and compares it byte-for-byte
 against what is deployed, so drift is a finding rather than an opinion.
 
-Tests: `tools/offline/breaker_test.js` — **41 assertions, 8/8 mutations caught**, fixtures being
+Tests: `tools/offline/breaker_test.js` — **51 assertions, 7/7 mutations caught**, fixtures being
 the response shapes ERP actually returns (the Spring error body, the n8n error object that carries
 no status code anywhere predictable, the permanent `INSUFFICIENT_PERMISSIONS`, the 498-inside-500).
 `cc-below-agreed/wf-e/offline/enrich_test.js` — **62 assertions**, proving the *embedded copy*
@@ -445,6 +471,13 @@ queueing dies at 2400 s with status `canceled` and no error at all.
 Run `python3 tools/erp_compliance.py --all` to audit every flow against 1-5b. It is the
 retrofit tool as well as the pre-publish gate: point it at an existing flow and it names what is
 missing and where it belongs.
+
+**Re-generating is a command, not a chore.** `python3 tools/regen_breaker_embeds.py` rebuilds
+every embed in the repo from the canonical file, reading each one's call site and source node
+back out of its own `Re-generate with:` line. `--check` reports what would change and exits
+non-zero. This exists because "generated, never hand-copied" only holds while re-generating is
+*easier* than patching in place: the first time the canonical changed and four copies needed the
+same edit, the temptation to hand-patch them is exactly how the guarantee dies.
 
 **Why generated, not hand-written.** Requirements 3 and 4 are code that must be identical
 everywhere. Hand-copying them is precisely how `batchSize: 15` ended up in every node of every

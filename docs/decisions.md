@@ -183,3 +183,44 @@ it by accident, and the only way to find that is to mutate the code and watch th
 **Written into:** `ERP-LOAD-POLICY.md` §7 (requirement 5b), the skill's Phase 5b step 4,
 `tools/erp_compliance.py` + `tools/offline/compliance_test.py` (26 assertions, 11/11 mutants),
 `audit-flows/compliance/cc-price-by-cohort.md`.
+
+## 2026-08-22 — the circuit breaker was counting data as failures
+
+**The bug.** `erpBreakerClassify` scanned each response item's whole JSON for the bare strings
+`502`, `503`, `504`. Those scans exist for the n8n error object, where the HTTP code sits nowhere
+predictable except the message text. Pointed at a *successful* body they match data: a
+`contractId` of 503, an id of 1502, an amount of 5040 — and **5040 is a real price on the CC
+price card**. Stage 2 ships per-contract payloads full of ids and amounts, so five ordinary
+contracts in a row would have tripped the breaker against a perfectly healthy ERP, on the flow
+that makes ~16,000 calls. The documented reaction to a spurious trip is to raise the thresholds
+until it stops — at which point the breaker detects nothing at all.
+
+**The fix.** Bare digits are scanned only over the error region (`o.error`, plus a top-level
+string `message`). The distinctive phrases still scan the whole item, because that is what
+catches a Spring error body nested under `body` — the one shape where the status code is not
+reachable as a number. Four new fixtures carry no phrase at all, so the digit scan cannot be
+deleted with the suite still green; the first version of those tests could be, and mutation
+testing said so.
+
+**How it was found, which matters more than the bug.** By writing an in-place test for a new
+embed using *realistic* contract ids. Fixtures with tidy `{id: 1, 2, 3}` data would never have
+shown it, and the byte-compare drift check could not: every copy was faithfully identical to a
+canonical file that was wrong. **Identical is not correct.**
+
+**Two smaller decisions taken with it.**
+
+- **Breaker exemptions are node-scoped.** `has_exempt` scanned the whole workflow, so one
+  `no-breaker-because` silenced §5 for every projection node in that flow. Declaring Build Page
+  List exempt would have silently covered Population Guard too. Gate and lease exemptions stay
+  flow-scoped — those are claims about the flow, not about one node.
+- **A node whose failures are routed to an error rail cannot carry a breaker.**
+  `continueErrorOutput` sends the failing items away from the projection node, so the breaker
+  sees only successes. Stage 1's `Get Population` moved to `continueRegularOutput`; the
+  projection node's own error output carries the lease release instead. This is a general rule
+  now: the two mechanisms want opposite `onError` settings, and the breaker wins on any node
+  whose batch it must judge.
+
+**Written into:** `ERP-LOAD-POLICY.md` §5, `tools/erp_breaker.js`, `tools/regen_breaker_embeds.py`
+(re-generating all embeds is now one command, because "generated, never hand-copied" only holds
+while re-generating is easier than patching), `tools/offline/breaker_test.js`,
+`cc-price/offline/population_guard_test.js`, `compliance/cc-price-by-cohort.md`.
