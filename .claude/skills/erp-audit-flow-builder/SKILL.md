@@ -233,7 +233,7 @@ of which sees exactly one thing and is blind to the others:
   [3] BUDGET GATE ......... how many calls will the per-entity phase make?
   [4] canary chunk ........ first batch small, so the breaker gets a cheap verdict
   [5] per-entity phase .... paced; every projection node carries the CIRCUIT BREAKER
-  [6] LEASE RELEASE ....... on BOTH rails
+  [6] LEASE RELEASE ....... success rail AND error rail (release -> re-throw)
 ```
 
 Pacing knows the rate and nothing about the count. The gate knows the count and nothing about
@@ -252,8 +252,21 @@ What you must do, in order:
 3. **Wire the pre-flight budget gate** into the last Code node before the first per-entity call.
    It projects the run's cost and **hard-fails over budget — it never trims the work to fit.** A
    partial audit that looks complete is worse than a refused one.
-4. **Acquire the ERP lease before the first ERP call and release it on both rails.** A release
-   that never fires leaves a 3-hour hole in the queue.
+4. **Acquire the ERP lease before the first ERP call, and release it on BOTH rails — which are
+   two different rails, not one.** A release that never fires leaves a 3-hour hole in the queue.
+   - *Success:* release here, or in the last stage of a fire-and-forget chain (declare it with
+     `ERP-COMPLIANCE: lease-released-downstream` so the claim is visible next to the code).
+   - *Failure:* **always release here**, in every stage that holds the lease, because the later
+     stage that would have released never runs when this one dies. Set `onError:
+     continueErrorOutput` on the single-output nodes between the acquire and the hand-off, route
+     them to a release, and **re-throw**. All three CC Price stages were missing this and the
+     checker called them green: on 2026-08-20 a run died mid-sweep and the lease sat held by a
+     dead run until the staleness backstop cleared it.
+   - The re-throw is not decoration: **n8n marks an execution SUCCESS when it runs off the end
+     of an error output**, so a rail that releases and stops reports a failed audit as fine.
+   - Do not hang the rail off an IF or a Switch — their error output is not at index 1 and
+     getting it wrong is silent. Do not wire the queued/retry rail into it: no lease is held
+     there.
 4b. **Pass `no_wait: true` and build the self-re-invoke rail.** The acquire must never block.
    n8n cancels any execution 2400 s after it starts and the kill is **silent** — status
    `canceled`, nothing thrown, no error rail, the run simply vanishes — so a flow that waits

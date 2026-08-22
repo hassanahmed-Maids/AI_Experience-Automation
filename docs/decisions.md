@@ -146,3 +146,40 @@ real.
 
 **Written into:** `ERP-LOAD-POLICY.md` §4 and §7 (requirement 6), the skill's Phase 5b step 4b,
 `audit-flows/cc-price/README.md` (the reference implementation), `audit-flows/erp-lease/`.
+
+## 2026-08-22 — the ERP lease needs an error rail in every stage that holds it
+
+**Decision.** Every stage that holds the ERP lease releases it on failure, in that stage, and
+then re-throws. This is separate from the success-path release and does not replace it.
+
+**Why.** The success and failure paths are different rails and the system had only ever built
+one. CC Price Stage 1 declared `lease-released-downstream` — correct for the success path, where
+Stage 3 releases — and said nothing about failure, where Stage 2 never launches and Stage 3
+never runs. Measured 2026-08-20: run `selfreq-test-2` died at Get Population and the lease sat
+held by a run that no longer existed. Stage 2 (self-chaining) and Stage 3 had the same hole, and
+Stage 3's was the worst: it releases in its **last** node, so its own designed `DELIVERY REFUSED`
+on a short case set — the behaviour the stage exists for — blocked every other audit for three
+hours, every time it fired.
+
+**The rail must re-throw.** n8n marks an execution SUCCESS when it runs off the end of an error
+output; a routed error is a handled error as far as the engine is concerned. A rail that releases
+and stops turns a failed audit into one the run log calls fine — strictly worse than the stranded
+lease it fixes, because a stranded lease is loud within three hours and a run that claims to have
+finished is never looked at again.
+
+**Only off single-output nodes.** An IF has true/false before its error output and a Switch has
+one per branch, so "the last output is the error output" is wrong exactly where being wrong is
+invisible. The checker refuses to read those and says so instead of guessing.
+
+**A fix that opened a second hole, inside the hour.** The checker's new error rule was added
+while its success check still asked only "does a lease node mention release?" — so the new ERROR
+release satisfied the SUCCESS check. When Stage 1's `lease-released-downstream` declaration was
+accidentally dropped (a `replace: true` parameter edit took the node's notes with it), the tool
+stayed green. The two questions are now asked independently, the declaration lives on a sticky
+note where a reader will see it, and the masking has its own regression test. The general lesson
+is the one this file keeps relearning: a new rule that shares state with an old one can satisfy
+it by accident, and the only way to find that is to mutate the code and watch the tests.
+
+**Written into:** `ERP-LOAD-POLICY.md` §7 (requirement 5b), the skill's Phase 5b step 4,
+`tools/erp_compliance.py` + `tools/offline/compliance_test.py` (26 assertions, 11/11 mutants),
+`audit-flows/compliance/cc-price-by-cohort.md`.

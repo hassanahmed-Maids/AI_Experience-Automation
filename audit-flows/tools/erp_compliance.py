@@ -135,6 +135,72 @@ def first_code_downstream(w, start, limit=8):
         frontier = nxt
     return found
 
+# Nodes whose ONLY main output is the success path, so an added error output is index 1.
+# Deliberately a list of what this tool can reason about rather than a guess at the rest: an IF
+# has true/false before its error output and a Switch has N of them, so "the last output is the
+# error one" is wrong for exactly the nodes where being wrong is silent.
+SINGLE_OUTPUT = ('n8n-nodes-base.httpRequest', 'n8n-nodes-base.code', 'n8n-nodes-base.set',
+                 'n8n-nodes-base.executeWorkflow', 'n8n-nodes-base.dataTable',
+                 'n8n-nodes-base.googleSheets', 'n8n-nodes-base.noOp', 'n8n-nodes-base.wait',
+                 'n8n-nodes-base.respondToWebhook')
+
+def error_reachable(w):
+    """Every node reachable from an ERROR path, and the nodes this tool could not reason about.
+
+    An error rail in n8n is one of two things: a node set to `continueErrorOutput`, whose extra
+    main output carries the failure, or an Error Trigger node. Both are walked forward through
+    ALL outputs, because once you are on the error rail everything after it is too.
+
+    The index matters and getting it wrong would be silent. For a node with one normal output the
+    error output is index 1. For an IF (true/false) it is 2 and for a Switch it depends on how
+    many branches were configured - so those are NOT guessed at. They are returned separately and
+    reported, because a checker that quietly mis-reads a branch is worse than one that says it
+    cannot read it.
+    """
+    origins, unreadable = [], []
+    for n in w.get('nodes') or []:
+        name = n.get('name')
+        if n.get('type') == 'n8n-nodes-base.errorTrigger':
+            origins.append((name, 0))
+        elif n.get('onError') == 'continueErrorOutput':
+            if n.get('type') in SINGLE_OUTPUT:
+                origins.append((name, 1))
+            else:
+                unreadable.append(name)
+
+    seen, frontier = set(), []
+    for name, idx in origins:
+        groups = ((w.get('connections') or {}).get(name) or {}).get('main') or []
+        if len(groups) > idx:
+            frontier.extend(c.get('node') for c in (groups[idx] or []))
+    while frontier:
+        nxt = []
+        for name in frontier:
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            nxt.extend(downstream(w, name))
+        frontier = nxt
+    return seen, unreadable
+
+def rail_rethrows(w, reachable):
+    """Does the error rail end in a failure, or does it quietly finish?
+
+    This is not a nicety. n8n marks an execution SUCCESS if it runs off the end of an error
+    output, so a rail that releases the lease and stops turns a failed audit into one the run log
+    reports as fine - the single worst outcome available here, because it is the one nobody looks
+    at again.
+    """
+    for name in reachable:
+        n = node_by_name(w, name)
+        if not n:
+            continue
+        if n.get('type') == 'n8n-nodes-base.stopAndError':
+            return True
+        if n.get('type') == 'n8n-nodes-base.code' and 'throw ' in code_of(n):
+            return True
+    return False
+
 def node_by_name(w, name):
     for n in w.get('nodes') or []:
         if n.get('name') == name:
@@ -204,13 +270,49 @@ def audit(w, canon):
             else:
                 notes.append('§5 breaker present and identical to canonical in "' + dname + '"')
 
-    # ---- §4: the lease, on the entry flow --------------------------------------------------
+    # ---- §4: the lease -----------------------------------------------------------------
+    # NOT "on the entry flow" any more, which is how this section used to be titled and was the
+    # reason it missed two of the three CC Price stages. The entry flow ACQUIRES, but the lease
+    # is held by the RUN across a whole fire-and-forget chain, so a middle stage dying strands it
+    # just as thoroughly - and Stage 3, which owns the release and performs it in its LAST node,
+    # stranded the lease on every one of its own designed refusals. Both reported PASS.
     calls_erp = bool(erp_nodes) or any(
         LEASE_WORKFLOW_ID not in all_text(n) and n.get('type') == 'n8n-nodes-base.executeWorkflow'
         for n in nodes)
+    lease_nodes = [n for n in nodes if LEASE_WORKFLOW_ID in all_text(n)]
+    modes = ' '.join(all_text(n) for n in lease_nodes)
+
+    reachable, unreadable = error_reachable(w)
+    releases = [n for n in lease_nodes if 'release' in all_text(n)]
+    ok_release = [n.get('name') for n in releases if n.get('name') not in reachable]
+    err_release = [n.get('name') for n in releases if n.get('name') in reachable]
+
+    def check_error_rail(why):
+        """The error-path release, for any flow that can strand the lease. `why` says which."""
+        if unreadable:
+            warns.append('§4 these nodes carry an error output this tool will not read: ' +
+              ', '.join(unreadable) + '. An IF has true/false before its error output and a '
+              'Switch has as many as it has branches, so "the last one is the error output" '
+              'is wrong for exactly the nodes where being wrong is invisible. Route the error '
+              'rail off a single-output node instead, or check this one by hand.')
+        if not err_release:
+            fails.append('§4 NO ERROR-PATH LEASE RELEASE. ' + why + ' - so every way this flow can FAIL '
+              'leaves the lease held by a run that no longer exists: a 3-hour hole in the queue, cleared '
+              'only by the staleness backstop. Measured 2026-08-20: run selfreq-test-2 died at Get '
+              'Population and stranded it exactly this way. Set onError continueErrorOutput on the '
+              'single-output nodes, route them to a release, and re-throw. ' +
+              ('NOTE: ' + EXEMPT['release'] + ' excuses the SUCCESS-path release only - the stage that '
+               'releases downstream never runs when this one fails.' if has_exempt(w, 'release') else ''))
+        elif not rail_rethrows(w, reachable):
+            fails.append('§4 the error rail releases the lease (' + ', '.join(err_release) + ') but '
+              'NEVER RE-THROWS. n8n marks an execution SUCCESS when it runs off the end of an error '
+              'output, so this turns a failed audit into one the run log reports as fine - which is '
+              'worse than the stranded lease it was added to fix, because nobody looks at it again. '
+              'End the rail in a Stop and Error, or a Code node that throws.')
+        else:
+            notes.append('§4 error rail releases the lease and re-throws (' + ', '.join(err_release) + ')')
+
     if is_entry and calls_erp:
-        lease_nodes = [n for n in nodes if LEASE_WORKFLOW_ID in all_text(n)]
-        modes = ' '.join(all_text(n) for n in lease_nodes)
         if not lease_nodes:
             ex = has_exempt(w, 'lease')
             if ex:
@@ -223,30 +325,77 @@ def audit(w, canon):
         else:
             if 'acquire' not in modes:
                 fails.append('§4 the lease workflow is called but no call passes mode "acquire".')
-            if 'release' not in modes:
-                # A FIRE-AND-FORGET CHAIN CANNOT RELEASE WHERE IT ACQUIRED. CC Price launches its
-                # next stage without waiting and then ends, so the acquiring flow is gone long
-                # before the run is. The lease is held by the RUN - a row keyed on run_id - not by
-                # an execution, so the release belongs in the last stage. Reporting that as
-                # "never released" would be wrong AND would push someone to add a release that
-                # frees the lease while the run is still hammering ERP.
+
+            # THE TWO PATHS ARE CHECKED SEPARATELY, and conflating them is how this tool was
+            # green on a flow that stranded the lease on every failure. "A release node exists
+            # somewhere in the flow" answers neither question: a success release says nothing
+            # about what happens when the run dies, and - as this file's own first version of
+            # the error rule proved - an ERROR release will happily satisfy a naive success
+            # check, hiding a missing hand-off declaration behind the fix for a different bug.
+            #
+            # A FIRE-AND-FORGET CHAIN CANNOT RELEASE WHERE IT ACQUIRED. CC Price launches its
+            # next stage without waiting and then ends, so the acquiring flow is gone long
+            # before the run is. The lease is held by the RUN - a row keyed on run_id - not by
+            # an execution, so the release belongs in the last stage. Reporting that as
+            # "never released" would be wrong AND would push someone to add a release that
+            # frees the lease while the run is still hammering ERP.
+            if not ok_release:
                 ex = has_exempt(w, 'release')
                 if ex:
-                    notes.append('§4 lease released downstream -> ' + ex)
+                    notes.append('§4 lease released downstream on success -> ' + ex)
                 else:
-                    fails.append('§4 the lease is acquired and NEVER RELEASED. The staleness rule will free '
-                      'it after 3 hours, which means a 3-hour hole in the queue after every run. If a later '
-                      'stage releases it - which is right for a fire-and-forget chain, where the acquiring '
-                      'execution ends before the run does - say so here with: ' + EXEMPT['release'])
-            if 'acquire' in modes and 'release' in modes:
-                notes.append('§4 lease acquired and released')
-    elif is_subworkflow and per_item:
-        ex = has_exempt(w, 'lease')
-        notes.append('§4 lease: sub-workflow, held by the caller' + (' -> ' + ex if ex else
-          ' (undeclared - add "' + EXEMPT['lease'] + '" so the claim is visible in the flow)'))
-        if not ex:
-            warns.append('§4 this sub-workflow relies on its caller holding the lease but does not say '
-              'so anywhere. Add the declaration; the next person to call it will not know.')
+                    fails.append('§4 the lease is acquired and NEVER RELEASED ON SUCCESS. The staleness '
+                      'rule will free it after 3 hours, which means a 3-hour hole in the queue after every '
+                      'run. If a later stage releases it - which is right for a fire-and-forget chain, '
+                      'where the acquiring execution ends before the run does - say so here with: ' +
+                      EXEMPT['release'] +
+                      ((' | This flow releases at "' + ', '.join(err_release) + '", but that is on the '
+                        'ERROR rail and never runs when the flow succeeds.') if err_release else ''))
+            else:
+                notes.append('§4 lease released on success (' + ', '.join(ok_release) + ')')
+
+            check_error_rail('This flow ACQUIRES the ERP lease')
+
+    elif is_subworkflow:
+        # A STAGE THAT RELEASES IS UNAMBIGUOUSLY RESPONSIBLE FOR THE LEASE, whoever called it and
+        # whether or not they waited: if it dies before its release runs, there is by definition
+        # no later stage to do it. Stage 3 is the case in point - it releases in its LAST node,
+        # so its own designed refusal (DELIVERY REFUSED on a short case set) blocked the queue
+        # every single time, and this tool called it a PASS.
+        if ok_release:
+            notes.append('§4 this stage releases the lease on success (' + ', '.join(ok_release) + ')')
+            check_error_rail('This stage OWNS the lease release')
+        else:
+            ex = has_exempt(w, 'lease')
+            if per_item:
+                notes.append('§4 lease: sub-workflow, held by the caller' + (' -> ' + ex if ex else
+                  ' (undeclared - add "' + EXEMPT['lease'] + '" so the claim is visible in the flow)'))
+                if not ex:
+                    warns.append('§4 this sub-workflow relies on its caller holding the lease but does not say '
+                      'so anywhere. Add the declaration; the next person to call it will not know.')
+
+            # A MIDDLE STAGE OF A FIRE-AND-FORGET CHAIN. It launches the next link and ends, so
+            # if it dies the chain dies with it and whatever stage was going to release never
+            # runs. This is a WARNING and not a failure on purpose: whether the lease is actually
+            # stranded depends on how THIS flow's caller invoked it, and that is not visible in
+            # this flow's export. Guessing either way would be a checker nobody can trust - the
+            # crying-wolf failure that made the byte-compare drift check useless.
+            fire_and_forget = [n.get('name') for n in nodes
+                               if n.get('type') == 'n8n-nodes-base.executeWorkflow'
+                               and LEASE_WORKFLOW_ID not in all_text(n)
+                               and '"waitForSubWorkflow": false' in json.dumps(n.get('parameters') or {})]
+            if err_release:
+                # It built a rail without being asked to. Check it properly - a rail that
+                # releases and does not re-throw is worse than none - and report it, so the
+                # reader can see the stage is covered rather than inferring it from silence.
+                check_error_rail('This stage holds a lease it does not release on success')
+            elif (ex or per_item) and fire_and_forget:
+                warns.append('§4 this stage is a middle link in a fire-and-forget chain (' +
+                  ', '.join(fire_and_forget) + ' launches the next stage without waiting) and it holds a '
+                  'lease it does not release. If it dies, the chain stops and the stage that WOULD have '
+                  'released never runs. This tool cannot see whether your caller waits for you - if it '
+                  'does, its own error rail covers you and this is noise; if it does not, add an '
+                  'error-path release here. CC Price Stage 2 was the second case.')
 
     return fails, warns, notes
 

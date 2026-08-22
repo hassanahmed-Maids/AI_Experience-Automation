@@ -153,3 +153,53 @@ The same run is the best evidence the `no_wait` rail behaves as designed:
 | ticket | persisted throughout: `waited_ms` measured the RUN (6,065,777 ms), not the execution |
 | position | held at 1 the whole time; never sent to the back of the queue |
 | outcome | granted, then failed on its own merits (the missing grant), not on the lease |
+
+## Fixed, 2026-08-22: error rails on all three stages, and the checker tightened
+
+**All three stages had the hole, not just Stage 1.** Once the rule was written down properly it
+was obvious the failure was structural rather than a Stage 1 oversight:
+
+| stage | how a failure stranded the lease | reported by the old checker |
+|---|---|---|
+| 1 | acquires, hands off fire-and-forget; Stage 2 never launches, so nothing releases | PASS (exemption covered it) |
+| 2 | self-chains chunk to chunk; a dead chunk ends the chain, Stage 3 never runs | PASS (sub-workflow, not examined) |
+| 3 | **releases in its LAST node** — every failure ahead of it, including its own designed `DELIVERY REFUSED`, blocked the queue | PASS (sub-workflow, not examined) |
+
+Stage 3 is the one worth pausing on. It was built to refuse a short case set, and refusing is
+the behaviour that matters most in the whole chain — a partial report that reads as complete is
+the failure this check family exists to prevent. Every time it did the right thing, it blocked
+every other audit for three hours.
+
+Each stage now routes the error output of every single-output node between the acquire and the
+hand-off to `Release Lease (error)` → `Fail Loudly`. Deliberately not wired: the queued/retry
+rail (no lease is held there), and `Any Findings?` / `Batch of 5` / `More Chunks?` (an IF has
+true/false before its error output and a splitInBatches has done/loop, so index 1 is not the
+error branch and reading it as one would be silently wrong).
+
+### The checker changes, and the bug the first version of them introduced
+
+`erp_compliance.py` now asks two independent questions instead of "does the word release appear
+in a lease node?":
+
+- **success path** — a release NOT reachable from an error output, or the
+  `lease-released-downstream` declaration.
+- **error path** — a release that IS reachable from an error output, ending in a `throw` or a
+  Stop and Error. Required of any flow that acquires the lease, and of any stage that owns the
+  release, entry flow or sub-workflow.
+
+A middle stage of a fire-and-forget chain that holds someone else's lease gets a **warning**,
+not a failure: whether its death actually strands the lease depends on whether its caller
+waited, and that is not visible in the child's own export. Guessing would be the crying-wolf
+failure that made the byte-compare drift check useless before it was fixed.
+
+**The first version of this got it wrong in a way worth recording.** Adding the error rule while
+the success check still asked "is there a release node anywhere?" meant the new ERROR release
+*satisfied the success check* — so when the `lease-released-downstream` declaration was
+accidentally dropped from Stage 1 (a `replace: true` parameter edit took the node's notes with
+it), the tool stayed green. A fix for one hole opening another, in the same section, inside an
+hour. The declaration is now a sticky note on the canvas rather than a hidden node field, and
+`tools/offline/compliance_test.py` carries a regression test for the masking itself.
+
+Coverage: 26 assertions, 11/11 mutants caught. Stages 1 and 2 verified against their real
+exports; Stage 3 against a graph fixture in `tools/offline/fixtures/` (it has no ERP HTTP nodes,
+so §4 is the whole of its applicable audit).

@@ -386,7 +386,10 @@ path a run takes, and each one catches what the one before it cannot see. Writte
      |          each projection node carries the CIRCUIT BREAKER
      |          consecutive / rate / latency -> THROWS
      |
-     +-- [6] LEASE RELEASE .......... on BOTH rails: success and error
+     +-- [6] LEASE RELEASE .......... on BOTH rails, and they are DIFFERENT rails
+                success: here, or in the last stage of a fire-and-forget chain
+                error:   ALWAYS here - the later stage never runs when this one dies
+                         onError continueErrorOutput -> release -> RE-THROW
 ```
 
 **Each layer sees exactly one thing and is blind to the others.** Pacing knows the rate and
@@ -404,8 +407,33 @@ because a second audit started ten minutes later.
 | 2 | every paginated node with `requestInterval` ≥ 250 ms and a justified `maxRequests` | node parameters | `tools/erp_load_check.py` |
 | 3 | a pre-flight budget gate before the per-entity phase | the last Code node before the first per-entity call | `tools/erp_compliance.py` |
 | 4 | the circuit-breaker block in every projection node that reads a batch of ERP responses | generated, pasted | `tools/erp_compliance.py` (byte-compare against the generated block) |
-| 5 | lease acquire before the first ERP call, release on both rails | Execute Sub-workflow → `9gVijqvtLVEhQZXz` | `tools/erp_compliance.py` |
+| 5 | lease acquire before the first ERP call, release on the success path | Execute Sub-workflow → `9gVijqvtLVEhQZXz` | `tools/erp_compliance.py` |
+| 5b | **an error-path release that re-throws**, in every stage that holds the lease | `onError: continueErrorOutput` → release → `throw` | `tools/erp_compliance.py` |
 | 6 | the acquire passes `no_wait: true` and the flow re-invokes itself on `queued` | Retry Entry + Normalize Entry + Build Retry Payload + Re-queue Self | by reading the flow — see `cc-price/README.md` |
+
+**Requirement 5b is not a second copy of 5 — the two paths are different rails, and conflating
+them is what let all three CC Price stages strand the lease while the checker said PASS.** On
+2026-08-20, run `selfreq-test-2` died at Get Population; Stage 2 never launched, Stage 3 never
+ran, and the lease sat held by a dead run. Stage 1's `lease-released-downstream` declaration was
+*correct* — for the success path — and said nothing about the failure path. Stage 2 self-chains,
+so a dead chunk ends the chain. Stage 3 is the worst of the three: it releases in its **last**
+node, so its own designed refusal (`DELIVERY REFUSED` on a short case set) blocked the queue every
+single time it fired.
+
+Three things the rail must get right, each of which was wrong first:
+
+- **Re-throw at the end.** n8n marks an execution **SUCCESS** when it runs off the end of an
+  error output — a routed error is a handled error as far as the engine is concerned. A rail
+  that releases and stops turns a failed audit into one the run log reports as fine, which is
+  strictly worse than the stranded lease it fixes: the lease is loud within three hours, a run
+  that claims to have finished is never looked at again.
+- **Only from single-output nodes.** An IF has true/false *before* its error output and a Switch
+  has as many as it has branches, so "the last output is the error one" is wrong for exactly the
+  nodes where being wrong is silent. `erp_compliance.py` refuses to read those and says so
+  rather than guessing.
+- **Not on the queued/retry rail.** That path runs when the lease was never granted; releasing
+  there would free someone else's lease. (It would be a no-op by construction, but wiring it
+  says something untrue about the flow.)
 
 Requirement 6 is the newest and the least obvious. Its four failure modes are all silent, and
 three of them were live at some point on 2026-08-20: a downstream node referencing `$('Run
@@ -414,7 +442,7 @@ and can be overtaken for ever; a `Re-queue Self` that waits for the sub-workflow
 alive and re-introduces the ceiling it was built to escape; and an acquire that blocks instead of
 queueing dies at 2400 s with status `canceled` and no error at all.
 
-Run `python3 tools/erp_compliance.py --all` to audit every flow against the first five. It is the
+Run `python3 tools/erp_compliance.py --all` to audit every flow against 1-5b. It is the
 retrofit tool as well as the pre-publish gate: point it at an existing flow and it names what is
 missing and where it belongs.
 
