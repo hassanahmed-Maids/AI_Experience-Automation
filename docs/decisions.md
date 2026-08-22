@@ -264,3 +264,54 @@ survived intact — verified by count and by diff, not by eye.
 WF-B holds WF-A's lease and never releases it, and both its hand-offs are fire-and-forget — the
 same defect fixed in CC Price the same day. `erp_compliance.py` warns rather than fails there
 because it cannot see whether the caller waits; WF-A does not.
+
+## 2026-08-22 — the CC Below Agreed chain had no ERP lease at all
+
+**Asked to fix WF-B's missing lease release, the first finding was that there was no lease to
+release.** `FLOWS.md` had recorded the lease as "not yet wired into WF-A" since 2026-08-20, and
+WF-A — the entry flow that makes ~11,264 ERP calls per run, and whose two-audits-at-once collision
+is the reason the lease exists at all — contained no reference to it. WF-B's
+`lease-held-by-caller` declaration described a caller that held nothing. Adding a release there
+would have freed a lease nobody owned: theatre that would also have turned the checker green on a
+chain with zero §4 protection.
+
+**So the fix was upstream.** The chain is now leased end to end, in the shape CC Price already
+uses because the topology is identical — every sub-flow is called synchronously except WF-B,
+which is fire-and-forget:
+
+- **WF-A acquires**, between `Validation OK?` and the six sweep starters, so it gates every ERP
+  call. `Respond 200` stays target 0, preserving the ordering fixed on 2026-08-19. `no_wait: true`
+  with a self-re-invoke rail through a new `Retry Entry`, so a held lease never blocks and never
+  errors. Releases on its error rail, reachable from both `Build Error Callback` and the existing
+  `On Workflow Crash` trigger.
+- **WF-B releases on its error rail** — the fix originally asked for, now meaningful.
+- **WF-C releases on success**, after the Run Summary row lands, plus its own error rail.
+
+Two things made this cheaper than expected and are worth recording: WF-A's `Validate Inputs` reads
+`incoming.body || incoming`, so a retry feeds it directly with no normalizer; and `run_id` is a
+REQUIRED payload field it never mints, so resending the payload keeps the same queue ticket
+without CC Price's run_id-pinning trick.
+
+**Two more defects in the checker, both found by pointing it at a real flow.**
+
+1. **It judged a lease call by its prose.** `releases` was a substring scan over the whole node,
+   and WF-A's acquire carries a note explaining *why it does not release* — so the ACQUIRE was
+   reported as the success release. A checker satisfiable by a comment stating the opposite of
+   the truth is worse than none. The mode is now read from the call's own `workflowInputs.mode`,
+   with **no text fallback**: a call whose mode is not a literal is reported as unreadable rather
+   than guessed, because a narrower guess is still a guess.
+2. **It failed flows on DISABLED nodes.** WF-A keeps the whole pre-split verification chain
+   disabled in place, including two ERP nodes still at `batchSize 15 / 500ms` = 30 req/s. Those
+   make no requests, so failing on them made a compliant flow permanently red — the crying-wolf
+   failure this tool has now been bitten by three times. They warn instead, named as disabled,
+   with the rate. The numbers were also corrected to 2/500ms: disabled or not, a node one click
+   from live at three times the ceiling is a loaded gun, and 15 is the value that spread by
+   cloning in the first place.
+
+**`tools/verify_order.py` does not exist.** `erp-lease/README.md` cited it as the precondition for
+wiring the lease into WF-A. The fan-out rewire was verified directly instead: `Respond 200` is
+still target 0, all six sweeps still reach both `Join Bulk Pulls` and `Build Error Callback`, and
+the retry rail and both error origins were confirmed on a re-export.
+
+Suites: compliance 39 (all mutants caught), breaker 51, lease 63, population-guard 13, WF-E 62,
+WF-B evidence 48. `erp_compliance.py --all`: 5 flows, all comply.

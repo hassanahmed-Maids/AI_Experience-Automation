@@ -169,6 +169,27 @@ SINGLE_OUTPUT = ('n8n-nodes-base.httpRequest', 'n8n-nodes-base.code', 'n8n-nodes
                  'n8n-nodes-base.googleSheets', 'n8n-nodes-base.noOp', 'n8n-nodes-base.wait',
                  'n8n-nodes-base.respondToWebhook')
 
+def lease_mode(n):
+    """acquire / release / None, read from the CALL, not from the node's prose.
+
+    This was a substring scan over the whole node - parameters and notes together - and it was
+    wrong in the way that matters: WF-A's acquire carries a note explaining WHY it does not
+    release ("lease-released-downstream - WF-C releases it... Releasing here would free it while
+    WF-B is still reading"), so the word "release" appears, and the success-path check counted
+    the ACQUIRE as the release. A checker that can be satisfied by a comment saying the exact
+    opposite of the truth is worse than no checker.
+
+    The mode is a parameter of the Execute Sub-workflow call, so read it there and NOWHERE else.
+    There is deliberately no text fallback: guessing the mode from surrounding text is the bug,
+    and a narrower guess is still a guess. A call whose mode is not statically one of the two
+    words returns None and is REPORTED as unreadable, because "this tool cannot tell what this
+    call does" is a useful thing to say and "it is probably a release" is not.
+    """
+    p = n.get('parameters') or {}
+    val = ((p.get('workflowInputs') or {}).get('value') or {})
+    m = str(val.get('mode') or '').strip().lower()
+    return m if m in ('acquire', 'release') else None
+
 def error_reachable(w):
     """Every node reachable from an ERROR path, and the nodes this tool could not reason about.
 
@@ -243,9 +264,24 @@ def audit(w, canon):
     is_entry = any(t in triggers for t in ('n8n-nodes-base.webhook', 'n8n-nodes-base.scheduleTrigger'))
 
     # ---- §1/§2: the numbers on each node -------------------------------------------------
+    # A DISABLED NODE MAKES NO REQUESTS, so its pacing cannot fail: reporting it as a FAIL is the
+    # crying-wolf failure this tool has already been bitten by twice. WF-A carries the entire
+    # pre-split verification chain disabled in place - two ERP nodes still at batchSize 15 /
+    # 500ms = 30 req/s, left behind when the work moved to WF-B - and failing on them would make
+    # a compliant flow permanently red.
+    #
+    # But silence is wrong too. Those nodes are one click from live at three times the documented
+    # ceiling, and "nobody chose 15" is exactly how it spread in the first place. So: warn, name
+    # them as disabled, and say what re-enabling one would cost.
     for n in erp_nodes:
         f, wn = pacing.check_node(w, n)
-        fails.extend(f); warns.extend(wn)
+        if n.get('disabled'):
+            for m in f + wn:
+                warns.append('§1/§2 DISABLED node "' + n.get('name') + '": ' + m +
+                  '. It cannot reach ERP while disabled, so this is not a failure - but it is one '
+                  'click from live at that rate. Fix the numbers or delete the node.')
+        else:
+            fails.extend(f); warns.extend(wn)
 
     # ---- §3: a pre-flight budget gate before the per-entity phase -------------------------
     if per_item:
@@ -309,10 +345,17 @@ def audit(w, canon):
         LEASE_WORKFLOW_ID not in all_text(n) and n.get('type') == 'n8n-nodes-base.executeWorkflow'
         for n in nodes)
     lease_nodes = [n for n in nodes if LEASE_WORKFLOW_ID in all_text(n)]
-    modes = ' '.join(all_text(n) for n in lease_nodes)
+    acquires = [n for n in lease_nodes if lease_mode(n) == 'acquire']
 
     reachable, unreadable = error_reachable(w)
-    releases = [n for n in lease_nodes if 'release' in all_text(n)]
+    releases = [n for n in lease_nodes if lease_mode(n) == 'release']
+    unreadable_mode = [n.get('name') for n in lease_nodes if lease_mode(n) is None]
+    if unreadable_mode:
+        warns.append('§4 these lease calls do not pass a literal "acquire" or "release" mode, so '
+          'this tool cannot tell what they do: ' + ', '.join(unreadable_mode) + '. It will not '
+          'guess - reading the mode out of the surrounding text is exactly how an ACQUIRE whose '
+          'note explained why it does not release got counted as the release. Set mode to a '
+          'literal in the call, or check this flow by hand.')
     ok_release = [n.get('name') for n in releases if n.get('name') not in reachable]
     err_release = [n.get('name') for n in releases if n.get('name') in reachable]
 
@@ -352,7 +395,7 @@ def audit(w, canon):
                   'on BOTH rails. Per-flow pacing bounds ONE audit; two audits running together is how '
                   'ERP was taken down before.')
         else:
-            if 'acquire' not in modes:
+            if not acquires:
                 fails.append('§4 the lease workflow is called but no call passes mode "acquire".')
 
             # THE TWO PATHS ARE CHECKED SEPARATELY, and conflating them is how this tool was

@@ -302,5 +302,84 @@ f, w, n = audit(*two_erp_flow(exempt_in='Read Count', breaker_in=('Read Pages',)
 ok('NO CIRCUIT BREAKER' not in f,
    'declaring one and embedding the other clears §5', f[:200])
 
+print('\n--- a node is judged by its CALL, not by its prose ---')
+# FOUND ON WF-A, 2026-08-22. Its acquire carries a note explaining why it does NOT release
+# ("lease-released-downstream - WF-C releases it... Releasing here would free it while WF-B is
+# still reading"). The word "release" is in there, the success check was a substring scan over
+# the whole node, and so the ACQUIRE was counted as the success release - a checker satisfied by
+# a comment stating the exact opposite of the truth.
+nodes, conns = base()
+acq = [n for n in nodes if n['name'] == 'Acquire'][0]
+acq['notes'] = (C.EXEMPT['release'] + ' - the LAST stage releases it. Releasing here would free '
+                'the lease while the next stage is still calling ERP.')
+nodes[3].pop('notes', None)          # move the declaration onto the acquire, off the handoff
+nodes.append(lease_node('Release (error)', 'release'))
+nodes.append({'name': 'Rethrow', 'type': 'n8n-nodes-base.code', 'typeVersion': 2,
+              'parameters': {'jsCode': 'throw new Error("failed");'}})
+conns['Call ERP']['main'].append([{'node': 'Release (error)'}])
+conns['Release (error)'] = {'main': [[{'node': 'Rethrow'}]]}
+f, w, n = audit(nodes, conns)
+ok('lease released downstream on success' in n,
+   'an acquire whose NOTE mentions releasing is not mistaken for a release', (f + ' // ' + n)[:220])
+ok('lease released on success (Acquire' not in n,
+   'and it is certainly not reported as the success release')
+
+print('\n--- mode is read from the call even when the prose disagrees ---')
+nodes, conns = base()
+liar = lease_node('Acquire', 'acquire')
+liar['notes'] = 'this node does not release anything, ever'
+nodes = [liar if x['name'] == 'Acquire' else x for x in nodes]
+f, w, n = audit(nodes, conns)
+ok('no call passes mode "acquire"' not in f,
+   'an acquire is still recognised as an acquire', f[:160])
+
+print('\n--- a lease call whose mode cannot be read is reported, never guessed ---')
+nodes, conns = base()
+murky = lease_node('Acquire', 'acquire')
+# a caller that builds mode dynamically: the tool must say it cannot tell, not pick one
+murky['parameters']['workflowInputs']['value']['mode'] = "={{ $json.wanted_mode }}"
+murky['notes'] = 'this call will release the lease when the run ends'
+nodes = [murky if x['name'] == 'Acquire' else x for x in nodes]
+f, w, n = audit(nodes, conns)
+ok('do not pass a literal' in w and 'Acquire' in w,
+   'an unreadable mode is warned about', w[:200])
+ok('no call passes mode "acquire"' in f,
+   'and it counts as NO acquire rather than being guessed from the note that says "release"', f[:200])
+
+print('\n--- a flow that calls the lease but never acquires ---')
+nodes, conns = base()
+nodes = [x for x in nodes if x['name'] != 'Acquire']
+nodes.append(lease_node('Release Only', 'release'))
+conns['Run (webhook)'] = {'main': [[{'node': 'Call ERP'}]]}
+conns['Handoff'] = {'main': [[{'node': 'Release Only'}]]}
+f, w, n = audit(nodes, conns)
+ok('no call passes mode "acquire"' in f,
+   'releasing without ever acquiring is a failure', f[:200])
+
+print('\n--- a disabled node cannot fail its pacing, but is not ignored either ---')
+nodes, conns = base()
+bad = erp_http('Old Chain (disabled)')
+bad['parameters']['url'] = '=https://erpbackendpro.maids.cc/clientmgmt/client/smsLog/{{ $json.client_id }}'
+bad['parameters']['options']['batching'] = {'batch': {'batchSize': 15, 'batchInterval': 500}}
+bad['disabled'] = True
+nodes.append(bad)
+conns['Handoff'] = {'main': [[{'node': 'Old Chain (disabled)'}]]}
+f, w, n = audit(nodes, conns)
+ok('30 req/s' not in f,
+   'a disabled node at 30 req/s does not FAIL the flow - it makes no requests', f[:200])
+ok('DISABLED node "Old Chain (disabled)"' in w and '30 req/s' in w,
+   'but it is warned about, by name, with the rate', w[:220])
+
+nodes2, conns2 = base()
+bad2 = erp_http('Live Chain')
+bad2['parameters']['url'] = '=https://erpbackendpro.maids.cc/clientmgmt/client/smsLog/{{ $json.client_id }}'
+bad2['parameters']['options']['batching'] = {'batch': {'batchSize': 15, 'batchInterval': 500}}
+nodes2.append(bad2)
+conns2['Handoff'] = {'main': [[{'node': 'Live Chain'}]]}
+f2, w2, n2 = audit(nodes2, conns2)
+ok('30 req/s' in f2 and 'DISABLED' not in f2,
+   'the same node ENABLED fails, so the exemption is disabled-only',
+   [x for x in f2.split(' | ') if 'req/s' in x][:1] or f2[:160])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)
