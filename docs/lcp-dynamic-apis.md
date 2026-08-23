@@ -160,8 +160,8 @@ the ask-the-code endpoint we already use.
 | Endpoint | Purpose |
 |---|---|
 | `POST /lowcode/apis/async?applicationId=N` | **create** (async, AI-generated) |
-| `POST /lowcode/apis/test-spel` | dry-run an ad-hoc SpEL — needs the `api_code` secret |
-| `POST /lowcode/apis/{apiId}/test` | dry-run a stored SpEL (`@Authenticated`, no secret) |
+| `POST /lowcode/apis/test-spel` | **EXECUTES** an ad-hoc SpEL for real against the target module (§8d) — needs the `api_code` secret; `@NoPermission`, so the secret is its ONLY gate |
+| `POST /lowcode/apis/{apiId}/test` | **EXECUTES** a stored SpEL (`@Authenticated`, no secret) |
 | `POST /lowcode/apis/fix-by-ai/async/{apiId}` | AI regenerates the SpEL after a failure |
 | `POST /lowcode/apis/edit-by-ai/async/{apiId}` | AI applies a change request |
 | `PUT /lowcode/apis/{apiId}` | update — **name / category / description only** |
@@ -258,7 +258,7 @@ The output contract is **`spel_expressions`**. Note the asymmetry: fix/edit thro
 `IllegalStateException("AI response did not include 'spel_expressions'")` (`:2207-2208`), but
 **create has no such guard** — a null or blank expression is stored as-is.
 
-### The dry-run loop
+### The test loop (executes — not a dry run)
 
 `POST /lowcode/apis/test-spel`, body (`TestDynamicApiBySpelRequest`, no validation annotations):
 
@@ -750,7 +750,7 @@ Results under `lc_docs` (2026-08-23):
 | `POST /lowcode/apis/edit-by-ai/async/{id}` | ❌ false | — | `API_NOT_FOUND_FOR_PAGE` |
 
 ⇒ **We have read-only access to the LCP: we can read any definition's `spel`, and we cannot
-create, edit, dry-run or publish.** O10 closed without a side effect.
+create, edit, test or publish.** O10 closed without a side effect.
 
 **The distinction that shapes the ask:** every refusal is `API_NOT_FOUND_FOR_PAGE`, **not**
 `INSUFFICIENT_PERMISSIONS`. We never reach the permission check — those endpoints are simply not
@@ -771,7 +771,7 @@ Minimal request — bind the write endpoints to a page our account holds, with *
 | `_URL` regex to add | Why |
 |---|---|
 | `post /lowcode/apis/async` | create a dynamic API |
-| `post /lowcode/apis/test-spel` | dry-run an expression before creating (also needs O1) |
+| `post /lowcode/apis/test-spel` | execute an expression before creating (also needs O1) |
 | `post /lowcode/apis/.*/publish` | promote to an environment |
 | `post /lowcode/apis/(fix\|edit)-by-ai/async/.*` | iterate on a generated expression |
 
@@ -945,11 +945,84 @@ empty) or detection that doesn't understand `T(...)` type references is under in
 (O13) — but either way, **the human read of the stored `spel` is the only security review that
 exists.**
 
+## 8d. The `api.publish.code` secret, and what `test-spel` really does (session 44669)
+
+### The secret is not in the code — so don't look for it there
+
+- **One key: `api.publish.code`**, injected by `@Value("${api.publish.code}")` into six beans
+  (`ApiManagementController:86`, `PublishController:39`, `PublishService:35`,
+  `ApiManagementService:100`, `LocalEnvironmentStrategy:30`, `RemoteEnvironmentStrategy:33`).
+- **Compared with plain `String.equals`** — case-sensitive and **not constant-time** (no
+  `MessageDigest.isEqual`). Worth mentioning to the owners; it's a shared server-to-server secret
+  compared non-constant-time.
+- **Runtime source is a Spring property**: an `API_PUBLISH_CODE` env var, a JVM `-D`, or an
+  external `application-*.properties`. **Not** a DB parameter, not a vault, not a Java constant.
+- **No committed default**, and no inline `${key:default}` — so a missing property fails startup
+  rather than defaulting silently. Searched all committed `yml/yaml/env/json/xml`,
+  `docker-compose*`, `Dockerfile*` and shell files: no match. **One honest gap:** `.properties`
+  files were outside the session's readable scope, so a committed value there cannot be ruled out
+  — that is the one place a security review should still check by hand.
+- **No in-repo owner or rotation process.** Governance lives in deployment/ops config.
+
+⇒ **Asking the codebase for this value is a dead end by design.** It has to come from whoever
+owns the deployment configuration — that's the request to make, and "we need the value of the
+`api.publish.code` property for environment X" is the precise way to phrase it.
+
+### Correction: `test-spel` EXECUTES. It is not a dry run.
+
+An earlier version of this doc called `/apis/test-spel` "the dry-run path". **That was wrong.**
+`ApiManagementController:576-603` → `testDynamicApiBySpelOnEnvironment` → `executeDynamicSpel`
+(`ApiManagementService:3033`) → `interModuleConnector.call(module, "dynamicApiUtil",
+"evaluateApi", …)` — it **evaluates the expression for real against the target module's runtime**,
+with your supplied context, and returns the actual output. `/apis/{apiId}/test` likewise.
+
+Two consequences:
+
+1. **There is no true dry run anywhere.** The only non-executing checks are `validateSpel` /
+   `oldvalidateSpel`, which parse (§8c) and nothing more. "Validate before creating" means *parse*
+   before creating; it never means "prove it behaves correctly without touching anything".
+2. **`test-spel` is `@NoPermission`** — the secret is its *only* gate. So the secret is not a
+   convenience for testing; it is the sole thing standing between a caller and arbitrary SpEL
+   execution in a chosen module. That reframes O1: it is not a blocker to route around, it is a
+   control, and it is doing more work than any of the guards in §6.
+
+For a read-only expression, executing it is harmless and useful. Just never describe it as a
+dry run, and never point it at an expression whose side effects you haven't reasoned about.
+
+### O13 answered — the prohibited-classes check is inert, and it's a defect, not just config
+
+`validateSpel` (method `validateSpelClassNotUsed`, `DynamicApiController:214-262`, `@NoPermission`
+— no auth, no secret) *does* understand the syntax: it strips string literals and regex-scans with
+`T_PATTERN`/`NEW_PATTERN` (`:211-212`) against `DYNAMIC_API_PROHIBITED_CLASSES`, read via
+`Setup.getParameter(...)` (`:241`, key at `AdminModule.java:259`) and comma-split.
+`T(java.lang.Runtime)` **would** match — `typeMatches("java.lang.Runtime", "Runtime", …)` returns
+true — *if* the list contained it.
+
+**Why it reports nothing here, two compounding causes:**
+
+1. **No hardcoded fallback.** The 11-class list exists only as the **seed value of the `Parameter`
+   registration** (`AdminModule.java:719-722`), never as a code constant the check falls back to.
+   An empty list means the detection loop never runs, so *every* expression returns
+   `anyUsed:false, usedClasses:[]`.
+2. **The row exists but its value is empty.** Neat deduction: were the row truly *absent*,
+   `getParameter` would call `para.getValue()` on a null `para` and NPE, surfacing as
+   `valid:false` + an error. We get a clean `valid:true, anyUsed:false, []` — so the row is
+   present with an empty/whitespace value.
+
+**And even fully populated it would not protect anything**: `validateSpel` only *reports*, and no
+create / update / publish / evaluate path consults the list. The evaluate path's independent guard
+is `FORBIDDEN_SPEL_TOKENS`, which blocks only `Parameter` / `CoreParameter` / `BackgroundTask` —
+**not** `Runtime`, `ProcessBuilder`, `Files`, or reflection.
+
+⇒ Worth raising with the LCP owners as a **defect, not a config ticket**: a security check with no
+safe default, reduced to a no-op by an empty row, and advisory-only even when populated. Seeding
+the row would make it *report* correctly; it still wouldn't *block* anything.
+
 ## 9. Open items
 
 | # | Item | Status |
 |---|---|---|
-| O1 | The `api.publish.code` secret | **Open.** Blocks pre-create dry-runs via `/apis/test-spel`. Needs a person with deploy-config access. Workaround: create → read `spel` → `validateSpel` → `/apis/{apiId}/test` → fix-by-ai. |
+| O1 | The `api.publish.code` secret | **Open, and NOT obtainable from the code** (§8d): it is a deploy-time Spring property (`API_PUBLISH_CODE` env var / `-D` / external `application-*.properties`), with no committed default and no in-repo owner. Ask whoever owns the deployment config. Blocks `/apis/test-spel`. Workaround: create → read `spel` → `validateSpel` (syntax only) → `/apis/{apiId}/test` → fix-by-ai. |
 | O2 | Is the SpEL sandboxed? | **Closed — no.** Unrestricted `StandardEvaluationContext` + `BeanFactoryResolver` (§6b). |
 | O3 | Are writes prevented? | **Closed — yes for published APIs, narrowly.** `SpelSecurityAOP` + `secured=true`/`canUpdate=null` from `publishApi`; does not cover `EntityManager` mutations (§6c). |
 | O4 | The prohibited-classes list | **Closed.** 11 FQNs, quoted in §6e — but advisory and never auto-invoked. |
@@ -960,7 +1033,7 @@ exists.**
 | O9 | The Low-Code console `pageCode` | **CLOSED — it is `lc_docs`** (§8b). Management *reads* work under it, including reading any definition's `spel`. |
 | O10 | Whether `POST /apis/async` (create) is authorized for us | **CLOSED — no**, and established with zero side effects via `POST /admin/api-authorization/check` (§8b). Create, `test-spel`, publish and edit-by-ai all return `API_NOT_FOUND_FOR_PAGE`. Needs an `_APIS` binding, not a permission upgrade. |
 | O11 | Does `Contract` have a soft-delete flag? | **CLOSED — no, in any module** (§8b), nor on the shared base chain; contracts are hard-deleted. My reading of 27626 was the error: it calls a `getDeleted()` that does not exist. A bulk read needs no deleted predicate. |
-| **O13** | **Why `validateSpel` reports no prohibited classes** | **Open, and a live safety gap** (§8c). Either `DYNAMIC_API_PROHIBITED_CLASSES` is unset so the list is empty, or the detection doesn't recognise `T(...)` type references. Worth reporting to the LCP owners either way — the check reads as protection and provides none. |
+| O13 | Why `validateSpel` reports no prohibited classes | **CLOSED — a code defect plus an empty row** (§8d). No hardcoded fallback (the 11-class list is only the `Parameter` seed, `AdminModule:719-722`); the row exists with an empty value, so the loop never runs. Detection syntax is fine. And even populated it only *reports* — nothing enforces it. Report as a defect. |
 | O12 | `CoreParameter` in definition 27626 vs the token check | **CLOSED — the definition is dead** (§8b). The check is unconditional and fires on the runtime path, so every call throws. It is absent from all write paths, which is how the row exists: **forbidden expressions persist and publish fine, then fail only when called.** |
 
 ## 10. Standing rules for us

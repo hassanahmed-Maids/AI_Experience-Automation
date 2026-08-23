@@ -238,7 +238,7 @@ creation path performs no validation of it at all:
 - **Never debug-run an API whose response carries sensitive fields.** The debug log
   persists full request and response bodies unmasked, with no retention policy.
 
-Designing, grounding, costing and dry-running one is yours to do. **Creating one on
+Designing, grounding, costing and syntax-checking one is yours to do. **Creating one on
 production is a human gate** — see [Where humans are required](#where-humans-are-required).
 
 ## Phase 4 — Resolve the business logic
@@ -351,7 +351,7 @@ Everything else is automated. These four are not:
    not have read the spec. Where a spec names a maker/checker, that sign-off is
    theirs to give.
 4. **Creating a new ERP API on production** (Phase 3b). Propose it, ground it, cost it
-   and dry-run it autonomously — then get one explicit go-ahead before creating it. It is
+   and syntax-check it autonomously — then get one explicit go-ahead before creating it. It is
    a persistent, callable server-side endpoint that no platform review gates, so the
    operator is the only reviewer it will get. One line is enough; don't turn it into a
    ceremony. Editing or replacing an API you already created under the same check does
