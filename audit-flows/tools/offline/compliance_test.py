@@ -403,5 +403,69 @@ ok(crashed is None, 'an expression-valued batchInterval does not crash the check
 ok('pacing set by EXPRESSION' in f3 and 'batchInterval' in f3,
    'it FAILS instead: a ceiling a caller can override is not a ceiling', f3[:200])
 
+print('\n--- a rail with a blind spot says so, instead of reading as complete ---')
+# WF-B, 2026-08-23: the rail covered every Code and Execute-Workflow node and NOT the LLM Agent -
+# the node in that flow most likely to fail on any given run. The checker printed "error rail
+# releases the lease and re-throws" and stopped, so reading its output was enough to believe the
+# lease was covered. The gap was deliberate and documented in an n8n version description, which is
+# not a place anyone reads.
+def railed(extra_nodes=None, extra_conns=None):
+    nodes, conns = base()
+    nodes.append(lease_node('Release Lease (error)', 'release'))
+    nodes.append({'name': 'Fail Loudly', 'type': 'n8n-nodes-base.code', 'typeVersion': 2,
+                  'parameters': {'jsCode': 'throw new Error("dead");'}})
+    conns['Call ERP'] = {'main': [[{'node': 'Handoff'}], [{'node': 'Release Lease (error)'}]]}
+    conns['Release Lease (error)'] = {'main': [[{'node': 'Fail Loudly'}]]}
+    for n in (extra_nodes or []):
+        nodes.append(n)
+    for k, v in (extra_conns or {}).items():
+        conns[k] = v
+    return nodes, conns
+
+n1, c1 = railed()
+f1, w1, nt1 = audit(n1, c1)
+ok('error rail releases the lease and re-throws' in nt1,
+   'the baseline railed flow is recognised as railed', nt1[:160])
+ok('CANNOT reach it' not in w1,
+   'and with no multi-output node on the main path it reports no blind spot', w1[:200])
+
+MERGE = {'name': 'Join Streams', 'type': 'n8n-nodes-base.merge', 'typeVersion': 3, 'parameters': {}}
+n2, c2 = railed([MERGE], {'Handoff': {'main': [[{'node': 'Join Streams'}]]}})
+f2, w2, nt2 = audit(n2, c2)
+ok('CANNOT reach it' in w2 and 'Join Streams' in w2,
+   'a Merge on the main path IS named as a blind spot', w2[:200])
+ok('FAIL' not in f2 and 'error rail releases the lease' in nt2,
+   'and it is a WARNING, not a failure - the unwired node is the lesser evil', f2[:160])
+
+# A sub-node hangs off an ai_* connection, never main. Listing it triples the warning and adds
+# nothing, because its failure surfaces through the node it is attached to.
+SUB = {'name': 'Anthropic Chat Model', 'type': '@n8n/n8n-nodes-langchain.lmChatAnthropic',
+       'typeVersion': 1.5, 'parameters': {}}
+n3, c3 = railed([MERGE, SUB], {'Handoff': {'main': [[{'node': 'Join Streams'}]]},
+                               'Anthropic Chat Model': {'ai_languageModel': [[{'node': 'Join Streams'}]]}})
+f3, w3, nt3 = audit(n3, c3)
+ok('Anthropic Chat Model' not in w3,
+   'a sub-node reached only by an ai_* connection is NOT named - that was the first version crying wolf',
+   w3[:200])
+
+MERGE_OK = dict(MERGE); MERGE_OK['onError'] = 'continueRegularOutput'
+n4, c4 = railed([MERGE_OK], {'Handoff': {'main': [[{'node': 'Join Streams'}]]}})
+f4, w4, nt4 = audit(n4, c4)
+ok('CANNOT reach it' not in w4,
+   'a node that sets onError is no longer a blind spot', w4[:200])
+
+n5, c5 = railed([MERGE], {'Handoff': {'main': [[{'node': 'Join Streams'}]]}})
+for n in n5:
+    if n['name'] in ('Release Lease (error)', 'Fail Loudly'):
+        n['_drop'] = True
+n5 = [n for n in n5 if not n.get('_drop')]
+c5['Call ERP'] = {'main': [[{'node': 'Handoff'}]]}
+c5.pop('Release Lease (error)', None)
+for n in n5:
+    n.pop('onError', None)
+f5, w5, nt5 = audit(n5, c5)
+ok('NO ERROR-PATH LEASE RELEASE' in f5 and 'CANNOT reach it' not in w5,
+   'a flow with NO rail fails on that and is not also told about blind spots', f5[:120])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)

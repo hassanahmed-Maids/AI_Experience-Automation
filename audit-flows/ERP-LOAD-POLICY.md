@@ -511,6 +511,16 @@ Three things the rail must get right, each of which was wrong first:
   there would free someone else's lease. (It would be a no-op by construction, but wiring it
   says something untrue about the flow.)
 
+**A rail is never complete, and it must SAY which nodes it misses.** The three rules above mean an
+IF, a Switch, a Merge and an LLM Agent are left off the rail on purpose - their error output is not
+at index 1 and guessing is silent. That is the right call and it leaves a real hole: those nodes can
+still kill the run, and nothing then releases the lease. `erp_compliance.py` used to print *§4 error
+rail releases the lease and re-throws* and stop, so a flow with a hole read as fully covered - which
+is how WF-B was misread on 2026-08-23, its LLM agent (the node in that flow most likely to fail on
+any given run) sitting off the rail with the reason recorded only in an n8n version description.
+It now names every main-path blind spot as a §4 WARNING. Warning and not failure: the unwired node
+is the lesser evil, and the point is that the reader can see it.
+
 **A fourth thing, found 2026-08-23: an error rail and n8n node GROUPS cannot coexist.** n8n
 requires a node group to be a single-entry, single-exit connected subgraph, and an error output is
 a second exit — so `update_workflow` rejects the rail with *"must form a single connected subgraph

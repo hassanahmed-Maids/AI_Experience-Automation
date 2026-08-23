@@ -247,6 +247,52 @@ def rail_rethrows(w, reachable):
             return True
     return False
 
+def rail_blind_spots(w):
+    """Nodes that can kill the run but whose failure cannot be routed to the error rail.
+
+    A flow can have a correct, re-throwing error rail and still lose the lease, because the rail
+    can only be hung off nodes whose error output is at a known index. Everything else - a Merge,
+    an IF, a Switch, an LLM Agent - is left unwired ON PURPOSE, since guessing the index is silent
+    when wrong. That is the right call and it leaves a real hole, and until now nothing named the
+    hole: erp_compliance.py printed "error rail releases the lease and re-throws" and stopped.
+
+    WF-B is the case in point. Its rail is complete across every Code and Execute-Workflow node,
+    and `Verify Candidates` - the LLM agent, the node in that flow MOST likely to fail on any given
+    run - is not on it. The flow passed, the note explaining why lived only in an n8n version
+    description, and reading the checker's output was enough to believe the lease was covered.
+
+    Only reported for flows that HAVE a rail: a flow with no rail already fails, and adding a
+    second message about its blind spots would bury the one that matters.
+    """
+    conns = w.get('connections') or {}
+    # MAIN-PATH ONLY. An Agent's model and output-parser hang off it by ai_languageModel /
+    # ai_outputParser connections, never `main`; listing them alongside the Agent triples the
+    # warning and says nothing extra, because their failure surfaces THROUGH the Agent. The first
+    # version of this check did list them, which is the crying-wolf failure this file has been
+    # bitten by four times - so the filter is here rather than in the reader's head.
+    on_main = set()
+    for src, spec in conns.items():
+        groups = spec.get('main') or []
+        if groups:
+            on_main.add(src)
+        for g in groups:
+            for c in (g or []):
+                on_main.add(c.get('node'))
+
+    skip = ('n8n-nodes-base.stickyNote', 'n8n-nodes-base.errorTrigger')
+    triggerish = ('Trigger', 'trigger', 'webhook')
+    out = []
+    for n in w.get('nodes') or []:
+        t = n.get('type') or ''
+        if t in skip or t in SINGLE_OUTPUT or n.get('disabled'):
+            continue
+        if any(k in t for k in triggerish):
+            continue
+        if n.get('onError') or n.get('name') not in on_main:
+            continue
+        out.append(n.get('name'))
+    return out
+
 def node_by_name(w, name):
     for n in w.get('nodes') or []:
         if n.get('name') == name:
@@ -383,6 +429,18 @@ def audit(w, canon):
               'End the rail in a Stop and Error, or a Code node that throws.')
         else:
             notes.append('§4 error rail releases the lease and re-throws (' + ', '.join(err_release) + ')')
+            blind = rail_blind_spots(w)
+            if blind:
+                warns.append('§4 the error rail exists, but these node(s) can kill the run and their '
+                  'failure CANNOT reach it: ' + ', '.join(blind) + '. They are not single-output '
+                  'types, so the rail cannot be hung off them without guessing which output index '
+                  'carries the error - and guessing wrong is silent, which is why they were left '
+                  'unwired rather than wired on a hunch. This is a WARNING and not a failure: the '
+                  'unwired node is the lesser evil. But a rail with a named blind spot is worth more '
+                  'than one that reads as complete, which is exactly how WF-B was misread on '
+                  '2026-08-23 - the flow passed, the gap was real, and nothing said so. Close it by '
+                  'setting continueRegularOutput so the failure flows on as an item to a node that '
+                  'fails closed, or by verifying the error-output index for that node type.')
 
     if is_entry and calls_erp:
         if not lease_nodes:

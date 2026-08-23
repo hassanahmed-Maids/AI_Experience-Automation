@@ -34,14 +34,37 @@
 > |---|---|---|
 > | `wf-b/nodes/merge_agent_verdicts.js` | WF-B | unrelated — fails CLOSED when the model omits `evidence_class` |
 > | `wf-e/wfa/chunk_candidates.js` | WF-A | the **canary first chunk (50)**. §5's blast-radius control, not the embed: without it the first verdict costs a full 1,200-candidate chunk instead of ~100 calls |
-> | error-path lease release | WF-B | `erp_compliance.py` warns that WF-B is a middle link in a fire-and-forget chain (`Next Batch (self)`, `Finish (WF-C)` both launch without waiting) holding a lease it never releases. If a batch dies, the chain stops and nothing frees the lease. The tool cannot see whether WF-A waits, so it warns rather than fails — but WF-A launches WF-B without waiting, so this is real |
 >
-> **`nodes/Build_Runs_Log.js` was deployed on 2026-08-23** and is no longer on this list. It went
-> out as a draft, was byte-compared against the repo file, and was published only on an
-> identical match — see VALIDATION.md.
+> Both are behaviour changes beyond "deploy the breaker" and are left for a deliberate decision.
 >
-> The remaining two are behaviour changes beyond "deploy the breaker" and are left for a
-> deliberate decision. The fourth is the same defect fixed in CC Price on 2026-08-22.
+> ### Shipped since this banner was written — do not re-read the table above as current
+>
+> - **WF-B's error-path lease release: DEPLOYED 2026-08-22**, live as version `1f9e39a9`. Every
+>   single-output node routes its error output to `Release Lease (error)` → `Fail Loudly`, which
+>   releases against the baton's `run_id` and re-throws. `erp_compliance.py` confirms it:
+>   *§4 error rail releases the lease and re-throws*.
+> - **`nodes/Build_Runs_Log.js`: DEPLOYED 2026-08-23.** Went out as a draft, was byte-compared
+>   against the repo file, published only on an identical match — see VALIDATION.md.
+>
+> **This table listing shipped work as outstanding caused a wrong status report on 2026-08-23.**
+> A banner is the first thing anyone reads and the last thing anyone updates; the flows and
+> `erp_compliance.py --all` are the source of truth, this is a pointer to them.
+>
+> ### The part of WF-B's rail that is genuinely still open
+>
+> `Verify Candidates` — the LLM agent, and the node in that flow most likely to fail on any given
+> run — is **not** on the rail, along with `Join Messages`, `Join Verdict Paths`, `Needs the
+> model?` and `More batches?`. That was deliberate: an Agent, a Merge and an IF do not carry their
+> error output at index 1, and guessing the index is silent when wrong, so leaving them unwired is
+> the lesser evil. It is still a hole: if the model call dies, WF-B dies, and nothing releases
+> until the 3-hour staleness backstop.
+>
+> Until 2026-08-23 nothing said so — the checker printed *error rail releases the lease and
+> re-throws* and stopped, so the flow read as fully covered. It now **names the blind spots** as a
+> §4 warning on every railed flow. Closing WF-B's properly means either setting
+> `continueRegularOutput` on the agent so a failure flows on as an item to a node that fails closed
+> — which is entangled with `merge_agent_verdicts.js` above, still unshipped — or verifying the
+> error-output index for that node type. Both are decisions, not clean-ups.
 >
 > After deploying, prove it rather than assume it:
 > `get_workflow_details` each flow into `audit-flows/exports/`, then

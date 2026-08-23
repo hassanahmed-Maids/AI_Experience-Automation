@@ -495,3 +495,41 @@ the good side of it.
 
 Suites: compliance 41, export mutation 30, breaker 51, regen drift 0, seam check clean on all 16.
 `erp_compliance.py --all`: 16 of 16, all comply.
+
+---
+
+## 2026-08-23 — WF-B's lease release was already done, and the banner said otherwise
+
+Asked to do WF-B's error-path lease release. **It had already been deployed on 2026-08-22**, live as
+version `1f9e39a9`: every single-output node routes its error output to `Release Lease (error)` →
+`Fail Loudly`, which releases against the baton's `run_id` with `no_wait: true` and re-throws.
+`erp_compliance.py` confirms it and `versionId == activeVersionId`, so it is current, not a draft.
+
+**I had reported it as outstanding at the end of the previous turn.** The source was the "Still
+outstanding" table in `cc-below-agreed/README.md`, written before the work shipped and never
+updated — the same banner that still listed `Build_Runs_Log.js` an hour after that was deployed too.
+A banner is the first thing anyone reads and the last thing anyone updates. It now carries a
+"Shipped since this banner was written" section naming both, and says plainly that the flows and
+`--all` are the source of truth and it is a pointer.
+
+**The real residue is not the rail, it is what the rail cannot cover.** `Verify Candidates` — WF-B's
+LLM agent, and the node in that flow most likely to fail on any given run — is off the rail, with
+`Join Messages`, `Join Verdict Paths` and two IFs. Deliberate: an Agent, a Merge and an IF do not
+carry their error output at index 1, and guessing is silent when wrong. Left as-is; changing the
+agent's `onError` alters verdict semantics and is entangled with `merge_agent_verdicts.js`, itself
+deliberately unshipped. That is a decision for Moe, not a clean-up to slip in.
+
+**What was actually wrong was the checker's silence.** It printed *§4 error rail releases the lease
+and re-throws* and stopped, so a flow with a known hole read as fully covered — and the reason WF-B's
+hole existed lived only in an n8n version description, which is not a place anyone reads. It now
+names every main-path blind spot as a §4 warning. Every railed flow has some (mostly IFs), which is
+the honest picture rather than implied completeness.
+
+**Its first version cried wolf — the fifth time in this repo.** It listed the agent's attached
+sub-nodes (`Anthropic Chat Model`, `Verdict Schema`) alongside the agent, tripling the warning and
+adding nothing: they hang off `ai_*` connections, never `main`, and their failure surfaces through
+the node they are attached to. Filtered to main-path nodes only, and pinned by a test that asserts a
+sub-node is NOT named.
+
+Suites: compliance 48, export mutation 30, breaker 51, regen drift 0, seam check clean on 16.
+`erp_compliance.py --all`: 16 of 16 comply, 6 now carrying a named blind-spot warning.
