@@ -102,9 +102,41 @@ without it:
 
 So: **declare `context.<name>`, read `#root['<name>']`.** The hand-written examples use bare
 `_entityId_` (the map root plus `MapAccessor` makes both work), but every AI-generated
-definition uses the explicit `#root['...']` form — prefer it, it is unambiguous. And the
-declared `type` values come from a fixed UI list: `String, int, long, boolean, double, float,
-date, time, datetime, timestamp, json` (`GET /lowcode/apis/parameters-types`).
+definition uses the explicit `#root['...']` form — prefer it, it is unambiguous.
+
+**The declared `type` is free-form, and real definitions exploit that.** `GET
+/lowcode/apis/parameters-types` offers `String, int, long, boolean, double, float, date, time,
+datetime, timestamp, json`, but that is only what the UI suggests — the column is a plain
+`String(50)`, unvalidated, and live definitions carry `List<FilterItem>`, `String or Number`,
+`String or Integer`. It is documentation for the caller, not a constraint. Use a descriptive
+value (`List<Long>` reads better than `json` for an id list) and remember **nothing enforces
+it** — validate inside the expression or in the caller.
+
+### Do you actually want an id list? Check the precedent first
+
+Surveyed 85 live dynamic APIs (the whole dynamic population in the last ~600 rows). Of the
+list-returning ones, **8 of 9 sampled use `SelectQuery` + `.![...]`** — so that skeleton is the
+house style, confirmed. But note what they take as *input*:
+
+- **Filter-based is the dominant bulk shape.** They accept scalar filters — a date, a status —
+  plus `context.page`/`context.size`, and let the database select the population.
+  E.g. `getclientrenewalbatches` filters
+  `c.contractProspectType.code = 'maidvisa.ae_prospect' AND c.status = :status AND NOT EXISTS (...)`.
+- **A collection parameter is precedented**, via `bulk-payments`: `context.filters` declared
+  `List<FilterItem>`, passed straight into a service —
+  `getBean(T(com.magnamedia.service.QueryService)).managePaymentsAdvanceSearch(#root['filters'], PageRequest.of(...))`.
+- **But no live definition binds a collection into a JPQL `IN :ids`.** That specific step is
+  still new ground (standard JPA, but unprecedented here).
+
+**So prefer the filter shape when the check has a population definition** ("all ACTIVE MV
+contracts with X") — it is the precedented pattern, it avoids multi-thousand-id request bodies
+and client-side chunking, and the DB does the selection. Reach for an id list only when the ids
+genuinely come from a previous step and cannot be re-expressed as a filter. Say which you chose
+and why.
+
+One syntax detail from the live JPQL: inside a SpEL single-quoted string, a literal single quote
+is written **doubled** — `''maidvisa.ae_prospect''`. Prefer a bound parameter over an inline
+literal and the problem disappears.
 
 ### The lazy-loading hazard — and its real fix
 

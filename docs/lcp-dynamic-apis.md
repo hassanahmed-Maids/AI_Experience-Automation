@@ -792,9 +792,11 @@ someone who holds the grant submits it.**
 ### Useful facts read from the live platform
 
 - `GET /apis/types` → `STATIC`, `DYNAMIC`.
-- `GET /apis/parameters-types` → the **real** parameter-type value list the UI offers:
-  `String, int, long, boolean, double, float, date, time, datetime, timestamp, json`. (The
-  column is a free-form `String(50)` at the entity level — §2 — but this is the sanctioned set.)
+- `GET /apis/parameters-types` → what the UI offers: `String, int, long, boolean, double,
+  float, date, time, datetime, timestamp, json`. **But it is not a constraint** — the column is
+  a free-form unvalidated `String(50)` (§2) and live definitions carry `List<FilterItem>`,
+  `String or Number`, `String or Integer`. Treat the declared type as documentation for the
+  caller; nothing validates against it.
 - `GET /apis/meta/list` → searchable fields: `code, name, version, apiType, method,
   parameters.name, parameters.type, parameters.parameterType, description, category, creator.id,
   creationDate, lastModificationDate, lastModifier.id, manualEntry, coreEndpoint, publicEndpoint`.
@@ -818,6 +820,30 @@ Copies in `work/lcp-dynamic-apis/real-examples/`. Two worth studying:
   read, and a cautionary example: 5,339 characters that re-execute
   `findByUuid(...)` **fourteen times** for one response. A demonstration of what an unreviewed
   generated expression looks like, and why §10 rule 6 exists.
+
+### Survey of the live dynamic population (85 definitions)
+
+Enumerated every `dynamic` row in the last ~600 of 26,697 APIs, and read nine of the
+list-returning ones in full.
+
+- **`SelectQuery` + `.![...]` is the house style** — 8 of the 9 sampled use it. The skeleton in
+  §8b's example is the pattern, not one author's habit.
+- **Bulk input is overwhelmingly filter-based, not id-list-based.** They take scalar filters (a
+  date, a status) plus `context.page` / `context.size`, and let the database select the
+  population — e.g. `getclientrenewalbatches`:
+  `c.contractProspectType.code = 'maidvisa.ae_prospect' AND c.status = :status AND NOT EXISTS (…)`.
+  (Which independently re-confirms the CC/MV picklist-code join.)
+- **A collection parameter *is* precedented**, once: `bulk-payments` declares
+  `context.filters` as `List<FilterItem>` and hands it to
+  `QueryService.managePaymentsAdvanceSearch(#root['filters'], PageRequest.of(…))`.
+- **No live definition binds a collection into a JPQL `IN :ids`.** That remains new ground.
+
+⇒ **Design guidance:** prefer the filter shape whenever the audit check has a population
+definition; it is precedented, avoids multi-thousand-id bodies and client-side chunking, and
+pushes selection into the database. An id list is for ids that genuinely come from a prior step.
+
+- Syntax detail: inside a SpEL single-quoted string a literal quote is **doubled**
+  (`''maidvisa.ae_prospect''`) — another reason to bind parameters instead of inlining literals.
 
 **Corrections these forced** (all folded into
 `.claude/skills/erp-audit-flow-builder/references/bulk-api-prompt.md`):
