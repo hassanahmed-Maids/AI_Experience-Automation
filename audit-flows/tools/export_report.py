@@ -91,8 +91,13 @@ def check_js(path):
         if not js:
             continue
         # A Code node body is not a module and may use n8n globals, so only SYNTAX is checked.
+        # n8n runs the body inside an ASYNC function, so top-level `await` is legal there and
+        # `node --check` on the bare body would reject it. Wrapping reproduces n8n's own frame -
+        # without it this reported BAD JS on a correctly transcribed node ('Fetch All-Time for
+        # Flagged', 2026-08-23), which is a false alarm on the one signal that guards a hand
+        # transcription. The wrapper adds one line, so reported line numbers are offset by 1.
         with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
-            f.write(js); p = f.name
+            f.write('(async function () {\n' + js + '\n});\n'); p = f.name
         try:
             r = subprocess.run(['node', '--check', p], capture_output=True, text=True)
         finally:

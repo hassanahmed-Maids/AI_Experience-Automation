@@ -8,7 +8,7 @@ of truth for that, so the exports are refreshed rather than committed as gospel:
 get_workflow_details(workflowId)   # n8n MCP, one JSON per flow, saved here as <flow>.json
 python3 tools/erp_compliance.py --all
 python3 tools/offline/export_mutation_test.py     # proves --all would notice if a rule broke
-python3 tools/seam_check.py exports/*.json        # $('Node') references that point at nothing
+python3 cc-below-agreed/tools/seam_check.py exports/*.json   # $('Node') refs pointing at nothing
 ```
 
 Either the raw workflow object or the `{"workflow": {...}}` wrapper is accepted.
@@ -41,7 +41,11 @@ of them proves the bytes match:
    `ERP-COMPLIANCE:` tags are present, and each Code body's length and hash. That is short enough
    to diff honestly against the live fetch, which 30 KB of JSON is not.
 2. `python3 tools/export_report.py --check-js <file>` runs `node --check` over every Code node
-   body. Most transcription damage is not valid JavaScript.
+   body. Most transcription damage is not valid JavaScript. The body is wrapped in
+   `(async function () { ... })` first, because n8n runs a Code node inside an async frame and
+   top-level `await` is legal there — without the wrapper this reported BAD JS on a correctly
+   transcribed node (2026-08-23), and a false alarm on the one signal that guards a hand
+   transcription is worse than no signal.
 3. The §5 breaker byte-compare in `erp_compliance.py` fails on a corrupted breaker block whether
    the corruption came from drift or from a typo.
 

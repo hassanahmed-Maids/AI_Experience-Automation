@@ -616,3 +616,67 @@ instead of propagating into four documents. That is the whole argument for it ex
 Suites: compliance 48, export mutation 30, breaker 51, regen drift 0, seam check 0 dangling / 0
 mismatches across 16, load check 0 violations, doc check 86 citations / 0 missing.
 `erp_compliance.py --all`: 16 of 16.
+
+## 2026-08-23 — the scope was six checks, not three; `--all` was green over a subset of the instance
+
+Moe named the whole scope: **CC Below Agreed Amount, Price By Cohort, Real Tickets, Dummy Tickets,
+Terminated Housemaid Tickets, MV Monthly Payment**. Three of those six had never been audited —
+seven flows. The manifest grew from 16 to 23 and `erp_compliance.py --all` went from **16 of 16
+comply** to **23 flows, 6 failing**.
+
+**The green was real and the reassurance was not.** `MANIFEST.json` exists so `--all` cannot report
+success over a subset of `exports/`. It did its job. What nothing guarded was the manifest itself
+against the *instance*: the export list was built from the `audit: *` tags, and three flows were
+untagged. So the same failure mode that produced the manifest reappeared one level up, and the
+sentence at the top of `REMEDIATION-PLAN.md` — "nothing here is a policy violation" — was written
+in good faith about sixteen flows and was false about the estate. Both times the cause was
+identical: **a list built from something narrower than reality, then trusted as reality.** The fix
+in `REMEDIATION-PLAN.md` A0.5 is a sweep that reads the instance and fails on any ERP-touching flow
+the manifest does not list. Until that exists, `_scope` in `MANIFEST.json` is a note, not a check,
+and should be read as one.
+
+**The worst flow in the estate was the invisible one.** `7M7xzzYpOecao9PE` "Applicant Real Ticket
+Refund Audit" — untagged, **live**, created 2026-05-25, predating the load policy. 10 in flight /
+200 ms = 50 req/s on one node, 5/300 on another, a paginated sweep with no interval, no timeout
+anywhere, no lease, no gate, no breaker, no error trigger. And `Fetch All-Time for Flagged`: a
+`for` loop calling `this.helpers.httpRequest` inside a **Code** node — pacing lives in an HTTP
+node's `batching` options, so a hand-rolled loop has none *and the node-scanning checker cannot see
+it at all*. It is webhook-triggered rather than scheduled, so the exposure is "the next time
+someone runs the check", not tonight; that is a smaller window and the same size of hole. Tagged
+`audit: Applicant Ticket` this session, along with the two Terminated Housemaid flows (new tag
+`audit: Terminated HM`). Tagging is workflow metadata, not a version: `versionId` and
+`activeVersionId` were byte-identical after tagging the live flow, so nothing was drafted and
+nothing needed publishing.
+
+**The lease is not a mutex any more, and no per-flow fix says so.** §4 exists so two audits cannot
+hit ERP together. There are now three live webhook entry points that reach ERP and only WF-A takes
+the lease. WF-A can pass every check and still be run over. This is the headline finding of the
+audit and it is invisible in any single flow's report — each of the other two just says "NO ERP
+LEASE", which reads as a local gap. Recorded in `audit-flows/compliance/applicant-real-ticket.md`
+and made A0.1, ahead of every pacing fix, because pacing reduces one flow's rate and only the lease
+stops a collision.
+
+**Stale prose is worse than no prose.** Both Dummy Tickets flows carry a sticky note reading
+"Pacing 5 concurrent / 500 ms, **matching the golden's rail**". It did match an older golden. It is
+now 2.5× the ceiling, and the note makes a violation read as a deliberate compliance decision — the
+most expensive kind of wrong, because it stops the next reader looking. A pacing fix that leaves
+the note behind has not been made; written into A0.2.
+
+### Two checker corrections, both from findings this audit produced
+
+**`erp_load_check.py` said "4 req/s, over the 4 req/s ceiling".** For `batchSize 3 / 750 ms` that is
+self-contradicting, and a self-contradicting finding gets waved away as a checker bug. The finding
+was right and the message was wrong: the rule being broken is the **2-in-flight cap**, not the rate.
+The policy already says this in as many words — "3 concurrent / 750 ms and 2 concurrent / 500 ms are
+both 4 req/s, but the first holds three connections open at once". The message now leads with
+concurrency and states the rate honestly as at/over/under.
+
+**`export_report.py --check-js` reported BAD JS on a correctly transcribed node.** n8n runs a Code
+node inside an async frame, so top-level `await` is legal there and `node --check` on the bare body
+is not what n8n does. Bodies are now wrapped in `(async function () { ... })` first. A false alarm
+on the one signal that guards a hand transcription is worse than no signal — and a mutation test
+confirms the wrapper still catches a genuine syntax error.
+
+Suites: compliance 48, export mutation 30, breaker 51, regen drift 0, seam check 0 dangling across
+23, doc check 97 citations / 0 missing. `erp_compliance.py --all`: **23 audited, 23 of 23 covered,
+6 failing** — and the 6 are the point of the run, not a regression.

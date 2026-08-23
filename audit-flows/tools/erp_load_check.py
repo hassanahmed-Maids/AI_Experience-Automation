@@ -117,9 +117,19 @@ def check_node(w, n):
         elif conc == -1:
             f.append('per-item node with batchSize -1 (all items in ONE batch) - unbounded concurrency')
         elif conc > MAX_CONCURRENCY:
+            # CONCURRENCY is the rule being broken here, not the rate. They are separate:
+            # policy section 1 caps BOTH at 2 in flight AND 500ms between batches. 3/750ms is
+            # exactly 4 req/s - AT the ceiling, not over it - and still violates the cap,
+            # because it holds three connections open at once. Saying "4 req/s, over the
+            # 4 req/s ceiling" was self-contradicting and invited the finding to be waved
+            # away as a checker bug (2026-08-23, the Applicant Real Ticket rebuild).
             rate = conc / ((bi or 1) / 1000.0)
-            f.append('per-item node at batchSize %s / %sms = %.0f req/s, over the %d req/s ceiling'
-                     % (conc, bi, rate, MAX_CONCURRENCY * 1000 // MIN_BATCH_MS))
+            ceil = MAX_CONCURRENCY * 1000 // MIN_BATCH_MS
+            f.append('per-item node at batchSize %s - over the %d-in-flight cap (%s/%sms is '
+                     '%.0f req/s, %s the %d req/s ceiling, but %d connections are open at once)'
+                     % (conc, MAX_CONCURRENCY, conc, bi, rate,
+                        'at' if abs(rate - ceil) < 0.5 else ('over' if rate > ceil else 'under'),
+                        ceil, conc))
         if bi is None or bi < MIN_BATCH_MS:
             f.append('per-item node with batchInterval %s, below the %dms minimum' % (bi, MIN_BATCH_MS))
     else:

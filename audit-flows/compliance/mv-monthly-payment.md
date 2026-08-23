@@ -18,7 +18,8 @@ publish" by their own author, so nothing here is live traffic.
 | 3-Deliver | `Z9fTvmaM526eYofe` | **clean, still** — no ERP node, no lease call, no sub-workflow call; every section is vacuous |
 | 4-Verify findings | `9T91z5VFH5g69WyT` | fixed — pacing, error rail, a **missing breaker**, and a **missing budget gate** |
 
-`erp_compliance.py --all` now covers **16 of 16 flows in the manifest, 0 unaudited**, and
+`erp_compliance.py --all` covers **every flow in the manifest, 0 unaudited** — 23 as of
+2026-08-23, when the manifest grew from three checks to six; all five MV flows still pass. And
 `tools/offline/export_mutation_test.py` breaks each fixed property in turn against the real
 exports (30 assertions) so a green run means something.
 

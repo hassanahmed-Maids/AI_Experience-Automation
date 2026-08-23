@@ -97,7 +97,50 @@
       "name": "MV Monthly Payment - 4-Verify findings",
       "live": false,
       "export": "transcribed"
+    },
+    {
+      "id": "YXRZdtk2Geeeqaal",
+      "name": "Applicant Real Ticket - the audit check (draft)",
+      "live": false,
+      "export": "api"
+    },
+    {
+      "id": "B8r6dyuHz9kFC3HJ",
+      "name": "Applicant Real Ticket - publish results to Google Sheets",
+      "live": false,
+      "export": "transcribed"
+    },
+    {
+      "id": "7M7xzzYpOecao9PE",
+      "name": "Applicant Real Ticket Refund Audit - LIVE legacy predecessor",
+      "live": true,
+      "export": "transcribed"
+    },
+    {
+      "id": "YQlNlxrnhbQpBbdl",
+      "name": "Dummy Tickets Housemaids - 0-Fetch Tickets",
+      "live": true,
+      "export": "transcribed"
+    },
+    {
+      "id": "aTmGMAlYLwsJQ7js",
+      "name": "Dummy Tickets Housemaids - 1-Score",
+      "live": true,
+      "export": "api"
+    },
+    {
+      "id": "dhkfRbuaGv8MXzSG",
+      "name": "Terminated Housemaids Tickets - 0-Fetch Profiles",
+      "live": false,
+      "export": "transcribed"
+    },
+    {
+      "id": "sXsn4NUYt4kh3OAU",
+      "name": "Terminated Housemaids Tickets - 1-Score",
+      "live": false,
+      "export": "api"
     }
   ],
-  "_export_field": "How each export got here, because it changes what a green run means. 'api' = the n8n MCP returned the workflow to a file and it was copied verbatim. 'transcribed' = the MCP returned it INLINE (small workflows are not auto-saved) and no n8n API credential exists in this environment, so it was copied by hand from that response. A transcribed export is faithful-but-manual: it can be WRONG in a way a stale one cannot. Three things bound that - tools/export_report.py diffed against the live fetch, its --check-js pass over every Code node body, and the breaker byte-compare - and none of them proves the bytes match. Re-export any transcribed flow the moment a real API route exists."
+  "_export_field": "How each export got here, because it changes what a green run means. 'api' = the n8n MCP returned the workflow to a file and it was copied verbatim. 'transcribed' = the MCP returned it INLINE (small workflows are not auto-saved) and no n8n API credential exists in this environment, so it was copied by hand from that response. A transcribed export is faithful-but-manual: it can be WRONG in a way a stale one cannot. Three things bound that - tools/export_report.py diffed against the live fetch, its --check-js pass over every Code node body, and the breaker byte-compare - and none of them proves the bytes match. Re-export any transcribed flow the moment a real API route exists.",
+  "_scope": "The six checks Moe named on 2026-08-23 are the whole scope: CC Below Agreed Amount, Price By Cohort, Real Tickets, Dummy Tickets, Terminated Housemaid Tickets, MV Monthly Payment. 'audit: CC Non Received' and 'audit: Expense Attach' are OUT of scope and deliberately absent - Expense Attach reads QuickBooks, not ERP. Real Tickets carries THREE flows, not two: the rebuild (YXRZdtk2Geeeqaal, draft), its Sheets publisher (B8r6dyuHz9kFC3HJ), and 7M7xzzYpOecao9PE, the LIVE predecessor the rebuild replaces. That last one was untagged, so a tag sweep did not see it; it is tagged 'audit: Applicant Ticket' as of 2026-08-23 and is the one live flow in this manifest that predates the ERP load policy."
 }

@@ -1,13 +1,20 @@
 # Finishing the audit-flow remediation — an executable plan
 
-**Written 2026-08-23.** Everything below is what remains after the 2026-08-20 → 08-23 sweep.
-`erp_compliance.py --all` reports **16 of 16 flows comply, 0 unaudited**, so nothing here is a
-policy violation. What remains is: work nobody has run, two deliberately-unshipped behaviour
-changes, and gaps the checkers now name rather than hide.
+**Written 2026-08-23. Rewritten the same day** when the scope grew from three checks to six.
 
-A session picking this up can execute **Track A** end to end without asking anyone. **Track B**
-carries decisions — each states a default and what would make that default wrong. **Track C**
-cannot start until someone reactivates an ERP account.
+`erp_compliance.py --all` now reports **23 flows, 6 of them failing**. The earlier version of this
+file opened with "16 of 16 comply, so nothing here is a policy violation" — that was true of the
+sixteen flows the manifest then listed, and false of the instance. Seven flows for three checks
+(Real Tickets, Dummy Tickets, Terminated Housemaid Tickets) had never been audited; three of them
+were untagged, and one of those three is **live**.
+
+So the work now splits four ways:
+
+- **Track A0** — six flows that violate `ERP-LOAD-POLICY.md` today. Highest priority, no decisions
+  required: bringing a flow to the documented ceiling is the rule, not a judgment call.
+- **Track A** — work nobody has run. Executable end to end without asking anyone.
+- **Track B** — two deliberately-unshipped behaviour changes; each states a default.
+- **Track C** — blocked until someone reactivates an ERP account.
 
 ---
 
@@ -22,7 +29,7 @@ cd audit-flows
 #    Small ones return inline and must be hand-transcribed - see exports/README.md, and record
 #    provenance in MANIFEST.json (export: api | transcribed).
 # 2. Then, in order:
-python3 tools/erp_compliance.py --all          # policy: expect 16 of 16, 0 unaudited
+python3 tools/erp_compliance.py --all          # policy: 0 unaudited; 6 of 23 fail until A0 lands
 python3 tools/erp_load_check.py exports/*.json # pacing on live nodes
 python3 cc-below-agreed/tools/seam_check.py exports/*.json   # dangling refs + wire mismatches
 python3 tools/doc_check.py                     # every path a doc cites actually resolves
@@ -37,6 +44,68 @@ node    tools/offline/breaker_test.js          # 51
 
 **Do not trust prose about deployment state.** Five doc claims were stale on 2026-08-23 and one of
 them caused a wrong report. The flows and the checkers are the source of truth; docs are maps.
+
+---
+
+## Track A0 — the six non-compliant flows
+
+These fail `erp_compliance.py`. Full findings and fix order per check:
+`compliance/applicant-real-ticket.md`, `compliance/dummy-tickets-hm.md`,
+`compliance/terminated-housemaids.md`.
+
+| flow | id | live | headline |
+|---|---|---|---|
+| Applicant Real Ticket Refund Audit (legacy) | `7M7xzzYpOecao9PE` | **yes** | 50 req/s, plus an unpaced HTTP loop inside a Code node |
+| Applicant Real Ticket · the audit check (draft) | `YXRZdtk2Geeeqaal` | no | concurrency 3–5; no lease/gate/breaker |
+| Dummy Tickets HM · 1-Score | `aTmGMAlYLwsJQ7js` | **yes** | one ERP node with no pacing at all; no lease |
+| Dummy Tickets HM · 0-Fetch Tickets | `YQlNlxrnhbQpBbdl` | **yes** | 5/500; undeclared lease claim that is also false |
+| Terminated HM · 1-Score | `sXsn4NUYt4kh3OAU` | no | paginated sweep with no interval or timeout |
+| Terminated HM · 0-Fetch Profiles | `dhkfRbuaGv8MXzSG` | no | same template as Dummy 0-Fetch — fix both together |
+
+### A0.1. The lease mutex, first
+
+**Do this before any pacing change.** Three live webhook entry points reach ERP; only WF-A takes
+the lease. WF-A can be perfectly compliant and still be run over by either of the other two.
+Pacing fixes reduce one flow's rate; the lease is what stops two flows colliding, and it is the
+finding that no per-flow fix addresses.
+
+Add acquire/release (both rails) to `aTmGMAlYLwsJQ7js` and `7M7xzzYpOecao9PE`. Add it to
+`sXsn4NUYt4kh3OAU` and `YXRZdtk2Geeeqaal` **before either is ever activated**, not after.
+
+### A0.2. Pacing to 2 in flight / 500 ms
+
+Every per-item ERP node in the six flows. Two of them additionally need a paginated
+`requestInterval` (250 ms minimum) and a timeout: `Get Dummy Ticket Transactions`
+(`aTmGMAlYLwsJQ7js`) and `Get FT29 Transactions` (`sXsn4NUYt4kh3OAU`).
+
+**Change the prose with the number.** Both Dummy Tickets flows carry a sticky note reading
+"Pacing 5 concurrent / 500 ms, matching the golden's rail". That was true of an older golden and
+now reads as a deliberate compliance decision, which is worse than no note. A pacing change that
+leaves the note behind has not been made.
+
+### A0.3. Budget gates and breakers
+
+Standard blocks, generated not hand-copied: `tools/erp_preflight_gate.js`,
+`tools/build_breaker_embed.py`. A `budget-gate-in-caller` or `lease-held-by-caller` exemption in a
+sub-workflow is only honest once the caller actually does it — three of these six currently claim
+or imply an exemption whose precondition is false.
+
+### A0.4. Prefer cutover to patching, for Real Tickets
+
+`YXRZdtk2Geeeqaal` is a rebuild of the live `7M7xzzYpOecao9PE`. Fixing the rebuild and cutting
+over retires `Fetch All-Time for Flagged` — a `for` loop calling `this.helpers.httpRequest`, which
+has no pacing to set and which the node-scanning checker cannot see at all — in one move, instead
+of spending the same effort on a flow that is scheduled for deletion. Confirm the cutover intent
+before patching the legacy flow's pacing; if cutover is weeks away, pace it anyway.
+
+### A0.5. Guard the manifest against the instance
+
+The manifest stops `--all` going green over a subset of `exports/`. Nothing stopped the export
+list itself going green over a subset of the instance — twice now, coverage was wrong because a
+list was built from something narrower than reality (first the directory, then the tag set).
+`MANIFEST.json` now carries a `_scope` field naming the six checks, but a field is a note, not a
+check. Write the sweep: list every workflow, flag any that references `erpbackendpro.maids.cc` and
+is absent from the manifest, and fail.
 
 ---
 
@@ -244,8 +313,11 @@ single-exit and an error output is a second exit. Move each group's description 
 
 ## Definition of done
 
-- `erp_compliance.py --all`: 16 of 16, 0 unaudited, and every remaining WARN is one a document
-  explains on purpose.
+- `erp_compliance.py --all`: 23 of 23, 0 unaudited, **0 failing**, and every remaining WARN is one
+  a document explains on purpose.
+- The three live ERP entry points all take the lease, so the mutex actually is one.
+- A coverage sweep compares the instance to `MANIFEST.json` and fails on any ERP-touching flow the
+  manifest does not list.
 - `MANIFEST.json`: no `export: transcribed`.
 - Every flow with a rail has either no blind spot or a recorded, measured reason for each.
 - Every error rail has fired at least once, in a real execution, and the lease was free afterwards.
