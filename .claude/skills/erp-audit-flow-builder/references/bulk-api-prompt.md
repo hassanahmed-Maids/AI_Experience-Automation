@@ -15,7 +15,7 @@ no allowlist, no parse-check, no reviewer; the DTO has zero validation annotatio
 So the prompt is not a request, it is a specification, and **an ungrounded prompt buys a
 confidently wrong endpoint** — one returning plausible rows built on a column that
 doesn't exist or an enum stored differently than you assumed. Every field name, enum
-constant and repository signature must come from the code first, cited.
+constant, column and query path must come from the code first, cited.
 
 How much that matters, concretely: drafting the contract example below, two assumptions
 that *felt* safe were both wrong. There is no `ContractProspectType` enum with a
@@ -151,23 +151,31 @@ CC/MV *is* obtainable in one call, contrary to a first reading.
 
 ## Anatomy of the prompt
 
-Nine sections. Dense beats prose; the model does better with exact names.
+Ten sections. Dense beats prose; the model does better with exact names.
 
 1. **Purpose, one line** — what it returns, for whom, at what cardinality.
 2. **Read-only, as a constraint.** State it even though published APIs are write-guarded;
    the guard misses `EntityManager` mutations and you want the intent on record.
-3. **Input** — parameter name, `type`, `parameterType: BODY`, `required`. One collection.
-4. **Output** — exact JSON field names and types, one object per entity, and what happens
-   to ids that don't resolve.
-5. **The grounded logic** — entity, table, PK; the repository method's exact signature;
-   every enum constant with its **stored** value; each output field mapped to its source.
-   Cited.
-6. **Mandatory filters** — or an explicit statement that there are none. "None" must be a
-   finding from the code, never an omission.
-7. **Shape constraints** — one repository call, scalar projection, no lazy walking.
-8. **Edge cases** — unknown id, nulls, duplicates, empty list, ordering, numeric widening.
-9. **The closing instruction** — verify every name against current code, cite `class:line`,
-   and **stop rather than substitute** on a mismatch.
+3. **Module**, by code (`clientmgmt`, `accounting`, …). It decides which module evaluates the
+   expression, and entities are duplicated across modules — so naming it is not optional.
+4. **Input** — each parameter as `context.<name>` / `type` / `BODY` / required, plus
+   `context.page` and `context.size`. Say whether the shape is a **filter** or an **id list**,
+   and why (see the survey above — filter is the precedented default).
+5. **Output** — exact JSON keys and types, one object per row, and what happens to input that
+   matches nothing.
+6. **The grounded logic** — entity, `@Table`, PK; the JPQL to run; every enum constant with its
+   **stored** value; each output key mapped to its source field. Cited `class:line`.
+7. **Mandatory filters** — or an explicit statement that there are none. "None" must be a
+   *finding from the code*, never an omission. (For `Contract`: there is genuinely no
+   soft-delete — say so rather than leaving it unaddressed.)
+8. **Shape constraints** — one query via `SelectQuery.builder(...)`, `LEFT JOIN FETCH` every
+   association you project, `.![{...}]` to map rows, no lazy walking, no managed entities in the
+   response.
+9. **Edge cases** — no-match input, nulls, duplicates, empty input, deterministic ordering, and
+   any type coercion the input needs (e.g. JSON numbers arriving as `Integer` where `Long` is
+   wanted).
+10. **The closing instruction** — verify every name against current code, cite `class:line`,
+    and **stop rather than substitute** on a mismatch.
 
 That last sentence matters most. Without it, a wrong field name in your prompt gets
 silently "corrected" to something adjacent and you inherit a bug you specified.
@@ -200,7 +208,11 @@ platform (ids 27626, 27629 — `work/lcp-dynamic-apis/real-examples/`).
 | CC vs MV | `contractProspectType` → `PicklistItem`, matched by **`.code`**: CC = `maids.cc_prospect`, MV = `maidvisa.ae_prospect`. Declared LAZY, so reach it via **JPQL join**, not entity walking. Confirmed in a live definition: `AND (c.contractProspectType IS NULL OR c.contractProspectType.code != :ccProspectCode)` |
 | Soft delete | **Contested — verify before relying on it.** ask-code says `Contract` in client-management has no `deleted`/`active`/`archived` and no test/fake column. But live API 27626 (module **accounting**) calls `contract.getDeleted()`. The entity is duplicated per module, so the accounting copy may carry a flag the client-management copy lacks. **Confirm against `clientmgmt` before deciding whether to filter**, and say which you did |
 
-### The prompt — paste as `user_query`
+### Variant A — the id-list shape, paste as `user_query`
+
+> **Read Variant B below first.** A is written out in full because it is the longer text, but the
+> filter shape is the precedented default — use A only when the ids genuinely come from a prior
+> step.
 
 > Create a **read-only** bulk API for an internal audit process.
 >
@@ -292,6 +304,47 @@ platform (ids 27626, 27629 — `work/lcp-dynamic-apis/real-examples/`).
 > repository signature above against the current code, and cite class:line for each. If any
 > name here does not match the code, stop and report the mismatch rather than substituting a
 > similar one.**
+
+### Variant B — the filter shape (prefer this when the check defines a population)
+
+The prompt above takes an id list, which is the right shape only when the ids genuinely arrive
+from a previous step. When the check can *describe* its population — which is usually — use the
+precedented filter shape instead. It's the same prompt with two sections swapped:
+
+**Replace the input section with:**
+
+> **Input parameters** — declare each with the `context.` prefix, read as `#root['<name>']`:
+> - `context.status` — type `String`, BODY, optional: a `ContractStatus` constant name. When
+>   absent, do not filter on status.
+> - `context.prospectTypeCode` — type `String`, BODY, optional: a `contractProspectType` picklist
+>   code (`maids.cc_prospect` for CC, `maidvisa.ae_prospect` for MaidVisa). When absent, do not
+>   filter on prospect type.
+> - `context.page` — type `int`, BODY, optional, default `0`.
+> - `context.size` — type `int`, BODY, optional, default `200`.
+
+**Replace the query section with:**
+
+> **Query.** One JPQL query over `Contract`, with each filter applied only when its parameter is
+> supplied — use the `(:param IS NULL OR <predicate>)` idiom so one query serves every
+> combination. Filter prospect type by **path** (`c.contractProspectType.code = :prospectTypeCode`),
+> which joins rather than lazily loading. `LEFT JOIN FETCH` `c.client`, `c.housemaid` and
+> `c.contractProspectType` for the projected fields. Order by `c.id ASC`. Provide the matching
+> `SELECT COUNT(DISTINCT c.id)` count query and enable `.withTotalCount(true)`, so the caller can
+> page deterministically and know when to stop.
+
+Everything else — output keys, read-only constraint, no soft-delete filter, the forbidden
+substrings, the closing verification instruction — is unchanged.
+
+**Why this is usually the better trade.** The caller sends a small body and pages until the total
+is exhausted, instead of enumerating ids first and shipping thousands back. It also removes the
+one genuinely unprecedented step in Variant A: binding a collection into a JPQL `IN :ids`. And it
+keeps the population definition in one place — the API — rather than split between the flow that
+built the id list and the API that consumed it.
+
+**Its risk, which Variant A doesn't have:** a filter is a *claim about the population*, so a
+wrong predicate silently changes who gets audited. Reconcile the total against an independent
+count before trusting it (Phase 2's completeness guard), and never let the filter drift from the
+spec's population definition without saying so.
 
 ### Before you submit: confirm you can
 
