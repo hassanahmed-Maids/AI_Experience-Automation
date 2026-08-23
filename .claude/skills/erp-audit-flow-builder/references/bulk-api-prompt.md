@@ -25,60 +25,97 @@ both and got a confidently wrong endpoint.
 
 ## The established SpEL convention — follow it
 
-Every committed dynamic API in the ERP uses one shape (`SetupDynamicApis.java` in
-client-management, accounting, visa-processing):
+Two families exist. Read both before writing a prompt.
 
-```
-T(com.magnamedia.core.Setup).getApplicationContext().getBean('beanName').method(_entityId_)
-```
-
-Real examples, verbatim:
+**1. The hand-registered one-liner** (`SetupDynamicApis.java`, client-management /
+accounting / visa-processing) — wraps a service bean, returns a scalar for one entity:
 
 ```java
-// magnamedia-client-management/.../service/SetupDynamicApis.java:52
-api.setExpression("T(com.magnamedia.core.Setup).getApplicationContext().getBean(\"ccAppContentHelper\").fetchReplaceOrHireMaidVisibility(_entityId_)");
-// magnamedia-visa-processing/.../module/SetupYAYAFaqDynamicApis.java:22
-api.setExpression("!T(com.magnamedia.core.Setup).getApplicationContext().getBean('housemaidService').isEidAndPassportReceived(_entityId_)");
+api.setExpression("T(com.magnamedia.core.Setup).getApplicationContext().getBean('housemaidService').isEidAndPassportReceived(_entityId_)");
 ```
 
-Notes that matter:
+**2. The AI-generated, list-returning one** — read live from the platform 2026-08-23
+(`GET /lowcode/apis/{apiId}`; copies in `work/lcp-dynamic-apis/real-examples/`). This is the
+family a bulk audit API belongs to, and it is far more capable than the first suggests.
+Verbatim skeleton from a real, accepted definition (`getprecolllistrenewalupdated_cloned`,
+id 27629, module `clientmgmt`):
 
-- **`T(...)` is the convention, not a smell.** `T(com.magnamedia.core.Setup)` is not on the
-  prohibited-classes list. Judge a type reference by *what it names* (Phase 3b).
-- **`_entityId_` / `_entityType_` are runtime-injected context keys**, referenced **bare**
-  (not `#_entityId_`) because the context map is the root object with a `MapAccessor`
-  registered. Never name a parameter either of those.
-- Both `'bean'` and escaped `\"bean\"` quoting work.
-- A `@beanName` form also resolves (a `BeanFactoryResolver` is installed) and is used in
-  `@Value("#{...}")` projections elsewhere — but **no committed dynamic API uses it**.
-  Prefer the proven `getBean(...)` form.
+```
+#root['currentDate'] != null && !#root['currentDate'].toString().isEmpty() ?
+T(com.magnamedia.core.helper.SelectQuery)
+.builder(
+  'SELECT DISTINCT ddgp FROM DirectDebitGenerationPlan ddgp ' +
+  'LEFT JOIN FETCH ddgp.contract c ' +
+  'LEFT JOIN FETCH c.client cl ' +
+  'WHERE DATE(ddgp.ddSendDate) = :targetDate ' +
+  'AND c.status = :contractStatus ' +
+  'AND (c.contractProspectType IS NULL OR c.contractProspectType.code != :ccProspectCode) ' +
+  'ORDER BY cl.id ASC, c.id ASC',
+  'SELECT COUNT(DISTINCT ddgp.id) FROM DirectDebitGenerationPlan ddgp ... ',
+  T(com.magnamedia.entity.DirectDebitGenerationPlan),
+  { 'contractStatus': T(com.magnamedia.module.type.ContractStatus).ACTIVE,
+    'ccProspectCode': 'maids.cc_prospect' }
+)
+.withTotalCount(true)
+.build()
+.execute(T(org.springframework.data.domain.PageRequest).of(
+   #root['page'] != null ? T(java.lang.Integer).parseInt(#root['page']) : 0,
+   #root['size'] != null ? T(java.lang.Integer).parseInt(#root['size']) : 20))
+.getContent()
+.![{ 'clientId': contract.client.id, 'contractId': contract.id,
+     'maidSalary': contract.workerSalary }]
+: {'error': 'currentDate is required (format: yyyy-MM-dd)'}
+```
 
-### Two gaps you are stepping into
+Everything that matters is in there:
 
-Searched across all modules: **no committed dynamic API calls a `*Repository` bean, and
-none returns a `List`.** Every example wraps a *service/helper* bean and returns a scalar
-for a single `_entityId_`. A bulk list-in/rows-out API is therefore **a new pattern**, not
-a variation on an existing one. That is allowed, but it means:
+- **`T(com.magnamedia.core.helper.SelectQuery).builder(jpql, countJpql, entityType, params)`**
+  — the idiomatic way to run a real query from an expression. Use it instead of trying to
+  call a repository finder and post-filter.
+- **`LEFT JOIN FETCH`** loads associations *inside the query*. This is the correct answer to
+  the lazy-loading hazard below — not avoidance.
+- **`.![{ ... }]`** is SpEL's collection-projection operator, mapping each row to a map. This
+  is how you return a projection without a Java change.
+- **Pagination is conventional**, via `context.page` / `context.size` and `PageRequest.of`,
+  defaulting to 0 / 20, with `.withTotalCount(true)`.
+- **A guard clause returning `{'error': '...'}`** for missing required input.
+- **`T(...)` and `new` both appear in production** — `T(java.lang.Long).parseLong`,
+  `T(java.util.Date)`, `T(java.time.ZoneId)`, even
+  `new java.text.SimpleDateFormat('yyyy-MM-dd')`. So neither is a smell on its own; judge the
+  **type being named** against the prohibited list.
+- A third bean idiom also appears:
+  **`T(com.magnamedia.core.Setup).getRepository(T(com.magnamedia.repository.ContractRepository))`**
+  — type-safe and cleaner than `getBean('name')` when you want a repository.
 
-- Say so when you propose it, and expect more review, not less.
-- Keep the expression as small as it can be. A long expression in an unvalidated,
-  untyped string is the worst place in this system to put logic.
-- If the expression starts needing real branching, that is the signal to add a typed,
-  tested **service method** in the owning module and let the dynamic API be a one-line
-  wrapper over it — matching every existing example. That costs a deploy; weigh it
-  against the risk rather than defaulting to the string.
+### Parameter naming — the detail that will bite you
 
-### The lazy-loading hazard — read before designing the field list
+In a real definition, BODY parameters are **declared** with a `context.` prefix and **read**
+without it:
 
-`evaluateApi` is **not** `@Transactional` (`docs/lcp-dynamic-apis.md` §5). So an
-expression that touches a **LAZY** association can throw `LazyInitializationException`,
-and one that touches associations per row re-introduces the N+1 you are trying to delete.
+| Declared `name` | `parameterType` | Read in SpEL as |
+|---|---|---|
+| `context.currentDate` | `BODY` | `#root['currentDate']` |
+| `context.page`, `context.size` | `BODY` | `#root['page']`, `#root['size']` |
+| `code` | `QUERY` | (the runtime's own lookup key) |
+| `entityId`, `entityType` | `BODY` | `#root['_entityId_']` / injected |
+| `Content-Type` | `HEADER` | — |
 
-Practical rule: **return own-table scalar columns**, plus ids of `@ManyToOne`
-associations, which default to EAGER and are already loaded. The moment a field requires
-walking a LAZY association, it belongs in a repository `@Query` projection with an
-explicit join — a Java change to propose separately, not something to smuggle into a
-string.
+So: **declare `context.<name>`, read `#root['<name>']`.** The hand-written examples use bare
+`_entityId_` (the map root plus `MapAccessor` makes both work), but every AI-generated
+definition uses the explicit `#root['...']` form — prefer it, it is unambiguous. And the
+declared `type` values come from a fixed UI list: `String, int, long, boolean, double, float,
+date, time, datetime, timestamp, json` (`GET /lowcode/apis/parameters-types`).
+
+### The lazy-loading hazard — and its real fix
+
+`evaluateApi` is **not** `@Transactional` (`docs/lcp-dynamic-apis.md` §5), so walking a
+`fetch = LAZY` association *in the expression* can throw `LazyInitializationException`, and
+doing it per row re-introduces the N+1 you came to delete.
+
+The fix, as the real example shows, is **not** to avoid the field — it is to pull it in the
+query: `LEFT JOIN FETCH` the association, or filter on it by path
+(`c.contractProspectType.code != :code`), then project from the fetched graph. That is why
+CC/MV *is* obtainable in one call, contrary to a first reading.
 
 ## Anatomy of the prompt
 
@@ -116,119 +153,110 @@ value and let the check decide. Same for dates: return the date, not `expired: t
 
 ## Worked example — bulk contract core read
 
-Grounded 2026-08-23, ask-code session 44663 (`work/lcp-dynamic-apis/raw/qA-contract-grounding.md`).
+Grounded 2026-08-23, ask-code session 44663, plus two real live definitions read from the
+platform (ids 27626, 27629 — `work/lcp-dynamic-apis/real-examples/`).
 
-**Ground truth established first:**
+**Ground truth:**
 
 | Fact | Value |
 |---|---|
-| Owning module | `magnamedia-client-management` (alias `erp/magnamedia-client-management`) — `Contract.java` is duplicated across **7 modules**; this is the canonical `@Entity`, 4,937 lines |
-| Table | **`CONTRACTS`** (`@Table` has no explicit `name`; inferred from the `@Formula` bodies, `Contract.java:73-75`) |
-| PK | field `id`, column **`ID`** (`BaseEntity.java:104-110`) |
-| Repository | `com.magnamedia.repository.ContractRepository`, bean **`contractRepository`** |
-| Bulk method (exists) | `List<Contract> findAllByIdIn(ArrayList<Long> Ids)` — `ContractRepository.java:216`. Note the **concrete `ArrayList`** parameter type |
-| `status` | `ContractStatus`, `@Enumerated(STRING)` → stored as constant name. Constants: `FILTER_ACTIVE, ACTIVE, CANCELLED, EXPIRED, UNKNOWN, PLANNED_RENEWAL, FILTER_CANCELED, FILTER_INCOMPLETE_DOCUMENTS, FILTER_BLOCKED, PENDING_RENEWAL, CANCELLED_RENEWAL, POSTPONED` |
-| `contractType` | `ContractType`, `@Enumerated(STRING)`. Constants: **`LONG_TERM, SHORT_TERM` only** — this is *not* CC/MV |
-| CC vs MV | **`contractProspectType`, a `PicklistItem` FK, matched by `.getCode()`**: CC = `maids.cc_prospect`, MV = `maidvisa.ae_prospect`. **No `MAID_VISA` enum exists.** Declared `fetch = LAZY` (`Contract.java:555-557`) ⇒ excluded from v1, see below |
-| Soft delete / test data | **None.** No `deleted`/`active`/`archived`, no `fake`/`isTest`/`dummy`, on `Contract` or its base classes. Rows are hard-deleted |
-| Eager associations | `client` and `housemaid` are `@ManyToOne` with default **EAGER** fetch (`Contract.java:277-281`) ⇒ their ids are safe to read |
-
-**Scope decision:** v1 returns own-table scalars plus the two eager association ids. It
-**excludes** CC/MV, because `contractProspectType` is LAZY and `evaluateApi` is
-non-transactional — reading it per row risks `LazyInitializationException` and an N+1.
-Getting CC/MV needs a repository `@Query` projection joining
-`contractProspectType.code`, which is a Java change to propose on its own merits.
+| Owning module | `magnamedia-client-management`, module code **`clientmgmt`**, alias `erp/magnamedia-client-management`. `Contract.java` is duplicated across **7 modules**; this is the canonical `@Entity` |
+| Table / PK | `CONTRACTS` / column `ID` (`BaseEntity.java:104-110`) |
+| Repository | `com.magnamedia.repository.ContractRepository`, bean `contractRepository` |
+| `status` | `ContractStatus`, `@Enumerated(STRING)`: `FILTER_ACTIVE, ACTIVE, CANCELLED, EXPIRED, UNKNOWN, PLANNED_RENEWAL, FILTER_CANCELED, FILTER_INCOMPLETE_DOCUMENTS, FILTER_BLOCKED, PENDING_RENEWAL, CANCELLED_RENEWAL, POSTPONED` |
+| `contractType` | `ContractType`, `@Enumerated(STRING)`: **`LONG_TERM, SHORT_TERM` only** — *not* CC/MV |
+| CC vs MV | `contractProspectType` → `PicklistItem`, matched by **`.code`**: CC = `maids.cc_prospect`, MV = `maidvisa.ae_prospect`. Declared LAZY, so reach it via **JPQL join**, not entity walking. Confirmed in a live definition: `AND (c.contractProspectType IS NULL OR c.contractProspectType.code != :ccProspectCode)` |
+| Soft delete | **Contested — verify before relying on it.** ask-code says `Contract` in client-management has no `deleted`/`active`/`archived` and no test/fake column. But live API 27626 (module **accounting**) calls `contract.getDeleted()`. The entity is duplicated per module, so the accounting copy may carry a flag the client-management copy lacks. **Confirm against `clientmgmt` before deciding whether to filter**, and say which you did |
 
 ### The prompt — paste as `user_query`
 
 > Create a **read-only** bulk API for an internal audit process.
 >
-> **Purpose.** Given a list of contract ids, return one row per contract with core
-> contract fields, so an audit check can fetch thousands of contracts in a few calls
-> instead of one HTTP request per contract.
+> **Purpose.** Given a list of contract ids, return one row per contract with core contract
+> fields, so an audit check can fetch thousands of contracts in a few paginated calls instead
+> of one HTTP request per contract.
 >
-> **Read-only — this is a hard requirement.** The expression must perform no writes: no
-> `save`, `saveAndFlush`, `delete`, `persist`, `merge` or `remove`; no JPQL or native
-> `UPDATE`/`DELETE`; no outbound HTTP; no scheduling. It reads and returns data only.
+> **Read-only — hard requirement.** No `save`, `saveAndFlush`, `delete`, `persist`, `merge`,
+> `remove`; no JPQL or native `UPDATE`/`DELETE`; no outbound HTTP; no scheduling. Read and
+> return only.
 >
-> **Module.** `magnamedia-client-management`. This matters: `Contract.java` exists in
+> **Module.** `clientmgmt` (`magnamedia-client-management`). This matters: `Contract` exists in
 > seven modules and only the client-management copy is the canonical `@Entity`
-> (`magnamedia-client-management/src/main/java/com/magnamedia/entity/Contract.java`,
-> class `com.magnamedia.entity.Contract`, table `CONTRACTS`, primary key column `ID`
-> inherited from `BaseEntity`).
+> (`com.magnamedia.entity.Contract`, table `CONTRACTS`, PK column `ID` from `BaseEntity`).
 >
-> **Input.** One parameter:
-> - name `contractIds`, type `json`, parameterType `BODY`, required `true` — a JSON array
->   of numeric contract ids.
+> **Follow the established pattern for a list-returning dynamic API in this platform**, as in
+> the existing definition `getprecolllistrenewalupdated_cloned`: build the query with
+> `T(com.magnamedia.core.helper.SelectQuery).builder(<jpql>, <countJpql>, T(<EntityClass>),
+> <paramsMap>).withTotalCount(true).build().execute(T(org.springframework.data.domain.PageRequest).of(page, size)).getContent()`
+> and then map rows with the SpEL collection-projection operator `.![{ ... }]`.
 >
-> Do not use the names `_entityId_` or `_entityType_`; those keys are injected by the
-> runtime.
+> **Input parameters** — declare each BODY parameter with the `context.` prefix and read it as
+> `#root['<name>']`:
+> - `context.contractIds` — type `json`, BODY, **required**: a JSON array of numeric contract ids.
+> - `context.page` — type `int`, BODY, optional, default `0`.
+> - `context.size` — type `int`, BODY, optional, default `200`.
 >
-> **Data access.** Use the existing repository method
-> `List<Contract> findAllByIdIn(ArrayList<Long> Ids)` on
-> `com.magnamedia.repository.ContractRepository`
-> (`magnamedia-client-management/src/main/java/com/magnamedia/repository/ContractRepository.java:216`),
-> reached with the established convention
-> `T(com.magnamedia.core.Setup).getApplicationContext().getBean('contractRepository')`.
-> Exactly **one** repository call for the whole input list — never one call per id.
+> Do not declare parameters named `_entityId_` or `_entityType_`; the runtime injects those keys.
 >
-> **Numeric widening — handle this explicitly.** A JSON array of numbers deserialises to
-> `Integer` values, but `findAllByIdIn` expects an `ArrayList<Long>`. Convert every
-> element to `Long` before the call, and make the conversion tolerant of values arriving
-> as `Integer`, `Long` or numeric `String`.
+> **Query.** One JPQL query over `Contract` filtered by `c.id IN :ids`. Use
+> `LEFT JOIN FETCH` for `c.client`, `c.housemaid` and `c.contractProspectType` so no association
+> is resolved lazily outside a transaction — this API is not transactional, so a lazy walk would
+> throw `LazyInitializationException` and cause per-row queries. Order by `c.id ASC` so results
+> are deterministic. Provide the matching `SELECT COUNT(DISTINCT c.id)` count query.
 >
-> **Output.** A JSON array with one object per contract **found**, each with exactly these
-> keys:
-> - `id` (number) ← `id`
-> - `uuid` (string, nullable) ← `uuid` (column `_UUID`)
-> - `status` (string, nullable) ← `status`, as its **enum constant name** (it is
->   `@Enumerated(STRING)`; valid values are `FILTER_ACTIVE, ACTIVE, CANCELLED, EXPIRED,
->   UNKNOWN, PLANNED_RENEWAL, FILTER_CANCELED, FILTER_INCOMPLETE_DOCUMENTS,
->   FILTER_BLOCKED, PENDING_RENEWAL, CANCELLED_RENEWAL, POSTPONED`)
-> - `contractType` (string, nullable) ← `contractType`, enum constant name (`LONG_TERM` or
->   `SHORT_TERM`)
-> - `clientId` (number, nullable) ← `client.id`
-> - `housemaidId` (number, nullable) ← `housemaid.id`
-> - `startOfContract` (ISO-8601 date string, nullable) ← `startOfContract`
-> - `endOfContract` (ISO-8601 date string, nullable) ← `endOfContract`
-> - `adjustedEndDate` (ISO-8601 date string, nullable) ← `adjustedEndDate`
-> - `cancelledContract` (boolean, nullable) ← `cancelledContract`
-> - `cancelledDate` (ISO-8601 date string, nullable) ← `cancelledDate`
-> - `dateOfCancellation` (ISO-8601 date string, nullable) ← `dateOfCancellation`
-> - `dateOfTermination` (ISO-8601 date string, nullable) ← `dateOfTermination`
+> **Id conversion — handle explicitly.** A JSON array of numbers deserialises to `Integer`
+> values, but the ids are `Long`. Convert every element to `Long` before binding it to `:ids`,
+> tolerating elements that arrive as `Integer`, `Long` or numeric `String`.
 >
-> Return these **raw stored values**. Do not derive, translate or summarise them, and do
-> not add computed flags — the calling audit check applies its own rules.
+> **Output.** A list with one object per contract found, each with exactly these keys, as
+> **raw stored values** — do not derive, translate or summarise, and add no computed flags:
+> - `id` ← `c.id`
+> - `uuid` ← `c.uuid` (column `_UUID`)
+> - `status` ← `c.status` as its **enum constant name** (`@Enumerated(STRING)`; values listed
+>   below)
+> - `contractType` ← `c.contractType` as its enum constant name (`LONG_TERM` or `SHORT_TERM`)
+> - `prospectTypeCode` ← `c.contractProspectType?.code` — the **raw picklist code**
+>   (`maids.cc_prospect` for CC, `maidvisa.ae_prospect` for MaidVisa). Return the code itself,
+>   **not** a derived `isMaidVisa` boolean: a client can hold both a CC and a MaidVisa contract,
+>   and collapsing that to a flag loses the distinction the caller needs.
+> - `clientId` ← `c.client?.id`
+> - `housemaidId` ← `c.housemaid?.id`
+> - `startOfContract`, `endOfContract`, `adjustedEndDate` ← the corresponding fields, ISO-8601
+>   dates or null
+> - `cancelledContract` ← `c.cancelledContract` (Boolean, nullable)
+> - `cancelledDate`, `dateOfCancellation`, `dateOfTermination` ← corresponding dates or null
 >
-> **Return scalars only — do not return managed entities.** Build a plain list of
-> maps/objects containing only the keys above. Returning `Contract` instances would
-> serialise a very large entity graph.
+> Valid `status` values: `FILTER_ACTIVE, ACTIVE, CANCELLED, EXPIRED, UNKNOWN, PLANNED_RENEWAL,
+> FILTER_CANCELED, FILTER_INCOMPLETE_DOCUMENTS, FILTER_BLOCKED, PENDING_RENEWAL,
+> CANCELLED_RENEWAL, POSTPONED`.
 >
-> **Do not touch `contractProspectType`.** It is declared `fetch = LAZY`
-> (`Contract.java:555-557`) and this API runs outside a transaction, so reading it per row
-> risks `LazyInitializationException` and per-row lazy queries. `client` and `housemaid`
-> are `@ManyToOne` with default EAGER fetch, so reading their ids is safe.
+> **Return maps, not entities.** Project with `.![{ ... }]`; returning `Contract` instances
+> would serialise a very large entity graph.
 >
-> **Filters.** None. `Contract` has no soft-delete, `deleted`, `active`, `archived`,
-> `fake`, `isTest` or `dummy` column, on the entity or its base classes — verify this and
-> if you find such a column, apply it and say so. Do not filter by status: the caller
-> needs cancelled and expired contracts too.
+> **Filters.** Do **not** filter by status — the caller needs cancelled and expired contracts
+> too. Regarding soft deletion: **check whether the `clientmgmt` `Contract` (or its base
+> classes) actually has a `deleted`/`active`/`archived` flag.** If it does, exclude deleted rows
+> and say so explicitly in your answer; if it does not, apply no such filter and state that you
+> verified its absence. Do not assume either way — a sibling module's copy of this entity does
+> expose `getDeleted()`.
 >
 > **Edge cases.**
-> - An id with no matching contract is simply absent from the output — do not emit a
->   placeholder and do not fail the call.
-> - Null columns produce `null` values, not omitted keys or empty strings.
-> - Duplicate ids in the input produce at most one row each.
-> - An empty or absent `contractIds` returns an empty array, without a repository call.
-> - Order the output by `id` ascending, so results are deterministic.
+> - An id with no matching contract is simply absent from the output — no placeholder, no error.
+> - Null columns produce `null`, not omitted keys or empty strings.
+> - Duplicate ids produce at most one row each (`SELECT DISTINCT`).
+> - An empty or absent `contractIds` returns an empty list, without running the query — guard
+>   with a clause returning `{'error': 'contractIds is required and must be a non-empty array'}`
+>   only when the parameter is missing entirely, matching the guard style of the existing
+>   definitions.
 >
 > **Do not reference `Parameter`, `CoreParameter` or `BackgroundTask`** anywhere in the
-> expression — those tokens are rejected at evaluation.
+> expression — those tokens are rejected at evaluation time by
+> `DynamicApiUtil.enforceSpelExpressionRestrictions`.
 >
 > **Before writing the expression, verify every entity, field, column, enum constant and
-> repository signature above against the current code, and cite class:line for each. If
-> any name here does not match the code, stop and report the mismatch rather than
-> substituting a similar one.**
+> repository signature above against the current code, and cite class:line for each. If any
+> name here does not match the code, stop and report the mismatch rather than substituting a
+> similar one.**
 
 ### Before you submit: confirm you can
 

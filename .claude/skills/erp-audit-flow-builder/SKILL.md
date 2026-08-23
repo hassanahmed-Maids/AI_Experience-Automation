@@ -169,17 +169,27 @@ checklist: `references/bulk-api-prompt.md`.**
 - The fields are personal or financial. Keep them out entirely — see
   [Output hygiene](#output-hygiene).
 
-**Check access before you promise it.** The LCP management endpoints are authorised by
-**per-page API registration**, so a token can be perfectly valid and still be refused. Probe
-first — a GET on `/lowcode/apis/types` with the console pageCode — and read the
-**`developermessage` header**, not just the status: `PAGE_CODE_MISSING` means you omitted the
-header, `PAGE_NOT_FOUND` means that page doesn't exist, and `API_NOT_FOUND_FOR_PAGE` means the
-page is real but the endpoint isn't granted to it. All three surface as a bare `401` — the same
-trap Phase 2 warns about. If the grant is missing, **that is a finding to report**: do not
-brute-force pagecodes until one answers, and do not promise a timeline that depends on access
-nobody has confirmed. The fallback that works is to hand the finished prompt to someone who
-holds the grant. (Verified 2026-08-23: the audit team's own token is *not* granted these
-endpoints — see `docs/lcp-dynamic-apis.md` §8b.)
+**Check access before you promise it — and find the pageCode properly.** The LCP management
+endpoints are authorised by **per-page API registration**, so a token can be perfectly valid
+and still be refused. All refusals look like a bare `401`; only the **`developermessage`
+response header** tells you which: `PAGE_CODE_MISSING` (no header), `PAGE_NOT_FOUND` (that page
+doesn't exist), `API_NOT_FOUND_FOR_PAGE` (page real, endpoint not granted to it),
+`INSUFFICIENT_PERMISSIONS`. Same trap Phase 2 warns about.
+
+When you don't know the pageCode, **enumerate from the ERP's own registry — don't guess and
+don't give up after guessing**:
+
+1. `GET /admin/menu/getMenu?language=1` with header `pageCode: sidenav_menu`. The menu is
+   **filtered to the pages your user holds**, so its `code` values *are* your access list.
+2. `GET /lowcode/apis/page-codes` with header `pageCode: <candidate>` returns the endpoints
+   registered to that page.
+
+For the Low-Code console the answer is **`lc_docs`** (verified 2026-08-23). It grants the
+management *reads*, including `GET /lowcode/apis/{apiId}`, which is how you read a real
+definition's `spel` — do that before writing your own prompt. Guessing pagecodes until one
+answers is the workaround this playbook forbids; reading the menu is not, and it is what
+actually works. If the page genuinely isn't in your menu, **that is a finding to report** — and
+the fallback that works today is to hand the finished prompt to someone who holds the grant.
 
 **If you propose one, do the work properly:**
 

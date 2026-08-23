@@ -670,68 +670,128 @@ latency.
 - **Timeout** — none client-side or server-side. Keep each call bounded. *(We hit exactly this class
   of failure today polling ask-the-code — see `docs/code-llm-api.md`.)*
 
-## 8b. Our actual access position — VERIFIED, and it gates everything (2026-08-23)
+## 8b. Our actual access position — the pageCode is `lc_docs` (2026-08-23)
 
-Probed live against `https://erpbackendpro.maids.cc` with Hassan's ERP token. Read-only GETs only.
+**Corrects an earlier version of this section**, which concluded we had no management access.
+That was wrong: it was true of the pagecodes we had tried, not of the platform. The console page
+is **`lc_docs`**, and it was discoverable from our own ERP menu the whole time.
 
-| Call | Result |
-|---|---|
-| `GET /lowcode/apis/page-codes` (pageCode `lc_conversation`, `sidenav_menu`) | **200** — token authenticates fine |
-| `GET /lowcode/apis/types`, `/http-methods`, `/parameters-places`, `/parameters-types`, `/environments` | **401** `developermessage: API_NOT_FOUND_FOR_PAGE` |
-| `GET /lowcode/apis/list/1` | **401** `API_NOT_FOUND_FOR_PAGE` |
-| `GET /lowcode/applications` | **401** `API_NOT_FOUND_FOR_PAGE` |
-| same, with no `pageCode` header | **401** `PAGE_CODE_MISSING` |
-| same, with 7 guessed LC pagecodes (`lc_apis`, `lowcode`, `lc_studio`, …) | **401** `PAGE_NOT_FOUND` — none of those pages exist |
+### How the authorization model actually behaves
 
-**Three distinct denial shapes**, matching `ApiAuthorizationService` (§6d) exactly:
-`PAGE_CODE_MISSING` (no header) → `PAGE_NOT_FOUND` (page doesn't exist) →
-`API_NOT_FOUND_FOR_PAGE` (page is real, but this endpoint is not registered to it).
-Authorization is therefore **per-page API registration**, and the `developermessage` header is
-what separates a wrong pagecode from a missing grant — the same trap the audit playbook flags.
+Probed live against `https://erpbackendpro.maids.cc` with read-only GETs:
 
-**What `lc_conversation` actually grants — all 14 endpoints:**
+| pageCode | Call | Result |
+|---|---|---|
+| `lc_conversation` | `/lowcode/apis/page-codes` | **200** — token authenticates |
+| `lc_conversation` | `/lowcode/apis/types`, `/apis/list/1`, `/lowcode/applications` | **401** `API_NOT_FOUND_FOR_PAGE` |
+| *(none)* | any | **401** `PAGE_CODE_MISSING` |
+| 7 guessed codes (`lc_apis`, `lowcode`, `lc_studio`, …) | `/apis/types` | **401** `PAGE_NOT_FOUND` — those pages don't exist |
+| **`lc_docs`** | `/apis/types`, `/apis/parameters-types`, `/apis/meta/list`, `/apis/list/{appId}`, `/apis/{apiId}` | **200** ✅ |
 
-```
-POST /lowcode/c2d/query/async          GET  /lowcode/c2d/sessions
-GET  /lowcode/c2d/session/{id}/messages GET /lowcode/c2d/sessions/unread-count
-PUT  /lowcode/c2d/session/{id}/name     GET /lowcode/c2d/session/{id}/details
-PUT  /lowcode/c2d/session/{id}/mark-read GET /lowcode/c2d/projects
-PUT  /lowcode/c2d/message/{id}/feedback POST /lowcode/c2d/templates/lookup/bulk
-POST /lowcode/apis/{apiId}/like|dislike|feedback   POST /lowcode/api/v1/workflow/stop
-```
+**Three denial shapes**, matching `ApiAuthorizationService` (§6d): `PAGE_CODE_MISSING` →
+`PAGE_NOT_FOUND` (page doesn't exist) → `API_NOT_FOUND_FOR_PAGE` (page real, endpoint not
+registered to it). All present as a bare `401`; **only the `developermessage` response header
+separates them** — the same trap the audit playbook flags.
 
-⇒ **It is the ask-the-code CHAT surface, plus three analytics endpoints. It does NOT include
-`/apis/async` (create), `/apis/test-spel`, `/apis/{apiId}` (read the generated `spel`),
-`/apis/list/{appId}`, or `/apis/{apiId}/publish`.**
+### How to find the right pageCode — the general method
 
-**So we cannot currently create, read, dry-run or publish a dynamic API.** Everything in §4–§7 is
-accurate about the mechanism and remains the right specification — but executing it needs the
-Low-Code **console** page's grant, which this token does not carry. This is a permission finding to
-report, not something to route around: brute-forcing pagecodes until one answers is exactly the
-workaround the audit playbook forbids, which is why the probing above stopped at seven.
-
-**Two ways forward, both needing a person:**
-1. **Get the grant.** Ask the LCP owners for the console page's `pageCode` and the resource grant
-   for our account (or the audit service account). Then re-run the probe below — it is a 30-second
-   confirmation.
-2. **Route through someone who has it.** This is what the repo already assumed: System 2's
-   `golive-api-spec-writer` writes paste-ready prompts precisely *because* Moe has the
-   API-creating access and we don't. That design was right, and this probe is the evidence for why.
-
-**The probe, to re-run whenever a token or grant changes:**
+Do not guess, and do not give up after guessing. **Enumerate from the ERP's own registry:**
 
 ```bash
-set -a && source .env && set +a
-B=https://erpbackendpro.maids.cc
-H=(-H "Authorization: $ERP_AUTH_TOKEN" -H "secc-ch-ua-platform: $ERP_SECC_PLATFORM")
-# 1. authentication + what our page grants
-curl -sS "${H[@]}" -H "pageCode: lc_conversation" "$B/lowcode/apis/page-codes"
-# 2. can we reach the management surface? watch the developermessage header, not just the status
-curl -sS -D- -o/dev/null "${H[@]}" -H "pageCode: <console-pageCode>" "$B/lowcode/apis/types"
+# 1. the menu is filtered to pages YOU can access
+GET /admin/menu/getMenu?language=1        # header: pageCode: sidenav_menu
+#    -> extract every "code" value; grep for the subsystem you want
+# 2. ask what a candidate page authorises
+GET /lowcode/apis/page-codes              # header: pageCode: <candidate>
+#    -> returns the endpoints registered to that page
 ```
 
-A `200` on step 2 means creation is open to us and §4's call will work. `API_NOT_FOUND_FOR_PAGE`
-means the grant is still missing.
+`lc_docs` was the single `lc*` code in our menu. Because the menu is permission-filtered, its
+contents *are* the list of pages we hold — which makes it both the discovery tool and the
+access check.
+
+### What `lc_docs` grants (21 registered endpoints)
+
+Management reads we now have: **`GET /apis/{apiId}`** (read a definition including its `spel`),
+`GET /apis/parameters-types`, `GET /categories/with-apis`, `GET /apis/document/async/{apiId}`,
+plus writes on the metadata edges — `PUT /apis/parameters/{parameterId}`,
+`PUT /apis/result-example/{apiId}`, `POST /apis/parameters/{parameterId}/resolve-picklist-code`
+— and the whole c2d chat surface. Empirically `/apis/types`, `/apis/meta/list` and
+`/apis/list/{appId}` also answer 200 under it, so the match is broader than the registered list
+suggests.
+
+### What is still unconfirmed
+
+- **Create (`POST /apis/async`).** A `GET` against it returns **400** (a Spring binding error),
+  which proves we pass the authorization gate — but a `POST` would actually create an API, and
+  that is the human gate. **Not tested. Do not test it casually.**
+- **`POST /apis/test-spel`** still needs the `api.publish.code` shared secret (O1), independent
+  of any page grant.
+- **`POST /apis/{apiId}/publish`** — not in the registered list; unknown.
+
+⇒ We can **read** the platform, including real accepted definitions, and we can write the
+prompt. Whether we can create is one un-run POST away, and that POST needs a person's go-ahead.
+
+### Useful facts read from the live platform
+
+- `GET /apis/types` → `STATIC`, `DYNAMIC`.
+- `GET /apis/parameters-types` → the **real** parameter-type value list the UI offers:
+  `String, int, long, boolean, double, float, date, time, datetime, timestamp, json`. (The
+  column is a free-form `String(50)` at the entity level — §2 — but this is the sanctioned set.)
+- `GET /apis/meta/list` → searchable fields: `code, name, version, apiType, method,
+  parameters.name, parameters.type, parameters.parameterType, description, category, creator.id,
+  creationDate, lastModificationDate, lastModifier.id, manualEntry, coreEndpoint, publicEndpoint`.
+- `GET /apis/list/1` → **26,697** APIs, `Page`-shaped (`content`, `totalElements`, …). Filter
+  query params are **ignored** (`?apiType=DYNAMIC` returns everything) and so is `sort`;
+  paging works, and `type` comes back lowercased (`static` / `dynamic`). Dynamic definitions
+  cluster in the high id range — page ~1779 at size 15 surfaced ids 27624–27633.
+
+### Real accepted definitions — read these before writing a prompt
+
+Copies in `work/lcp-dynamic-apis/real-examples/`. Two worth studying:
+
+- **27629 `getprecolllistrenewalupdated_cloned`** (module `clientmgmt`) — a paginated,
+  list-returning bulk read. This is the template for an audit API: `SelectQuery.builder(jpql,
+  countJpql, entityType, params).withTotalCount(true).build().execute(PageRequest.of(page,size))
+  .getContent().![{ ... }]`, with `LEFT JOIN FETCH` for associations and a
+  `{'error': ...}` guard clause. **It also proves CC/MV is reachable in one call**, via
+  `AND (c.contractProspectType IS NULL OR c.contractProspectType.code != :ccProspectCode)` — a
+  JPQL join, not a lazy entity walk.
+- **27626 `getPayTabsPaymentLinkForContract`** (module `accounting`) — a contract-keyed scalar
+  read, and a cautionary example: 5,339 characters that re-execute
+  `findByUuid(...)` **fourteen times** for one response. A demonstration of what an unreviewed
+  generated expression looks like, and why §10 rule 6 exists.
+
+**Corrections these forced** (all folded into
+`.claude/skills/erp-audit-flow-builder/references/bulk-api-prompt.md`):
+
+1. **Parameter naming.** BODY parameters are *declared* `context.<name>` and *read*
+   `#root['<name>']`. Not bare names — the hand-written `SetupDynamicApis` one-liners use bare
+   `_entityId_`, but every AI-generated definition uses the explicit `#root[...]` form.
+2. **`new` is used in production** — e.g. `new java.text.SimpleDateFormat('yyyy-MM-dd')`. So a
+   blanket "reject `new`" is as wrong as a blanket "reject `T(...)`" was. Judge the **type named**
+   against §6e's list.
+3. **A third bean idiom exists**:
+   `T(com.magnamedia.core.Setup).getRepository(T(com.magnamedia.repository.ContractRepository))`
+   — type-safe, and cleaner than `getBean('name')` for repositories.
+4. **Pagination is conventional**, not absent: `context.page` / `context.size` →
+   `PageRequest.of`, defaults 0 / 20, `.withTotalCount(true)`. §5's "no pagination" is about
+   *platform enforcement*; the convention supplies it.
+
+### Two open contradictions worth resolving
+
+- **`Contract.getDeleted()`.** ask-code (session 44663) says the client-management `Contract`
+  has no soft-delete flag, on the entity or its bases. But live API 27626 calls
+  `contract.getDeleted()` — in the **accounting** module. The entity is duplicated across seven
+  modules, so the copies plausibly differ. **Verify against `clientmgmt` before deciding whether
+  a bulk query must filter deleted rows.** The prompt now asks the generator to check and report.
+- **`CoreParameter` vs the token blacklist.** `FORBIDDEN_SPEL_TOKENS` is
+  `["CoreParameter", "Parameter", "BackgroundTask"]`, enforced by a **substring** check that
+  throws `SecurityException` (§6c). Yet definition 27626 contains
+  `T(com.magnamedia.core.Setup).getCoreParameter(T(com.magnamedia.core.entity.CoreParameter).PUBLIC_LINK_BASE)`
+  — which should fail that check on every call. Either that API is effectively dead, or the
+  blacklist is applied on a path this doesn't take. Unresolved; do not rely on either reading,
+  and steer clear of those tokens regardless.
 
 ## 9. Open items
 
@@ -745,7 +805,10 @@ means the grant is still missing.
 | O6 | Row caps, pagination, timeouts, transactionality | **Closed — none exist** (§5). |
 | O7 | What protects `/admin/dynamicApi/evaluateApi` | **Closed.** `@NoPermission` at the route; global auth filter for authentication; per-API `SecureResourceHolder` check inside the evaluator, active because `publishApi` sets `secured=true` (§6d). |
 | O8 | Whether the frontend/core calls `validateSpel` over HTTP | **Minor, open.** No in-repo callers exist; an HTTP caller outside these repos can't be ruled out. Doesn't change our practice — we should call it regardless. |
-| **O9** | **The Low-Code console `pageCode` + resource grant for our account** | **Open, and the binding constraint.** Verified in §8b: our token authenticates but is not registered for any `/lowcode/apis/*` management endpoint. Without it we cannot create, read, dry-run or publish — regardless of how good the prompt is. Supersedes O1 in priority: `api.publish.code` only matters once we can reach the surface at all. |
+| O9 | The Low-Code console `pageCode` | **CLOSED — it is `lc_docs`** (§8b). Management *reads* work under it, including reading any definition's `spel`. |
+| O10 | Whether `POST /apis/async` (create) actually succeeds for us | **Open by choice.** A GET against it returns 400, i.e. we pass authorization — but confirming requires actually creating an API, which is the human gate. Needs a go-ahead, not a probe. |
+| O11 | Does `clientmgmt`'s `Contract` have a soft-delete flag? | **Open, contested** (§8b). ask-code says no; live API 27626 calls `getDeleted()` in the *accounting* copy. Resolve before trusting a bulk query's row set. |
+| O12 | `CoreParameter` in definition 27626 vs the `FORBIDDEN_SPEL_TOKENS` substring check | **Open** (§8b). One of the two readings is wrong; either that API is dead or the blacklist doesn't apply on its path. |
 
 ## 10. Standing rules for us
 
