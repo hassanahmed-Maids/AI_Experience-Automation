@@ -12,7 +12,17 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-set -a; source "$DIR/.env"; set +a
+# Credentials come from .env when present (local sessions); remote/CI sessions may
+# instead supply ERP_AUTH_TOKEN / ERP_SECC_PLATFORM as real environment variables.
+if [[ -f "$DIR/.env" ]]; then
+  set -a; source "$DIR/.env"; set +a
+fi
+if [[ -z "${ERP_AUTH_TOKEN:-}" ]]; then
+  echo "ask-code.sh: ERP_AUTH_TOKEN is not set." >&2
+  echo "  Either create $DIR/.env (see .env.example), or export ERP_AUTH_TOKEN and" >&2
+  echo "  ERP_SECC_PLATFORM in the environment. Never paste the token into a prompt." >&2
+  exit 3
+fi
 
 QUESTION="${1:?usage: ask-code.sh QUESTION [alias1,alias2|''] [session_id]}"
 ALIASES="${2:-}"
