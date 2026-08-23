@@ -176,6 +176,13 @@ response header** tells you which: `PAGE_CODE_MISSING` (no header), `PAGE_NOT_FO
 doesn't exist), `API_NOT_FOUND_FOR_PAGE` (page real, endpoint not granted to it),
 `INSUFFICIENT_PERMISSIONS`. Same trap Phase 2 warns about.
 
+**Check any endpoint's authorization with no side effects** —
+`POST /admin/api-authorization/check`, header `pageCode: <page>`, body
+`{"method":"POST","path":"/some/path"}`. It runs the same `checkAuthorization` logic the filter
+uses and returns `{authorized, permission, reason}`. Use this instead of "just trying" a write
+endpoint: it answers "may I create this?" without creating anything. `permission` must be
+**FULL** for a POST — a `READONLY` holder is authorized read-only and the write won't carry.
+
 When you don't know the pageCode, **enumerate from the ERP's own registry — don't guess and
 don't give up after guessing**:
 

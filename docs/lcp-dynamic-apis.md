@@ -720,17 +720,74 @@ plus writes on the metadata edges — `PUT /apis/parameters/{parameterId}`,
 `/apis/list/{appId}` also answer 200 under it, so the match is broader than the registered list
 suggests.
 
-### What is still unconfirmed
+### Read-only — decided, and without creating anything
 
-- **Create (`POST /apis/async`).** A `GET` against it returns **400** (a Spring binding error),
-  which proves we pass the authorization gate — but a `POST` would actually create an API, and
-  that is the human gate. **Not tested. Do not test it casually.**
-- **`POST /apis/test-spel`** still needs the `api.publish.code` shared secret (O1), independent
-  of any page grant.
-- **`POST /apis/{apiId}/publish`** — not in the registered list; unknown.
+`POST /admin/api-authorization/check` runs the **exact same `checkAuthorization` logic** with no
+side effects, so "can we create?" is answerable without tripping the human gate. Header
+`pageCode: <page under test>`, body `{"method": "...", "path": "..."}`; needs only
+`@Authenticated`.
 
-⇒ We can **read** the platform, including real accepted definitions, and we can write the
-prompt. Whether we can create is one un-run POST away, and that POST needs a person's go-ahead.
+```bash
+curl -sS -X POST "$B/admin/api-authorization/check" \
+  -H "Authorization: $ERP_AUTH_TOKEN" -H "secc-ch-ua-platform: $ERP_SECC_PLATFORM" \
+  -H "pageCode: lc_docs" -H "Content-Type: application/json" \
+  -d '{"method":"POST","path":"/lowcode/apis/async"}'
+```
+
+Results under `lc_docs` (2026-08-23):
+
+| Method + path | authorized | permission | reason |
+|---|---|---|---|
+| `GET /lowcode/apis/types` | ✅ true | **FULL** | AUTHORIZED |
+| `GET /lowcode/apis/{id}` | ✅ true | **FULL** | AUTHORIZED |
+| `POST /lowcode/apis/async` (**create**) | ❌ false | — | `API_NOT_FOUND_FOR_PAGE` |
+| `POST /lowcode/apis/test-spel` | ❌ false | — | `API_NOT_FOUND_FOR_PAGE` |
+| `POST /lowcode/apis/{id}/publish` | ❌ false | — | `API_NOT_FOUND_FOR_PAGE` |
+| `POST /lowcode/apis/edit-by-ai/async/{id}` | ❌ false | — | `API_NOT_FOUND_FOR_PAGE` |
+
+⇒ **We have read-only access to the LCP: we can read any definition's `spel`, and we cannot
+create, edit, dry-run or publish.** O10 closed without a side effect.
+
+**The distinction that shapes the ask:** every refusal is `API_NOT_FOUND_FOR_PAGE`, **not**
+`INSUFFICIENT_PERMISSIONS`. We never reach the permission check — those endpoints are simply not
+bound to any page we hold. So the fix is **a binding, not a permission upgrade**, and asking for
+"more permissions" would be the wrong request.
+
+### The precise ask for the LCP owners
+
+Authorization data lives in `PAGES` + `_APIS` rows, not in code (which is why no committed
+constant names a console pageCode). The API key is a lowercased `"<method> <path>"` matched by
+**SQL `REGEXP`** against `_APIS._URL` — which also explains why `lc_docs` answered for
+`/apis/types`, `/apis/meta/list` and `/apis/list/{appId}` though its registered list didn't name
+them literally: the bound `_URL` values are patterns.
+
+Minimal request — bind the write endpoints to a page our account holds, with **FULL** (a
+`READONLY` holder is authorized read-only, which will not carry a `POST`):
+
+| `_URL` regex to add | Why |
+|---|---|
+| `post /lowcode/apis/async` | create a dynamic API |
+| `post /lowcode/apis/test-spel` | dry-run an expression before creating (also needs O1) |
+| `post /lowcode/apis/.*/publish` | promote to an environment |
+| `post /lowcode/apis/(fix\|edit)-by-ai/async/.*` | iterate on a generated expression |
+
+The documented procedure (`magnamedia-admin`): create the page
+(`POST /admin/frontend/create` — the code is derived from the name, so set it deliberately) →
+add the `_APIS` rows → create a policy (`POST /admin/security-policy/create`) → grant FULL on
+the resources (`POST /admin/security-policy/policies/{id}`) → attach the user or service account
+(`POST /admin/security-policy/policies/{id}/users`) → **verify with the probe above**, which is
+side-effect-free.
+
+There is a shortcut — the whole check is bypassed for `user.isAdmin()` / `isSuperUser()`
+(`preCheckPermissionForExplicitApiCheck`) — but that grants far more than the LCP console and
+should not be the ask.
+
+Beyond the binding, `POST /apis/async` needs **no** extra role, superuser flag, feature toggle or
+environment gate: it carries no `@PreAuthorize`/`@NoPermission`/`@Authenticated` and sits in the
+default page-permission bucket.
+
+⇒ Until that binding exists, the working path is unchanged: **we write and review the prompt,
+someone who holds the grant submits it.**
 
 ### Useful facts read from the live platform
 
@@ -806,7 +863,7 @@ Copies in `work/lcp-dynamic-apis/real-examples/`. Two worth studying:
 | O7 | What protects `/admin/dynamicApi/evaluateApi` | **Closed.** `@NoPermission` at the route; global auth filter for authentication; per-API `SecureResourceHolder` check inside the evaluator, active because `publishApi` sets `secured=true` (§6d). |
 | O8 | Whether the frontend/core calls `validateSpel` over HTTP | **Minor, open.** No in-repo callers exist; an HTTP caller outside these repos can't be ruled out. Doesn't change our practice — we should call it regardless. |
 | O9 | The Low-Code console `pageCode` | **CLOSED — it is `lc_docs`** (§8b). Management *reads* work under it, including reading any definition's `spel`. |
-| O10 | Whether `POST /apis/async` (create) actually succeeds for us | **Open by choice.** A GET against it returns 400, i.e. we pass authorization — but confirming requires actually creating an API, which is the human gate. Needs a go-ahead, not a probe. |
+| O10 | Whether `POST /apis/async` (create) is authorized for us | **CLOSED — no**, and established with zero side effects via `POST /admin/api-authorization/check` (§8b). Create, `test-spel`, publish and edit-by-ai all return `API_NOT_FOUND_FOR_PAGE`. Needs an `_APIS` binding, not a permission upgrade. |
 | O11 | Does `clientmgmt`'s `Contract` have a soft-delete flag? | **Open, contested** (§8b). ask-code says no; live API 27626 calls `getDeleted()` in the *accounting* copy. Resolve before trusting a bulk query's row set. |
 | O12 | `CoreParameter` in definition 27626 vs the `FORBIDDEN_SPEL_TOKENS` substring check | **Open** (§8b). One of the two readings is wrong; either that API is dead or the blacklist doesn't apply on its path. |
 
