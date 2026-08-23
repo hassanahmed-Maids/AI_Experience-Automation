@@ -55,6 +55,42 @@ def is_per_item(node):
     blob = json.dumps(node.get('parameters') or {})
     return '$json' in blob
 
+def num(v):
+    """A pacing number, or None if it is not one this tool can compare.
+
+    n8n lets any of these fields hold an EXPRESSION - the stored value is then a string that
+    starts with '=' and whose real value is only known at runtime. Comparing that to an int
+    raises TypeError in Python 3, so a single expression-valued batchInterval used to CRASH this
+    checker rather than report anything. A crash is the worst failure mode available here: the
+    run that crashes is the run nobody gets a verdict from.
+
+    So: parse what is parseable, and hand back None for the rest. None is already the "this is
+    not set" case every caller handles, and unreadable_pacing() below says out loud which fields
+    could not be read, so an expression is reported rather than silently treated as absent.
+    """
+    if isinstance(v, bool) or v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+def unreadable_pacing(n):
+    """Names the pacing fields whose value is an expression rather than a literal."""
+    p = n.get('parameters') or {}
+    o = p.get('options') or {}
+    b = ((o.get('batching') or {}).get('batch') or {})
+    pg = ((o.get('pagination') or {}).get('pagination') or {})
+    out = []
+    for label, val in (('batchSize', b.get('batchSize')), ('batchInterval', b.get('batchInterval')),
+                       ('requestInterval', pg.get('requestInterval')), ('maxRequests', pg.get('maxRequests')),
+                       ('timeout', o.get('timeout'))):
+        if val is not None and num(val) is None:
+            out.append('%s=%r' % (label, val))
+    return out
+
 def check_node(w, n):
     """returns (failures, warnings) as lists of strings"""
     p = n.get('parameters') or {}
@@ -64,9 +100,18 @@ def check_node(w, n):
     f, warn = [], []
     per_item = is_per_item(n)
 
+    # AN EXPRESSION IS NOT A CEILING. A pacing field set to "={{ ... }}" is caller-tunable, and
+    # section 1 is a policy ceiling rather than a preference - a rate a caller can set is a rate
+    # a caller can set wrong. It is also unreadable here, so it would otherwise pass by accident.
+    expr = unreadable_pacing(n)
+    if expr:
+        f.append('pacing set by EXPRESSION, not a literal: ' + ', '.join(expr) +
+                 '. This tool cannot check a value that only exists at runtime, and a ceiling a '
+                 'caller can override is not a ceiling. Use a literal.')
+
     if per_item:
-        conc = b.get('batchSize')
-        bi = b.get('batchInterval')
+        conc = num(b.get('batchSize'))
+        bi = num(b.get('batchInterval'))
         if conc is None:
             f.append('per-item node with no batchSize - every input item fires at once')
         elif conc == -1:
@@ -79,19 +124,20 @@ def check_node(w, n):
             f.append('per-item node with batchInterval %s, below the %dms minimum' % (bi, MIN_BATCH_MS))
     else:
         # run-level: batching is inert, but say so rather than silently skipping it
-        if b.get('batchSize') not in (None, -1) and b.get('batchSize') > MAX_CONCURRENCY:
+        rl_conc = num(b.get('batchSize'))
+        if rl_conc not in (None, -1) and rl_conc > MAX_CONCURRENCY:
             warn.append('batchSize %s on a run-level node - inert today, but it would bite if this '
-                        'node were ever fed many items' % b.get('batchSize'))
+                        'node were ever fed many items' % rl_conc)
 
     if pg:
-        ri = pg.get('requestInterval')
+        ri = num(pg.get('requestInterval'))
         if ri is None or ri < MIN_PAGE_MS:
             f.append('paginated with requestInterval %s - below the %dms minimum, so pages fire '
                      'back to back' % (ri, MIN_PAGE_MS))
-        if not pg.get('maxRequests'):
+        if not num(pg.get('maxRequests')):
             f.append('paginated with no maxRequests - a walk that never terminates has no bound')
 
-    t = o.get('timeout')
+    t = num(o.get('timeout'))
     if t is None:
         f.append('no timeout - a hung ERP call holds its slot for ever')
     elif t > MAX_TIMEOUT_MS:
@@ -105,6 +151,14 @@ def main(paths):
     total_fail = 0
     for path in paths:
         d = json.load(open(path)); w = d['workflow'] if 'workflow' in d else d
+        # exports/ also holds MANIFEST.json, which is a coverage contract and not a workflow.
+        # This used to crash on it with a bare KeyError the moment the manifest was added to that
+        # directory - and a checker that dies on an unexpected file is a checker that reports
+        # nothing about the files it could have read.
+        if not isinstance(w, dict) or 'nodes' not in w:
+            print('=' * 78)
+            print('%s\n  not a workflow export (no "nodes") - skipped' % path)
+            continue
         nodes = [n for n in w['nodes'] if n.get('type') == 'n8n-nodes-base.httpRequest' and is_erp(n)]
         print('=' * 78)
         print('%s   (%d ERP node%s)' % (w.get('name', path), len(nodes), '' if len(nodes) == 1 else 's'))

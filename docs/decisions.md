@@ -315,3 +315,88 @@ the retry rail and both error origins were confirmed on a re-export.
 
 Suites: compliance 39 (all mutants caught), breaker 51, lease 63, population-guard 13, WF-E 62,
 WF-B evidence 48. `erp_compliance.py --all`: 5 flows, all comply.
+
+---
+
+## 2026-08-23 — MV Monthly Payment re-audit: what reading missed and a fixture found
+
+The five MV drafts were audited on 2026-08-20 **by reading**, because they could not be exported
+and `erp_compliance.py` could not be run against them. Re-audited today against the rules tightened
+since, and this time run through the checker via hand-transcribed graph fixtures. Full detail in
+`audit-flows/compliance/mv-monthly-payment.md`.
+
+**A pacing claim in a sticky note is not pacing.** Three ERP nodes carried `batchSize` with **no
+`batchInterval`** — n8n's default is 0, so they fired back to back — while their own sticky notes
+described the pacing they did not have (*"ONE request at a time with pacings between them"*,
+*"2 concurrent, 1s apart"*). Stage 0 went further: it declared a `pacingMs` input, Stage 1 passed
+`1000`, and **no node read it**. Both fields are now mandatory in §1, and a parameter a flow accepts
+and discards is called out as its own failure mode.
+
+**The interval is a literal, not the caller's parameter.** Making it `={{ ... }}` was the obvious
+fix and is wrong twice: §1 is a *ceiling*, and a rate a caller can set is a rate a caller can set
+wrong; and an expression's value exists only at runtime, so the checker cannot read it and the node
+passes by accident. Rejected in favour of a literal 1000 ms, and `erp_load_check.py` now FAILS any
+pacing field set by expression.
+
+**That decision found a crash in the checker itself.** `check_node` compared `batchInterval` to an
+int directly, so one expression-valued field would raise `TypeError` and take down the **whole
+run** — every flow in it losing its verdict because one node had a tunable interval. The worst
+failure mode available to a checker, and it only surfaced because the fix was considered and not
+taken. Parsed defensively now, unreadable fields named; pinned in `compliance_test.py` (39 → 41).
+
+**The gate and the lease are per ENTRY POINT, not per flow.** Stage 4 looked gated because Stage 1
+charges one downstream call per contract as "Stage 4 worst case" — true for the sub-workflow path
+and nothing else. Its **re-verify webhook** reads every finding for a `runId` and makes two ERP
+calls each, costed by nobody: 6,000 calls behind one POST for a month with 3,000 findings. The same
+flow's same second entry point was caught missing the **lease** on 2026-08-20, for the same reason
+both times — *the flow reads as a sub-workflow, and the second trigger is one node off to the side.*
+Now a rule in §3 and in the skill: count the triggers, answer §3 and §4 once per trigger.
+
+**Found by the fixture, not by reading.** Three careful read-throughs of Stage 4 missed the gate;
+the checker said it in one line the first time it ran. That is the argument for the fixtures
+existing at all, and it is recorded here rather than in the tool, because the tempting conclusion
+after a clean read-through is that the tool is a formality.
+
+**A fixture that passes proves nothing until you break it.** `tools/offline/fixture_mutation_test.py`
+breaks each property the MV fixtures claim to test — the two intervals, the four breaker
+exemptions, both rails, both re-throws, the budget gate — and requires the checker to notice. 16/16.
+A fixture that passes because the relevant field is simply absent is worse than no fixture, and it
+would look identical in the manifest.
+
+**A hand-transcribed fixture is not an export, and the manifest says so.** It proves the checker's
+verdict on the flow *as described*; only an export proves the deployment matches. The five MV rows
+stay `audited_by_hand` with the export outstanding.
+
+**An error rail and n8n node GROUPS cannot coexist.** n8n requires a group to be a single-entry,
+single-exit subgraph and an error output is a second exit, so the update is rejected outright.
+Every flow in this repo that already has a rail has no groups — never a style choice, the
+constraint, and nobody had written it down. The rail wins; each group's description moved to a
+`notes` on its lead node, which the checker's `all_text()` reads anyway.
+
+**The 2026-08-20 reason for having no error rail was true and beside the point.** It said an Error
+Trigger cannot recover the run's `run_id` and a force-release would be the silent-steal path the
+lease exists to prevent. Both correct — and irrelevant to the shape that works: an error *output*
+stays inside the same execution, so `$('Validate Run Input')` still resolves and the release names
+the real holder. Worth recording because the note was persuasive enough to leave the gap open for
+three days.
+
+**Stage 4 had no breaker at all, and it was the worst place for the gap.** When the ERP refuses
+every read, the verifier marks each finding *evidence incomplete*, blocks it from the PIL, and the
+run **completes** — a month of findings back as "awaiting reviewer" with nothing saying the reason
+was an outage. The new breaker cannot save the requests (a per-item node finishes every call before
+our code runs) and does not claim to; what it saves is the model spend, the case writes, and a run
+that reports itself done.
+
+**`scorer.stage2.js` is cited by Stage 2 and is not in this repo.** The node and its sticky note
+both say the scorer is kept byte-identical to `audit/mv-monthly-payment/scorer.stage2.js`, backed by
+140 offline tests — a path outside `audit-flows/` that nothing here matches. It is the stated reason
+that node's compliance declaration lives in a `notes` rather than in the code, so it is load-bearing
+and unverified; recorded in `audit-flows/mv-monthly-payment/README.md` rather than repeated as fact.
+Same shape as `tools/verify_order.py` on 2026-08-22.
+
+**The policy contradicted itself two paragraphs apart** on MV's `max_wait_ms` — 45 min in one
+sentence, 10 minutes in the next; deployed value 600000 ms. Corrected to 10.
+
+Suites: compliance 41, fixture mutation 16, breaker 51, lease 63, population-guard 13, WF-E 62,
+WF-B evidence 48. `erp_compliance.py --all`: 6 flows, all comply; manifest coverage 6 of 16
+exported, the other 10 audited by hand or by fixture, **0 never audited**.

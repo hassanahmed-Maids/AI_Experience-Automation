@@ -27,6 +27,32 @@ takes ERP down on five thousand, because nothing between those two runs made the
 `cc-below-agreed` was running: 30 req/s, three times the ceiling the build method already
 documented. Nobody chose 15; it was cloned forward.
 
+### A number here has to be a LITERAL, and it has to actually be set (added 2026-08-23)
+
+Two failures found in the MV Monthly Payment re-audit, both in flows whose own sticky notes said
+they were paced.
+
+**`batchSize` without `batchInterval` is not pacing.** n8n's default interval is 0, so a node at
+`batchSize: 1` with no interval fires its requests back to back — sequential, but at whatever rate
+ERP will answer. Three nodes were in this state: `Fetch Population Page` (Stage 0, sticky note:
+*"ONE request at a time with pacings between them"*), `Read WhatsApp Log` and `Read Complaints`
+(Stage 4, sticky note: *"clientmgmt is read GENTLY (2 concurrent, 1s apart)"*). Stage 0 went
+further — it **declared a `pacingMs` input, its caller passed 1000, and no node read it**.
+
+So: **both fields, always, on every per-item ERP node.** A prose claim about pacing is not pacing,
+and neither is a parameter the flow accepts and discards.
+
+**Set them as literals, never as an expression.** `"={{ $('Sweep In').first().json.pacingMs }}"` is
+valid n8n and was the obvious fix for the above. It is wrong twice: §1 is a *ceiling*, and a rate
+a caller can set is a rate a caller can set wrong; and an expression's value exists only at
+runtime, so `erp_load_check.py` cannot read it and the node passes by accident. An
+expression-valued pacing field is now a **FAIL**.
+
+That check found a crash in the tool itself: `check_node` compared the value to an int directly,
+so one expression-valued field raised `TypeError` and took the **whole run** down — every flow in
+it losing its verdict. Now parsed defensively, with the unreadable ones named. Pinned in
+`tools/offline/compliance_test.py`.
+
 ### Call count is not load — the response is (added 2026-08-20)
 
 **Every number above bounds REQUESTS. The 2026-08-19 clientmgmt incident proves that is not
@@ -126,6 +152,27 @@ operator's next move is obvious: raise the budget deliberately, or cap the cohor
 
 `budget` comes from `params.erp_call_budget`; absent, it is 2,000.
 
+### The gate is per ENTRY POINT, not per flow (added 2026-08-23)
+
+**A second entry point is a second run, and it needs its own gate and its own lease.** MV Monthly
+Payment Stage 4 looked gated because its caller, Stage 1, charges one downstream call per contract
+as "Stage 4 worst case". That covers the sub-workflow path and nothing else. Stage 4 also has a
+**re-verify webhook** that reads every finding for a `runId` out of the case store and makes two
+ERP calls each — a month with 3,000 findings is 6,000 ERP calls behind one POST, costed by nobody.
+
+This is the second time the same flow's second entry point has been missed in the same way: the
+2026-08-20 audit found it had no **lease** on that path either. Both times the reason was the
+same — *the flow reads as a sub-workflow, and the second entry point is one node off to the side.*
+
+So when a flow has more than one trigger, answer §3 and §4 **once per trigger**, and let the gate
+say which path it is on rather than pretending they are the same. A gate that hard-fails on the
+standalone path and logs-and-passes on the called path is the right shape; the
+`ERP-COMPLIANCE: budget-gate-in-caller` declaration then applies to the called path only, and must
+say so.
+
+Found by running the checker against a graph fixture. Three read-throughs of the same workflow had
+missed it.
+
 ---
 
 ## 4. One audit at a time
@@ -145,8 +192,11 @@ waited twenty minutes can lose to one that arrived a second ago.
 **The lease spans a whole run, not a call** — acquire before the first ERP call, release at the
 end; every sub-workflow runs inside it. Leasing per call would be pointless, since §1 already
 governs rate. That sets the queue's scale: a holder keeps it for **45–90 minutes**, so a caller
-that runs long must pass its own `max_wait_ms` (MV Monthly Payment passes 45 min) or its queued
-successors time out every time and the queue never once succeeds.
+that runs long must pass its own `max_wait_ms` — MV Monthly Payment Stage 1 passes **10 minutes**,
+sized to the 2400 s ceiling below rather than to the holder — or its queued successors time out
+every time and the queue never once succeeds. (This sentence used to say 45 min and the paragraph
+below said 10; the deployed value is 600000 ms. Corrected 2026-08-23 during the MV re-audit — a
+policy that contradicts itself two paragraphs apart is one nobody can be held to.)
 
 ### The 2400-second ceiling, measured — and what it means for waiting
 
@@ -461,6 +511,15 @@ Three things the rail must get right, each of which was wrong first:
   there would free someone else's lease. (It would be a no-op by construction, but wiring it
   says something untrue about the flow.)
 
+**A fourth thing, found 2026-08-23: an error rail and n8n node GROUPS cannot coexist.** n8n
+requires a node group to be a single-entry, single-exit connected subgraph, and an error output is
+a second exit — so `update_workflow` rejects the rail with *"must form a single connected subgraph
+with a single entry and exit"*. Every flow in this repo that already has a rail has no groups; that
+was never a style choice, it is the constraint, and nobody had written it down. **The rail wins**:
+groups are documentation and the rail is behaviour. Move each group's description into a `notes` on
+its lead node before clearing them — `notes` is read by `all_text()`, so a declaration living there
+still counts, and the knowledge survives.
+
 Requirement 6 is the newest and the least obvious. Its four failure modes are all silent, and
 three of them were live at some point on 2026-08-20: a downstream node referencing `$('Run
 (webhook)')` throws on every retry; a retry that does not pin `run_id` takes a fresh queue ticket
@@ -496,6 +555,10 @@ file and the checker re-generates and compares. A convention that is not checked
    from a sibling flow — that is how 15 got everywhere.
 5. Acquire the lease before the first ERP call and release it on **both** rails. A release that
    never fires leaves a 3-hour hole in the queue until the staleness rule cleans up after it.
+5b. **Count the flow's TRIGGERS, and answer 3 and 5 once per trigger.** A second entry point is a
+   second run. MV Monthly Payment Stage 4 has been caught by this twice — no lease on its
+   re-verify webhook (2026-08-20), then no budget gate on it (2026-08-23) — both times because the
+   flow reads as a sub-workflow and the second trigger is one node off to the side.
 6. Generate the breaker block into every projection node that reads a batch of ERP responses —
    `python3 tools/build_breaker_embed.py`. Do not hand-edit the copies.
 7. Size the first chunk as a canary. The breaker cannot speak until a batch finishes, so the

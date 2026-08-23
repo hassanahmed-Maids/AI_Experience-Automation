@@ -381,5 +381,27 @@ ok('30 req/s' in f2 and 'DISABLED' not in f2,
    'the same node ENABLED fails, so the exemption is disabled-only',
    [x for x in f2.split(' | ') if 'req/s' in x][:1] or f2[:160])
 
+print('\n--- a pacing value set by EXPRESSION is reported, not crashed on ---')
+# THE BUG THIS PINS. check_node compared batchInterval to an int directly, so a field holding an
+# n8n expression ("={{ ... }}") raised TypeError and took the WHOLE checker down - every flow in
+# the run lost its verdict because one node had a tunable interval. Found 2026-08-23 while
+# considering making MV Stage 0's interval caller-tunable.
+nodes3, conns3 = base()
+ex = erp_http('Tunable Pacing')
+ex['parameters']['url'] = '=https://erpbackendpro.maids.cc/clientmgmt/client/smsLog/{{ $json.client_id }}'
+ex['parameters']['options']['batching'] = {'batch': {
+    'batchSize': 2, 'batchInterval': "={{ $('Sweep In').first().json.pacingMs }}"}}
+nodes3.append(ex)
+conns3['Handoff'] = {'main': [[{'node': 'Tunable Pacing'}]]}
+try:
+    f3, w3, n3 = audit(nodes3, conns3)
+    crashed = None
+except Exception as e:
+    f3 = w3 = n3 = ''
+    crashed = repr(e)
+ok(crashed is None, 'an expression-valued batchInterval does not crash the checker', crashed)
+ok('pacing set by EXPRESSION' in f3 and 'batchInterval' in f3,
+   'it FAILS instead: a ceiling a caller can override is not a ceiling', f3[:200])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)

@@ -249,9 +249,21 @@ What you must do, in order:
 2. **Pace every ERP node: 2 concurrent / 500 ms, with a timeout.** Copy the numbers from the
    policy, never from a sibling flow — cloning is how `batchSize: 15` (30 req/s, three times the
    documented ceiling) reached every node of every flow. Nobody chose 15.
+   - **Both fields, as LITERALS.** `batchSize` with no `batchInterval` is not pacing — n8n's
+     default interval is 0, so the node fires back to back. Three MV nodes were in that state
+     while their sticky notes described the pacing they did not have, and one flow declared a
+     `pacingMs` input its caller passed and no node read. And an expression (`={{ ... }}`) is
+     worse than a wrong literal: §1 is a ceiling, a rate the caller sets is not one, and the
+     checker cannot read a value that only exists at runtime — so it now FAILS.
 3. **Wire the pre-flight budget gate** into the last Code node before the first per-entity call.
    It projects the run's cost and **hard-fails over budget — it never trims the work to fit.** A
    partial audit that looks complete is worse than a refused one.
+   - **Count the flow's TRIGGERS and answer this once per trigger — the gate and the lease are
+     per ENTRY POINT, not per flow.** A sub-workflow whose caller costs it is exempt on *that*
+     path only; a second trigger is a second run with nobody in front of it. MV Monthly Payment
+     Stage 4 was caught by this twice, first missing the lease on its re-verify webhook and then
+     the gate, both times because the flow reads as a sub-workflow and the second trigger sits
+     one node off to the side.
 4. **Acquire the ERP lease before the first ERP call, and release it on BOTH rails — which are
    two different rails, not one.** A release that never fires leaves a 3-hour hole in the queue.
    - *Success:* release here, or in the last stage of a fire-and-forget chain (declare it with
@@ -267,6 +279,15 @@ What you must do, in order:
    - Do not hang the rail off an IF or a Switch — their error output is not at index 1 and
      getting it wrong is silent. Do not wire the queued/retry rail into it: no lease is held
      there.
+   - **A node whose batch a breaker must judge keeps `continueRegularOutput`.** The two settings
+     want opposite things: `continueErrorOutput` routes failures AWAY from the projection node,
+     which blinds the breaker. On those nodes the breaker wins, and the rail hangs off the
+     projection node instead.
+   - **Clear the flow's node GROUPS first.** n8n requires a group to be a single-entry,
+     single-exit subgraph and an error output is a second exit, so `update_workflow` rejects the
+     rail outright: *"must form a single connected subgraph with a single entry and exit"*. Move
+     each group's description into a `notes` on its lead node before deleting the groups — `notes`
+     is read by the checker's `all_text()`, so a declaration living there still counts.
 4b. **Pass `no_wait: true` and build the self-re-invoke rail.** The acquire must never block.
    n8n cancels any execution 2400 s after it starts and the kill is **silent** — status
    `canceled`, nothing thrown, no error rail, the run simply vanishes — so a flow that waits

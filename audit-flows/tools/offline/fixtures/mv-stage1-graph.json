@@ -1,0 +1,398 @@
+{
+ "id": "IKRXhIco1mwxrcPq",
+ "name": "MV Monthly Payment - 1-Population (graph fixture)",
+ "nodes": [
+  {
+   "name": "Run Check",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2.1,
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "mv-monthly-payment-run",
+    "responseMode": "lastNode"
+   }
+  },
+  {
+   "name": "Validate Run Input",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "parameters": {
+    "jsCode": "// normalises the run payload\n"
+   }
+  },
+  {
+   "name": "Acquire ERP Lease",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.3,
+   "parameters": {
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "9gVijqvtLVEhQZXz"
+    },
+    "workflowInputs": {
+     "mappingMode": "defineBelow",
+     "value": {
+      "mode": "acquire",
+      "run_id": "={{ $json.runId }}",
+      "check_id": "mv-monthly-payment"
+     }
+    },
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "name": "Build Cohort Counts",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "parameters": {
+    "jsCode": "// two cohorts: active, FILTER_CANCELED\n"
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "Count Cohorts",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.5,
+   "parameters": {
+    "url": "https://erpbackendpro.maids.cc/clientmgmt/contract/search/page?page=0&size=1",
+    "options": {
+     "batching": {
+      "batch": {
+       "batchSize": 1,
+       "batchInterval": 500
+      }
+     },
+     "timeout": 60000
+    },
+    "jsonBody": "={{ JSON.stringify({ contract: $json.status ? { status: $json.status } : {} }) }}"
+   },
+   "alwaysOutputData": true,
+   "onError": "continueRegularOutput"
+  },
+  {
+   "name": "Check Access And Plan Cohorts",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "parameters": {
+    "jsCode": "// ERP-COMPLIANCE: no-breaker-because this node reads a batch of TWO, and two responses\n// cannot reach any breaker threshold. It THROWS on the first non-200, naming the shape.\nthrow new Error('cohort count failed');\n"
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "Sweep Cohort",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.3,
+   "parameters": {
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "9jOMFEC2zEWy2RHM"
+    },
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "Reconcile Union And Chunk",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "parameters": {
+    "jsCode": "// union + slice + chunk\n"
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "ERP Budget Gate",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "parameters": {
+    "jsCode": "// ERP PRE-FLIGHT BUDGET GATE - ERP-LOAD-POLICY.md 3\nthrow new Error('budget');\n"
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "Score Chunk",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.3,
+   "parameters": {
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "CopNHNsXUzFO59bW"
+    },
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "Collect Chunk Results",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "parameters": {
+    "jsCode": "// coarse liveness check\n"
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "Verify Findings",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.3,
+   "parameters": {
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "9T91z5VFH5g69WyT"
+    },
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   },
+   "onError": "continueRegularOutput"
+  },
+  {
+   "name": "Deliver Run",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.3,
+   "parameters": {
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "Z9fTvmaM526eYofe"
+    },
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   },
+   "onError": "continueErrorOutput"
+  },
+  {
+   "name": "Release ERP Lease",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.3,
+   "parameters": {
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "9gVijqvtLVEhQZXz"
+    },
+    "workflowInputs": {
+     "mappingMode": "defineBelow",
+     "value": {
+      "mode": "release",
+      "run_id": "={{ $('Validate Run Input').first().json.runId }}",
+      "check_id": "mv-monthly-payment"
+     }
+    },
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "name": "Release Lease (error)",
+   "type": "n8n-nodes-base.executeWorkflow",
+   "typeVersion": 1.3,
+   "parameters": {
+    "workflowId": {
+     "__rl": true,
+     "mode": "id",
+     "value": "9gVijqvtLVEhQZXz"
+    },
+    "workflowInputs": {
+     "mappingMode": "defineBelow",
+     "value": {
+      "mode": "release",
+      "run_id": "={{ $('Validate Run Input').first().json.runId }}",
+      "check_id": "mv-monthly-payment"
+     }
+    },
+    "options": {
+     "waitForSubWorkflow": true
+    }
+   }
+  },
+  {
+   "name": "Fail Loudly",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "parameters": {
+    "jsCode": "throw new Error('MV MONTHLY PAYMENT STAGE 1 FAILED');\n"
+   }
+  }
+ ],
+ "connections": {
+  "Run Check": {
+   "main": [
+    [
+     {
+      "node": "Validate Run Input"
+     }
+    ]
+   ]
+  },
+  "Validate Run Input": {
+   "main": [
+    [
+     {
+      "node": "Acquire ERP Lease"
+     }
+    ]
+   ]
+  },
+  "Acquire ERP Lease": {
+   "main": [
+    [
+     {
+      "node": "Build Cohort Counts"
+     }
+    ]
+   ]
+  },
+  "Build Cohort Counts": {
+   "main": [
+    [
+     {
+      "node": "Count Cohorts"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "Count Cohorts": {
+   "main": [
+    [
+     {
+      "node": "Check Access And Plan Cohorts"
+     }
+    ]
+   ]
+  },
+  "Check Access And Plan Cohorts": {
+   "main": [
+    [
+     {
+      "node": "Sweep Cohort"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "Sweep Cohort": {
+   "main": [
+    [
+     {
+      "node": "Reconcile Union And Chunk"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "Reconcile Union And Chunk": {
+   "main": [
+    [
+     {
+      "node": "ERP Budget Gate"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "ERP Budget Gate": {
+   "main": [
+    [
+     {
+      "node": "Score Chunk"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "Score Chunk": {
+   "main": [
+    [
+     {
+      "node": "Collect Chunk Results"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "Collect Chunk Results": {
+   "main": [
+    [
+     {
+      "node": "Verify Findings"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "Verify Findings": {
+   "main": [
+    [
+     {
+      "node": "Deliver Run"
+     }
+    ]
+   ]
+  },
+  "Deliver Run": {
+   "main": [
+    [
+     {
+      "node": "Release ERP Lease"
+     }
+    ],
+    [
+     {
+      "node": "Release Lease (error)"
+     }
+    ]
+   ]
+  },
+  "Release Lease (error)": {
+   "main": [
+    [
+     {
+      "node": "Fail Loudly"
+     }
+    ]
+   ]
+  }
+ }
+}
