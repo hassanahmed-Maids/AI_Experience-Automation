@@ -230,6 +230,18 @@ Getting CC/MV needs a repository `@Query` projection joining
 > any name here does not match the code, stop and report the mismatch rather than
 > substituting a similar one.**
 
+### Before you submit: confirm you can
+
+Verified 2026-08-23 — our own ERP token **authenticates but is not authorised** for any
+`/lowcode/apis/*` management endpoint (`developermessage: API_NOT_FOUND_FOR_PAGE`). The
+`lc_conversation` page grants the ask-the-code *chat* surface only: not create, not
+`test-spel`, not reading back the generated `spel`, not publish. Details and the re-runnable
+probe: `docs/lcp-dynamic-apis.md` §8b.
+
+So today this prompt's destination is **whoever holds the Low-Code console grant**, and the
+review checklist below is what you ask them to apply. Once the grant exists for our account,
+the call is:
+
 ### Create call
 
 ```

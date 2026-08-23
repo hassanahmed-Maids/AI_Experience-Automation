@@ -169,6 +169,18 @@ checklist: `references/bulk-api-prompt.md`.**
 - The fields are personal or financial. Keep them out entirely — see
   [Output hygiene](#output-hygiene).
 
+**Check access before you promise it.** The LCP management endpoints are authorised by
+**per-page API registration**, so a token can be perfectly valid and still be refused. Probe
+first — a GET on `/lowcode/apis/types` with the console pageCode — and read the
+**`developermessage` header**, not just the status: `PAGE_CODE_MISSING` means you omitted the
+header, `PAGE_NOT_FOUND` means that page doesn't exist, and `API_NOT_FOUND_FOR_PAGE` means the
+page is real but the endpoint isn't granted to it. All three surface as a bare `401` — the same
+trap Phase 2 warns about. If the grant is missing, **that is a finding to report**: do not
+brute-force pagecodes until one answers, and do not promise a timeline that depends on access
+nobody has confirmed. The fallback that works is to hand the finished prompt to someone who
+holds the grant. (Verified 2026-08-23: the audit team's own token is *not* granted these
+endpoints — see `docs/lcp-dynamic-apis.md` §8b.)
+
 **If you propose one, do the work properly:**
 
 1. **Ground it first**, via ask-the-code: the entity, table and primary key; a repository

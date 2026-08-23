@@ -670,6 +670,69 @@ latency.
 - **Timeout** — none client-side or server-side. Keep each call bounded. *(We hit exactly this class
   of failure today polling ask-the-code — see `docs/code-llm-api.md`.)*
 
+## 8b. Our actual access position — VERIFIED, and it gates everything (2026-08-23)
+
+Probed live against `https://erpbackendpro.maids.cc` with Hassan's ERP token. Read-only GETs only.
+
+| Call | Result |
+|---|---|
+| `GET /lowcode/apis/page-codes` (pageCode `lc_conversation`, `sidenav_menu`) | **200** — token authenticates fine |
+| `GET /lowcode/apis/types`, `/http-methods`, `/parameters-places`, `/parameters-types`, `/environments` | **401** `developermessage: API_NOT_FOUND_FOR_PAGE` |
+| `GET /lowcode/apis/list/1` | **401** `API_NOT_FOUND_FOR_PAGE` |
+| `GET /lowcode/applications` | **401** `API_NOT_FOUND_FOR_PAGE` |
+| same, with no `pageCode` header | **401** `PAGE_CODE_MISSING` |
+| same, with 7 guessed LC pagecodes (`lc_apis`, `lowcode`, `lc_studio`, …) | **401** `PAGE_NOT_FOUND` — none of those pages exist |
+
+**Three distinct denial shapes**, matching `ApiAuthorizationService` (§6d) exactly:
+`PAGE_CODE_MISSING` (no header) → `PAGE_NOT_FOUND` (page doesn't exist) →
+`API_NOT_FOUND_FOR_PAGE` (page is real, but this endpoint is not registered to it).
+Authorization is therefore **per-page API registration**, and the `developermessage` header is
+what separates a wrong pagecode from a missing grant — the same trap the audit playbook flags.
+
+**What `lc_conversation` actually grants — all 14 endpoints:**
+
+```
+POST /lowcode/c2d/query/async          GET  /lowcode/c2d/sessions
+GET  /lowcode/c2d/session/{id}/messages GET /lowcode/c2d/sessions/unread-count
+PUT  /lowcode/c2d/session/{id}/name     GET /lowcode/c2d/session/{id}/details
+PUT  /lowcode/c2d/session/{id}/mark-read GET /lowcode/c2d/projects
+PUT  /lowcode/c2d/message/{id}/feedback POST /lowcode/c2d/templates/lookup/bulk
+POST /lowcode/apis/{apiId}/like|dislike|feedback   POST /lowcode/api/v1/workflow/stop
+```
+
+⇒ **It is the ask-the-code CHAT surface, plus three analytics endpoints. It does NOT include
+`/apis/async` (create), `/apis/test-spel`, `/apis/{apiId}` (read the generated `spel`),
+`/apis/list/{appId}`, or `/apis/{apiId}/publish`.**
+
+**So we cannot currently create, read, dry-run or publish a dynamic API.** Everything in §4–§7 is
+accurate about the mechanism and remains the right specification — but executing it needs the
+Low-Code **console** page's grant, which this token does not carry. This is a permission finding to
+report, not something to route around: brute-forcing pagecodes until one answers is exactly the
+workaround the audit playbook forbids, which is why the probing above stopped at seven.
+
+**Two ways forward, both needing a person:**
+1. **Get the grant.** Ask the LCP owners for the console page's `pageCode` and the resource grant
+   for our account (or the audit service account). Then re-run the probe below — it is a 30-second
+   confirmation.
+2. **Route through someone who has it.** This is what the repo already assumed: System 2's
+   `golive-api-spec-writer` writes paste-ready prompts precisely *because* Moe has the
+   API-creating access and we don't. That design was right, and this probe is the evidence for why.
+
+**The probe, to re-run whenever a token or grant changes:**
+
+```bash
+set -a && source .env && set +a
+B=https://erpbackendpro.maids.cc
+H=(-H "Authorization: $ERP_AUTH_TOKEN" -H "secc-ch-ua-platform: $ERP_SECC_PLATFORM")
+# 1. authentication + what our page grants
+curl -sS "${H[@]}" -H "pageCode: lc_conversation" "$B/lowcode/apis/page-codes"
+# 2. can we reach the management surface? watch the developermessage header, not just the status
+curl -sS -D- -o/dev/null "${H[@]}" -H "pageCode: <console-pageCode>" "$B/lowcode/apis/types"
+```
+
+A `200` on step 2 means creation is open to us and §4's call will work. `API_NOT_FOUND_FOR_PAGE`
+means the grant is still missing.
+
 ## 9. Open items
 
 | # | Item | Status |
@@ -682,6 +745,7 @@ latency.
 | O6 | Row caps, pagination, timeouts, transactionality | **Closed — none exist** (§5). |
 | O7 | What protects `/admin/dynamicApi/evaluateApi` | **Closed.** `@NoPermission` at the route; global auth filter for authentication; per-API `SecureResourceHolder` check inside the evaluator, active because `publishApi` sets `secured=true` (§6d). |
 | O8 | Whether the frontend/core calls `validateSpel` over HTTP | **Minor, open.** No in-repo callers exist; an HTTP caller outside these repos can't be ruled out. Doesn't change our practice — we should call it regardless. |
+| **O9** | **The Low-Code console `pageCode` + resource grant for our account** | **Open, and the binding constraint.** Verified in §8b: our token authenticates but is not registered for any `/lowcode/apis/*` management endpoint. Without it we cannot create, read, dry-run or publish — regardless of how good the prompt is. Supersedes O1 in priority: `api.publish.code` only matters once we can reach the surface at all. |
 
 ## 10. Standing rules for us
 
@@ -729,11 +793,14 @@ list is much longer, and pretending otherwise is how a bulk API quietly becomes 
   That skill is a synced global skill, not in this repo, so updating it is a separate deliberate
   change. Worth doing now that O2–O7 are closed.
 - **System 2 `golive-api-spec-writer`.** Its output is already a paste-ready prompt for exactly this
-  creation path, so the agent needs no redesign — but its framing ("Moe pastes this into his
-  API-creating ask-the-code") can become "we submit it to `POST /lowcode/apis/async` and verify the
-  result", with rules 6–9 as the verification checklist. Its persisted-vs-transient feasibility gate
-  applies unchanged: a SpEL expression reads persisted state, so a transient value still needs a CIO
-  event, not an API.
+  creation path, so the agent needs no redesign. **Correction to an earlier draft of this doc:** I
+  wrote that its framing ("Moe pastes this into his API-creating ask-the-code") could become "we
+  submit it ourselves". §8b falsifies that for our current token — we hold the chat surface, not the
+  management surface. The paste-to-Moe design was correct, and remains the working path until the
+  console grant is obtained. What genuinely changes is that we can now write a *much* better prompt,
+  and specify the review (rules 6–9) that whoever submits it should apply. Its persisted-vs-transient
+  feasibility gate applies unchanged: a SpEL expression reads persisted state, so a transient value
+  still needs a CIO event, not an API.
 - **Governance / to raise with the LCP owners.** Three things, in order: (1) the create path stores
   AI-generated SpEL with no validation and no approval gate, while Event Streaming Rules in the same
   module *do* get a Temporal approval workflow; (2) `validateSpel` reports rather than throws and is
