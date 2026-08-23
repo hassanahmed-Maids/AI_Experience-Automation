@@ -84,12 +84,12 @@
    "id": "uJ8UVNKdN2s5PHHA",
    "name": "CC Monthly Payments Below Agreed Amount — generated v1",
    "active": true,
-   "judged_at_updatedAt": "2026-08-23T12:14:49.582Z",
+   "judged_at_updatedAt": "2026-08-23T17:08:35.912Z",
    "disposition": "in-manifest",
    "skill_built": "yes",
    "erp": "yes",
    "erp_verified_from_export": true,
-   "reason": "One of the six checks this programme covers."
+   "reason": "One of the six checks this programme covers. A real signed ERP token belonging to another user was hardcoded in this flow's Manual Run Config node and committed to the repo; cleared 2026-08-23 and now caught by erp_compliance.py's baked-credential rule."
   },
   {
    "id": "CopNHNsXUzFO59bW",
@@ -359,12 +359,12 @@
    "id": "Qq473Ygj543jxPUN",
    "name": "CC Non Received Monthly Payments — generated v1",
    "active": false,
-   "judged_at_updatedAt": "2026-08-23T15:49:58.560Z",
+   "judged_at_updatedAt": "2026-08-23T17:09:51.503Z",
    "disposition": "in-manifest",
    "skill_built": "yes",
    "erp": "yes",
    "erp_verified_from_export": true,
-   "reason": "SKILL-BUILT and outside the six (audit: CC Non Received, excluded by Moe as a CHECK). Its three ERP nodes were at batchSize 15 - the exact drifted setting ERP-LOAD-POLICY.md was written about. REMEDIATED 2026-08-23 under Moe's 'stop at the 4 in flight' ruling. Now in MANIFEST.json. Still a draft; the policy work does not publish it."
+   "reason": "SKILL-BUILT and outside the six (audit: CC Non Received, excluded by Moe as a CHECK). Its three ERP nodes were at batchSize 15 - the exact drifted setting ERP-LOAD-POLICY.md was written about. REMEDIATED 2026-08-23 under Moe's 'stop at the 4 in flight' ruling. Now in MANIFEST.json. Still a draft; the policy work does not publish it. A real signed ERP token belonging to another user was hardcoded in this flow's Manual Run Config node and committed to the repo; cleared 2026-08-23 and now caught by erp_compliance.py's baked-credential rule."
   },
   {
    "id": "DKwvwqQ43nKXKAJk",

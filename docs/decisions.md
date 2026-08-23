@@ -958,3 +958,57 @@ JSON on every run, and it was right within minutes of WF-A shipping. So the rule
 parallel pass touches a chain, re-run `--all` over the WHOLE chain afterwards and read the
 warnings against every flow's written claims, not just the one you changed.** A warning that a
 canvas note explains away is the shape to be most suspicious of.
+
+---
+
+## 2026-08-23 — Two other people's ERP tokens were committed to this repo, in nodes that said not to
+
+Found while doing the safe thing with a credential. Hassan pasted a fresh ERP token into chat; the
+routine response is to write it to the scratchpad at mode 600, outside the repo. The hygiene check
+that follows — `grep` the working tree for the JWT header prefix — **hit four files**.
+
+Two of them were real, signed ERP tokens belonging to **other users**:
+
+| flow | node | token owner | expired |
+|---|---|---|---|
+| `uJ8UVNKdN2s5PHHA` CC Below Agreed (**LIVE**) | `Manual Run Config` | Abdullaha | 2026-08-18 |
+| `Qq473Ygj543jxPUN` CC Non Received 1-Score | `Manual Run Config` | Malaz.a | 2026-08-15 |
+
+Both expired weeks earlier, so there was **no live exposure**. What there was: plaintext credentials
+readable by anyone with access to the n8n project, written into the saved data of every execution
+that used them, committed to git in two commits, and — in the live flow — served by the published
+version until it was republished.
+
+**The part worth keeping is that both nodes already said not to do it.** One reads, three lines
+above the populated constant:
+
+> *It is DELIBERATELY LEFT EMPTY. ERP tokens last 24h, so a baked one is stale within the day, and
+> anything pasted here is a plaintext secret readable by anyone with access to this n8n project…
+> Clear it again once the run is done.*
+
+The other logs a hardcoded `token_expires: '2026-08-15T22:00:00Z'`, which had been describing a
+token that was no longer there for eight days. **Prose is not enforcement.** The comment is what a
+reviewer reads and the value is what runs, and nothing in this repo was reading the value — the
+same failure as the MV sticky note that described pacing the nodes did not have, and the CC Non
+Received sticky that described a lease the parent had since acquired. Three instances in one day of
+*the note is right and the thing is wrong*.
+
+**Fixed.** Both cleared to `''` and republished (WF-A byte-compared and published, so the live
+version no longer carries it). Both already had a guard that throws on an empty token, so the flows
+now **refuse the run** rather than 401-ing on every call — which is the behaviour you want: paste,
+run, clear. The CC Non Received log line now decodes the expiry out of whatever token is actually in
+use, so it cannot go on asserting a date belonging to a token that has been replaced. The repo had
+no copy of that node at all, which is part of why nobody saw it; there is one now.
+
+**`erp_compliance.py` gained a `BAKED CREDENTIAL` rule** — not a numbered load rule, a secrets rule,
+living in the checker that runs over every flow. It matches the three-segment signed-token shape in
+**any** node field including `notes` and sticky content, and is deliberately not ERP-specific: a
+Supabase or portal key pasted into a flow fails identically. A cleared field with a comment
+describing the format passes. Five assertions, including the exact shape that shipped (a comment
+saying the field is empty above a populated one) and a token in a note rather than in code.
+
+**Not done, and it needs a human.** The tokens remain in **git history** (commits `9100b86` and
+`542478e`) and in **n8n's own version history** for both flows. Both are expired and neither can be
+scrubbed without rewriting shared history, which is not a call to make unilaterally. **Abdullaha and
+Malaz.a should be told their tokens were committed**, even though the exposure window has closed —
+they are the people whose credentials these were, and that is their information, not this project's.

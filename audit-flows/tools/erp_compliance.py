@@ -265,6 +265,34 @@ def rail_rethrows(w, reachable):
             return True
     return False
 
+SIGNED_JWT = re.compile(r'ey[A-Za-z0-9_-]{8,}\.ey[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{20,}')
+
+def baked_credentials(w):
+    """A real signed token sitting in a flow, in any node, anywhere.
+
+    Not a load rule - a secrets rule, and it lives here because this is the checker that runs over
+    every flow. Found 2026-08-23 while storing a token safely: `grep` for the JWT header prefix hit
+    the repo, and two OTHER people's signed ERP tokens were hardcoded in `Manual Run Config` nodes -
+    one of them in the LIVE parent - and committed to git. Both had expired weeks earlier, so there
+    was no live exposure, but they were plaintext credentials readable by anyone with access to the
+    n8n project and written into the saved data of every execution that used them.
+
+    The instructive part is that BOTH nodes already said not to do it. One reads "It is DELIBERATELY
+    LEFT EMPTY... Clear it again once the run is done" three lines above a populated constant. The
+    other logs a hardcoded `token_expires` that had been wrong for eight days. Prose is not
+    enforcement: the value is what gets read, and nothing was reading the value.
+
+    Matches the three-segment shape rather than any particular issuer, so a Google/Supabase/portal
+    token pasted into a flow fails the same way. A short placeholder or a comment describing the
+    format does not match - it needs a real signature segment to look like a real credential.
+    """
+    hits = []
+    for n in w.get('nodes') or []:
+        for m in SIGNED_JWT.finditer(json.dumps(n)):
+            hits.append((n.get('name'), m.group(0)[:12]))
+            break
+    return hits
+
 def code_without_comments(body):
     """The code, minus // line comments and /* */ blocks.
 
@@ -465,6 +493,18 @@ def audit(w, canon):
                   'tell had changed. Re-generate it rather than editing in place.')
             else:
                 notes.append('§5 breaker present and identical to canonical in "' + dname + '"')
+
+    # ---- baked credentials (not a numbered section - a secrets rule) --------------------
+    for nodename, prefix in baked_credentials(w):
+        fails.append('BAKED CREDENTIAL in "' + nodename + '": a string shaped like a real signed '
+          'token (' + prefix + '...) is hardcoded in this node. It is readable by anyone with '
+          'access to this n8n project and it is written into the saved data of every execution '
+          'that uses it - and it is in the repo too, if this flow has been exported. Two of these '
+          'were found on 2026-08-23, both belonging to OTHER users, both weeks expired, and BOTH '
+          'in nodes whose own comments said the field must be left empty and cleared after each '
+          'run. Prose is not enforcement. Clear it to the empty string - the run-config guard '
+          'already refuses an empty token, which is the behaviour you want - or move it to a '
+          'stored n8n credential.')
 
     # ---- §4: the lease -----------------------------------------------------------------
     # NOT "on the entry flow" any more, which is how this section used to be titled and was the

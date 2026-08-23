@@ -452,6 +452,29 @@ ERP-touching audit checks outside the six-check programme, 11 of them active**, 
 has never been applied to. They are out of scope, not compliant, and the difference is now
 written down.
 
+### Prose is not enforcement — the note is right and the thing is wrong
+
+Added 2026-08-23, after this happened three times in one day. A checker reads values; a human reads
+notes; and when the two disagree it is the note that wins the review and the value that runs.
+
+- An MV sticky said *"every one is batchSize 5, batchInterval 500"* and matched the parameters
+  exactly — which is worse than contradicting them, because it read as a deliberate compliance
+  decision and stopped the next reader looking. 5/500 is 10 req/s.
+- A CC Non Received sticky said the chain ran unleased and that the caller-held-lease declaration
+  **must not** be added. True when written; false hours later, when the parent was remediated.
+- Two `Manual Run Config` nodes carried real signed ERP tokens belonging to **other users**, one in
+  the LIVE parent, committed to git. One says *"It is DELIBERATELY LEFT EMPTY… Clear it again once
+  the run is done"* three lines above the populated constant. The other logged a hardcoded
+  `token_expires` that had been wrong for eight days.
+
+So: **anything a note asserts about a value, a checker must assert about the value.** The pacing
+rule reads `batchSize`. §4 re-derives the lease from the connection graph. The new
+**`BAKED CREDENTIAL`** rule matches a three-segment signed token in any node field — code, `notes`,
+sticky content — and is not issuer-specific, so a Supabase or portal key fails the same way. A
+cleared field with a comment *describing* the format passes; it needs a real signature segment to
+count. When you find yourself writing a note that explains why something is safe, that is the moment
+to ask what re-derives it, because the note will outlive the condition it describes.
+
 ### A flow's notes are claims about its NEIGHBOURS, and a neighbour can invalidate them
 
 Added 2026-08-23, from a live near-miss. Two subagents remediated `CC Non Received · 2-Verify` and

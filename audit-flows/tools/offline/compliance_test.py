@@ -596,5 +596,52 @@ f13, w13, nt13 = audit(n13, c13)
 ok('NO CIRCUIT BREAKER in "Capture Failure"' not in f13,
    'the breaker is not demanded in a node that only ever sees the error output', f13[:200])
 
+# --- a baked credential is a failure, and a description of one is not --------------------------
+# 2026-08-23: two OTHER users' signed ERP tokens were hardcoded in `Manual Run Config` nodes, one of
+# them in the LIVE parent, and committed to git. Both expired weeks earlier, so no live exposure -
+# but both nodes ALREADY said not to do it, one of them three lines above the populated constant.
+# Prose is not enforcement. These cases pin the line between a real credential and text about one.
+def cred_flow(body):
+    n, c = base()
+    n.append({'name': 'Manual Run Config', 'type': 'n8n-nodes-base.code', 'typeVersion': 2,
+              'parameters': {'jsCode': body}})
+    c['Manual Run Config'] = {'main': [[{'node': 'Acquire'}]]}
+    return n, c
+
+REAL = ("eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyIjoiU29tZS5Vc2VyIiwiZXhwIjoxNzg3NTIyNDAwfQ."
+        "PCpCAGZH6E6kSCk08pmqxhs2f8h5FcS1yPwHYu55VMDmJqbiYZv9IYqEzhCw7THAXc5JQaF4SP2HKG8jHg")
+
+f14, _, _ = audit(*cred_flow("const ERP_BEARER = 'Bearer " + REAL + "';\nreturn $input.all();"))
+ok('BAKED CREDENTIAL in "Manual Run Config"' in f14,
+   'a real signed token hardcoded in a node FAILS', f14[:140])
+
+# The exact shape that shipped: the node says the field must be empty, and it is not.
+COMMENTED = ("// It is DELIBERATELY LEFT EMPTY. Clear it again once the run is done.\n"
+             "const ERP_BEARER = 'Bearer " + REAL + "';\nreturn $input.all();")
+f15, _, _ = audit(*cred_flow(COMMENTED))
+ok('BAKED CREDENTIAL' in f15,
+   'a comment saying the field is empty does not excuse a populated one - the shipped shape',
+   f15[:140])
+
+f16, _, _ = audit(*cred_flow("const ERP_BEARER = '';   // paste a Bearer eyJ... token here\n"
+                             "return $input.all();"))
+ok('BAKED CREDENTIAL' not in f16,
+   'the cleared field, with a comment describing the token format, passes', f16[:200])
+
+# A token in a NOTE or a sticky is the same exposure as one in code - the rule reads the whole node.
+n17, c17 = base()
+n17.append({'name': 'Call ERP 2', 'type': 'n8n-nodes-base.noOp', 'typeVersion': 1, 'parameters': {},
+            'notes': 'Run it with Bearer ' + REAL})
+f17, _, _ = audit(n17, c17)
+ok('BAKED CREDENTIAL in "Call ERP 2"' in f17,
+   'a token pasted into a node NOTE fails too, not just one in code', f17[:140])
+
+# Not issuer-specific: any three-segment signed token is a credential.
+OTHER = ("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0."
+         "dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE")
+f18, _, _ = audit(*cred_flow("const KEY = '" + OTHER + "';\nreturn $input.all();"))
+ok('BAKED CREDENTIAL' in f18,
+   'a non-ERP signed token (supabase-shaped) fails the same way', f18[:140])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)
