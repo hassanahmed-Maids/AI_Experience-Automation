@@ -531,5 +531,70 @@ ok('NO ERP LEASE' not in f8 and 'lease-held-by-caller' in nt8,
    'a sub-workflow with a Run Manually beside its real trigger is still a sub-workflow',
    (f8 + ' | ' + nt8)[:180])
 
+# --- a rail can release, re-throw, and still be mute -----------------------------------------
+# 2026-08-23: twelve of thirteen flows ran `failing node -> Release Lease (error) -> Fail Loudly`,
+# and Fail Loudly read $input. Release Lease (error) is an Execute Sub-workflow node, which does
+# not pass its input through - it REPLACES the item with the sub-workflow's return value. So the
+# only message any of those rails could produce was 'FAILED at "unknown node": unknown error'.
+# Every check passed, because releasing and re-throwing was all §4 asked about. These cases pin
+# the difference between a rail that is safe and one that can also say what happened.
+def rail_flow(terminal_body, via_lease=True):
+    n, c = base()
+    n.append(lease_node('Release Lease (error)', 'release'))
+    n.append({'name': 'Fail Loudly', 'type': 'n8n-nodes-base.code', 'typeVersion': 2,
+              'parameters': {'jsCode': terminal_body}})
+    if via_lease:
+        c['Call ERP']['main'].append([{'node': 'Release Lease (error)'}])
+        c['Release Lease (error)'] = {'main': [[{'node': 'Fail Loudly'}]]}
+    else:
+        # The fix: a Code node FIRST, before the lease call, so the error survives the release.
+        n.append({'name': 'Capture Failure', 'type': 'n8n-nodes-base.code', 'typeVersion': 2,
+                  'parameters': {'jsCode': 'return [{ json: { _failure: $input.first().json } }];'}})
+        c['Call ERP']['main'].append([{'node': 'Capture Failure'}])
+        c['Capture Failure'] = {'main': [[{'node': 'Release Lease (error)'}]]}
+        c['Release Lease (error)'] = {'main': [[{'node': 'Fail Loudly'}]]}
+    return n, c
+
+BAD = "const e = $input.first().json.error;\nthrow new Error('FAILED: ' + e);"
+GOOD = ("const f = $('Capture Failure').first().json._failure || {};\n"
+        "throw new Error('FAILED: ' + f.message);")
+
+f9, w9, nt9 = audit(*rail_flow(BAD))
+ok('the rail re-throws from "Fail Loudly", but that node reads $input' in f9,
+   'a rail terminal that reads $input through the lease call FAILS', f9[:160])
+ok('error rail releases the lease and re-throws' in nt9,
+   'and it is still credited with releasing and re-throwing - the bug is the diagnostic, not safety',
+   nt9[:160])
+
+f10, w10, nt10 = audit(*rail_flow(GOOD, via_lease=False))
+ok('reads $input' not in f10,
+   'the Capture-Failure-first shape passes', f10[:200])
+
+# The mutation that must break the rule: state the fix in a COMMENT while still reading $input.
+# rail_reads_the_failure fired on all three flows it had just been used to fix, because each one
+# now explains itself with the sentence "NOT FROM $input" - a rule that reads prose cannot tell an
+# explanation from an instruction, so the body is stripped of comments before it is searched.
+COMMENTED = ("// READ THE FAILURE FROM Capture Failure, NOT FROM $input - the lease call eats it.\n"
+             + BAD)
+f11, _, _ = audit(*rail_flow(COMMENTED))
+ok('reads $input' in f11,
+   'a comment saying "not from $input" does not excuse a body that still reads it', f11[:160])
+
+COMMENT_ONLY = ("// This used to read $input, which the lease call replaces. It no longer does.\n"
+                + GOOD)
+f12, _, _ = audit(*rail_flow(COMMENT_ONLY, via_lease=False))
+ok('reads $input' not in f12,
+   'and a comment MENTIONING $input in a body that does not read it is not a failure', f12[:160])
+
+# --- the breaker judges a BATCH, so the walk must not follow error outputs -------------------
+# Adding Capture Failure to the rail put a Code node directly on the ERP node's error output, and
+# §5 promptly demanded a circuit breaker in it. A breaker there is meaningless: an error output
+# carries one failure, never the batch of responses the three thresholds are computed over. The
+# walk follows output 0 only.
+n13, c13 = rail_flow(GOOD, via_lease=False)
+f13, w13, nt13 = audit(n13, c13)
+ok('NO CIRCUIT BREAKER in "Capture Failure"' not in f13,
+   'the breaker is not demanded in a node that only ever sees the error output', f13[:200])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)

@@ -20,14 +20,17 @@
 // loud within three hours and a silently-successful audit is never looked at again. It matters
 // more here than anywhere: this check's guards refuse rather than degrade, and a refusal that
 // reads as success is a truncated population presented as a clean month.
-const item = $input.first().json || {};
-
-// The error output's shape is not guaranteed: n8n puts a string here for some node types and an
-// object for others. Both are handled rather than one assumed.
-const raw = item.error;
-const msg = typeof raw === 'string' ? raw
-          : String((raw && raw.message) || item.message || 'unknown error');
-const failedNode = String((raw && raw.node && raw.node.name) || item.node || 'unknown node');
+// READ THE FAILURE FROM Capture Failure, NOT FROM $input. Release Lease (error) sits between the
+// failing node and this one, and an Execute Sub-workflow node REPLACES the item with the lease's
+// own return value - so $input here holds the lease's answer, not the error. Reading $input is
+// what this rail did until 2026-08-23, and it would have reported "unknown node / unknown error"
+// on every failure it ever handled. Nobody saw it because no rail in this project has yet fired.
+let msg = 'unknown error', failedNode = 'unknown node';
+try {
+  const f = ($('Capture Failure').first().json || {})._failure || {};
+  if (f.message) msg = String(f.message);
+  if (f.node) failedNode = String(f.node);
+} catch (e) { }
 
 let runId = 'unknown';
 let window = '';

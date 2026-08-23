@@ -823,3 +823,93 @@ their 5/500 came from. Not skill-built, so out of scope by Moe's ruling; recorde
 `MANIFEST.json`, and the new listing and register landed inside that rule. A coverage contract
 that lives only in a container is not a contract; the ignore now carries four exceptions and says
 why.
+
+---
+
+## 2026-08-23 — CORRECTION: Travel Assist IS skill-built, and I wrote the opposite without looking
+
+The entry above says of **Travel Assist Payments Audit**: *"Not skill-built, so out of scope by
+Moe's ruling."* That is **wrong**, and it is the worst kind of wrong here, because the reason I
+gave is the field I did not open. Its payload — in a file I already had, at the identical
+`updatedAt` — says `{"aiBuilderAssisted": true, "builderVariant": "mcp", ...}`. I wrote
+`skill_built: "no"` into the register with the reason *"NOT skill-built (no meta.aiBuilderAssisted)"*
+and told Moe it was out of scope on that basis. `exports/instance-register.json` was corrected the
+same day.
+
+What that changes: Travel Assist is a **skill-built, live, scheduled** flow with 16 pacing
+violations, six nodes at `batchSize: -1`, no lease, no breaker and no gate — and it is the golden
+several of the six were cloned from. It is out of scope because **Moe chose "stop at the 4 in
+flight"** with the numbers in front of him, not because the skill did not build it. The register
+now records that as an explicit `manifest_exempt` reason, which is why the guard passes: the
+decision is written down, not implied by absence.
+
+The general lesson, since this is the second time in two days: **a citation of evidence is a
+promise that the evidence was read.** Saying "no `meta.aiBuilderAssisted`" is a claim about a
+specific field in a specific file, and it is cheaper to open it than to write the sentence.
+
+---
+
+## 2026-08-23 — Every error rail in this repo was safe and mute
+
+`Release Lease (error)` is an Execute Sub-workflow node with `waitForSubWorkflow: true`. **That
+node does not pass its input through — it REPLACES the item with whatever the sub-workflow
+returned.** Every rail ran `failing node -> Release Lease (error) -> Fail Loudly`, and Fail Loudly
+read the error off `$input`. So `$input` there held the lease's answer, and the only message any
+of those rails could ever produce was `FAILED at "unknown node": unknown error`.
+
+**12 of 13 flows.** Found by the MV Overstay Fines subagent, which was the only one to think about
+it and the only flow that shipped correct. Confirmed by scanning every export, so the count is
+measured rather than assumed.
+
+Nothing was unsafe: the lease was released and the run re-threw either way. What was destroyed was
+the diagnostic — the one sentence a human reads at the moment an audit dies. And nothing caught it
+because every check asked whether the rail **releases** and **re-throws**, both of which it did.
+No rail in this project has ever fired, so nobody had read the output. **A safety mechanism nobody
+has seen work is a design, not a mechanism.**
+
+**The fix, now the standard shape.** A `Capture Failure` Code node goes FIRST on the rail: every
+error output feeds it, it feeds the release, it reads the error off `$input` and returns `_failure`,
+and it does **not** throw — a throw there would strand the lease, which is the hole the rail exists
+to close. The terminal reads `$('Capture Failure').first().json._failure` by name. Canonical body:
+`terminated-housemaids/nodes/capture_failure.js`.
+
+Deployed to the three flows I own (Terminated Housemaids 1-Score, Dummy Tickets HM 1-Score,
+Applicant Real Ticket), each byte-compared against the repo source before publish. **Nine flows
+still have the mute rail** and the checker now names every one of them.
+
+### Three checker corrections, all from this one finding
+
+- **`erp_compliance.py` §4 now FAILS a mute rail** — a re-throwing rail node that reads `$input`
+  while fed through an Execute Sub-workflow node. It fired first on all three flows it had just
+  been used to FIX, because each now carries the sentence *"READ THE FAILURE FROM Capture Failure,
+  NOT FROM `$input`"*. A rule that reads prose cannot tell an explanation from an instruction, so
+  bodies are stripped of comments before they are searched. Four assertions, including both
+  mutations.
+- **`erp_compliance.py` §5 now walks output 0 only.** Adding the capture node put a Code node
+  directly on each ERP node's error output, and §5 promptly demanded a circuit breaker in it. A
+  breaker there is meaningless: an error output carries one failure, never the batch the three
+  thresholds are computed over.
+- **`export_mutation_test.py` was calling a real finding a tool defect.** A surviving mutant means
+  the CHECKER is not looking; a dirty baseline means the FLOW is broken. They shared one counter,
+  so when the new rule turned four baselines red the summary read *"a mutant SURVIVED, so the
+  property it broke is not actually checked"* — nothing had survived, and the checker was working
+  perfectly. They are counted and worded separately now.
+
+### And one in `doc_check.py`, found by trying to cite the fix
+
+`ERP-LOAD-POLICY.md` now cites `terminated-housemaids/nodes/capture_failure.js` as the canonical
+body of a node the policy requires. `doc_check.py` reported **101 citations checked** — the same
+count as before. Its citation regex hard-coded the directory names that existed the day it was
+written, so every check subtree added since was invisible: a citation it cannot see is a citation
+it reports no problem with, which is precisely the failure the file exists to prevent, one level
+up. The roots are now **read off the repo** at run time. 101 → 107, all resolving, and a bad
+citation inside a new subtree fails as it should.
+
+### The manifest caught up with the remediation
+
+The four flows Moe chose to remediate are now **in `MANIFEST.json`** (22 → 26) and dispositioned
+`in-manifest`. They are not among the six checks and were never meant to be — they are there
+because a flow brought up to the policy and then left out of the manifest is one whose compliance
+nothing re-checks, which is the exact drift the manifest exists to stop.
+`tools/manifest_vs_instance.py` is green: every workflow in the instance has a current disposition
+and the manifest agrees in both directions.

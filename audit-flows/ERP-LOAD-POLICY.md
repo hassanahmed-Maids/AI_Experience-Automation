@@ -555,6 +555,32 @@ any given run) sitting off the rail with the reason recorded only in an n8n vers
 It now names every main-path blind spot as a §4 WARNING. Warning and not failure: the unwired node
 is the lesser evil, and the point is that the reader can see it.
 
+**A fifth thing, found 2026-08-23: the rail was safe and mute.** Every rail in this repo but one
+ran `failing node -> Release Lease (error) -> Fail Loudly`, and `Fail Loudly` read the error off
+`$input`. But `Release Lease (error)` is an **Execute Sub-workflow node with
+`waitForSubWorkflow: true`, and that node does not pass its input through — it REPLACES the item
+with whatever the sub-workflow returned.** So `$input` at the terminal held the lease's answer, and
+the only message any of those rails could ever produce was `FAILED at "unknown node": unknown
+error`. **12 of 13 flows had it.** Nothing caught it, because every check asked whether the rail
+RELEASES and RE-THROWS — both of which it did — and no rail in this project has ever fired, so
+nobody had read the output.
+
+**The rail therefore starts with a capture node.** Put a Code node FIRST, before the lease call:
+every error output feeds it, it feeds `Release Lease (error)`, it reads the error off `$input` and
+returns it as `_failure`, and it **does not throw** — a throw there would strand the lease, which
+is the hole the rail exists to close. The terminal then reads it **by name**:
+`$('Capture Failure').first().json._failure`. Canonical body:
+`terminated-housemaids/nodes/capture_failure.js`.
+
+`erp_compliance.py` now FAILS a re-throwing rail node that reads `$input` while fed through an
+Execute Sub-workflow node. Note what the check had to learn to be usable: it first fired on all
+three flows it had just been used to fix, because each one now carries the sentence *"READ THE
+FAILURE FROM Capture Failure, NOT FROM `$input`"* — a rule that reads prose cannot tell an
+explanation from an instruction, so bodies are stripped of comments before they are searched.
+Adding the capture node also put a Code node directly on each ERP node's error output, and §5
+promptly demanded a breaker in it; the §5 walk now follows output 0 only, because an error output
+carries one failure and a breaker judges a batch.
+
 **A fourth thing, found 2026-08-23: an error rail and n8n node GROUPS cannot coexist.** n8n
 requires a node group to be a single-entry, single-exit connected subgraph, and an error output is
 a second exit — so `update_workflow` rejects the rail with *"must form a single connected subgraph

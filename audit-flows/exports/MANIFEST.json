@@ -1,141 +1,165 @@
 {
-  "_why": "Every flow that erp_compliance.py --all MUST audit. Without this, --all audits whatever happens to be in this directory and reports 'all N flows comply' on a subset - which is exactly how WF-E and WF-B went four days with no circuit breaker deployed while --all stayed green. A missing export is now a FAILURE that names the flow, not silence.",
-  "_how": "Export with get_workflow_details and write the .workflow object to exports/<slug>.json. Matching is on the workflow id, not the filename.",
-  "flows": [
-    {
-      "id": "uJ8UVNKdN2s5PHHA",
-      "name": "WF-A  CC Below Agreed - parent",
-      "live": true,
-      "export": "api"
-    },
-    {
-      "id": "RbW2fT3b6rtqVQ9H",
-      "name": "WF-Pop  CC Below Agreed - 0-Sweep Population",
-      "live": true,
-      "export": "transcribed"
-    },
-    {
-      "id": "M79KcC9vaHte5Ibi",
-      "name": "WF-P  CC Below Agreed - 0-Sweep Payments",
-      "live": true,
-      "export": "transcribed"
-    },
-    {
-      "id": "D1mCMJuN9lMURJHb",
-      "name": "WF-S  CC Below Agreed - 0-Sweep Statuses",
-      "live": true,
-      "export": "transcribed"
-    },
-    {
-      "id": "NDk03cYGF4XSXsk5",
-      "name": "WF-E  CC Below Agreed - 0-Enrich Candidates",
-      "live": true,
-      "export": "api"
-    },
-    {
-      "id": "pOa3yRIyguSyoBk4",
-      "name": "WF-T  CC Below Agreed - 1-Score Batch",
-      "live": true,
-      "export": "api"
-    },
-    {
-      "id": "2LaIbHqQ1A2sEBKm",
-      "name": "WF-B  CC Below Agreed - 2-Verify",
-      "live": true,
-      "export": "api"
-    },
-    {
-      "id": "yEF4BHYDZAnhBnYg",
-      "name": "WF-C  CC Below Agreed - 3-Deliver",
-      "live": true,
-      "export": "transcribed"
-    },
-    {
-      "id": "7j5Z5KPvBcWRPfvy",
-      "name": "CC Price by Cohort - Stage 1",
-      "live": true,
-      "export": "api"
-    },
-    {
-      "id": "bBYbpHcWMWybDQxN",
-      "name": "CC Price by Cohort - Stage 2",
-      "live": true,
-      "export": "api"
-    },
-    {
-      "id": "ZJDiRTzk6uRYBJwq",
-      "name": "CC Price by Cohort - Stage 3",
-      "live": true,
-      "export": "transcribed"
-    },
-    {
-      "id": "9jOMFEC2zEWy2RHM",
-      "name": "MV Monthly Payment - 0-Sweep Population",
-      "live": false,
-      "export": "transcribed"
-    },
-    {
-      "id": "IKRXhIco1mwxrcPq",
-      "name": "MV Monthly Payment - 1-Population",
-      "live": false,
-      "export": "transcribed"
-    },
-    {
-      "id": "CopNHNsXUzFO59bW",
-      "name": "MV Monthly Payment - 2-Score chunk",
-      "live": false,
-      "export": "transcribed"
-    },
-    {
-      "id": "Z9fTvmaM526eYofe",
-      "name": "MV Monthly Payment - 3-Deliver",
-      "live": false,
-      "export": "transcribed"
-    },
-    {
-      "id": "9T91z5VFH5g69WyT",
-      "name": "MV Monthly Payment - 4-Verify findings",
-      "live": false,
-      "export": "transcribed"
-    },
-    {
-      "id": "YXRZdtk2Geeeqaal",
-      "name": "Applicant Real Ticket - the audit check (draft)",
-      "live": false,
-      "export": "api"
-    },
-    {
-      "id": "B8r6dyuHz9kFC3HJ",
-      "name": "Applicant Real Ticket - publish results to Google Sheets",
-      "live": false,
-      "export": "transcribed"
-    },
-    {
-      "id": "YQlNlxrnhbQpBbdl",
-      "name": "Dummy Tickets Housemaids - 0-Fetch Tickets",
-      "live": true,
-      "export": "transcribed"
-    },
-    {
-      "id": "aTmGMAlYLwsJQ7js",
-      "name": "Dummy Tickets Housemaids - 1-Score",
-      "live": true,
-      "export": "api"
-    },
-    {
-      "id": "dhkfRbuaGv8MXzSG",
-      "name": "Terminated Housemaids Tickets - 0-Fetch Profiles",
-      "live": false,
-      "export": "transcribed"
-    },
-    {
-      "id": "sXsn4NUYt4kh3OAU",
-      "name": "Terminated Housemaids Tickets - 1-Score",
-      "live": false,
-      "export": "api"
-    }
-  ],
-  "_export_field": "How each export got here, because it changes what a green run means. 'api' = the n8n MCP returned the workflow to a file and it was copied verbatim. 'transcribed' = the MCP returned it INLINE (small workflows are not auto-saved) and no n8n API credential exists in this environment, so it was copied by hand from that response. A transcribed export is faithful-but-manual: it can be WRONG in a way a stale one cannot. Three things bound that - tools/export_report.py diffed against the live fetch, its --check-js pass over every Code node body, and the breaker byte-compare - and none of them proves the bytes match. Re-export any transcribed flow the moment a real API route exists.",
-  "_scope": "The six checks Moe named on 2026-08-23: CC Below Agreed Amount, Price By Cohort, Real Tickets, Dummy Tickets, Terminated Housemaid Tickets, MV Monthly Payment. 'audit: CC Non Received' and 'audit: Expense Attach' are OUT of scope and deliberately absent - Expense Attach reads QuickBooks, not ERP. SCOPE IS THE SKILL-BUILT FLOWS ONLY. Real Tickets and Dummy Tickets each also have a PRE-EXISTING working check that the erp-audit-flow-builder skill was reimplementing from scratch - 7M7xzzYpOecao9PE for Real Tickets (live, created 2026-05-25) and FXrhGBJUnGYgrs9R for Dummy Tickets (named in aTmGMAlYLwsJQ7js's own description as the flow it rebuilds). Those two are NOT in this manifest, are not tagged, and must not be pulled into this remediation programme: they work, and the load policy is being applied to their replacements. 7M7xzzYpOecao9PE was briefly tagged and manifested on 2026-08-23 and both were reverted the same day.",
-  "_provenance": "Every flow here is SKILL-BUILT: meta.aiBuilderAssisted true, builderVariant 'mcp', created 2026-08-19 or earlier by the erp-audit-flow-builder skill. Check that before changing any flow. On 2026-08-23 a pre-existing working check (7M7xzzYpOecao9PE, created 2026-05-25, meta null) was briefly tagged and manifested and had to be reverted - it works, and the load policy is being applied to its replacement, not to it."
+ "_why": "Every flow that erp_compliance.py --all MUST audit. Without this, --all audits whatever happens to be in this directory and reports 'all N flows comply' on a subset - which is exactly how WF-E and WF-B went four days with no circuit breaker deployed while --all stayed green. A missing export is now a FAILURE that names the flow, not silence.",
+ "_how": "Export with get_workflow_details and write the .workflow object to exports/<slug>.json. Matching is on the workflow id, not the filename.",
+ "flows": [
+  {
+   "id": "uJ8UVNKdN2s5PHHA",
+   "name": "WF-A  CC Below Agreed - parent",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "RbW2fT3b6rtqVQ9H",
+   "name": "WF-Pop  CC Below Agreed - 0-Sweep Population",
+   "live": true,
+   "export": "transcribed"
+  },
+  {
+   "id": "M79KcC9vaHte5Ibi",
+   "name": "WF-P  CC Below Agreed - 0-Sweep Payments",
+   "live": true,
+   "export": "transcribed"
+  },
+  {
+   "id": "D1mCMJuN9lMURJHb",
+   "name": "WF-S  CC Below Agreed - 0-Sweep Statuses",
+   "live": true,
+   "export": "transcribed"
+  },
+  {
+   "id": "NDk03cYGF4XSXsk5",
+   "name": "WF-E  CC Below Agreed - 0-Enrich Candidates",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "pOa3yRIyguSyoBk4",
+   "name": "WF-T  CC Below Agreed - 1-Score Batch",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "2LaIbHqQ1A2sEBKm",
+   "name": "WF-B  CC Below Agreed - 2-Verify",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "yEF4BHYDZAnhBnYg",
+   "name": "WF-C  CC Below Agreed - 3-Deliver",
+   "live": true,
+   "export": "transcribed"
+  },
+  {
+   "id": "7j5Z5KPvBcWRPfvy",
+   "name": "CC Price by Cohort - Stage 1",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "bBYbpHcWMWybDQxN",
+   "name": "CC Price by Cohort - Stage 2",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "ZJDiRTzk6uRYBJwq",
+   "name": "CC Price by Cohort - Stage 3",
+   "live": true,
+   "export": "transcribed"
+  },
+  {
+   "id": "9jOMFEC2zEWy2RHM",
+   "name": "MV Monthly Payment - 0-Sweep Population",
+   "live": false,
+   "export": "transcribed"
+  },
+  {
+   "id": "IKRXhIco1mwxrcPq",
+   "name": "MV Monthly Payment - 1-Population",
+   "live": false,
+   "export": "transcribed"
+  },
+  {
+   "id": "CopNHNsXUzFO59bW",
+   "name": "MV Monthly Payment - 2-Score chunk",
+   "live": false,
+   "export": "transcribed"
+  },
+  {
+   "id": "Z9fTvmaM526eYofe",
+   "name": "MV Monthly Payment - 3-Deliver",
+   "live": false,
+   "export": "transcribed"
+  },
+  {
+   "id": "9T91z5VFH5g69WyT",
+   "name": "MV Monthly Payment - 4-Verify findings",
+   "live": false,
+   "export": "transcribed"
+  },
+  {
+   "id": "YXRZdtk2Geeeqaal",
+   "name": "Applicant Real Ticket - the audit check (draft)",
+   "live": false,
+   "export": "api"
+  },
+  {
+   "id": "B8r6dyuHz9kFC3HJ",
+   "name": "Applicant Real Ticket - publish results to Google Sheets",
+   "live": false,
+   "export": "transcribed"
+  },
+  {
+   "id": "YQlNlxrnhbQpBbdl",
+   "name": "Dummy Tickets Housemaids - 0-Fetch Tickets",
+   "live": true,
+   "export": "transcribed"
+  },
+  {
+   "id": "aTmGMAlYLwsJQ7js",
+   "name": "Dummy Tickets Housemaids - 1-Score",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "dhkfRbuaGv8MXzSG",
+   "name": "Terminated Housemaids Tickets - 0-Fetch Profiles",
+   "live": false,
+   "export": "transcribed"
+  },
+  {
+   "id": "sXsn4NUYt4kh3OAU",
+   "name": "Terminated Housemaids Tickets - 1-Score",
+   "live": false,
+   "export": "api"
+  },
+  {
+   "id": "Qq473Ygj543jxPUN",
+   "name": "CC Non Received Monthly Payments - generated v1 (parent)",
+   "live": false,
+   "export": "api"
+  },
+  {
+   "id": "qAuvLHhae2sKD7mM",
+   "name": "CC Non Received - 2-Verify",
+   "live": true,
+   "export": "api"
+  },
+  {
+   "id": "3465kkSf4JYjlpXk",
+   "name": "CC Overstay Fines - generated v1",
+   "live": false,
+   "export": "api"
+  },
+  {
+   "id": "LDtsstXDfF99TnYe",
+   "name": "MV Overstay Fines - generated v1",
+   "live": false,
+   "export": "api"
+  }
+ ],
+ "_export_field": "How each export got here, because it changes what a green run means. 'api' = the n8n MCP returned the workflow to a file and it was copied verbatim. 'transcribed' = the MCP returned it INLINE (small workflows are not auto-saved) and no n8n API credential exists in this environment, so it was copied by hand from that response. A transcribed export is faithful-but-manual: it can be WRONG in a way a stale one cannot. Three things bound that - tools/export_report.py diffed against the live fetch, its --check-js pass over every Code node body, and the breaker byte-compare - and none of them proves the bytes match. Re-export any transcribed flow the moment a real API route exists.",
+ "_scope": "The six checks Moe named on 2026-08-23: CC Below Agreed Amount, Price By Cohort, Real Tickets, Dummy Tickets, Terminated Housemaid Tickets, MV Monthly Payment. 'audit: CC Non Received' and 'audit: Expense Attach' are OUT of scope and deliberately absent - Expense Attach reads QuickBooks, not ERP. SCOPE IS THE SKILL-BUILT FLOWS ONLY. Real Tickets and Dummy Tickets each also have a PRE-EXISTING working check that the erp-audit-flow-builder skill was reimplementing from scratch - 7M7xzzYpOecao9PE for Real Tickets (live, created 2026-05-25) and FXrhGBJUnGYgrs9R for Dummy Tickets (named in aTmGMAlYLwsJQ7js's own description as the flow it rebuilds). Those two are NOT in this manifest, are not tagged, and must not be pulled into this remediation programme: they work, and the load policy is being applied to their replacements. 7M7xzzYpOecao9PE was briefly tagged and manifested on 2026-08-23 and both were reverted the same day. ADDED 2026-08-23, AFTER the six: the four skill-built ERP flows Moe chose to remediate rather than exempt - Qq473Ygj543jxPUN and qAuvLHhae2sKD7mM (CC Non Received), 3465kkSf4JYjlpXk (CC Overstay Fines), LDtsstXDfF99TnYe (MV Overstay Fines). They are not among the six CHECKS and were never meant to be; they are here because they were brought up to ERP-LOAD-POLICY.md, and a flow that is remediated and then left out of the manifest is one whose compliance nothing re-checks. The eight skill-built ERP flows Moe did NOT choose - Travel Assist and the seven SDR flows - carry a manifest_exempt reason in exports/instance-register.json instead, so the decision is recorded rather than implied by absence.",
+ "_provenance": "Every flow here is SKILL-BUILT: meta.aiBuilderAssisted true, builderVariant 'mcp', created 2026-08-19 or earlier by the erp-audit-flow-builder skill. Check that before changing any flow. On 2026-08-23 a pre-existing working check (7M7xzzYpOecao9PE, created 2026-05-25, meta null) was briefly tagged and manifested and had to be reverted - it works, and the load policy is being applied to its replacement, not to it."
 }

@@ -30,9 +30,28 @@ ROOT = os.path.dirname(HERE)
 # Paths cited in backticks that live in this repo and are worth checking. Deliberately narrow:
 # a broad "anything that looks like a path" scan pulls in ERP routes, n8n node names and URLs,
 # and a checker that cries wolf is one nobody runs.
+def _cite_roots():
+    """The directory names a citation may start with - READ OFF THE REPO, not hard-coded.
+
+    This list used to be a literal: tools|nodes|offline|wfa|...|compliance. It was correct the day
+    it was written and silently wrong afterwards, because every new check gets its own subtree and
+    nobody thinks to extend a regex in a different file. On 2026-08-23 ERP-LOAD-POLICY.md cited
+    terminated-housemaids/nodes/capture_failure.js - the canonical body of a node the policy now
+    requires - and doc_check reported 101 citations checked, the same count as before. A checker
+    that cannot see a citation reports zero problems with it, which is the failure this file was
+    written to prevent, one level up.
+
+    Derived instead: every directory at the repo root, plus the per-check ones that recur inside
+    them (nodes/, offline/, tools/), plus the two historical wf-* aliases that are not directories.
+    """
+    roots = set(['nodes', 'offline', 'tools', 'wfa', 'wf-a', 'wf-b', 'wf-e', 'wf-t'])
+    for d in os.listdir(ROOT):
+        if os.path.isdir(os.path.join(ROOT, d)) and not d.startswith('.') and d != '__pycache__':
+            roots.add(d)
+    return sorted(roots, key=len, reverse=True)      # longest first, so a prefix cannot shadow
+
 CITE = re.compile(
-    r'`((?:tools|nodes|offline|wfa|wf-a|wf-b|wf-e|wf-t|scripts'
-    r'|cc-below-agreed|cc-price|mv-monthly-payment|erp-lease|compliance)'
+    r'`((?:' + '|'.join(re.escape(r) for r in _cite_roots()) + r')'
     r'/[A-Za-z0-9_\-./]+\.(?:py|js|json|md))`')
 
 # A doc may cite a file precisely to say it is NOT there - "tools/verify_order.py does not exist

@@ -47,12 +47,12 @@ def load(slug):
     return d.get('workflow', d)
 
 def baseline(slug):
-    RESULTS.append(('BASELINE clean: ' + slug, 'FAIL' not in run(load(slug))))
+    RESULTS.append(('BASELINE clean: ' + slug, 'FAIL' not in run(load(slug)), 'baseline'))
 
 def mut(label, slug, fn):
     w = load(slug)
     fn(w)
-    RESULTS.append((label, 'FAIL' in run(w)))
+    RESULTS.append((label, 'FAIL' in run(w), 'mutant'))
 
 def kill_rail(w):
     w['nodes'] = [n for n in w['nodes'] if n.get('name') not in ('Release Lease (error)', 'Fail Loudly')]
@@ -124,12 +124,25 @@ mut('mv1: budget gate marker removed', 'mv-stage1-population.json',
 mut('mv2: budget-gate-in-caller stripped from Fan Out Contracts', 'mv-stage2-score-chunk.json',
     lambda w: node(w, 'Fan Out Contracts')['parameters'].__setitem__('jsCode', 'return $input.all();\n'))
 
-bad = 0
-for label, ok in RESULTS:
-    print(('ok   ' if ok else 'MISS ') + label)
-    if not ok:
-        bad += 1
+# TWO FAILURES THAT MEAN OPPOSITE THINGS. A surviving mutant says the CHECKER is not looking. A
+# dirty baseline says the FLOW is broken - the checker is working fine and has found something.
+# They were reported under one count until 2026-08-23, when a new rule (§4's mute-rail check) went
+# in and four baselines went red: nothing had survived, four flows were genuinely broken, and the
+# summary line said "a mutant SURVIVED, so the property it broke is not actually checked". A test
+# harness that misnames its own result is how a real finding gets read as a tool defect.
+dirty = [l for l, ok, kind in RESULTS if not ok and kind == 'baseline']
+survived = [l for l, ok, kind in RESULTS if not ok and kind == 'mutant']
+for label, ok, kind in RESULTS:
+    print(('ok   ' if ok else ('DIRTY' if kind == 'baseline' else 'MISS ') + ' ') + label)
 print()
-print('%d/%d' % (len(RESULTS) - bad, len(RESULTS)) +
-      (' - a mutant SURVIVED, so the property it broke is not actually checked' if bad else ' passed'))
-sys.exit(1 if bad else 0)
+print('%d/%d' % (len(RESULTS) - len(dirty) - len(survived), len(RESULTS)))
+if survived:
+    print('  %d mutant(s) SURVIVED - the property each one broke is not actually checked. This is '
+          'a hole in erp_compliance.py: %s' % (len(survived), ', '.join(survived)))
+if dirty:
+    print('  %d baseline(s) DIRTY - the checker is working and the FLOW is failing it. Nothing is '
+          'wrong with the checker; go read what it said about: %s'
+          % (len(dirty), ', '.join(l.replace('BASELINE clean: ', '') for l in dirty)))
+if not survived and not dirty:
+    print('  passed')
+sys.exit(1 if (survived or dirty) else 0)

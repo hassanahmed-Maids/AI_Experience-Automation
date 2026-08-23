@@ -119,12 +119,30 @@ def has_exempt(w, kind):
             return found
     return None
 
-def downstream(w, name):
+def downstream(w, name, only_index=None):
+    """Every node this one feeds. only_index=0 restricts it to the SUCCESS output.
+
+    Output 0 is the success path; any higher index is an error output. Which one you want depends
+    on the question: §4 walks the error outputs BECAUSE it is looking for the rail, and §5 must
+    not, because a breaker judges a BATCH of responses and an error output carries one failure.
+    """
     conns = (w.get('connections') or {}).get(name) or {}
     out = []
-    for group in conns.get('main') or []:
+    for i, group in enumerate(conns.get('main') or []):
+        if only_index is not None and i != only_index:
+            continue
         for c in group or []:
             out.append(c.get('node'))
+    return out
+
+def upstream(w, name):
+    """Every node that feeds this one, on any output. Used to see what precedes a rail node."""
+    out = []
+    for src, spec in (w.get('connections') or {}).items():
+        for group in spec.get('main') or []:
+            for c in group or []:
+                if c.get('node') == name:
+                    out.append(src)
     return out
 
 # Nodes that shuffle items without reading them. A batch of ERP responses routinely passes
@@ -142,7 +160,7 @@ def first_code_downstream(w, start, limit=8):
     blind spot is worse than no checker, because its green is quoted. So the walk passes through
     nodes that shuffle items without reading them, and stops at the first Code node on each path.
     """
-    seen, found, frontier = set(), [], list(downstream(w, start))
+    seen, found, frontier = set(), [], list(downstream(w, start, only_index=0))
     while frontier and limit > 0:
         limit -= 1
         nxt = []
@@ -156,7 +174,7 @@ def first_code_downstream(w, start, limit=8):
             if n.get('type') == 'n8n-nodes-base.code':
                 found.append(name)
             elif n.get('type') in PASSTHROUGH:
-                nxt.extend(downstream(w, name))
+                nxt.extend(downstream(w, name, only_index=0))
         frontier = nxt
     return found
 
@@ -246,6 +264,63 @@ def rail_rethrows(w, reachable):
         if n.get('type') == 'n8n-nodes-base.code' and 'throw ' in code_of(n):
             return True
     return False
+
+def code_without_comments(body):
+    """The code, minus // line comments and /* */ blocks.
+
+    Needed because the rules below look for what a node DOES, and in this project the nodes carry
+    long comments about what they used to do. rail_reads_the_failure fired on all three flows it
+    had just been used to FIX, because each one now carries the sentence "READ THE FAILURE FROM
+    Capture Failure, NOT FROM $input" - a rule that reads prose cannot tell an explanation from an
+    instruction. String literals are left alone: they are not comments, and a $input inside one is
+    not something this file needs to reason about.
+    """
+    out, i, n = [], 0, len(body)
+    while i < n:
+        c = body[i]
+        if c == '/' and i + 1 < n and body[i + 1] == '/':
+            j = body.find('\n', i)
+            i = n if j < 0 else j
+        elif c == '/' and i + 1 < n and body[i + 1] == '*':
+            j = body.find('*/', i + 2)
+            i = n if j < 0 else j + 2
+        else:
+            out.append(c)
+            i += 1
+    return ''.join(out)
+
+def rail_reads_the_failure(w, reachable):
+    """Can the rail's re-throwing node still SAY what went wrong?
+
+    A rail that releases the lease and re-throws is safe and can still be useless. On 2026-08-23
+    every rail in this project but one ran `failing node -> Release Lease (error) -> Fail Loudly`,
+    and Release Lease (error) is an Execute Sub-workflow node with waitForSubWorkflow: true - which
+    does not pass its input through, it REPLACES the item with whatever the sub-workflow returned.
+    So Fail Loudly's `$input` held the lease's answer, not the error, and every message those rails
+    could ever produce was 'FAILED at "unknown node": unknown error'.
+
+    Twelve of thirteen flows had it. Nothing caught it, because every §4 check asked whether the
+    rail RELEASES and RE-THROWS - both of which it did. Nobody had seen the output because no rail
+    in this project has yet fired.
+
+    The fix is a Capture Failure node placed FIRST on the rail, before the lease call, with the
+    terminal node reading it by name. So the rule is: a re-throwing rail node fed through an
+    Execute Sub-workflow node must not read $input, because at that point $input is not the error.
+    """
+    bad = []
+    for name in reachable:
+        n = node_by_name(w, name)
+        if not n or n.get('type') != 'n8n-nodes-base.code':
+            continue
+        body = code_without_comments(code_of(n))
+        if 'throw ' not in body or '$input' not in body:
+            continue
+        eaten = [p for p in upstream(w, name)
+                 if p in reachable
+                 and (node_by_name(w, p) or {}).get('type') == 'n8n-nodes-base.executeWorkflow']
+        if eaten:
+            bad.append((name, eaten))
+    return bad
 
 def rail_blind_spots(w):
     """Nodes that can kill the run but whose failure cannot be routed to the error rail.
@@ -456,6 +531,17 @@ def audit(w, canon):
               'End the rail in a Stop and Error, or a Code node that throws.')
         else:
             notes.append('§4 error rail releases the lease and re-throws (' + ', '.join(err_release) + ')')
+            for name, eaten in rail_reads_the_failure(w, reachable):
+                fails.append('§4 the rail re-throws from "' + name + '", but that node reads $input '
+                  'and is fed by ' + ', '.join('"' + e + '"' for e in eaten) + ' - an Execute '
+                  'Sub-workflow node, which does NOT pass its input through. It REPLACES the item '
+                  'with whatever the sub-workflow returned, so $input here holds the lease\'s answer '
+                  'and not the error. This rail is safe and mute: it releases and re-throws, and the '
+                  'only message it can ever produce is "unknown node / unknown error". Twelve of '
+                  'thirteen flows had exactly this on 2026-08-23 and every check passed, because '
+                  'releasing and re-throwing was all anyone asked about. Put a Code node FIRST on '
+                  'the rail - before the lease call - that reads the error off $input and returns '
+                  'it, and read it here by name: $(\'Capture Failure\').first().json._failure.')
             blind = rail_blind_spots(w)
             if blind:
                 warns.append('§4 the error rail exists, but these node(s) can kill the run and their '

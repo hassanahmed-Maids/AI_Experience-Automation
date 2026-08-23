@@ -283,6 +283,18 @@ What you must do, in order:
      want opposite things: `continueErrorOutput` routes failures AWAY from the projection node,
      which blinds the breaker. On those nodes the breaker wins, and the rail hangs off the
      projection node instead.
+   - **The rail starts with a CAPTURE node, before the release.** `Release Lease (error)` is an
+     Execute Sub-workflow node with `waitForSubWorkflow: true`, and that node **does not pass its
+     input through — it REPLACES the item with whatever the lease workflow returned.** So a
+     terminal that reads `$input` gets the lease's answer, not the error, and the only message it
+     can ever produce is `FAILED at "unknown node": unknown error`. Twelve of thirteen flows in
+     this repo shipped that way and every check passed, because releasing and re-throwing was all
+     anyone asked about and no rail had ever fired. So: every error output feeds a `Capture
+     Failure` Code node, that node feeds the release, and the terminal reads
+     `$('Capture Failure').first().json._failure` **by name**. Capture Failure must NOT throw — a
+     throw there strands the lease, which is the hole the rail exists to close. Copy
+     `audit-flows/terminated-housemaids/nodes/capture_failure.js`; `erp_compliance.py` fails the
+     `$input` shape.
    - **Clear the flow's node GROUPS first.** n8n requires a group to be a single-entry,
      single-exit subgraph and an error output is a second exit, so `update_workflow` rejects the
      rail outright: *"must form a single connected subgraph with a single entry and exit"*. Move
