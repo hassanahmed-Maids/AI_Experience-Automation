@@ -25,5 +25,7 @@ reason that note exists (a comment only n8n has would break the byte-identity). 
 and `tools/regen_breaker_embeds.py --check` does not cover it. If the file is real, bring it in or
 point at it; if it is not, the note is describing a guarantee nobody holds.
 
-Recorded rather than assumed, the same way `tools/verify_order.py` was found not to exist on
-2026-08-22 after being cited as a precondition.
+Recorded rather than assumed. (An earlier version of this line offered `cc-below-agreed/tools/verify_order.py` as a
+precedent for a cited-but-absent tool. That was wrong — it exists, at
+`cc-below-agreed/tools/verify_order.py`. `scorer.stage2.js` really is absent, so the point stands on
+its own evidence.)

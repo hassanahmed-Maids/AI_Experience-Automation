@@ -233,10 +233,26 @@ Node bodies contain **zero backslash escapes**, deliberately, so they survive tr
 through the SDK without escaping damage. Keep it that way:
 `cat nodes/*.js | tr -cd '\\' | wc -c` must print `0`.
 
-## Not yet wired
+## Who calls it (was "Not yet wired" until 2026-08-22)
 
-No audit calls this yet. Wiring it into WF-A means adding an acquire before the first ERP call
-and a release on **both** rails of a 67-node flow, and position is behaviour under
-`executionOrder: v1` — so that change needs `tools/verify_order.py` re-run and a live smoke test,
-which is not possible while the ERP accounts are deactivated. Until then the lease is built,
-published, and proven; it is simply not yet in anyone's path.
+| caller | acquires | releases on success | releases on error |
+|---|---|---|---|
+| **WF-A** CC Below Agreed | between `Validation OK?` and the six sweep starters, `no_wait: true` | declared `lease-released-downstream` — WF-C does it | `Release Lease (error)` → `Fail Loudly` |
+| **WF-C** CC Below Agreed 3-Deliver | — | `Release ERP Lease`, last node | `Release Lease (error)` → `Fail Loudly` |
+| **WF-B** CC Below Agreed 2-Verify | — (holds the caller's) | — | `Release Lease (error)` → `Fail Loudly` |
+| **CC Price Stage 1** | after `Parse + Assert Card`, `no_wait: true` + self-re-invoke | declared downstream — Stage 3 does it | `Release Lease (error)` → `Fail Loudly` |
+| **CC Price Stage 3** | — | `Release ERP Lease`, last node | `Release Lease (error)` → `Fail Loudly` |
+| **MV Stage 1** (draft) | before `Count Cohorts`, `max_wait_ms` 10 min | `Release ERP Lease` after `Deliver Run` | `Release Lease (error)` → `Fail Loudly` |
+| **MV Stage 4** (draft) | standalone re-verify path only, as `runId:verify` | `Release ERP Lease` | `Release Lease (error)` → `Fail Loudly` |
+
+**Do not read this table as status.** `python3 tools/erp_compliance.py --all` is the source of
+truth and re-derives every line of it from the deployed flows; this is a map, and a map goes stale.
+The paragraph it replaced said "No audit calls this yet" for a day after WF-A was wired, and that
+kind of sentence has now produced one wrong status report — see `docs/decisions.md`, 2026-08-23.
+
+The precondition that paragraph named is **`cc-below-agreed/tools/verify_order.py`** — it exists,
+in that check's subtree rather than in `audit-flows/tools/`. Two sessions looked for it at the root,
+did not find it, and recorded "does not exist"; both were wrong. The WF-A rewire was in fact
+verified directly — `Respond 200` still target 0, all six sweeps still reaching both `Join Bulk
+Pulls` and `Build Error Callback`, retry rail and both error origins confirmed on a re-export — so
+the conclusion held, but for a reason that was not the stated one.

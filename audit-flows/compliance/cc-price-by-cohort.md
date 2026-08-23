@@ -82,13 +82,21 @@ all, and "5 consecutive" would mean "this entire batch", both too sensitive and 
 `loop` call-site accumulates responses across every iteration via `.all(0, runIndex)`, so the
 sample grows as the chunk proceeds and the elapsed clock is a running mean over the whole chunk.
 
-`Population Guard` in Stage 1 still has no breaker. Its guards are all about *completeness* —
-page shapes, an independent count from a deliberately different route, a probe page past the end.
-Partial mitigation: `Get Population` sets no `neverError`, so a 5xx fails the node after 3 retries
-and stops the run. That is abort-on-error rather than a breaker, and it means one 5xx kills a run
-a breaker would have let ride.
+`Population Guard` in Stage 1 had no breaker when this was written. Its guards were all about
+*completeness* — page shapes, an independent count from a deliberately different route, a probe
+page past the end — with `Get Population` failing the node after 3 retries as partial mitigation.
+That is abort-on-error rather than a breaker, and it meant one 5xx killed a run a breaker would
+have let ride.
 
-### 5. §5 no circuit breaker in Stage 1's `Population Guard` — still open
+### 5. §5 breaker in Stage 1's `Population Guard` — CLOSED 2026-08-22
+
+Deployed and byte-identical to the canonical block: `erp_compliance.py` reports *§5 breaker present
+and identical to canonical in "Population Guard"*. It runs BEFORE the shape check, so a failing ERP
+is judged as a failing ERP rather than as a malformed page, and `cc-price/offline/
+population_guard_test.js` (13 assertions) proves the embedded copy runs in place and pins that
+ordering. `Get Population` gained `neverError` so the breaker can see the failures at all —
+without it the node dies first and the breaker is structurally blind, the same defect found in
+WF-B's message reads.
 
 ## Worth copying from this check
 
@@ -246,8 +254,10 @@ Writing the in-place test with realistic contract ids surfaced it immediately: t
 check audits. Five ordinary contracts in a row would have tripped the breaker in Stage 2 against
 a healthy ERP. Fixed in the canonical file, all five embeds re-generated
 (`tools/regen_breaker_embeds.py`), Stage 1 and Stage 2 redeployed and verified byte-identical to
-their repo files. **The three CC Below Agreed embeds are re-generated in the repo but not yet
-deployed** — see that check's README banner.
+their repo files. The three CC Below Agreed embeds were re-generated in the repo at the same time
+and **deployed on 2026-08-22** (WF-E `Project Plan` and `Project Replacements`, WF-B `Resolve
+Quoted Amounts`); `erp_compliance.py --all` reports all five as present and identical to canonical,
+and `tools/regen_breaker_embeds.py --check` reports 0 would change.
 
 Suites: breaker 51 (7/7 mutants), population-guard-in-place 13, compliance 30 (11/11 mutants),
 lease 63, WF-E in-place 62 — all green.

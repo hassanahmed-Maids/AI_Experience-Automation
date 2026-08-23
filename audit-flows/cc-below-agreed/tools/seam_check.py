@@ -80,7 +80,16 @@ def in_expect(node):
 def main(paths):
     dangling = 0
     for p in paths:
-        w = json.load(open(p))['workflow']
+        d = json.load(open(p))
+        w = d.get('workflow', d)
+        # exports/ also holds MANIFEST.json, a coverage contract and not a workflow. This used to
+        # die on it with a bare KeyError, so one non-workflow file in the directory took down every
+        # verdict in the run - the identical bug erp_load_check.py had, from the identical cause.
+        # The `or d` also accepts a bare workflow object, which is how some exports are shaped.
+        if not isinstance(w, dict) or 'nodes' not in w:
+            print('=' * 70)
+            print('%s\n  not a workflow export (no "nodes") - skipped' % p)
+            continue
         nodes = {n['name']: n for n in w['nodes']}
         conns = w.get('connections', {})
         print('=' * 70)

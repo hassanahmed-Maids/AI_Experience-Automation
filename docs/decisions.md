@@ -533,3 +533,53 @@ sub-node is NOT named.
 
 Suites: compliance 48, export mutation 30, breaker 51, regen drift 0, seam check clean on 16.
 `erp_compliance.py --all`: 16 of 16 comply, 6 now carrying a named blind-spot warning.
+
+---
+
+## 2026-08-23 — CORRECTION: the three "missing" tools all exist, and I made the same mistake twice
+
+Two earlier entries in this file are **wrong** and are corrected here rather than edited away.
+
+- The 2026-08-22 entry says `tools/verify_order.py` **does not exist** despite being cited as the
+  precondition for the WF-A lease rewire.
+- The 2026-08-23 entry says `tools/seam_check.py` **did not exist**, and records writing it.
+
+Both tools exist. So does `tools/tidy_canvas.py`, which I flagged today as a third phantom. All
+three live in **`cc-below-agreed/tools/`** — that check's own subtree — not in `audit-flows/tools/`:
+
+```
+cc-below-agreed/tools/seam_check.py     5,859 B   2026-08-19
+cc-below-agreed/tools/tidy_canvas.py    8,386 B   2026-08-20
+cc-below-agreed/tools/verify_order.py   1,831 B   2026-08-20
+```
+
+**The cause was the same both times: `test -f tools/<name>.py` from `audit-flows/`, and concluding
+absence from one directory instead of searching the tree.** A citation written from
+`cc-below-agreed/FLOWS.md` as `tools/verify_order.py` is relative to that check, which is the normal
+convention here and the one I did not apply.
+
+**What it cost.** On 2026-08-22 a stated precondition was written off as fictional — the conclusion
+(verify the rewire directly) happened to be sound, but the reason given for it was not. Today I went
+further and **wrote a second `seam_check.py`** carrying only check 1, while the real one has both,
+including the envelope/per-item check that caught execution 94122. The duplicate is deleted. Then I
+propagated "does not exist" into four more documents before catching it. Every one of those
+sentences is now corrected in place, naming the real path.
+
+**What actually found it: the tool written to catch this class.** `tools/doc_check.py` resolves every
+cited path by walking from the doc's own directory up to `audit-flows/`, and on its first run it
+reported `offline/guards_test.js` as missing — a false positive, because that citation resolves one
+level up. Fixing the resolver to walk upward is what surfaced that `tools/tidy_canvas.py` also
+resolved, which is what unravelled the rest. **The checker caught my error, not the other way round**,
+and only because its first result was wrong in a way worth chasing rather than explaining away.
+
+**Two real bugs fell out of it.** `cc-below-agreed/tools/seam_check.py` died with a bare `KeyError`
+on `exports/MANIFEST.json` — one non-workflow file taking down every verdict in the run, the exact
+bug `erp_load_check.py` had this morning from the exact same cause. Fixed; it now scans all 16 flows
+and skips the manifest. And its own docstring warned that a `$('X')` inside a block comment can slip
+through its per-line stripper: it did not bite here, because the comments that broke my duplicate
+were `//` lines, but the weakness is real and now recorded next to the run command.
+
+**The rule this leaves.** Never conclude a file is absent from a single `test -f`. `python3
+tools/doc_check.py` is the answer, it runs over every `.md` in the tree, and it distinguishes a
+missing file from one a doc deliberately says is missing (so the honest sentence "X does not exist"
+does not itself fail the check and get deleted to make the tool green).

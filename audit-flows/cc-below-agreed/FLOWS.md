@@ -46,8 +46,9 @@ on 2026-08-19: WF-A's `Respond 200` sat below the five sweep starters, so it fir
 ~30 minutes of ERP sweeps, and every caller got a Cloudflare 524 instead of its acknowledgement
 (VALIDATION.md §22).
 
-So the canvases were laid out by `tools/tidy_canvas.py`, which treats the tidy as a
-behaviour-preserving refactor rather than a visual one:
+So the canvases were laid out by `tools/tidy_canvas.py` — resolved from here, that is
+`cc-below-agreed/tools/tidy_canvas.py`, alongside `seam_check.py` and `verify_order.py`. It treats
+the tidy as a behaviour-preserving refactor rather than a visual one:
 
 1. read each fan-out's CURRENT execution order by sorting targets on (y, x);
 2. turn those into ordering constraints;

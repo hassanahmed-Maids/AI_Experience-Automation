@@ -1175,10 +1175,17 @@ is the part that removed the risk this paragraph was describing. **A body too de
 not a body too delicate to deploy — it is one that needs a verified deploy**, and the draft is
 where that verification is free.
 
-`tools/seam_check.py` — cited above and below as the tool that found this — **did not exist** when
-this was written, the same way `tools/verify_order.py` was found missing on 2026-08-22. It is
-written now (check 1 only; see its docstring), and it reproduces the defect on the pre-fix export
-and reports the live flow clean.
+`tools/seam_check.py` resolves from here to **`cc-below-agreed/tools/seam_check.py`**, and it does
+exist, with both checks. On 2026-08-23 a session looked for it at `audit-flows/tools/`, did not find
+it, concluded it had never been written, and wrote a second inferior copy carrying only check 1 —
+the same mistake made about `verify_order.py` on 2026-08-22, from the same cause: `test -f` against
+one directory instead of a search of the tree. The duplicate was deleted. Run the real one:
+
+```
+python3 cc-below-agreed/tools/seam_check.py exports/wfa-parent.json
+```
+
+On the fixed WF-A it reports both checks clean.
 
 ### Check 2 — envelope / per-item wire mismatches. Clean, and it reproduces the 94122 bug.
 

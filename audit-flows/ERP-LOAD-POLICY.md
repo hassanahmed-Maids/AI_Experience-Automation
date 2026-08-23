@@ -300,9 +300,20 @@ through the read-back at 95373/95374/95375. Offline: **29 assertions, 7/7 mutati
 read-back caught.** The lost-race branch is offline-only — exercising it live needs the row to
 change between the write and the read-back, which no single manual run can produce.
 
-**Not yet wired into any audit.** Adding acquire-before-first-call and release-on-both-rails to
-the 67-node WF-A needs `tools/verify_order.py` re-run (position is behaviour under
-`executionOrder: v1`) and a live smoke test, which the deactivated ERP accounts currently block.
+**Wired into every live audit as of 2026-08-22** — WF-A and CC Price Stage 1 acquire, WF-C and
+CC Price Stage 3 release on success, and all four plus WF-B release on the error rail. The MV
+drafts carry it too. `python3 tools/erp_compliance.py --all` re-derives that from the deployed
+flows and is the thing to trust; `erp-lease/README.md` carries a caller table as a map.
+
+This paragraph previously said "Not yet wired into any audit". It stayed wrong for a day after the
+wiring shipped. Position IS still behaviour under `executionOrder: v1`, so a rewire still has to be
+verified: the tool for that is **`cc-below-agreed/tools/verify_order.py`** — note the path, it lives
+in that check's subtree and not in `audit-flows/tools/`, which is why two separate sessions
+concluded it did not exist and said so in writing. `python3 tools/doc_check.py` now resolves cited
+paths across the whole tree instead of one directory.
+
+**A live smoke test is still owed**: the ERP accounts were deactivated after execution 94355, so the
+lease has never run inside a real audit.
 
 ---
 
