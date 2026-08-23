@@ -471,6 +471,50 @@ def audit(w, canon):
 
     return fails, warns, notes
 
+def check_manifest(d, paths):
+    """Name the flows --all is NOT looking at.
+
+    THE FAILURE THIS EXISTS FOR. --all globs a directory, so it audits whatever happens to be in
+    it and then prints "all N flows comply". WF-E and WF-B were never exported, so for four days
+    --all reported green while neither flow had a circuit breaker deployed at all. A green that
+    covers an unknown subset is worse than a red, because it gets quoted.
+
+    So the set of flows that MUST be audited is declared, and a missing export is a FAILURE that
+    names the flow rather than silence that flatters the result.
+    """
+    mpath = os.path.join(d, 'MANIFEST.json')
+    if not os.path.exists(mpath):
+        print('\nNO MANIFEST at ' + mpath + ' - so this run audited whatever happened to be in '
+              'the directory and cannot tell you what it missed. Add one.')
+        return True
+    manifest = json.load(open(mpath, encoding='utf-8'))['flows']
+    seen = set()
+    for p in paths:
+        try:
+            seen.add(str(load(p).get('id') or ''))
+        except Exception:
+            pass
+    missing = [f for f in manifest if f['id'] not in seen]
+    extra = seen - {f['id'] for f in manifest} - {''}
+    print('\n--- manifest coverage: %d of %d flows audited ---' % (len(manifest) - len(missing), len(manifest)))
+    for f in missing:
+        tag = 'NOT AUDITED' if not f.get('audited_by_hand') else 'no export '
+        print('  %s  %-52s %s%s' % (tag, f['name'], f['id'],
+              '' if f.get('live') else '   (draft, not published)'))
+        if f.get('audited_by_hand'):
+            # A hand audit is a real result and saying "NOT AUDITED" would understate it - but it
+            # is a snapshot, not a check that can be re-run, so it never counts as coverage.
+            print('               hand-audited: ' + f['audited_by_hand'])
+    for e in sorted(extra):
+        print('  not in the manifest: ' + e + ' - add it, or the next person will not know '
+              'whether it was meant to be covered')
+    if missing:
+        never = [f for f in missing if not f.get('audited_by_hand')]
+        print('\n%d flow(s) in the manifest have no export here, so --all cannot re-check them '
+              'when a rule or the canonical breaker changes. %d of those have never been audited '
+              'at all.' % (len(missing), len(never)))
+    return bool(missing)
+
 def main(paths):
     canon = canonical_breaker_core()
     bad = 0
@@ -494,8 +538,12 @@ if __name__ == '__main__':
         print(__doc__); sys.exit(2)
     if args[0] == '--all':
         d = args[1] if len(args) > 1 else os.path.join(os.path.dirname(HERE), 'exports')
-        args = sorted(glob.glob(os.path.join(d, '*.json')))
+        args = sorted(f for f in glob.glob(os.path.join(d, '*.json'))
+                      if os.path.basename(f) != 'MANIFEST.json')
         if not args:
             print('no workflow exports in ' + d + ' - export them with the n8n MCP first '
                   '(get_workflow_details), one JSON per flow.'); sys.exit(2)
+        rc = main(args)
+        missing = check_manifest(d, args)
+        sys.exit(1 if missing else rc)
     sys.exit(main(args))

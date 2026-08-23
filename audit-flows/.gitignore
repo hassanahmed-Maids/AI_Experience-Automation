@@ -1,1 +1,2 @@
 exports/*.json
+!exports/MANIFEST.json

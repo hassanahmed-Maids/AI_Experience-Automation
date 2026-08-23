@@ -1,0 +1,92 @@
+{
+  "_why": "Every flow that erp_compliance.py --all MUST audit. Without this, --all audits whatever happens to be in this directory and reports 'all N flows comply' on a subset - which is exactly how WF-E and WF-B went four days with no circuit breaker deployed while --all stayed green. A missing export is now a FAILURE that names the flow, not silence.",
+  "_how": "Export with get_workflow_details and write the .workflow object to exports/<slug>.json. Matching is on the workflow id, not the filename.",
+  "flows": [
+    {
+      "id": "uJ8UVNKdN2s5PHHA",
+      "name": "WF-A  CC Below Agreed - parent",
+      "live": true
+    },
+    {
+      "id": "RbW2fT3b6rtqVQ9H",
+      "name": "WF-Pop  CC Below Agreed - 0-Sweep Population",
+      "live": true,
+      "audited_by_hand": "2026-08-23 by hand: paginated sweep, no-breaker-because declared (stops at page 1, stricter than the breaker); pacing 250ms OK; gate+lease declared"
+    },
+    {
+      "id": "M79KcC9vaHte5Ibi",
+      "name": "WF-P  CC Below Agreed - 0-Sweep Payments",
+      "live": true,
+      "audited_by_hand": "2026-08-23 by hand: NOT paged - batch of one, no-breaker-because declared; gate+lease declared"
+    },
+    {
+      "id": "D1mCMJuN9lMURJHb",
+      "name": "WF-S  CC Below Agreed - 0-Sweep Statuses",
+      "live": true,
+      "audited_by_hand": "2026-08-23 by hand: paginated sweep, no-breaker-because declared; pacing 250ms OK; gate+lease declared"
+    },
+    {
+      "id": "NDk03cYGF4XSXsk5",
+      "name": "WF-E  CC Below Agreed - 0-Enrich Candidates",
+      "live": true
+    },
+    {
+      "id": "pOa3yRIyguSyoBk4",
+      "name": "WF-T  CC Below Agreed - 1-Score Batch",
+      "live": true
+    },
+    {
+      "id": "2LaIbHqQ1A2sEBKm",
+      "name": "WF-B  CC Below Agreed - 2-Verify",
+      "live": true
+    },
+    {
+      "id": "yEF4BHYDZAnhBnYg",
+      "name": "WF-C  CC Below Agreed - 3-Deliver",
+      "live": true,
+      "audited_by_hand": "2026-08-23 by hand: no ERP nodes; success release + error rail added"
+    },
+    {
+      "id": "7j5Z5KPvBcWRPfvy",
+      "name": "CC Price by Cohort - Stage 1",
+      "live": true
+    },
+    {
+      "id": "bBYbpHcWMWybDQxN",
+      "name": "CC Price by Cohort - Stage 2",
+      "live": true
+    },
+    {
+      "id": "ZJDiRTzk6uRYBJwq",
+      "name": "CC Price by Cohort - Stage 3",
+      "live": true,
+      "audited_by_hand": "2026-08-22 by graph fixture in tools/offline/fixtures - no ERP nodes, so section 4 is its whole audit"
+    },
+    {
+      "id": "9jOMFEC2zEWy2RHM",
+      "name": "MV Monthly Payment - 0-Sweep Population",
+      "live": false
+    },
+    {
+      "id": "IKRXhIco1mwxrcPq",
+      "name": "MV Monthly Payment - 1-Population",
+      "live": false
+    },
+    {
+      "id": "CopNHNsXUzFO59bW",
+      "name": "MV Monthly Payment - 2-Score chunk",
+      "live": false
+    },
+    {
+      "id": "Z9fTvmaM526eYofe",
+      "name": "MV Monthly Payment - 3-Deliver",
+      "live": false
+    },
+    {
+      "id": "9T91z5VFH5g69WyT",
+      "name": "MV Monthly Payment - 4-Verify findings",
+      "live": false
+    }
+  ],
+  "_hand": "audited_by_hand records a manual audit where no export exists yet. It is NOT a substitute for one: only an export lets --all re-check the flow when the canonical breaker or a rule changes, which is how drift is caught."
+}
