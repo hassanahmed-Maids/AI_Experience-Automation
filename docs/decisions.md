@@ -451,3 +451,47 @@ way. Fixed before the export was taken, so the export records the corrected flow
 
 Suites: compliance 41, export mutation 30, breaker 51, regen drift 0. `erp_compliance.py --all`:
 16 of 16, all comply.
+
+---
+
+## 2026-08-23 (later still) — deploying a body that was "too delicate to deploy"
+
+`nodes/Build_Runs_Log.js` had sat undeployed since 2026-08-19. The reason recorded in
+VALIDATION.md was honest and, on its own terms, right: 453 lines carrying regexes
+(`/^(https:\/\/[^/?#@]+)/`, `str.indexOf('\\')`) whose escaping is easy to corrupt in transit, in
+the file whose own notes warn that *"a slip in the scorer moves money"*. It is now live.
+
+**The fix was the DRAFT, not more care.** Editing a live n8n workflow creates a draft while callers
+keep serving `activeVersionId` — a fact this project already knew and had never used as a safety
+device. So: update → fetch the draft back → `cmp` the deployed `jsCode` against the repo file →
+publish only on a byte-identical match. It matched first try (md5 `ebb3e870…`); the live version
+was re-fetched after publishing and compared again. **A body too delicate to paste is not a body
+too delicate to deploy — it is one that needs a verified deploy**, and on a live workflow that
+verification costs nothing because the draft is already isolated from callers.
+
+**The escaping was generated, not written.** `json.dumps` over the repo file produced the exact
+JSON string literal to send. That is what actually removed the risk the old note described: hand-
+escaping `\\` inside a JS string inside JSON is the error-prone step, and it was skipped entirely.
+
+**`tools/seam_check.py` did not exist.** VALIDATION.md cites it twice as the tool that found this
+defect, describing two checks it applies. Nothing of the sort was in the repo — the second citation
+of a non-existent tool in two days, after `tools/verify_order.py` on 2026-08-22. Written now, with
+**check 1 only** and the missing check 2 named in its own docstring rather than left as a silent
+gap. It reproduces the original defect on the pre-fix export, correctly labelled *inside try/catch
+— SILENTLY dead*, and reports the live flow clean.
+
+**Its first version cried wolf, on the very fix it was verifying.** Scanning raw node source, it
+reported `Build Runs Log -> $('Compute Case States')` as a live dangling reference on the FIXED
+draft — because the new comment *quotes* the old reference while explaining it, and a second
+comment quotes `$('name')`. A checker that fails a flow for documenting its own history is the
+crying-wolf failure this repo has now been bitten by four times. It strips comments first, with a
+string-aware scanner whose one limitation (it is not regex-literal-aware) is stated in the
+docstring instead of discovered later.
+
+**An auto-saved fetch needs no transcription.** WF-A is large enough that the harness writes the
+tool result to a file, so refreshing its export was a `cp` — API fidelity, no hand-copying. That is
+exactly the `export: api` vs `transcribed` distinction recorded earlier today, and WF-A stays on
+the good side of it.
+
+Suites: compliance 41, export mutation 30, breaker 51, regen drift 0, seam check clean on all 16.
+`erp_compliance.py --all`: 16 of 16, all comply.

@@ -8,6 +8,7 @@ of truth for that, so the exports are refreshed rather than committed as gospel:
 get_workflow_details(workflowId)   # n8n MCP, one JSON per flow, saved here as <flow>.json
 python3 tools/erp_compliance.py --all
 python3 tools/offline/export_mutation_test.py     # proves --all would notice if a rule broke
+python3 tools/seam_check.py exports/*.json        # $('Node') references that point at nothing
 ```
 
 Either the raw workflow object or the `{"workflow": {...}}` wrapper is accepted.

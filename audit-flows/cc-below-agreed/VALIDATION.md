@@ -1161,12 +1161,24 @@ do not reconcile, so the empty-cases path it protects is already defended upstre
 defence in depth that had quietly become decorative. Fixed in the repo to name `Join Scored`,
 which is what emits `{ cases }` in WF-A today.
 
-**NOT YET DEPLOYED — see the banner at the top of README.md.** The node body is 453 lines
-carrying several regexes (`/^(https:\/\/[^/?#@]+)/`, `str.indexOf('\\')`) whose escaping is
-easy to corrupt when transmitted as a single string, and this is the file whose own notes warn
-that "a slip in the scorer moves money". With no token, no run can happen, so deploying blind
-buys nothing and risks something. Paste it from the repo in the n8n UI before the next run and
-diff the deployed `jsCode` against `nodes/Build_Runs_Log.js`.
+**DEPLOYED 2026-08-23, and the diff this paragraph asked for was actually run.** The caution was
+right: the body is 453 lines carrying regexes (`/^(https:\/\/[^/?#@]+)/`, `str.indexOf('\\')`)
+whose escaping is easy to corrupt in transit, and this is the file whose own notes warn that "a
+slip in the scorer moves money". What made it safe was not care but the **draft/publish split**:
+editing a live workflow creates a draft while callers keep serving `activeVersionId`, so the
+sequence was update → fetch the draft back → `cmp` the deployed `jsCode` against
+`nodes/Build_Runs_Log.js` → publish only on a byte-identical match. It matched first try
+(md5 `ebb3e870…`), and the live version was re-fetched afterwards and compared again.
+
+The escaping was generated with `json.dumps` over the repo file rather than written by hand, which
+is the part that removed the risk this paragraph was describing. **A body too delicate to paste is
+not a body too delicate to deploy — it is one that needs a verified deploy**, and the draft is
+where that verification is free.
+
+`tools/seam_check.py` — cited above and below as the tool that found this — **did not exist** when
+this was written, the same way `tools/verify_order.py` was found missing on 2026-08-22. It is
+written now (check 1 only; see its docstring), and it reproduces the defect on the pre-fix export
+and reports the live flow clean.
 
 ### Check 2 — envelope / per-item wire mismatches. Clean, and it reproduces the 94122 bug.
 

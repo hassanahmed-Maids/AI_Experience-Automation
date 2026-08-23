@@ -32,12 +32,15 @@
 >
 > | item | flow | why it was not shipped here |
 > |---|---|---|
-> | `nodes/Build_Runs_Log.js` | WF-A | unrelated to the breaker — the zero-cases fallback names a node that moved into WF-T |
 > | `wf-b/nodes/merge_agent_verdicts.js` | WF-B | unrelated — fails CLOSED when the model omits `evidence_class` |
 > | `wf-e/wfa/chunk_candidates.js` | WF-A | the **canary first chunk (50)**. §5's blast-radius control, not the embed: without it the first verdict costs a full 1,200-candidate chunk instead of ~100 calls |
 > | error-path lease release | WF-B | `erp_compliance.py` warns that WF-B is a middle link in a fire-and-forget chain (`Next Batch (self)`, `Finish (WF-C)` both launch without waiting) holding a lease it never releases. If a batch dies, the chain stops and nothing frees the lease. The tool cannot see whether WF-A waits, so it warns rather than fails — but WF-A launches WF-B without waiting, so this is real |
 >
-> The first three are behaviour changes beyond "deploy the breaker" and are left for a
+> **`nodes/Build_Runs_Log.js` was deployed on 2026-08-23** and is no longer on this list. It went
+> out as a draft, was byte-compared against the repo file, and was published only on an
+> identical match — see VALIDATION.md.
+>
+> The remaining two are behaviour changes beyond "deploy the breaker" and are left for a
 > deliberate decision. The fourth is the same defect fixed in CC Price on 2026-08-22.
 >
 > After deploying, prove it rather than assume it:
