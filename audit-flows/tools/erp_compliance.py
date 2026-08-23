@@ -387,10 +387,27 @@ def audit(w, canon):
     # is held by the RUN across a whole fire-and-forget chain, so a middle stage dying strands it
     # just as thoroughly - and Stage 3, which owns the release and performs it in its LAST node,
     # stranded the lease on every one of its own designed refusals. Both reported PASS.
+    def is_lease_call(n):
+        """A lease call is an Execute Sub-workflow node POINTING AT the lease workflow.
+
+        It used to be "any node whose text contains the lease id", and that is the same mistake
+        lease_mode() documents one level up: identifying a call by prose rather than by being a
+        call. It bit on 2026-08-23, when a sub-workflow's `ERP-COMPLIANCE: lease-held-by-caller`
+        declaration - which has to name the lease id to be worth reading - made a Code node and a
+        sticky note get reported as lease calls with an unreadable mode. Writing down which lease
+        you depend on should never make you look like you are taking it.
+        """
+        if n.get('type') != 'n8n-nodes-base.executeWorkflow':
+            return False
+        wid = ((n.get('parameters') or {}).get('workflowId') or {})
+        if isinstance(wid, dict):
+            return str(wid.get('value') or '') == LEASE_WORKFLOW_ID
+        return str(wid) == LEASE_WORKFLOW_ID
+
     calls_erp = bool(erp_nodes) or any(
-        LEASE_WORKFLOW_ID not in all_text(n) and n.get('type') == 'n8n-nodes-base.executeWorkflow'
+        not is_lease_call(n) and n.get('type') == 'n8n-nodes-base.executeWorkflow'
         for n in nodes)
-    lease_nodes = [n for n in nodes if LEASE_WORKFLOW_ID in all_text(n)]
+    lease_nodes = [n for n in nodes if is_lease_call(n)]
     acquires = [n for n in lease_nodes if lease_mode(n) == 'acquire']
 
     reachable, unreadable = error_reachable(w)

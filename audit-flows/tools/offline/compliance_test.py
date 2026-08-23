@@ -33,6 +33,23 @@ def erp_http(name, on_error=None):
     if on_error: n['onError'] = on_error
     return n
 
+def per_item_erp(name, on_error=None):
+    """An ERP node that fans out PER ITEM - the shape the sub-workflow lease rule keys on.
+
+    The rule only speaks about a sub-workflow when the flow actually has a per-item fan-out,
+    which is what makes a caller-held lease load-bearing rather than a formality. erp_http()
+    interpolates nothing, so it is run-level and the rule stays silent on it.
+    """
+    n = per_item_url(name)
+    if on_error: n['onError'] = on_error
+    return n
+
+def per_item_url(name):
+    return {'name': name, 'type': 'n8n-nodes-base.httpRequest', 'typeVersion': 4.2,
+            'parameters': {'url': '=https://erpbackendpro.maids.cc/clientmgmt/contract/{{ $json.id }}',
+                           'options': {'batching': {'batch': {'batchSize': 2, 'batchInterval': 500}},
+                                       'timeout': 60000}}}
+
 def flow(nodes, connections, name='fixture'):
     return {'name': name, 'nodes': nodes, 'connections': connections}
 
@@ -466,6 +483,28 @@ for n in n5:
 f5, w5, nt5 = audit(n5, c5)
 ok('NO ERROR-PATH LEASE RELEASE' in f5 and 'CANNOT reach it' not in w5,
    'a flow with NO rail fails on that and is not also told about blind spots', f5[:120])
+
+# --- a lease call is a CALL, not a mention -------------------------------------------------
+# 2026-08-23: a sub-workflow's `ERP-COMPLIANCE: lease-held-by-caller` declaration has to name the
+# lease workflow id to be worth reading, and naming it made a Code node and a sticky note get
+# reported as lease calls with an unreadable mode. Writing down which lease you depend on must
+# never make you look like you are taking it - the same prose-vs-call confusion lease_mode()
+# already documents, one level up.
+DECLARER = {'name': 'Expand Chunk', 'type': 'n8n-nodes-base.code', 'typeVersion': 2,
+            'parameters': {'jsCode': '// ERP-COMPLIANCE: lease-held-by-caller - the parent takes '
+                                     + LEASE + ' before its first ERP call.\nreturn $input.all();'}}
+STICKY = {'name': 'Note', 'type': 'n8n-nodes-base.stickyNote', 'typeVersion': 1,
+          'parameters': {'content': 'The caller holds ' + LEASE + ' for the whole run.'}}
+f6, w6, nt6 = audit(
+    [{'name': 'Called by Parent', 'type': 'n8n-nodes-base.executeWorkflowTrigger',
+      'typeVersion': 1.1, 'parameters': {}},
+     DECLARER, STICKY, per_item_erp('Call ERP', 'continueRegularOutput')],
+    {'Called by Parent': {'main': [[{'node': 'Expand Chunk'}]]},
+     'Expand Chunk': {'main': [[{'node': 'Call ERP'}]]}})
+ok('do not pass a literal' not in w6,
+   'a Code node quoting the lease id in a declaration is NOT reported as a lease call', w6[:200])
+ok('lease-held-by-caller' in nt6,
+   'and the declaration it carries is still read as the exemption', nt6[:200])
 
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)
