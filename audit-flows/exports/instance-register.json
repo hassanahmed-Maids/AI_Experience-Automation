@@ -348,12 +348,12 @@
    "id": "qAuvLHhae2sKD7mM",
    "name": "CC Non Received · 2-Verify",
    "active": true,
-   "judged_at_updatedAt": "2026-08-23T15:57:24.195Z",
+   "judged_at_updatedAt": "2026-08-23T16:27:42.683Z",
    "disposition": "in-manifest",
    "skill_built": "yes",
    "erp": "yes",
    "erp_verified_from_export": true,
-   "reason": "SKILL-BUILT and outside the six, and the only LIVE skill-built flow that was outside the policy. REMEDIATED 2026-08-23 under Moe's 'stop at the 4 in flight' ruling: lease, 2/500 pacing, budget gate, breaker, error rail. Now in MANIFEST.json, so erp_compliance.py --all audits it every run."
+   "reason": "SKILL-BUILT and outside the six, and the only LIVE skill-built flow that was outside the policy. REMEDIATED 2026-08-23 under Moe's 'stop at the 4 in flight' ruling: pacing, budget gate, seven breakers. Its error rail came LATER the same day and only because WF-A was remediated in parallel - WF-A now acquires the lease, so a failure in this fire-and-forget middle link strands it for three hours. Both passes were blind to each other; the flow's own compliance note and canvas sticky said the chain was unleased and told the reader not to add the caller-held-lease declaration. Both corrected. Now in MANIFEST.json."
   },
   {
    "id": "Qq473Ygj543jxPUN",

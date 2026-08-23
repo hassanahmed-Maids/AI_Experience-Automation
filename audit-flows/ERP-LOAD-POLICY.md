@@ -452,6 +452,25 @@ ERP-touching audit checks outside the six-check programme, 11 of them active**, 
 has never been applied to. They are out of scope, not compliant, and the difference is now
 written down.
 
+### A flow's notes are claims about its NEIGHBOURS, and a neighbour can invalidate them
+
+Added 2026-08-23, from a live near-miss. Two subagents remediated `CC Non Received · 2-Verify` and
+its parent WF-A the same afternoon, each scoped to one flow — the boundary that makes parallel
+remediation safe. The 2-Verify pass read WF-A, correctly found no lease, and wrote that fact into
+its compliance note, a canvas sticky, and an explicit instruction that the
+`ERP-COMPLIANCE: lease-held-by-caller` declaration **must not** be added and that the §4 warnings
+should keep firing. The WF-A pass then added the acquire. All three statements became false, and
+the live flow was left telling the next reader to delete a declaration that had become true — while
+the real gap it now had (a fire-and-forget middle link holding a lease nothing releases) sat behind
+a warning the sticky explained away.
+
+The scoping was right and should stay. What was missing is the seam. **When a parallel pass touches
+one flow in a chain, re-run `erp_compliance.py --all` over the WHOLE chain afterwards and read every
+warning against what the other flows CLAIM in prose** — a warning that a canvas note or a compliance
+doc explains away is the shape to be most suspicious of, because the note is the thing that stops
+anyone re-deriving it. The checker re-derives §4 from deployed JSON on every run and was right
+within minutes; the prose is what went stale, and prose is not re-derived by anything.
+
 **Phase 1 (now): every flow enforces it, and a static checker proves it.**
 `tools/erp_load_check.py` reads deployed workflow JSON and fails on any ERP node that exceeds
 concurrency, lacks pacing, lacks a timeout, or paginates without an interval. Run it before

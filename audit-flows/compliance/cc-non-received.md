@@ -8,7 +8,7 @@ Verdicts are `tools/erp_compliance.py`.
 | flow | id | live | verdict | published version |
 |---|---|---|---|---|
 | 2-Verify (sub-workflow, self-calling) | `qAuvLHhae2sKD7mM` | yes | **PASSES** — was 14 findings | `371c8453-0680-4dd6-8192-16fba6ba2a8c` |
-| 1-Score / WF-A (parent) | `Qq473Ygj543jxPUN` | no | **read-only this pass** — see §4 below | — |
+| 1-Score / WF-A (parent) | `Qq473Ygj543jxPUN` | no | **read-only in THIS pass** — remediated the same day by a parallel pass; see §4 | — |
 | 3-Deliver / WF-C | `XN5DaOAfveAqtDMC` | yes | not audited this pass (makes **no** ERP calls) | — |
 
 ## The shape, because §3 and §4 depend on it
@@ -104,34 +104,62 @@ responses, so it is inert on a tail batch under 20 and on the complaint-thread *
 sentinel** (`Split Relevant Complaints` emits one throwaway `/historyOfComplaint/0` when a batch has
 no threads; ERP rejects it, and one degraded response can never reach the sample floor).
 
-## §4 — the lease is NOT held, and nothing in the flow says otherwise
+## §4 — the lease: this section was true when written and false four hours later
 
-`erp_compliance.py` offers `ERP-COMPLIANCE: lease-held-by-caller` for a sub-workflow whose caller
-takes the lease. **That declaration was NOT written, because it would be false.**
+**CORRECTED 2026-08-23, after WF-A was remediated by a parallel pass.** What this section said —
+that the whole CC Non Received chain runs unleased, that `ERP-COMPLIANCE: lease-held-by-caller`
+must NOT be written because it would be false, and that the checker's §4 warnings should keep
+firing — was accurate at the moment it was written and is kept here rather than deleted, because
+the failure is worth more than the tidy version. Two remediation passes ran the same afternoon,
+one on this stage and one on `Qq473Ygj543jxPUN`, and **neither could see the other**. Left alone,
+this note and the canvas sticky it summarised would have instructed the next reader to delete a
+declaration that had become true.
 
-`Qq473Ygj543jxPUN` was read (read-only) on 2026-08-23: there is **no Execute Sub-workflow node
-anywhere in it pointing at the lease workflow `9gVijqvtLVEhQZXz`**, and no `ERP-COMPLIANCE:`
-declaration of any kind. WF-C does not release one either. **The whole CC Non Received chain runs
-unleased** — a second audit can run alongside it, which is the failure §4 exists to prevent.
+### What is actually true now
 
-An acquire was **not** added here either, and that is a judgement rather than an omission:
+**WF-A acquires the lease** (`9gVijqvtLVEhQZXz`) before its first ERP call, declares
+`ERP-COMPLIANCE: lease-released-downstream`, and **3-Deliver** (`XN5DaOAfveAqtDMC`) hands it back
+at the end of the chain. So `ERP-COMPLIANCE: lease-held-by-caller` **is written** on this stage's
+`Validate Inputs`, and it is true.
 
-- WF-A spends its sweeps and its per-cohort enrichment *before* this stage exists, so a lease taken
-  here protects only the tail of the run;
-- nothing downstream releases (WF-C writes one sheet row and ends), so it would be stranded for the
-  full three-hour staleness window after **every** run;
-- doing it correctly needs the `no_wait` acquire + `Re-queue Self` shape (§7 requirement 6), which
-  this flow does not have and which is not a change to make blind on a live flow;
-- and WF-A is out of scope for this pass and may be under edit elsewhere.
+**This stage also releases on its error rail, although it never acquires** — and that is not a
+contradiction. WF-A launches this stage fire-and-forget and ends; this stage self-calls per batch
+the same way and finally launches WF-C. Any way THIS execution dies takes the whole chain with it,
+and the 3-Deliver release that would have freed the lease never runs. That is a 3-hour hole in the
+queue after every failure, cleared only by the staleness backstop. **Remediating WF-A is what
+created the need for a rail here**; before it, a release here would have freed a lease nobody took.
 
-**The fix belongs at WF-A's entry point**: acquire before its first sweep, release in WF-C, and an
-error-rail release in every stage that can die holding it. Until that exists, the checker's two §4
-warnings on this flow are **true** and should keep firing. A sticky note on the canvas
-(`Sticky: ERP load policy`) says all of this on the canvas, so the next reader does not have to
-re-derive it — and says explicitly that the declaration must not be added to silence the warnings.
+The rail: **20 single-output nodes** carry `continueErrorOutput` into `Capture Failure` →
+`Release Lease (error)` → `Fail Loudly`. Two details are load-bearing:
 
-`ERP-COMPLIANCE: budget-gate-in-caller` was likewise **not** written: WF-A has no budget gate, so a
-real gate was built here instead.
+- **`Capture Failure` resolves `run_id` from the RAW BATON under `When Called`**, not from
+  `Validate Inputs`. Validate Inputs is itself on the rail — a malformed baton, a missing bearer
+  and an empty candidate list all throw there — and a release that cannot name a `run_id` frees
+  nothing, because the lease only ever releases to the run that holds it. The rail would have
+  looked like it worked while the lease stayed stranded. `When Called` is
+  `inputSource: passthrough`, so the baton is there whatever Validate Inputs did with it.
+- **It also holds the error**, because `Release Lease (error)` is an Execute Sub-workflow node and
+  those REPLACE their input item. A terminal reading `$input` downstream of one can only ever
+  report `unknown node / unknown error` — the bug that was in 12 of 13 rails in this repo.
+
+Deployed as a draft, byte-compared against `cc-non-received/nodes/`, then published; the canvas
+sticky was corrected and published in the same way. **Still unwired on purpose**: `Join Evidence`,
+`Join Verdict Paths`, `Needs the model?` and `More batches?` — their error output is not at index 1
+and guessing is silent. The checker names them as blind spots on every run and that warning is
+true.
+
+### The judgement that is now obsolete, kept because the reasoning was sound
+
+The original section argued against acquiring a lease HERE: it would protect only the tail of the
+run, nothing downstream would release it, and doing it properly needs the `no_wait` + `Re-queue
+Self` shape this flow does not have. **That reasoning was right and it still is** — this stage
+still does not acquire. What changed is that the entry point finally does, which is exactly where
+the original section said the fix belonged.
+
+`ERP-COMPLIANCE: budget-gate-in-caller` was likewise **not** written: WF-A had no budget gate when
+this pass ran, so a real gate was built here instead. **WF-A has one now** — added by the same
+parallel pass — and the gate here is still the right call: it is the only one that can see this
+stage's own 11-calls-per-candidate fan-out, which WF-A's gate does not cost.
 
 ## Remaining warnings, on purpose
 

@@ -1,3 +1,10 @@
+// ERP-COMPLIANCE: lease-held-by-caller - WF-A (Qq473Ygj543jxPUN) acquires the ERP lease
+// (9gVijqvtLVEhQZXz) before its first ERP call and 3-Deliver (XN5DaOAfveAqtDMC) hands it back at
+// the end of the chain. This stage never acquires. It DOES release on its error rail, and that is
+// not a contradiction: WF-A launches this stage fire-and-forget and ends, so a failure here kills
+// the chain and the 3-Deliver release never runs. Releasing a lease this run_id does not hold is
+// a no-op that names the real holder, so the rail is safe on the manual-test path too.
+//
 // Validate Inputs (WF-B) - unpacks the baton from WF-A (or a self-call) and
 // exposes it in EXACTLY the shape WF-A's Validate Inputs produces, because every
 // copied evidence node reads $('Validate Inputs').first().json.params.erp_auth.bearer

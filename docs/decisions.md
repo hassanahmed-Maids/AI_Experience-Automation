@@ -913,3 +913,48 @@ because a flow brought up to the policy and then left out of the manifest is one
 nothing re-checks, which is the exact drift the manifest exists to stop.
 `tools/manifest_vs_instance.py` is green: every workflow in the instance has a current disposition
 and the manifest agrees in both directions.
+
+---
+
+## 2026-08-23 — Two remediation passes, blind to each other, left a live flow lying about itself
+
+`CC Non Received · 2-Verify` (`qAuvLHhae2sKD7mM`, LIVE) and its parent `WF-A`
+(`Qq473Ygj543jxPUN`) were remediated the same afternoon by two subagents. Each was given one flow
+and told to stay inside it — the boundary that makes parallel remediation safe. It also meant
+neither could see the other, and the seam between them was where the lease lives.
+
+The 2-Verify agent read WF-A, found no lease anywhere in it, and reasoned correctly from that:
+adding a release to 2-Verify would free a lease nobody took, and adding an *acquire* there would
+protect only the tail of a run and strand the lease for three hours after every one. So it wrote
+neither, and — being thorough — it wrote **why** into three places: the compliance note, a canvas
+sticky, and an instruction that the `ERP-COMPLIANCE: lease-held-by-caller` declaration **must not
+be added** and that the checker's §4 warnings on the flow are true and should keep firing.
+
+Hours later the WF-A agent added the acquire. Every one of those three statements became false.
+
+**What that actually cost, had nobody looked.** WF-A launches 2-Verify fire-and-forget and ends;
+2-Verify self-calls per batch the same way and finally launches 3-Deliver, which is what releases.
+So once WF-A holds a lease, **any way 2-Verify dies takes the whole chain with it and nothing
+releases** — a 3-hour hole in the queue after every failure, on the only live flow in the group.
+The checker said so on the next run (*"middle link in a fire-and-forget chain… holds a lease it
+does not release"*), and a reader who trusted the canvas would have read that warning, found a
+sticky note explaining at length why it was expected, and moved on.
+
+**Fixed.** 2-Verify now carries the full rail — 20 single-output nodes → `Capture Failure` →
+`Release Lease (error)` → `Fail Loudly` — plus the declaration, which is now true. One detail is
+specific to this flow and worth keeping: `Capture Failure` resolves `run_id` from the **raw baton
+under `When Called`**, not from `Validate Inputs`, because Validate Inputs is *itself* on the rail
+and a release that cannot name a `run_id` frees nothing. The rail would have looked like it worked
+while the lease stayed stranded. The compliance note and the sticky are corrected in place, with
+the original reasoning kept rather than deleted — it was sound, and the entry point is exactly
+where it said the fix belonged.
+
+**The governance lesson, which is not "give agents more scope".** Isolation is what makes parallel
+remediation safe and it should stay. What was missing is that **a flow's notes are claims about
+its NEIGHBOURS, and a neighbour can invalidate them without touching the flow.** Three artifacts
+here asserted a fact about WF-A; nothing re-checked them when WF-A changed. The durable version of
+that check already exists and is not prose: `erp_compliance.py` re-derives §4 from the deployed
+JSON on every run, and it was right within minutes of WF-A shipping. So the rule is: **when a
+parallel pass touches a chain, re-run `--all` over the WHOLE chain afterwards and read the
+warnings against every flow's written claims, not just the one you changed.** A warning that a
+canvas note explains away is the shape to be most suspicious of.
