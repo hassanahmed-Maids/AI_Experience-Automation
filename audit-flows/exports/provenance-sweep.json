@@ -1,0 +1,2841 @@
+{
+ "_what": "Provenance sweep of every workflow in the n8n instance: is it skill-built (meta.aiBuilderAssisted==true AND meta.builderVariant=='mcp'), and does it reach ERP (erpbackendpro.maids.cc / erp.maids.cc in an httpRequest-family node url, or via helpers.httpRequest inside a Code node). Covers all 103 register rows: the 74 needing verification were fetched live via get_workflow_details; the other 29 were resolved for PROVENANCE, which the register never recorded - 26 offline from their saved exports and 3 fetched live.",
+ "_swept": "2026-08-23",
+ "_method": "skill_built is decided ONLY by meta.aiBuilderAssisted && meta.builderVariant=='mcp' - never by name, tag or date. 'unreachable' means get_workflow_details refused with 'Workflow is not available in MCP' (availableInMCP not enabled); those are NOT judged, not assumed.",
+ "_caveats": [
+  "The provenance marker does NOT survive duplication in the n8n UI: SDR Gatherer v2 (3ISVEAzkHcryZdTk) is a near-clone of the skill-built SDR Deterministic Gatherer but carries meta:null. A false 'no' is therefore possible for any copied flow.",
+  "erp=true is reserved for a real ERP HTTP call. A workflow that only mentions an ERP host in a non-url parameter (a deep-link built for a report) is recorded under erp_mentions_non_url, not counted as reaching ERP.",
+  "ERP endpoints also appear as langchain toolHttpRequest AI-agent tools (TYUliva3dhgWqSAS). Those reach ERP with call volume chosen by an LLM at runtime.",
+  "32 of 103 workflows could not be read at all - get_workflow_details refuses them with 'Workflow is not available in MCP'. Their provenance and ERP status are UNKNOWN, not clean. This is the single largest blind spot in the sweep and includes ACTIVE flows the register believes reach ERP (Dh7z2BbbZhP9gLmT LAWP Reservoir Audit, crIE9qL0v58lmq0G Extract from Payroll)."
+ ],
+ "_totals": {
+  "register_rows": 103,
+  "rows_emitted": 103,
+  "skill_built_true": 57,
+  "skill_built_false": 14,
+  "unreachable": 32,
+  "erp_true": 43,
+  "with_hidden_http_in_code": 1,
+  "unreachable_but_active_per_register": 7
+ },
+ "rows": [
+  {
+   "id": "aVUjxBgz8wLcWeKs",
+   "name": "Client Paying less than they should according to Maid Nationality or Type Sync",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 5,
+   "note": "REGISTER SAYS erp=yes BUT IT IS NOT: Google Sheets trigger -> Notion page create. Zero HTTP/ERP nodes.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "maRRZ4ixu159tsyT",
+   "name": "Daily Alerts",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 27,
+   "note": "hand-built. Gmail PDF parsing only, no HTTP nodes.",
+   "register_disposition": "out-of-programme-no-erp"
+  },
+  {
+   "id": "UjwPl7hLohijqtFw",
+   "name": "Daily new Expenses/Revenues Alerts",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 11,
+   "note": "hand-built. Gmail+dataTable only, no HTTP at all.",
+   "register_disposition": "out-of-programme-no-erp"
+  },
+  {
+   "id": "anWertFUdlMwOij2",
+   "name": "Housemaid Loan Checks",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 4,
+   "note": "REGISTER SAYS erp=yes BUT IT IS NOT: Sheets trigger -> Notion. No HTTP nodes.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "aX8RdAXb10YgEchU",
+   "name": "Housemaid Manager Notes Check",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 4,
+   "note": "REGISTER SAYS erp=yes BUT IT IS NOT: Sheets trigger -> Notion. No HTTP nodes.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "DqVN7PSI1T0qWH8C",
+   "name": "Khaldoun Daily Expense Attachment Audit (QBO)",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 18,
+   "note": "meta={templateCredsSetupCompleted} only - hand-built. Hits QuickBooks + langcc.maidstech.ai, no ERP host.",
+   "register_disposition": "other-audit-programme"
+  },
+  {
+   "id": "osIMlB8h5eFbSUi3",
+   "name": "Monthly Alerts",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 18,
+   "note": "hand-built. Gmail PDF parsing only, no HTTP nodes.",
+   "register_disposition": "out-of-programme-no-erp"
+  },
+  {
+   "id": "e1TfCUXBSDfLorrk",
+   "name": "Unused Buckets",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 19,
+   "note": "hand-built. Gmail PDF parsing only, no HTTP nodes.",
+   "register_disposition": "out-of-programme-no-erp"
+  },
+  {
+   "id": "DKwvwqQ43nKXKAJk",
+   "name": "Weird Report Gmail",
+   "skill_built": false,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 12,
+   "note": "hand-built (meta=templateCredsSetupCompleted). Gmail+Gemini only; reads mail FROM erp@maids.cc but makes no ERP HTTP call.",
+   "register_disposition": "out-of-programme-no-erp"
+  },
+  {
+   "id": "7M7xzzYpOecao9PE",
+   "name": "Applicant Real Ticket Refund Audit",
+   "skill_built": false,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Transactions",
+     "maxRequests": 50
+    },
+    {
+     "name": "Get Transaction Detail",
+     "batchSize": 10,
+     "batchInterval": 200
+    },
+    {
+     "name": "Get Hustler Workflow",
+     "batchSize": 5,
+     "batchInterval": 300
+    },
+    {
+     "name": "Fetch All-Time for Flagged",
+     "type": "code",
+     "note": "HIDDEN this.helpers.httpRequest to erpbackendpro.maids.cc, one call per flagged applicant in a JS loop, NO pacing possible"
+    }
+   ],
+   "hidden_http_in_code": [
+    "Fetch All-Time for Flagged"
+   ],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 19,
+   "note": "meta={} -> NOT skill-built. ACTIVE predecessor. HIDDEN ERP HTTP INSIDE A CODE NODE: 'Fetch All-Time for Flagged' calls this.helpers.httpRequest against erpbackendpro.maids.cc/accounting/transactions/page/advancesearchNew once per flagged applicant inside a for-loop - invisible to node-scanning checkers and has no pacing parameter. No lease/breaker/gate.",
+   "_register_note": "register had erp_verified_from_export=true but there is NO local export for this id",
+   "register_disposition": "predecessor"
+  },
+  {
+   "id": "NIUelKhaMucLLSqK",
+   "name": "Client Refunds Audit",
+   "skill_built": false,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Client Refunds (ERP)",
+     "note": "pagination limitPagesFetched=true but NO maxRequests set; no requestInterval"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 12,
+   "note": "meta=null -> hand-built. ACTIVE webhook ERP audit. Single ERP node paginating with limitPagesFetched=true but no maxRequests and no requestInterval. No lease/breaker/gate.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "zwSxrV00VE4rOSvd",
+   "name": "Housemaid Payroll Critical Checks On Security Room",
+   "skill_built": false,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get MV Client Payments (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get CC Monthly Payments (ERP)",
+     "maxRequests": 50,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 13,
+   "_meta_raw": {
+    "templateCredsSetupCompleted": true
+   },
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "3ISVEAzkHcryZdTk",
+   "name": "SDR Gatherer v2 \u2014 (scheduled)",
+   "skill_built": false,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "maxRequests": 60,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "maxRequests": 200,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "maxRequests": 2,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "maxRequests": 2,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Expenses (ERP)",
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "maxRequests": 2,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 35,
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "N3OWVknR68JImzvl",
+   "name": "Same Day Recruitment Fee Verification (active + terminated)",
+   "skill_built": false,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "maxRequests": 400
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "maxRequests": 25
+    },
+    {
+     "name": "Fetch Maids Raw (ERP)"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 19,
+   "note": "meta=null -> hand-built. ACTIVE webhook-triggered ERP audit. 3 ERP nodes, ZERO pacing. Contract fetch paginates up to maxRequests=400 with no requestInterval - highest unpaced pagination cap seen. No lease/breaker/gate.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "B8r6dyuHz9kFC3HJ",
+   "name": "Applicant Real Ticket \u00b7 publish results to Google Sheets",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 23,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export realticket-publish-sheets.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "pOa3yRIyguSyoBk4",
+   "name": "CC Below Agreed \u00b7 1-Score Batch",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 10,
+   "erp_mentions_non_url": [
+    "Build Sheet Rows"
+   ],
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wft-score.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "yEF4BHYDZAnhBnYg",
+   "name": "CC Below Agreed \u00b7 3-Deliver",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 7,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wfc-deliver.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "XN5DaOAfveAqtDMC",
+   "name": "CC Non Received \u00b7 3-Deliver",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 4,
+   "note": "SKILL-BUILT, ACTIVE, outside the six. Google Sheets only, zero ERP surface. Confirms register.",
+   "register_disposition": "skill-built-outside-programme"
+  },
+  {
+   "id": "ZJDiRTzk6uRYBJwq",
+   "name": "CC Price by Cohort \u00b7 Stage 3 \u2014 Deliver & Verify",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 19,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export ccprice-stage3.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "5XSsAfHrxH7jpZE9",
+   "name": "DIAGNOSTIC - Execution Snapshot Probe (safe to delete)",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 3,
+   "note": "SKILL-BUILT scratch diagnostic, no HTTP at all (just a 45s busy hold).",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "yYx7uqH25wnwItMR",
+   "name": "Daily - Household Expenses",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 12,
+   "_meta_raw": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "out-of-programme-no-erp"
+  },
+  {
+   "id": "GgqCYYnmRcC6cUet",
+   "name": "ERP Breaker Sandbox (no ERP)",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 4,
+   "note": "breaker sandbox; no httpRequest nodes",
+   "register_disposition": "infrastructure"
+  },
+  {
+   "id": "9gVijqvtLVEhQZXz",
+   "name": "ERP Lease \u00b7 one audit at a time",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": "self",
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 14,
+   "note": "the lease service itself; no httpRequest nodes at all",
+   "register_disposition": "infrastructure"
+  },
+  {
+   "id": "YbDUTlhspatpWOoW",
+   "name": "Expense Attachment Audit - Backfill Scoping Pass",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 6,
+   "note": "SKILL-BUILT, QuickBooks only, no ERP host. No pacing on QBO nodes.",
+   "register_disposition": "other-audit-programme"
+  },
+  {
+   "id": "E8L2nMw5MswCk7ye",
+   "name": "Expense Attachment Audit - Range Backfill",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 19,
+   "note": "SKILL-BUILT but no ERP: QuickBooks + langcc only. Has batching on QBO nodes (bs=5 bi=1200; bs=5 bi=1000; bs=4 bi=1000).",
+   "register_disposition": "other-audit-programme"
+  },
+  {
+   "id": "Z9fTvmaM526eYofe",
+   "name": "MV Monthly Payment \u00b7 3-Deliver",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 9,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export mv-stage3-deliver.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "FDkpNturINXie9Ul",
+   "name": "Payload Size Probe [TEMP]",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 4,
+   "note": "SKILL-BUILT scratch. Posts to an n8n webhook only, no ERP host. Register said erp=unknown -> resolved NO.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "5juo1j8x7gcVQVK5",
+   "name": "SDR Agentic Judge (bundle-fed, Flash+Pro)",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 19,
+   "note": "SKILL-BUILT, ACTIVE, webhook-fed LLM judge. Register says erp=yes but it makes NO ERP call - it is fed evidence bundles by the gatherers.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "Xu4YEkYkdHroh0Sq",
+   "name": "Voice Bridge \u2014 AirPods to Claude (Stage 1)",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 9,
+   "note": "SKILL-BUILT, ACTIVE, but no ERP - LLM voice bridge with no tools wired in.",
+   "register_disposition": "out-of-programme-no-erp"
+  },
+  {
+   "id": "I9KupNm36pBLBCMe",
+   "name": "ZZ Audit Result Sink",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 2,
+   "note": "SKILL-BUILT scratch sub-workflow, 2 nodes, no HTTP.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "w0ZdDVWSFo5eomf9",
+   "name": "ZZ Judge Smoke Test",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 5,
+   "note": "SKILL-BUILT scratch smoke test. Anthropic only, no ERP.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "QPRKLiMCSu7IbDVK",
+   "name": "ZZ Judge Smoke Test (Adeeb project)",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 7,
+   "note": "SKILL-BUILT scratch smoke test. Anthropic + Gmail only, no ERP.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "IwthgHiIv40FbLzO",
+   "name": "ZZ SDR Portal Contract Test",
+   "skill_built": true,
+   "erp": false,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 11,
+   "erp_mentions_non_url": [
+    "Build Agent Review",
+    "Build Test Payload"
+   ],
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "YXRZdtk2Geeeqaal",
+   "name": "Applicant Real Ticket \u00b7 the audit check (draft)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Independent Count",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Population Pages",
+     "batchSize": 2,
+     "batchInterval": 750,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Transaction Detail",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Flight Tickets",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get All-Time Reversals",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": true,
+   "active": false,
+   "archived": false,
+   "node_count": 61,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export realticket-audit-check.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "NDk03cYGF4XSXsk5",
+   "name": "CC Below Agreed \u00b7 0-Enrich Candidates",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contract Plan",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Replacements",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": true,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 6,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wfe-enrich.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "M79KcC9vaHte5Ibi",
+   "name": "CC Below Agreed \u00b7 0-Sweep Payments",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Sweep Month Payments",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 4,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wfp-sweep-payments.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "RbW2fT3b6rtqVQ9H",
+   "name": "CC Below Agreed \u00b7 0-Sweep Population",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Sweep Active Population",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "requestInterval": 250,
+     "maxRequests": 400,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Sweep Terminated Contracts",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "requestInterval": 250,
+     "maxRequests": 200,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 6,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wfpop-sweep-population.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "D1mCMJuN9lMURJHb",
+   "name": "CC Below Agreed \u00b7 0-Sweep Statuses",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Sweep Payment Statuses",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "requestInterval": 250,
+     "maxRequests": 60,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 4,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wfs-sweep-statuses.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "2LaIbHqQ1A2sEBKm",
+   "name": "CC Below Agreed \u00b7 2-Verify",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Messages (WhatsApp)",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Messages (SMS)",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 24,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wfb-verify.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "qnFG1wZi1VgoBnG6",
+   "name": "CC Line Items Fetcher [TEMP]",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get CC Line Items",
+     "maxRequests": 50,
+     "note": "no batchSize/batchInterval/requestInterval",
+     "page_size": 2000
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 3,
+   "note": "SKILL-BUILT TEMP fetcher that DOES hit ERP (register said erp=unknown). size=2000 per page x maxRequests=50 = up to 100k rows in 50 unpaced sequential requests. No lease/breaker/gate. Webhook, inactive.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "uJ8UVNKdN2s5PHHA",
+   "name": "CC Monthly Payments Below Agreed Amount \u2014 generated v1",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Messages (WhatsApp)",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get Messages (SMS)",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": false,
+   "has_budget_gate": true,
+   "active": true,
+   "archived": false,
+   "node_count": 74,
+   "erp_mentions_non_url": [
+    "Manual Run Config"
+   ],
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export wfa-parent.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "Qq473Ygj543jxPUN",
+   "name": "CC Non Received Monthly Payments \u2014 generated v1",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Active CC Contracts",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "requestInterval": 250,
+     "maxRequests": 200,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Month Payments",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Payment Statuses",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "requestInterval": 250,
+     "maxRequests": 400,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Replacements",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Contract Plan",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get CPT Info",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Client Complaints",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get Complaint Thread",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get Client Notes",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get Sales Todo Notes",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get Manager+Credit Notes",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get SMS Log (SMS)",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get SMS Log (WhatsApp)",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest",
+     "DISABLED": true
+    },
+    {
+     "name": "Get Terminated Contracts",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "requestInterval": 250,
+     "maxRequests": 200,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": false,
+   "has_budget_gate": true,
+   "active": false,
+   "archived": false,
+   "node_count": 80,
+   "erp_mentions_non_url": [
+    "Build Evidence Bundle",
+    "Build Sheet Rows"
+   ],
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export ccnonreceived-1-score.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "skill-built-outside-programme"
+  },
+  {
+   "id": "qAuvLHhae2sKD7mM",
+   "name": "CC Non Received \u00b7 2-Verify",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Client Complaints",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Complaint Thread",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Client Notes",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Sales Todo Notes",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Manager+Credit Notes",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get SMS Log (SMS)",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get SMS Log (WhatsApp)",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 28,
+   "erp_mentions_non_url": [
+    "Build Evidence Bundle"
+   ],
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export ccnonreceived-2-verify.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "skill-built-outside-programme"
+  },
+  {
+   "id": "3465kkSf4JYjlpXk",
+   "name": "CC Overstay Fines \u2014 generated v1",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get CC Change of Status Transactions",
+     "batchSize": 1,
+     "batchInterval": 500,
+     "requestInterval": 500,
+     "maxRequests": 50,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Transaction Detail",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Overstay Fines",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Housemaid Loans",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Maid Complaints",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Complaint Thread",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": true,
+   "active": false,
+   "archived": false,
+   "node_count": 59,
+   "erp_mentions_non_url": [
+    "Build Case Payload",
+    "Build Case Rows",
+    "Build Evidence Bundle",
+    "Format Review Email",
+    "Split Relevant Complaints"
+   ],
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export cc-overstay-fines.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "skill-built-outside-programme"
+  },
+  {
+   "id": "7j5Z5KPvBcWRPfvy",
+   "name": "CC Price by Cohort \u00b7 Stage 1 \u2014 Population & Price Card",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Population (dynamic API)",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Independent Count",
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": true,
+   "active": true,
+   "archived": false,
+   "node_count": 28,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export ccprice-stage1.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "bBYbpHcWMWybDQxN",
+   "name": "CC Price by Cohort \u00b7 Stage 2 \u2014 Enrich & Score",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Contract Details",
+     "batchSize": 2,
+     "batchInterval": 800,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get LiveInOut Logs",
+     "batchSize": 2,
+     "batchInterval": 800,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Active CPT",
+     "batchSize": 2,
+     "batchInterval": 800,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 20,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export ccprice-stage2.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "1sQJ72njQra4d5CQ",
+   "name": "DIAGNOSTIC - ERP endpoint auth probe (delete after use)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "T1 getActiveCptInfo"
+    },
+    {
+     "name": "T2 getChangeCptInfo"
+    },
+    {
+     "name": "T3 visaAutomation"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 5,
+   "note": "SKILL-BUILT diagnostic that DOES hit ERP (register said erp=unknown). SECRETS HYGIENE: a hard-coded ERP JWT bearer token is pasted into the header parameters of all 3 nodes, plus cookie isErpAuth=<a named person>. Violates the .env-only rule. No pacing/lease/breaker/gate. Manual trigger, inactive.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "YQlNlxrnhbQpBbdl",
+   "name": "Dummy Tickets Housemaids \u00b7 0-Fetch Tickets",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Hustler Tickets",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 5,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export dummy-stage0-fetch-tickets.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "aTmGMAlYLwsJQ7js",
+   "name": "Dummy Tickets Housemaids \u00b7 1-Score \u2014 generated v1",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Dummy Ticket Transactions",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "requestInterval": 250,
+     "maxRequests": 50,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Transaction Detail",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get All-Time Refunds",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": true,
+   "active": true,
+   "archived": false,
+   "node_count": 49,
+   "erp_mentions_non_url": [
+    "Score Cases"
+   ],
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export dummy-stage1-score.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "FrGI8JioDw9kc9p7",
+   "name": "ERP MV Payments Diagnostic B [TEMP - Hassan]",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "B1 dcr to 2026-07-01"
+    },
+    {
+     "name": "B2 dcr to 2026-07-02"
+    },
+    {
+     "name": "B3 dcr to 2026-07-05"
+    },
+    {
+     "name": "B4 dcr to 2026-07-10"
+    },
+    {
+     "name": "B5 no dcr exact-date"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 8,
+   "note": "SKILL-BUILT TEMP diagnostic that DOES hit ERP (register said erp=unknown). 5 sequential unpaced calls. Creds via webhook body. No lease/breaker/gate.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "PhZjpCjFoGgrXxef",
+   "name": "ERP MV Payments Diagnostic [TEMP - Hassan]",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "V1 baseline exact-date"
+    },
+    {
+     "name": "V2 dateOfPayment range"
+    },
+    {
+     "name": "V3 range no dateChangedToReceived"
+    },
+    {
+     "name": "V4 range no status filter"
+    },
+    {
+     "name": "V5 audit-month dateOfPayment"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 8,
+   "note": "SKILL-BUILT TEMP diagnostic that DOES hit ERP (register said erp=unknown). 5 sequential unpaced calls. Creds via webhook body. No lease/breaker/gate.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "dhlnbEzmv7SemYfO",
+   "name": "MV Client Payments \u2014 ERP Filter Diagnostic [TEMP]",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "A Baseline"
+    },
+    {
+     "name": "B No ChangedDate"
+    },
+    {
+     "name": "C Payment Range"
+    },
+    {
+     "name": "D Both Relaxed"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 6,
+   "note": "SKILL-BUILT TEMP diagnostic that DOES hit ERP (register said erp=unknown). 4 sequential unpaced calls to calculatePaymentsSumAndVatByFiltered. Creds passed in webhook body, not persisted - good. No lease/breaker/gate.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "9jOMFEC2zEWy2RHM",
+   "name": "MV Monthly Payment \u00b7 0-Sweep Population",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Population Page",
+     "batchSize": 1,
+     "batchInterval": 1000,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 10,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export mv-stage0-sweep-population.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "IKRXhIco1mwxrcPq",
+   "name": "MV Monthly Payment \u00b7 1-Population",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Count Cohorts",
+     "batchSize": 1,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": false,
+   "has_budget_gate": true,
+   "active": false,
+   "archived": false,
+   "node_count": 17,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export mv-stage1-population.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "CopNHNsXUzFO59bW",
+   "name": "MV Monthly Payment \u00b7 2-Score chunk",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Read Payment Ledger",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Read Contract Details",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 8,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export mv-stage2-score-chunk.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "9T91z5VFH5g69WyT",
+   "name": "MV Monthly Payment \u00b7 4-Verify findings",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Read WhatsApp Log",
+     "batchSize": 2,
+     "batchInterval": 1000,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Read Complaints",
+     "batchSize": 2,
+     "batchInterval": 1000,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": true,
+   "active": false,
+   "archived": false,
+   "node_count": 21,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export mv-stage4-verify.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "LDtsstXDfF99TnYe",
+   "name": "MV Overstay Fines \u2014 generated v1",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Change of Status Transactions",
+     "batchSize": 1,
+     "batchInterval": 500,
+     "requestInterval": 500,
+     "maxRequests": 50,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Transaction Detail",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Overstay Fines",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Overstay Payments",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Maid Complaints",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Complaint Thread",
+     "batchSize": 5,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 63,
+   "erp_mentions_non_url": [
+    "Split Relevant Complaints"
+   ],
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export mv-overstay-fines.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "skill-built-outside-programme"
+  },
+  {
+   "id": "RTCQUXJ2Iss6IVwW",
+   "name": "SDR Audit - Consolidated (Whiteboard + AI Judge)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Expenses (ERP)",
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 56,
+   "erp_mentions_non_url": [
+    "Build summary",
+    "Render Evidence",
+    "Split Cases"
+   ],
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "templateCredsSetupCompleted": true
+   },
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "FNYCiwRYzzqK5DMH",
+   "name": "SDR Audit - DETERMINISTIC VALIDATION (temp duplicate)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "maxRequests": 120,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "maxRequests": 60,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Expenses (ERP)",
+     "maxRequests": 120,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 43,
+   "erp_mentions_non_url": [
+    "Build summary",
+    "Render Evidence",
+    "Split Cases"
+   ],
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "v10m1b7dcBwS71sB",
+   "name": "SDR Audit \u2014 A/B ARM B (AI Judge)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "maxRequests": 120,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "maxRequests": 60,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Page 0 (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Page N (ERP)",
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 72,
+   "erp_mentions_non_url": [
+    "Build Plan Requests",
+    "Build SDR Results Callback",
+    "Build summary",
+    "Fetch Contract Plan (ERP)",
+    "Render Evidence",
+    "Split Cases"
+   ],
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "templateCredsSetupCompleted": true
+   },
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "pNwfEbjd1qgWLJb6",
+   "name": "SDR Audit \u2014 A/B ARM B (AI Judge)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "maxRequests": 120,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "maxRequests": 60,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Page 0 (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Page N (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 42,
+   "erp_mentions_non_url": [
+    "Build Plan Requests",
+    "Fetch Contract Plan (ERP)",
+    "Split Cases"
+   ],
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "OT1m2FsqFuxWWJWp",
+   "name": "SDR Audit \u2014 NO VISA",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "maxRequests": 120,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "maxRequests": 60,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "batchSize": 3,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Page 0 (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Page N (ERP)",
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 60,
+   "erp_mentions_non_url": [
+    "Build Plan Requests",
+    "Build summary",
+    "Fetch Contract Plan (ERP)",
+    "Render Evidence",
+    "Split Cases"
+   ],
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "TYUliva3dhgWqSAS",
+   "name": "SDR Audit \u2014 SINGLE AGENT (experiment)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "search_contracts",
+     "type": "toolHttpRequest"
+    },
+    {
+     "name": "search_payments",
+     "type": "toolHttpRequest"
+    },
+    {
+     "name": "get_maid_profile",
+     "type": "toolHttpRequest"
+    },
+    {
+     "name": "get_client_complaints",
+     "type": "toolHttpRequest"
+    },
+    {
+     "name": "get_manager_notes",
+     "type": "toolHttpRequest"
+    },
+    {
+     "name": "get_visa_expenses_bulk",
+     "type": "toolHttpRequest",
+     "disabled": true
+    },
+    {
+     "name": "get_client_sms",
+     "type": "toolHttpRequest"
+    },
+    {
+     "name": "get_client_whatsapp",
+     "type": "toolHttpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 15,
+   "note": "SKILL-BUILT. ERP endpoints are AI-AGENT TOOLS (langchain toolHttpRequest), not httpRequest nodes - the LLM chooses call volume. maxIterations 130, self-declared budget 120 tool calls, ZERO pacing, no lease/breaker/gate. Manual trigger, inactive.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "jYmwBoopFcot2IDN",
+   "name": "SDR Deterministic Gatherer (scheduled)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "pagination_maxRequests": 60
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "pagination_maxRequests": 200
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "pagination_maxRequests": 2
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "pagination_maxRequests": 2
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "pagination_maxRequests": 2
+    },
+    {
+     "name": "Fetch Visa Expenses (ERP)",
+     "disabled": true
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 34,
+   "note": "SKILL-BUILT, monthly cron, 8 ERP nodes. ZERO pacing: no batchSize/batchInterval/requestInterval on ANY ERP node. Fetch Payments paginates up to 200 sequential requests unpaced. No lease, no breaker, no budget gate.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "F1xw4pMpdl39kjMP",
+   "name": "SDR Gatherer v2.1 - Whiteboard Routing (scheduled)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Fetch Contracts Raw (ERP)",
+     "maxRequests": 60,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Payments Raw (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Maid Profile (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Complaints (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Manager Notes (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages SMS (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Messages WhatsApp (ERP)",
+     "type": "httpRequest"
+    },
+    {
+     "name": "Fetch Visa Expenses (ERP)",
+     "type": "httpRequest",
+     "DISABLED": true
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 35,
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "MvBUAdN2YfgcrwZC",
+   "name": "TEMP - ERP auth probe (delete after use)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Variant A - Bearer + cookie"
+    },
+    {
+     "name": "Variant B - raw token + cookie"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 3,
+   "note": "SKILL-BUILT throwaway probe that DOES hit ERP (register said erp=unknown). Credentials properly REDACTED here (contrast with 1sQJ72njQra4d5CQ). 2 single calls, no pacing/lease/breaker/gate. Manual, inactive.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "OG733y6CkJi0vyN9",
+   "name": "TEMP probe - visa searchfilter shape (delete after use)",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Probe Visa Endpoint",
+     "note": "no pacing; 4 probe items, 1 page each, size up to 500"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 4,
+   "note": "SKILL-BUILT throwaway probe that DOES hit ERP (register said erp=unknown). Inactive, webhook. 4 single-page GETs, no pacing, no lease/breaker/gate. Low volume but unguarded.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "9wMecX9gMhgRsYeb",
+   "name": "TEMP probe \u2014 SDR baseline endpoint discovery",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Probe",
+     "note": "no pacing; 5 probe items, 1 page each"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 4,
+   "note": "SKILL-BUILT throwaway probe that DOES hit ERP (register said erp=unknown). Inactive, webhook. No pacing/lease/breaker/gate. Low volume.",
+   "register_disposition": "scratch"
+  },
+  {
+   "id": "dhkfRbuaGv8MXzSG",
+   "name": "Terminated Housemaids Tickets \u00b7 0-Fetch Profiles",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Housemaid Info",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": false,
+   "active": false,
+   "archived": false,
+   "node_count": 5,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export terminated-hm-stage0-fetch-profiles.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "sXsn4NUYt4kh3OAU",
+   "name": "Terminated Housemaids Tickets \u00b7 1-Score",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get FT29 Transactions",
+     "requestInterval": 250,
+     "maxRequests": 50,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get Transaction Detail",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    },
+    {
+     "name": "Get All-Time Reversals",
+     "batchSize": 2,
+     "batchInterval": 500,
+     "type": "httpRequest"
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": true,
+   "has_breaker": true,
+   "has_budget_gate": true,
+   "active": false,
+   "archived": false,
+   "node_count": 49,
+   "note": "In-programme / already-ERP-verified row; provenance resolved offline from its saved export.",
+   "_source": "local export terminated-hm-stage1-score.json",
+   "_meta_raw": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+   },
+   "register_disposition": "in-manifest"
+  },
+  {
+   "id": "LM7ofq89VWXiLRU0",
+   "name": "Travel Assist Payments Audit",
+   "skill_built": true,
+   "erp": true,
+   "erp_nodes": [
+    {
+     "name": "Get Payments",
+     "batchSize": -1,
+     "batchInterval": 0
+    },
+    {
+     "name": "Get Maid Status History",
+     "batchSize": -1,
+     "batchInterval": 0
+    },
+    {
+     "name": "Get Housemaid Info",
+     "batchSize": -1,
+     "batchInterval": 0
+    },
+    {
+     "name": "Get Contracts",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "requestInterval": 250,
+     "maxRequests": 25
+    },
+    {
+     "name": "Get Work Permits",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "maxRequests": 50
+    },
+    {
+     "name": "Get MOHRE Deposits",
+     "batchSize": -1,
+     "batchInterval": 0,
+     "maxRequests": 50
+    },
+    {
+     "name": "Get Client Complaints",
+     "batchSize": 5,
+     "batchInterval": 500
+    },
+    {
+     "name": "Get Client Notes",
+     "batchSize": 5,
+     "batchInterval": 500
+    },
+    {
+     "name": "Get Contract Discounts",
+     "batchSize": 5,
+     "batchInterval": 500
+    },
+    {
+     "name": "Get Complaint Thread",
+     "batchSize": 5,
+     "batchInterval": 500
+    },
+    {
+     "name": "Get Contract Plan",
+     "batchSize": -1,
+     "batchInterval": 0
+    },
+    {
+     "name": "Get Manager+Credit Notes",
+     "batchSize": 5,
+     "batchInterval": 500
+    },
+    {
+     "name": "Get SMS Log (SMS)",
+     "batchSize": 5,
+     "batchInterval": 500
+    },
+    {
+     "name": "Get SMS Log (WhatsApp)",
+     "batchSize": 5,
+     "batchInterval": 500
+    }
+   ],
+   "hidden_http_in_code": [],
+   "has_lease": false,
+   "has_breaker": false,
+   "has_budget_gate": false,
+   "active": true,
+   "archived": false,
+   "node_count": 63,
+   "note": "WORST PACING IN THE ESTATE. ACTIVE, 14 ERP nodes, SEVEN with batchSize=-1 + batchInterval=0 (batching explicitly DISABLED: all items fired at once, unbounded concurrency). No lease, no breaker, no budget gate. Register calls this the 'golden' flow several of the six were cloned from.",
+   "_register_correction": "REGISTER SAYS skill_built=no ('NOT skill-built (no meta.aiBuilderAssisted)'). THAT IS WRONG. Live meta at the SAME versionId/updatedAt (2026-08-10T05:59:12.655Z) is {aiBuilderAssisted:true, builderVariant:'mcp', templateCredsSetupCompleted:true}. This IS skill-built.",
+   "register_disposition": "out-of-programme-erp-audit"
+  },
+  {
+   "id": "ay1J7SEu8vQXc7m8",
+   "name": "AI Agent workflow",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "scratch",
+   "active_per_register": false,
+   "erp_per_register_unverified": "unknown"
+  },
+  {
+   "id": "XJ5REZyudfXEBfFi",
+   "name": "Bank Recon Approval \u2014 Notify Jad",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": true,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "jwAIg20JHpPPhW5F",
+   "name": "Bi-Weekly - Household Expenses",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "ZcIpPZmk7zAKfKMV",
+   "name": "Client Payments vs Transactions",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "BgI3vxeQwGXNx8YF",
+   "name": "Client Payments vs Transactions (No Duplicates)",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "28PQgOvzHj9Tq82E",
+   "name": "Daily 7-day email digest (Outlook)",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "nn1rq6MlPlLWAsC2",
+   "name": "Daily Bank Transfer Reconciliation",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "IX9sVpgRkAseWlMB",
+   "name": "Daily Bank Transfer Reconciliation",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "UQM209wWvqmDdWVn",
+   "name": "ERP MCP (ask-code + dynamic read)",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "infrastructure",
+   "active_per_register": true,
+   "erp_per_register_unverified": "n/a"
+  },
+  {
+   "id": "2tq0rhptllCLcZCQ",
+   "name": "ERP read executor (sub-workflow)",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "infrastructure",
+   "active_per_register": true,
+   "erp_per_register_unverified": "n/a"
+  },
+  {
+   "id": "crIE9qL0v58lmq0G",
+   "name": "Extract from Payroll",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP. ACTIVE per register, register says erp=yes - UNVERIFIED",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": true,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "xyJpqYL9KHxLixn3",
+   "name": "Household Expenses Dashboard (served via webhook)",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": true,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "rcqjiTXOOUPfBH0A",
+   "name": "Household Expenses Report - Visual + drilldown",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "MMhgfVHfFVaZE51t",
+   "name": "Housemaids Payroll Checks",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "Dh7z2BbbZhP9gLmT",
+   "name": "LAWP Reservoir Audit (v10 \u2014 staged)",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP. ACTIVE per register, register says erp=yes - UNVERIFIED",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": true,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "aerhGkq2ttPEL3N9",
+   "name": "Maids.cc \u2014 Housemaid Payroll Audit",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "Ad0u2DztxVz7v0lp",
+   "name": "Monthly - Household Expenses",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "ho6uIxRNlZBdjdeL",
+   "name": "My workflow 15",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "scratch",
+   "active_per_register": false,
+   "erp_per_register_unverified": "unknown"
+  },
+  {
+   "id": "g6oVV6vamdu0EeGL",
+   "name": "My workflow 31",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "scratch",
+   "active_per_register": false,
+   "erp_per_register_unverified": "unknown"
+  },
+  {
+   "id": "pPVzGDC3dX3ZvyyV",
+   "name": "My workflow 32",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: 'Workflow is not available in MCP' (availableInMCP not enabled)",
+   "register_disposition": "scratch",
+   "active_per_register": false,
+   "erp_per_register_unverified": "unknown"
+  },
+  {
+   "id": "TeKzeE3uq4Ot2z3C",
+   "name": "My workflow 34",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: 'Workflow is not available in MCP' (availableInMCP not enabled)",
+   "register_disposition": "scratch",
+   "active_per_register": false,
+   "erp_per_register_unverified": "unknown"
+  },
+  {
+   "id": "wabWhMlWra84MKOa",
+   "name": "Notion & N8N Databases Sync",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": true,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "N2m0QChylJH46MAm",
+   "name": "Personal Qashio Cards Audit",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "oPVY1pThAKhKUbvB",
+   "name": "Qashio Personal Cards Production ERP",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "zUGbsMPMQBwCD1B5",
+   "name": "QuickBooks General Ledger \u2014 Retrieve, Format & Email",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "pu7W4U6d6mvlyZND",
+   "name": "QuickBooks General Ledger \u2014 Retrieve, Format & Email copy",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-no-erp",
+   "active_per_register": false,
+   "erp_per_register_unverified": "no"
+  },
+  {
+   "id": "1vEAlE4rX5YojAbp",
+   "name": "Real Tickets Audit",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP (predecessor)",
+   "register_disposition": "predecessor",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "o30uaIDoq1EFD2O7",
+   "name": "Real Tickets Audit",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP (predecessor)",
+   "register_disposition": "predecessor",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "i8ZBS0M5eg8fbjej",
+   "name": "SDRF Investigation (Hybrid \u00b7 Flash+Pro escalation \u00b7 Sheet+Email)",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "H8g9m6OLVujaSfI7",
+   "name": "SDRF Monthly Orchestrator",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "eUZ9U3V0jMsxT534",
+   "name": "SDRF_Deterministic_Enrichment",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "out-of-programme-erp-audit",
+   "active_per_register": false,
+   "erp_per_register_unverified": "yes"
+  },
+  {
+   "id": "1kJ9S1HPW4e3WBYZ",
+   "name": "Storage",
+   "skill_built": "unreachable",
+   "erp": null,
+   "erp_nodes": [],
+   "hidden_http_in_code": [],
+   "has_lease": null,
+   "has_breaker": null,
+   "has_budget_gate": null,
+   "note": "MCP refused: not available in MCP",
+   "register_disposition": "scratch",
+   "active_per_register": false,
+   "erp_per_register_unverified": "unknown"
+  }
+ ]
+}

@@ -9,7 +9,8 @@
     "scratch": "Throwaway probes, diagnostics and smoke tests.",
     "out-of-programme-erp-audit": "An audit check that DOES reach ERP and is not among the six. Reported as a standing warning, because it is the honest answer to \"what else could hit ERP\" and the load policy has never been applied to it.",
     "out-of-programme-no-erp": "Reporting/alerting/accounting workflow with no evident ERP surface.",
-    "skill-built-outside-programme": "Produced by the erp-audit-flow-builder skill but NOT one of the six checks this programme remediated. The sharpest category here: the skill built them, so the policy is the standard they were meant to meet, and they do not meet it. Reported as a named warning with a count."
+    "skill-built-outside-programme": "Produced by the erp-audit-flow-builder skill but NOT one of the six checks this programme remediated. The sharpest category here: the skill built them, so the policy is the standard they were meant to meet, and they do not meet it. Reported as a named warning with a count.",
+    "delete-me": "A throwaway probe or diagnostic that reaches ERP and should not exist any more. Exempt from MANIFEST.json because the fix is deletion, not compliance - but named by the guard on every run so \"we will clean those up\" does not quietly become never."
   },
   "_erp_verified_from_export": "true only where the workflow JSON is held in exports/ and was read. Everywhere else the ERP judgement is from the name and description, which is weaker and is counted rather than hidden.",
   "rows": [
@@ -85,7 +86,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-23T12:14:49.582Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -96,7 +97,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-23T11:27:58.098Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -107,7 +108,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-23T10:32:05.856Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -118,7 +119,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-23T10:25:04.526Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -129,7 +130,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-23T10:22:02.509Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -140,7 +141,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-23T10:11:37.322Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -151,7 +152,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-23T10:10:36.290Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -162,7 +163,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-23T10:09:49.587Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -173,8 +174,8 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-22T13:20:38.006Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
-      "erp": "yes",
+      "skill_built": "yes",
+      "erp": "no",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
     },
@@ -184,7 +185,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-22T13:20:05.608Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -195,7 +196,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-22T12:35:29.088Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -206,7 +207,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-22T12:23:36.534Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -217,7 +218,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-22T12:21:23.524Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
@@ -228,8 +229,8 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-22T10:59:30.617Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
-      "erp": "yes",
+      "skill_built": "yes",
+      "erp": "no",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
     },
@@ -239,9 +240,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-20T14:05:22.521Z",
       "disposition": "infrastructure",
-      "skill_built": "unverified",
-      "erp": "n/a",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "The ERP lease itself. Makes no ERP call; it is the mutex the audits take."
     },
     {
@@ -250,9 +251,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-20T11:20:50.804Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "no",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
     },
     {
@@ -261,9 +262,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-20T09:23:28.248Z",
       "disposition": "infrastructure",
-      "skill_built": "unverified",
-      "erp": "n/a",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "Breaker sandbox. Its own description and name say it touches no ERP."
     },
     {
@@ -273,7 +274,7 @@
       "judged_at_updatedAt": "2026-08-20T07:37:03.375Z",
       "disposition": "in-manifest",
       "skill_built": "yes",
-      "erp": "yes",
+      "erp": "no",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
     },
@@ -283,8 +284,8 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-20T07:36:14.389Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
-      "erp": "yes",
+      "skill_built": "yes",
+      "erp": "no",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
     },
@@ -294,8 +295,8 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-20T07:34:34.171Z",
       "disposition": "in-manifest",
-      "skill_built": "unverified",
-      "erp": "yes",
+      "skill_built": "yes",
+      "erp": "no",
       "erp_verified_from_export": true,
       "reason": "One of the six checks this programme covers."
     },
@@ -305,9 +306,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-19T11:50:28.623Z",
       "disposition": "other-audit-programme",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "no",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "audit: Expense Attach - reads QuickBooks, not ERP. Excluded by Moe."
     },
     {
@@ -316,9 +317,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-19T11:50:27.850Z",
       "disposition": "other-audit-programme",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "audit: Expense Attach - reads QuickBooks, not ERP. Excluded by Moe."
     },
     {
@@ -327,9 +328,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-19T11:50:26.431Z",
       "disposition": "other-audit-programme",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "audit: Expense Attach - reads QuickBooks, not ERP. Excluded by Moe."
     },
     {
@@ -371,9 +372,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "no",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
     },
     {
@@ -382,9 +383,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "no",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
     },
     {
@@ -393,9 +394,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
-      "erp": "yes",
-      "erp_verified_from_export": false,
+      "skill_built": "no",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -404,9 +405,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
-      "erp": "yes",
-      "erp_verified_from_export": false,
+      "skill_built": "no",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -415,9 +416,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
-      "erp": "yes",
-      "erp_verified_from_export": false,
+      "skill_built": "no",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -426,9 +427,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "no",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
     },
     {
@@ -437,9 +438,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "no",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
     },
     {
@@ -448,9 +449,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-13T11:46:31.367Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "no",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
     },
     {
@@ -481,9 +482,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-10T07:25:11.414Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "ZZ-prefixed portal contract test. ACTIVE - worth a look, but a test harness, not an audit of the estate."
     },
     {
@@ -492,7 +493,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-10T05:59:12.655Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "no",
+      "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
       "reason": "VERIFIED from its export 2026-08-23. 14 ERP nodes, 16 pacing violations: SIX at batchSize -1 / interval 0 (all items in one batch, unbounded concurrency), four of those per-item; eight at 5/500 = 10 req/s; two paginated sweeps with no requestInterval. No lease, no breaker, no budget gate. Live and scheduled. This is the \"golden\" several of the six were cloned from, which is where their 5/500 came from. NOT skill-built (no meta.aiBuilderAssisted)."
@@ -503,9 +504,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-09T08:27:15.379Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -514,9 +515,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-09T08:25:19.563Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -525,9 +526,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-09T00:43:40.139Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
     },
     {
@@ -536,9 +537,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-09T00:38:59.429Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
     },
     {
@@ -547,9 +548,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-09T00:33:09.901Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
     },
     {
@@ -558,9 +559,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-09T00:11:42.542Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "no",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
     },
     {
@@ -569,9 +570,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-08T23:09:16.565Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -579,55 +580,60 @@
       "name": "TEMP probe - visa searchfilter shape (delete after use)",
       "active": false,
       "judged_at_updatedAt": "2026-08-08T20:54:49.909Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "9wMecX9gMhgRsYeb",
       "name": "TEMP probe — SDR baseline endpoint discovery",
       "active": false,
       "judged_at_updatedAt": "2026-08-08T12:22:20.265Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "FNYCiwRYzzqK5DMH",
       "name": "SDR Audit - DETERMINISTIC VALIDATION (temp duplicate)",
       "active": false,
       "judged_at_updatedAt": "2026-08-07T21:40:50.415Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "1sQJ72njQra4d5CQ",
       "name": "DIAGNOSTIC - ERP endpoint auth probe (delete after use)",
       "active": false,
       "judged_at_updatedAt": "2026-08-07T20:51:05.856Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "SECURITY: the 2026-08-23 provenance sweep found a live ERP bearer token hard-coded into this workflow's header parameters, together with a cookie naming a person. Secrets belong in .env only (CLAUDE.md hard rule 2), and a token committed to a workflow persists in every version snapshot n8n keeps. The token is NOT reproduced anywhere in this repo. Action: rotate that ERP credential, then delete this workflow. Its sibling MvBUAdN2YfgcrwZC does the same job with the token redacted, which is the proof this was avoidable.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "MvBUAdN2YfgcrwZC",
       "name": "TEMP - ERP auth probe (delete after use)",
       "active": false,
       "judged_at_updatedAt": "2026-08-07T12:40:28.420Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "RTCQUXJ2Iss6IVwW",
@@ -635,9 +641,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-07T12:40:11.864Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -646,9 +652,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-06T20:29:51.691Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
     },
     {
@@ -657,9 +663,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-05T11:58:06.784Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -668,9 +674,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-05T11:19:57.704Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
-      "erp": "yes",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -679,9 +685,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-05T11:16:34.565Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -690,9 +696,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-05T09:14:18.899Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -701,9 +707,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-08-02T09:41:50.875Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -712,9 +718,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-08-02T09:16:10.173Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
+      "skill_built": "yes",
+      "erp": "no",
+      "erp_verified_from_export": true,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
     },
     {
@@ -722,44 +728,48 @@
       "name": "CC Line Items Fetcher [TEMP]",
       "active": false,
       "judged_at_updatedAt": "2026-08-01T07:26:52.957Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "dhlnbEzmv7SemYfO",
       "name": "MV Client Payments — ERP Filter Diagnostic [TEMP]",
       "active": false,
       "judged_at_updatedAt": "2026-08-01T05:53:06.708Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "FrGI8JioDw9kc9p7",
       "name": "ERP MV Payments Diagnostic B [TEMP - Hassan]",
       "active": false,
       "judged_at_updatedAt": "2026-07-31T19:50:17.879Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "PhZjpCjFoGgrXxef",
       "name": "ERP MV Payments Diagnostic [TEMP - Hassan]",
       "active": false,
       "judged_at_updatedAt": "2026-07-31T19:48:11.503Z",
-      "disposition": "scratch",
-      "skill_built": "unverified",
-      "erp": "unknown",
-      "erp_verified_from_export": false,
-      "reason": "Throwaway probe/diagnostic/test. Inactive."
+      "disposition": "delete-me",
+      "skill_built": "yes",
+      "erp": "yes",
+      "erp_verified_from_export": true,
+      "reason": "Throwaway probe/diagnostic/test. Inactive.",
+      "manifest_exempt": "Throwaway probe that reaches ERP. Its own name or description says delete after use, and it is inactive. Manifesting it would commit us to pacing and auditing a flow whose correct end state is deletion - so it is exempt from the manifest and dispositioned delete-me instead, which the guard reports every run until it is gone."
     },
     {
       "id": "TYUliva3dhgWqSAS",
@@ -767,9 +777,9 @@
       "active": false,
       "judged_at_updatedAt": "2026-07-30T07:46:43.274Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "yes",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -778,7 +788,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-07-28T10:59:22.832Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -789,7 +799,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-07-28T10:59:11.362Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -800,7 +810,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-07-28T09:57:09.692Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -811,9 +821,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-07-27T10:09:00.000Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -822,7 +832,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-07-22T10:27:53.886Z",
       "disposition": "infrastructure",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "n/a",
       "erp_verified_from_export": false,
       "reason": "ERP MCP (ask-code + dynamic read) - the interrogation channel, not an audit. Reaching ERP is its purpose and it is not paced by this policy."
@@ -833,7 +843,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-07-22T07:55:48.306Z",
       "disposition": "infrastructure",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "n/a",
       "erp_verified_from_export": false,
       "reason": "ERP read executor sub-workflow behind the ERP MCP. Same reasoning."
@@ -844,7 +854,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-07-20T11:28:32.292Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -855,9 +865,9 @@
       "active": true,
       "judged_at_updatedAt": "2026-07-15T12:40:01.663Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "no",
       "erp": "yes",
-      "erp_verified_from_export": false,
+      "erp_verified_from_export": true,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
     },
     {
@@ -866,7 +876,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-07-14T09:29:54.102Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -877,7 +887,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-06-29T08:51:02.397Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -888,7 +898,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-06-28T12:09:06.958Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -899,7 +909,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-06-11T13:50:18.876Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -910,7 +920,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-06-11T13:50:06.772Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -921,7 +931,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-06-11T07:16:39.861Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -932,7 +942,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-06-10T11:02:00.560Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -943,7 +953,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-04-21T11:50:43.906Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -954,7 +964,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-03-30T13:16:21.323Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -965,7 +975,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-03-30T12:39:17.388Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -976,7 +986,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-03-20T02:23:33.030Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "unknown",
       "erp_verified_from_export": false,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
@@ -987,7 +997,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-03-13T17:49:56.508Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -998,7 +1008,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-03-13T13:01:45.355Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -1009,7 +1019,7 @@
       "active": true,
       "judged_at_updatedAt": "2026-03-12T13:00:34.000Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -1020,7 +1030,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-03-12T10:07:51.527Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "unknown",
       "erp_verified_from_export": false,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
@@ -1031,7 +1041,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-03-11T13:39:04.961Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "unknown",
       "erp_verified_from_export": false,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
@@ -1042,7 +1052,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-03-11T13:38:31.471Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "unknown",
       "erp_verified_from_export": false,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
@@ -1053,7 +1063,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-01-29T07:53:01.000Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -1064,7 +1074,7 @@
       "active": false,
       "judged_at_updatedAt": "2026-01-14T14:47:01.000Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -1075,7 +1085,7 @@
       "active": false,
       "judged_at_updatedAt": "2025-12-29T14:22:11.000Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -1086,7 +1096,7 @@
       "active": false,
       "judged_at_updatedAt": "2025-12-11T11:46:32.000Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "unknown",
       "erp_verified_from_export": false,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
@@ -1097,7 +1107,7 @@
       "active": false,
       "judged_at_updatedAt": "2025-12-11T11:45:07.000Z",
       "disposition": "out-of-programme-erp-audit",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
@@ -1108,7 +1118,7 @@
       "active": false,
       "judged_at_updatedAt": "2025-12-11T10:45:40.316Z",
       "disposition": "scratch",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "unknown",
       "erp_verified_from_export": false,
       "reason": "Throwaway probe/diagnostic/test. Inactive."
@@ -1119,7 +1129,7 @@
       "active": true,
       "judged_at_updatedAt": "2025-12-08T16:36:24.000Z",
       "disposition": "out-of-programme-no-erp",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "no",
       "erp_verified_from_export": false,
       "reason": "Reporting, alerting or accounting workflow with no evident ERP surface."
@@ -1130,7 +1140,7 @@
       "active": false,
       "judged_at_updatedAt": "2025-12-07T14:59:44.000Z",
       "disposition": "predecessor",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "Older Real Tickets Audit (2025-11), inactive, superseded twice over."
@@ -1141,12 +1151,15 @@
       "active": false,
       "judged_at_updatedAt": "2025-11-19T11:45:36.000Z",
       "disposition": "predecessor",
-      "skill_built": "unverified",
+      "skill_built": "unreachable",
       "erp": "yes",
       "erp_verified_from_export": false,
       "reason": "Older Real Tickets Audit (2025-11), inactive, superseded twice over."
     }
   ],
   "_skill_built": "THE TRACKER. Which flows the erp-audit-flow-builder skill produced, which nothing recorded until 2026-08-23 - and not recording it is how five skill-built flows sat outside the compliance programme without anyone noticing. The discriminator is meta.aiBuilderAssisted true with meta.builderVariant 'mcp' in the workflow's own payload, NOT the name, the tag or the creation date: 'CC Overstay Fines - generated v1' and 'Applicant Real Ticket Refund Audit' are both audit checks with similar names and only the first is skill-built. 'unverified' means nobody has opened the payload; it is counted, never assumed either way.",
-  "_the_rule": "A flow that the skill built AND that reaches ERP MUST be in MANIFEST.json, so erp_compliance.py --all audits it forever. tools/manifest_vs_instance.py FAILS when it is not. That is the whole tracker: not a list someone maintains out of diligence, but a rule that breaks the build."
+  "_the_rule": "A flow that the skill built AND that reaches ERP MUST be in MANIFEST.json, so erp_compliance.py --all audits it forever. tools/manifest_vs_instance.py FAILS when it is not. That is the whole tracker: not a list someone maintains out of diligence, but a rule that breaks the build.",
+  "_sweep": "Provenance and ERP contact re-established from the workflow payloads on 2026-08-23 by a full sweep (exports/provenance-sweep.json), not from names. It corrected this file in two directions: it found the estate's worst ERP offender wrongly recorded as not skill-built, and four rows claiming ERP contact that make no ERP call at all. 32 of 103 workflows could not be read at all - see _unreachable.",
+  "_unreachable": "32 workflows refuse get_workflow_details with 'Workflow is not available in MCP' (availableInMCP unset). They are recorded skill_built 'unreachable' rather than guessed. Seven are ACTIVE. This is a third of the estate that no checker in this repo can see, and it is the largest remaining blind spot - larger than anything the policy currently covers. Enable MCP access on a workflow's card to bring it into view.",
+  "_manifest_exempt": "Why a skill-built ERP-touching flow is legitimately absent from MANIFEST.json. The guard accepts a recorded reason and refuses SILENCE, which is the state every flow missed on 2026-08-23 was in. An exemption is a decision someone made and signed; an absent row is nobody having looked."
 }

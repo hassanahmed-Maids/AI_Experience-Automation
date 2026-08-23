@@ -227,7 +227,7 @@ function erpBreakerGuard(opts) {
       ms_per_call: v.ms_per_call, calls: opts.callsMade, run_id: runId || null }));
   }
 }
-// --- call site: the sales-to-do-notes fan-out (one call per red case) ------------------------------
+// --- call site: the sales-to-do-notes fan-out (one call per red case) --------------------------
 // A dedicated judge node. The alternative was the top of Build Evidence Bundle, which reads all
 // five note/SMS fan-outs by name and is 18 KB of evidence-assembly logic - five generated 10 KB
 // blocks stacked on it would have buried the code that matters, and one shared block could not
@@ -236,7 +236,8 @@ function erpBreakerGuard(opts) {
 // indifferent to this node existing.
 //
 // WHAT CAN AND CANNOT FIRE HERE:
-//   consecutive_failures - LIVE. Five 5xx/429/timeouts in a row abort the batch. A trip here also stops the three note/SMS branches behind it under v1.
+//   consecutive_failures - LIVE. Five 5xx/429/timeouts in a row abort the batch. A trip here also
+//                          stops the three note/SMS branches behind it under v1.
 //   degraded_rate        - LIVE whenever this batch carries >= 20 red cases (one response per
 //                          case). A tail batch under 20 does not reach the sample floor and the
 //                          rule is inert for it; consecutive_failures still covers that case.

@@ -95,12 +95,34 @@ def main():
     #    produce" a rule that breaks the build rather than a list someone maintains out of
     #    diligence - and it is the check that would have caught the five skill-built flows found
     #    sitting outside the programme on 2026-08-23.
+    #    A skill-built ERP flow may legitimately not belong in the manifest - a throwaway probe
+    #    marked "delete after use" should be DELETED, not paced and audited forever. So the rule
+    #    is satisfied by the manifest OR by an explicit `manifest_exempt` reason. What it will
+    #    not accept is SILENCE, which is the state all five missed flows were in.
+    exempt_used = []
     for i, r in reg.items():
-        if r.get('skill_built') == 'yes' and r.get('erp') == 'yes' and i not in man:
-            fails.append('%s "%s" was BUILT BY THE SKILL and reaches ERP, but MANIFEST.json does '
-                         'not list it - so erp_compliance.py --all does not audit it. Bring it to '
-                         'ERP-LOAD-POLICY.md and add it to the manifest, or record why the rule '
-                         'does not apply.' % (i, r.get('name')))
+        if r.get('skill_built') != 'yes' or r.get('erp') != 'yes' or i in man:
+            continue
+        why = (r.get('manifest_exempt') or '').strip()
+        if why:
+            exempt_used.append((r, why))
+            continue
+        fails.append('%s "%s"%s was BUILT BY THE SKILL and reaches ERP, but MANIFEST.json does '
+                     'not list it and it carries no manifest_exempt reason - so nothing audits it '
+                     'and nobody has decided that is right. Add it to the manifest, or write a '
+                     'manifest_exempt reason saying why the rule does not apply.'
+                     % (i, r.get('name'), ' [ACTIVE]' if r.get('active') else ''))
+    if exempt_used:
+        by_reason = collections.Counter(w.split('.')[0] for _, w in exempt_used)
+        warns.append('%d skill-built ERP flow(s) are exempt from the manifest by an explicit '
+                     'recorded reason, not by silence: %s' %
+                     (len(exempt_used), '; '.join('%s (%d)' % (k, v) for k, v in by_reason.items())))
+        pend = [r for r, _ in exempt_used if r.get('disposition') == 'delete-me']
+        if pend:
+            warns.append('%d of those are marked DELETE-ME: throwaway probes still sitting in the '
+                         'instance with ERP credentials wired in. Deleting them is the fix, and '
+                         'until someone does, this line will keep saying so: %s'
+                         % (len(pend), ', '.join(r['name'] for r in pend)))
 
     # ---- warnings: the residual, stated as a number rather than left as a feeling -------------
     unknown_prov = [r for r in reg.values() if r.get('skill_built') == 'unverified']

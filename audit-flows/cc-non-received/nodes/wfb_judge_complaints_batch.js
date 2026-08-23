@@ -241,8 +241,8 @@ function erpBreakerGuard(opts) {
 //                          That is the only mid-batch saving available: the HTTP node returns
 //                          only when its last request is done, so nothing of ours runs sooner.
 //   degraded_rate        - LIVE whenever this batch carries >= 20 red cases (one response per
-//                          case). A tail batch smaller than 20 reaches rateMinSamples and the
-//                          rule is inert for it; consecutive_failures still covers that case.
+//                          case). A tail batch smaller than 20 never reaches rateMinSamples,
+//                          so the rule is inert for it; consecutive_failures still covers it.
 //   latency              - LIVE FROM THE SECOND BATCH OF A RUN ONWARDS, and this is the one
 //                          place in this check where that sentence is true. Stage 2 self-calls
 //                          per batch (Prepare Handoff -> More batches? -> Next Batch (self)),
