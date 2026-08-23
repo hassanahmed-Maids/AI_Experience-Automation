@@ -48,7 +48,8 @@ print(json.dumps(body))
 PY
 )
 
-SUBMIT=$(curl -sS --max-time 120 -X POST "$BASE/lowcode/c2d/query/async" \
+SUBMIT=$(curl -sS --max-time 120 --retry 4 --retry-delay 3 --retry-all-errors \
+  -X POST "$BASE/lowcode/c2d/query/async" \
   -H "Content-Type: application/json" \
   -H "Authorization: $ERP_AUTH_TOKEN" \
   -H "secc-ch-ua-platform: $ERP_SECC_PLATFORM" \
@@ -68,7 +69,10 @@ echo "SESSION_ID: $CONV_ID"
 DEADLINE=$(( $(date +%s) + ${ASK_CODE_TIMEOUT:-600} ))
 while (( $(date +%s) < DEADLINE )); do
   sleep 2
-  PAGE=$(curl -sS --max-time 60 "$BASE/lowcode/c2d/session/$CONV_ID/messages?page=0&size=8" \
+  # --retry-all-errors: a poll must survive "Recv failure: Connection reset by peer",
+  # which otherwise aborts the script while the answer is still being generated.
+  PAGE=$(curl -sS --max-time 60 --retry 5 --retry-delay 3 --retry-all-errors \
+    "$BASE/lowcode/c2d/session/$CONV_ID/messages?page=0&size=8" \
     -H "Authorization: $ERP_AUTH_TOKEN" \
     -H "secc-ch-ua-platform: $ERP_SECC_PLATFORM" \
     -H "pageCode: lc_conversation")
@@ -90,5 +94,7 @@ for m in d.get("messages", []):
   fi
 done
 
-echo "TIMEOUT after 180s. conversation_id=$CONV_ID request_id=$REQ_ID — poll manually." >&2
+echo "TIMEOUT. conversation_id=$CONV_ID request_id=$REQ_ID" >&2
+echo "The conversation KEEPS processing server-side — recover it with:" >&2
+echo "  ./scripts/poll-ask-code.sh $CONV_ID" >&2
 exit 2
