@@ -19,6 +19,7 @@ Multi-agent pipeline that migrates ~500 ERP broadcast templates (WhatsApp/SMS) i
 | `docs/glossary.md` | Business domain: CC/MV, targets, contract model |
 | `docs/judgment.md` | The design philosophy — audience test, obscurity rule |
 | `docs/code-llm-api.md` | Ask-the-code API usage, modules, verified behavior |
+| `docs/lcp-dynamic-apis.md` | LCP dynamic APIs: how to get one built (AI prompt → SpEL row), the runtime, and the security rules — enforced vs. self-imposed |
 | `docs/customerio-conventions.md` | CIO data model, trigger preference, patterns, checklist |
 | `docs/erp-events.md` | Events ERP already sends to CIO |
 | `docs/snowflake.md` | Snowflake analytics warehouse: access, verified schema, the recipient→entity join |

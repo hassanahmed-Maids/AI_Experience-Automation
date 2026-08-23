@@ -80,6 +80,7 @@ ERP (Java/Spring):
 | Freedom Operator | erp/magnamedia-freedom-operator |
 | Housemaid Management | erp/magnamedia-housemaid-management |
 | Low Code Platform | erp/low-code-platform |
+| Core (framework: SpEL evaluator, security AOP, BaseController, IMC) | erp/magnamedia-core |
 | Payroll Management | erp/magnamedia-payroll-management |
 | Public | erp/magnamedia-public |
 | Recruitment | erp/magnamedia-recruitment |
@@ -101,6 +102,8 @@ External projects: `external-projects/liveout-webapp`, `contractidchecker`, `mmm
 - The xlsx `Module` hint proved accurate in the first test (visa → `erp/magnamedia-visa-processing`), but keep validating per template.
 - **Module-visibility hazard (2026-07-03, hit twice):** a session may silently NOT see a module (e.g. `magnamedia-complaints`) and confidently return "template doesn't exist / is dead" — this produced wrong verdicts twice on the Replacement-Handover cluster. Even `project_alias: []` (all modules) once claimed complaints was unavailable. Rule: **never accept a negative ("not found/dead") verdict unless the session was explicitly pinned to the module that plausibly owns the code**; re-ask with the specific alias before believing a negative.
 - **Session note (2026-07-03):** the submit endpoint returns a NEW `conversation_id` on every call even when you pass `session_id` — conversation *context is still retained* (follow-ups work), but do not assume the printed SESSION_ID equals the one you sent. Track by the request you made, not by matching the returned id.
+
+- **`erp/magnamedia-core` is a real, working alias (verified 2026-08-23) and was missing from the table above.** Omitting it cost two full interrogations: sessions pinned to `erp/low-code-platform` correctly answered "NOT FOUND" for the dynamic-API SpEL runtime, because `magnamedia-core` is only a *binary* Maven dependency of that repo (`pom.xml:15-19`) — its source is a separate workspace. The framework internals live there: `DynamicApiUtil` (the SpEL evaluator), `SpelSecurityAOP`, `BaseController`, `CurrentRequest`, `Setup`, `InterModuleConnector`, `ApiAuthorizationService`, the JWT/security filter chain. **Rule: when an answer says a framework concern (`@Authenticated`, `@NoPermission`, `BaseController`, IMC, SpEL evaluation, the security chain) is not in the repo, re-ask pinned to `erp/magnamedia-core` before believing it.** A `[]` all-modules search also reaches it, and that is what broke the deadlock here.
 
 - **Poll-loop resets — the answer is NOT lost (2026-08-23, remote session).** Running 3 conversations in parallel, all 7 submits succeeded (conversation ids returned) but every poll died with `curl: (35) Recv failure: Connection reset by peer`, and `ask-code.sh` aborted on it (`set -e` + bare `curl -sS`). The submitted conversations kept processing server-side exactly as documented above. Recovery: **re-poll the conversation_ids with `scripts/poll-ask-code.sh`** (`--map` a `id<TAB>outfile` file, or pass ids for stdout) — it retries through resets (`--retry-all-errors`) and polls one request at a time, round-robin, which is what avoids them. Rule: **on a network-level poll failure, never re-ask — recover the conversation_id and re-poll.** Re-asking wastes minutes of server work and burns a fresh conversation. Keep the returned conversation_id for every submit so this recovery is always available.
 
