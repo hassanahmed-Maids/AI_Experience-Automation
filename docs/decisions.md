@@ -680,3 +680,100 @@ confirms the wrapper still catches a genuine syntax error.
 Suites: compliance 48, export mutation 30, breaker 51, regen drift 0, seam check 0 dangling across
 23, doc check 97 citations / 0 missing. `erp_compliance.py --all`: **23 audited, 23 of 23 covered,
 6 failing** — and the 6 are the point of the run, not a regression.
+
+## 2026-08-23 (later) — all five in-scope flows brought to policy; the scope itself was corrected mid-work
+
+`erp_compliance.py --all`: **22 of 22 comply, 0 failing**, from 5 of 22 failing this morning.
+
+**The scope correction matters more than the fixes.** Track A0 named six flows and one of them —
+`7M7xzzYpOecao9PE`, the live Real Ticket check — was a **pre-existing working flow**, not one the
+`erp-audit-flow-builder` skill produced. Moe: *"Real tickets and dummy tickets has another flows
+that are working fine, this skill was reimplementing other ones from scratch, tag these ones
+only."* Untagged, dropped from the manifest, left untouched; `versionId` still equals
+`activeVersionId`, so only its `updatedAt` moved. Dummy Tickets has the same pair —
+`FXrhGBJUnGYgrs9R`, named in `aTmGMAlYLwsJQ7js`'s own description as the flow it rebuilds.
+
+This is the **third** time in one day that a list built from something narrower than reality was
+trusted as reality: the exports directory, then the tag set, and now "everything with an ERP node
+in it" without asking which of those the programme was actually for. The first two were caught by
+a tool; this one was caught by Moe. Provenance is now checked before touching anything —
+`meta.aiBuilderAssisted` with `builderVariant: mcp` and a 2026-08-19 creation date — and
+`MANIFEST.json`'s `_scope` names both out-of-scope predecessors so the next reader does not have
+to rediscover them.
+
+**A safety mechanism can arrive with its own precondition unmet.** Both sub-workflow breakers key
+their latency baseline on `run_id` and clear the store when it changes — and nothing was putting a
+`run_id` on the chunk baton. Every run would have looked like the same run and chunk 1 of today
+would have been judged against a baseline from days ago, which is the exact cross-run comparison
+the breaker's own comment says it must not make. The breaker was right, the flow was right, the
+seam between them was not. `Baton For 0-Fetch` closes it in both parents and logs loudly on an
+empty id. Worth naming as a class: **installing a guard is not the same as making it work.**
+
+**Breakers went into dedicated nodes, not into the scorers.** `erp_compliance.py` looks for the
+breaker in the first Code node downstream of an ERP node, so a small node whose only job is to
+judge the batch and `return $input.all()` satisfies §5 and leaves `Score Cases` (22 KB),
+`Score Deterministic` (15 KB) and `Resolve Maids` (8.5 KB) untouched. Nine such nodes now exist. A
+generated 10 KB block pasted into any of those would have made the interesting code the minority
+of the file, which is how comments stop being read.
+
+**Every call site states which thresholds can actually fire.** The latency rule needs an earlier
+batch of the same key in the same run; a fan-out that happens once per run can never reach it. So
+in the parents it **cannot fire**, and the nodes say so. In the sub-workflows, called once per
+chunk of 25, it can and does. The degraded-rate rule needs 20 samples, so on the reversals and
+refunds batches it is **conditional** and the nodes say that too. A check that silently never
+fires is the false-clearance shape this project keeps finding; better to write down that it cannot
+than to let a green run imply it did.
+
+**`neverError: true` decides the `onError` question.** Where an ERP node has it, HTTP errors arrive
+as items carrying a `statusCode` — which is precisely what lets a breaker count them, and why
+those nodes must stay on `continueRegularOutput` while the rail hangs off the Code nodes instead.
+`continueErrorOutput` there would route failures past the breaker and leave it counting only
+successes. Applied consistently across all five flows.
+
+**Stale prose was a real hazard, not a tidiness issue.** Both Dummy Tickets flows said "Pacing 5
+concurrent / 500 ms, matching the golden's rail". It matched an older golden and was 2.5x the
+ceiling, and it read as a deliberate compliance decision — the most expensive kind of wrong,
+because it stops the next reader looking. Rewritten with the number, not just corrected in the
+parameter.
+
+### Three tool corrections, all from findings this work produced
+
+**A lease call is a CALL, not a mention.** `lease_nodes` was "any node whose text contains the
+lease id", so a sub-workflow's `ERP-COMPLIANCE: lease-held-by-caller` declaration — which has to
+name the lease to be worth reading — made a Code node and a sticky note get reported as lease
+calls with an unreadable mode. Writing down which lease you depend on must never make you look
+like you are taking it. Now: an Execute Sub-workflow node pointing at the lease workflow. Two
+assertions pin it.
+
+**`regen_breaker_embeds.py` would have vandalised nine call sites.** It regenerated the WHOLE
+block from the `--call-site plan` directive, which would have replaced every hand-written,
+flow-specific call site with WF-E's — true statements about one flow overwritten by false
+statements borrowed from another, in the comments a reader trusts most. It now splices only the
+CORE, which is the part `erp_compliance.py` byte-compares and the part a canonical fix has to
+reach.
+
+**And it was reading half a directive.** A `--source-node` wrapped onto a continuation line was
+silently cut off, so it regenerated four embeds against the default source node and reported drift
+on four files that had not drifted. It now reads continuations, and refuses outright when a
+block's guard names a node its own directive does not pass — a half-read directive is worse than
+an unreadable one, because it still produces output. Both behaviours mutation-tested.
+
+### New: `tools/erp_runtime_estimate.py`
+
+Moe asked how long an end-to-end pass over every flow takes at the new pacing. Nobody had the
+number, so it is now a tool rather than an answer. Two things make `calls / 4 req/s` wrong, both in
+the same direction: n8n's batching waits for the batch and THEN sleeps the interval, so 2/500 with
+1 s calls is **1.33 req/s**, not 4; and a check is not one rate — its sweep and its per-entity
+phases are different nodes with different pacing and wildly different counts. The first version of
+the tool applied MV's slowest node to all 47,000 of its calls and said 13 h; costed per phase it is
+10 h. Rates are read from the deployed exports so they cannot drift from the flows.
+
+**~17 h for a serialised pass at 1 s latency** (9h29m at 0.3 s, 28 h at 2 s). MV Monthly Payment is
+10 h of it; the three checks fixed today are 31 minutes combined. The lease makes it a sum, not a
+max, and three checks individually exceed the 2400 s execution ceiling — which is why they are
+fire-and-forget chains.
+
+Suites: compliance 50, export mutation 30, breaker 51, regen drift 0 across 15 embeds, seam 0
+dangling across 22, load check 0 violations, doc check 96 citations / 0 missing, check-js clean.
+Every deployed body byte-compared against its repo source; the compare earned itself again by
+catching a comment rewrap made in a deploy call but not in the repo copy.

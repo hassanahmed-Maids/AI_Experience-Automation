@@ -1,96 +1,84 @@
 # ERP load compliance — Applicant Real Ticket
 
-Audited 2026-08-23 against `../ERP-LOAD-POLICY.md`. Three flows, tag `audit: Applicant Ticket`
-(one of them tagged *by this audit* — see below). Verdicts are `tools/erp_compliance.py`, not
-reading.
+Audited and **fixed** 2026-08-23 against `../ERP-LOAD-POLICY.md`. Two flows, tag
+`audit: Applicant Ticket`. Verdicts are `tools/erp_compliance.py`, not reading.
 
 | flow | id | live | verdict |
 |---|---|---|---|
-| Refund Audit — the **live legacy** check | `7M7xzzYpOecao9PE` | **yes** | **FAIL** — the worst flow in the manifest |
-| the audit check (draft, rebuild) | `YXRZdtk2Geeeqaal` | no | **FAIL** — close, four real gaps |
-| publish results to Google Sheets | `B8r6dyuHz9kFC3HJ` | no | **PASS** — no ERP nodes at all |
+| the audit check (draft) | `YXRZdtk2Geeeqaal` | no | **PASSES** — was 10 findings |
+| publish results to Google Sheets | `B8r6dyuHz9kFC3HJ` | no | **PASSES** — no ERP nodes at all |
 
-## The legacy flow was invisible, and it is live
+## Scope: the rebuild only
 
-`7M7xzzYpOecao9PE` was **untagged**. Every coverage sweep in this project has worked off the
-`audit: *` tags, so a tag sweep could not see it, the manifest never listed it, and
-`erp_compliance.py --all` reported green over a set that did not contain the single worst
-offender. It is tagged `audit: Applicant Ticket` as of 2026-08-23.
+`7M7xzzYpOecao9PE` "Applicant Real Ticket Refund Audit" is the **pre-existing working check** this
+draft reimplements. It is live, it predates the load policy, and it is deliberately **out of
+scope**: Moe's instruction on 2026-08-23 was that the audit covers the flows the
+`erp-audit-flow-builder` skill produced, not the ones they replace. It was briefly tagged and
+manifested earlier the same day and both were reverted; it carries no tag, its `versionId` still
+matches its `activeVersionId`, and nothing in it was changed.
 
-This is the same failure mode the manifest exists to prevent, one level up: the manifest stops
-`--all` going green over a subset of the *exports directory*, but nothing stopped the export
-list itself going green over a subset of the *instance*. See "What to change" below.
+That does mean its numbers stand un-remediated, and they are worth knowing before the cutover
+decision: 10 in flight / 200 ms = 50 req/s on one node, 5/300 on another, a paginated sweep with
+no interval, no timeout anywhere, no lease, gate, breaker or error trigger — and
+`Fetch All-Time for Flagged`, a `for` loop calling `this.helpers.httpRequest` inside a **Code**
+node, which has no `batching` options to set and which the node-scanning checker cannot see at
+all. **Cutting over to the fixed rebuild retires all of that in one move**, which is a better use
+of the effort than remediating a flow that is scheduled for deletion.
 
-It predates `ERP-LOAD-POLICY.md` (created 2026-05-25; the policy is from June). Its numbers:
+## What was fixed
 
-| node | pacing | rate | policy |
-|---|---|---|---|
-| `Get Transaction Detail` | 10 in flight / 200 ms | 50 req/s | 2 / 500 ms = 4 req/s |
-| `Get Hustler Workflow` | 5 in flight / 300 ms | 17 req/s | same |
-| `Get Transactions` (paginated) | no interval | pages back to back | 250 ms minimum |
-| `Fetch All-Time for Flagged` | **a Code node calling `this.helpers.httpRequest` in a `for` loop** | unpaced, uncounted, invisible to the checker's node scan | — |
+**§1 pacing.** `Get Transaction Detail` ran 5 in flight / 500 ms = 10 req/s. `Get Flight Tickets`
+and `Get All-Time Reversals` ran 3 / 750 ms — which is *exactly* 4 req/s, at the rate ceiling and
+not over it, and still a violation: §1 caps **in-flight connections at 2** as well as the rate,
+because three connections are three connections. All three are now 2 / 500. `Get Population Pages`
+was already compliant at 2 / 750 and was left alone.
 
-No timeout on any of the three HTTP nodes. No lease, no budget gate, no breaker, no error
-trigger. `Fetch All-Time for Flagged` deserves its own line: pacing lives in the HTTP node's
-`batching` options, and a hand-rolled loop inside a Code node has none — the checker flags the
-flow for its *other* nodes and says nothing about this one, because there is no node parameter
-to read. It is bounded only by how many applicants got flagged.
+**§3 budget gate.** New `ERP Budget Gate` between `Build Page List` and `Get Population Pages` —
+the first point at which the run knows its size and the last before any fan-out. It projects
+pages + 3 calls per transaction and **hard-fails**; auto-capping would not only hide findings but
+break `Population Guard`, which proves completeness by comparing rows pulled against
+`totalElements`. It also stamps `run_id` onto the page items, because `Validate Inputs` keeps it
+at `params.run_id` and the generated breaker block reads a top-level `run_id`.
 
-**It is webhook-triggered, not scheduled.** No flow in this manifest has a Schedule Trigger — the
-live entry points all wait on a POST from the audit orchestrator. So this is not "it fires
-tonight"; it is "the next time someone runs the Real Ticket check for a month, ERP takes 50 req/s
-from one node with nothing able to stop it". That is a smaller window and the same size of hole.
+**§5 breakers.** Four new nodes — `Judge Population Pages`, `Judge Detail Batch`,
+`Judge Tickets Batch`, `Judge Reversals Batch` — each judging one fan-out and passing the batch on
+unchanged. They are separate nodes rather than blocks pasted into `Population Guard`,
+`Resolve Identity + Net Reversals`, `Score Deterministic` (15 KB) and `Rescore With Reversals`,
+because a generated 10 KB block dropped into any of those makes the interesting code the minority
+of the file. `Build Page List` carries a batch-of-one exemption: `Get Independent Count` makes a
+single call, so none of the three thresholds can reach it, and that node already throws by name on
+an expired token, `INSUFFICIENT_PERMISSIONS`, a `SecurityException`, a missing `totalElements` and
+a zero count.
 
-## The lease guarantee is broken instance-wide
+**§4 lease.** Acquire between `Respond 200 (accepted)` and the count call; release after
+`Write Run`; `Release Lease (error)` → `Fail Loudly` on the rail. This flow needed the rail more
+than its siblings, because **it is designed to refuse**: `Build Page List` and `Population Guard`
+both throw by name rather than degrade, and every one of those deliberate refusals would have held
+the lease until the 3-hour staleness backstop.
 
-§4 exists so two audits cannot hit ERP at once — "per-flow pacing bounds ONE audit; two audits
-running together is how ERP was taken down before". There are now **three live webhook entry
-points** that reach ERP, and only one of them takes the lease:
+## What each breaker can and cannot do, stated in the node
 
-| live entry point | takes lease `9gVijqvtLVEhQZXz`? |
-|---|---|
-| `CC Monthly Payments Below Agreed Amount` (WF-A) | yes |
-| `Applicant Real Ticket Refund Audit` (legacy) | **no** |
-| `Dummy Tickets Housemaids · 1-Score` | **no** |
+All four call sites say which of §5's three thresholds actually fires there. `consecutive_failures`
+is live everywhere. `degraded_rate` needs 20 samples, so it is live on the detail and ticket
+fan-outs and **conditional** on the reversals one, which is one call per red ticket and can be
+under 20 in a clean month. `latency` **cannot fire at all** in this flow: it compares a batch
+against an earlier batch of the same key in the same run, and every fan-out here happens exactly
+once. That is written into each node rather than left to be discovered, because a latency check
+that silently never fires is the false-clearance shape this project keeps finding.
 
-WF-A can hold the lease and be perfectly compliant while either of the other two runs straight
-through it. A mutex only one participant respects is not a mutex. This is the single most
-important finding of this audit and it is not fixable inside any one flow.
+## The `neverError: true` interaction, and why the ERP nodes keep continueRegularOutput
 
-## The rebuild is close, and its gaps are real
+Every ERP node here runs `neverError: true`, so an HTTP error arrives as an **item** carrying a
+`statusCode` rather than as a thrown failure. That is exactly what lets the breakers count them —
+and it is why those nodes must **not** be switched to `continueErrorOutput` when wiring the rail:
+an error output would route the failures past the Judge node and leave it counting only successes.
+The rail is hung off the Code nodes instead. `Get Population Pages` was moved from `stopWorkflow`
+to `continueRegularOutput` for the same reason; `Population Guard` throws on any non-200 page, so
+nothing is softened by it.
 
-`YXRZdtk2Geeeqaal` is a serious piece of work — every ERP node timed out, an error trigger, a
-population guard, redaction at the boundary. Four things still fail:
+## Remaining warning, on purpose
 
-1. **§1 concurrency.** `Get Transaction Detail` at 5 in flight / 500 ms, and `Get Flight Tickets`
-   / `Get All-Time Reversals` at 3 in flight / 750 ms. The second pair is *exactly* 4 req/s —
-   at the ceiling, not over it — and still violates §1, because §1 caps **in-flight connections
-   at 2** as well as the rate. The policy says so in as many words: "3 concurrent / 750 ms and
-   2 concurrent / 500 ms are both 4 req/s, but the first holds three connections open at once."
-2. **§3 no pre-flight budget gate**, with four per-item ERP nodes. Pacing bounds requests per
-   second; nothing bounds how many.
-3. **§5 no circuit breaker** on any of the five projection nodes.
-4. **§4 no lease** — it is a webhook entry point that reaches ERP.
-
-Fixing 1 is a parameter change. 2, 3 and 4 are the standard blocks (`tools/erp_preflight_gate.js`,
-`tools/build_breaker_embed.py`, the lease pair) and should be generated, not hand-copied.
-
-Fix the rebuild first and cut the legacy flow over to it: that retires
-`Fetch All-Time for Flagged` and 50 req/s in one move, rather than spending the same effort
-patching a flow that is scheduled for deletion.
-
-## The publisher is genuinely clean
-
-`B8r6dyuHz9kFC3HJ` touches Google Sheets and the data tables and nothing else — zero ERP nodes,
-so §1/§3/§4/§5 do not apply and it passes without an exemption. It is in the manifest anyway,
-because "this flow has no ERP nodes" is a claim worth re-checking on every run rather than
-remembering.
-
-## What to change (governance)
-
-The manifest guards the exports directory. Nothing guards the manifest against the *instance*.
-Both times coverage has been wrong it was because a list was built from something narrower than
-reality — first the directory, now the tag set. The manifest now carries a `_scope` field naming
-the six checks and calling out that Real Ticket has three flows and not two, but a field is a
-note, not a check. A sweep that lists every workflow in the instance and fails on any ERP-touching
-flow absent from the manifest is the actual fix; it is in `REMEDIATION-PLAN.md`.
+`Inputs OK?`, `Needs Detail?`, `Any All-Time Lookups?`, `Any Verifier Cases?` and the three `Join`
+merges can kill the run without reaching the rail. They are IF and Merge nodes, whose error output
+is not at an index this project will guess at — guessing wrong is silent. The checker names them
+every run rather than letting the rail read as complete.
