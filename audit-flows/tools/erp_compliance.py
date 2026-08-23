@@ -317,37 +317,108 @@ def code_without_comments(body):
             i += 1
     return ''.join(out)
 
+ERROR_FIELDS = ('.error', '.message', '.node')
+
+def derives_error_from_input(body):
+    """Does this node build its FAILURE MESSAGE out of $input, or only read incidentals from it?
+
+    Narrowed twice on 2026-08-23, both times by a real flow:
+
+    1. Looking for the bare string '$input' called CC Overstay Fines broken. That flow already had
+       this fix under another name - the first node on its rail is `Build Error Callback`, the
+       terminal reads the failure from it BY NAME, and it touches $input only for the lease's own
+       action/state, which is exactly what $input legitimately holds downstream of a lease call.
+    2. Relaxing it to "does it read any upstream rail node by name" then excused CC Below Agreed
+       2-Verify, which is genuinely mute: every terminal here reads $('Validate Inputs') for the
+       run_id, and Validate Inputs is on the rail, so that test passes for broken and fixed alike.
+
+    What separates them is where the ERROR comes from. So: find the identifier bound to $input, and
+    ask whether the body reads .error / .message / .node off it.
+    """
+    for m in re.finditer(r'(?:const|let|var)\s+(\w+)\s*=\s*\$input\.(?:first\(\)\.json|all\(\))', body):
+        ident = m.group(1)
+        for f in ERROR_FIELDS:
+            if re.search(r'\b' + re.escape(ident) + re.escape(f) + r'\b', body):
+                return True
+    for f in ERROR_FIELDS:
+        if '$input.first().json' + f in body:
+            return True
+    return False
+
+def upstream_edges(w, name):
+    """Every (source, output index) feeding this node. The INDEX is the load-bearing part."""
+    out = []
+    for src, spec in (w.get('connections') or {}).items():
+        for i, group in enumerate(spec.get('main') or []):
+            for c in group or []:
+                if c.get('node') == name:
+                    out.append((src, i))
+    return out
+
+def error_eaten_upstream(w, name, reachable):
+    """Walk back along the rail from `name`. Which Execute Sub-workflow node swallowed the error?
+
+    THE OUTPUT INDEX DECIDES. An Execute Sub-workflow node reached by its ERROR output (index >= 1)
+    is a node that itself failed - the item IS the error, and reading it is correct. Reached by its
+    SUCCESS output (index 0) it has run to completion and REPLACED the item with whatever the
+    sub-workflow returned. `Acquire ERP Lease` on the rail is the first case; `Release Lease (error)`
+    is the second. A rule that did not separate them would flag every correctly-built rail here.
+
+    THE WALK STOPS AT A NODE THAT RE-ESTABLISHED THE ERROR. A Code node that does NOT take its
+    error from $input got it from somewhere else - a named capture - so everything downstream of it
+    reads a payload in which the error is present and correct. MV Overstay Fines is the case: once
+    `Build Error Callback` reads $('Capture Failure'), the nodes behind it that read $input are
+    reading ITS output, not the lease's, and flagging them was wrong.
+
+    IT WALKS TRANSITIVELY, which the first version missed: MV Overstay Fines loses the error one hop
+    before the terminal, in a node that does not throw at all.
+
+    Three narrowings in one day, each from a flow this rule misjudged. Worth stating plainly: a rule
+    written against one example is a rule fitted to that example.
+    """
+    seen, frontier = set(), [name]
+    while frontier:
+        cur = frontier.pop()
+        for src, idx in upstream_edges(w, cur):
+            if src not in reachable or (src, idx) in seen:
+                continue
+            seen.add((src, idx))
+            n = node_by_name(w, src)
+            if not n:
+                continue
+            if n.get('type') == 'n8n-nodes-base.executeWorkflow' and idx == 0:
+                return src
+            if (n.get('type') == 'n8n-nodes-base.code'
+                    and not derives_error_from_input(code_without_comments(code_of(n)))):
+                continue          # this node rebuilt the item; downstream of it the error is real
+            frontier.append(src)
+    return None
+
 def rail_reads_the_failure(w, reachable):
-    """Can the rail's re-throwing node still SAY what went wrong?
+    """Can the rail still SAY what went wrong, or did a lease call eat the error first?
 
     A rail that releases the lease and re-throws is safe and can still be useless. On 2026-08-23
-    every rail in this project but one ran `failing node -> Release Lease (error) -> Fail Loudly`,
-    and Release Lease (error) is an Execute Sub-workflow node with waitForSubWorkflow: true - which
-    does not pass its input through, it REPLACES the item with whatever the sub-workflow returned.
-    So Fail Loudly's `$input` held the lease's answer, not the error, and every message those rails
-    could ever produce was 'FAILED at "unknown node": unknown error'.
+    every rail in this project but one ran the error through `Release Lease (error)` - an Execute
+    Sub-workflow node with waitForSubWorkflow: true, which does not pass its input through, it
+    REPLACES the item with whatever the sub-workflow returned - and then read the error off $input
+    on the far side. Every message those rails could produce was 'unknown node / unknown error'.
 
-    Twelve of thirteen flows had it. Nothing caught it, because every §4 check asked whether the
-    rail RELEASES and RE-THROWS - both of which it did. Nobody had seen the output because no rail
-    in this project has yet fired.
+    Nothing caught it because every §4 check asked whether the rail RELEASES and RE-THROWS, both of
+    which it did, and no rail in this project has ever fired, so nobody had read the output.
 
-    The fix is a Capture Failure node placed FIRST on the rail, before the lease call, with the
-    terminal node reading it by name. So the rule is: a re-throwing rail node fed through an
-    Execute Sub-workflow node must not read $input, because at that point $input is not the error.
+    The check is on the node that DERIVES the error, not on the one that throws - in MV Overstay
+    Fines those are different nodes.
     """
     bad = []
     for name in reachable:
         n = node_by_name(w, name)
         if not n or n.get('type') != 'n8n-nodes-base.code':
             continue
-        body = code_without_comments(code_of(n))
-        if 'throw ' not in body or '$input' not in body:
+        if not derives_error_from_input(code_without_comments(code_of(n))):
             continue
-        eaten = [p for p in upstream(w, name)
-                 if p in reachable
-                 and (node_by_name(w, p) or {}).get('type') == 'n8n-nodes-base.executeWorkflow']
-        if eaten:
-            bad.append((name, eaten))
+        eater = error_eaten_upstream(w, name, reachable)
+        if eater:
+            bad.append((name, [eater]))
     return bad
 
 def rail_blind_spots(w):

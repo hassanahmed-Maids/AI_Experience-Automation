@@ -643,5 +643,35 @@ f18, _, _ = audit(*cred_flow("const KEY = '" + OTHER + "';\nreturn $input.all();
 ok('BAKED CREDENTIAL' in f18,
    'a non-ERP signed token (supabase-shaped) fails the same way', f18[:140])
 
+# --- the mute-rail rule, narrowed twice by flows it got wrong ---------------------------------
+# Both narrowings are real. (1) Looking for the bare string '$input' called CC Overstay Fines
+# broken - the best-built rail in the repo, which already had this fix under the name
+# `Build Error Callback` and touches $input only for the lease's own action/state. (2) Relaxing it
+# to "reads any upstream rail node by name" then excused CC Below Agreed 2-Verify, which IS mute:
+# every terminal here reads $('Validate Inputs') for the run_id and Validate Inputs is on the rail.
+# What separates them is where the ERROR comes from, and that is what the rule asks now.
+LEASE_OUT = ("const item = $input.first().json || {};\n"          # the lease's own return value
+             "const act = String(item.action || '');\n"
+             "const f = ($('Capture Failure').first().json || {})._failure || {};\n"
+             "throw new Error('FAILED at ' + f.node + ': ' + f.message + ' lease=' + act);")
+f19, _, nt19 = audit(*rail_flow(LEASE_OUT, via_lease=False))
+ok('reads $input' not in f19,
+   'a terminal that reads $input for the LEASE result and the error by name passes - the CC '
+   'Overstay Fines shape', f19[:200])
+
+INCIDENTAL_NAMED = ("const item = $input.first().json || {};\n"   # error DOES come from $input
+                    "const msg = String(item.error && item.error.message);\n"
+                    "const r = $('Validate Inputs').first().json.run_id;\n"   # named, but only run_id
+                    "throw new Error('FAILED: ' + msg + ' run ' + r);")
+f20, _, _ = audit(*rail_flow(INCIDENTAL_NAMED))
+ok('reads $input' in f20,
+   'reading SOME upstream node by name does not excuse an error still taken from $input - the '
+   'CC Below Agreed 2-Verify shape', f20[:200])
+
+NO_LOCAL = "throw new Error('FAILED: ' + $input.first().json.error.message);"
+f21, _, _ = audit(*rail_flow(NO_LOCAL))
+ok('reads $input' in f21,
+   'the same bug written without a local variable is still the bug', f21[:160])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)

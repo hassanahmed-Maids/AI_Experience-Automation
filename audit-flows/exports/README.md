@@ -52,3 +52,19 @@ of them proves the bytes match:
 So an undetected error would have to be valid JS, leave every structural field intact, sit outside
 the breaker block, and not touch a compliance tag. **Re-export any `transcribed` flow the moment a
 real API route exists**, and treat the field as a standing debt rather than a footnote.
+
+## STALE-BUT-VERIFIED, 2026-08-23 19:25Z
+
+Three exports here lag the instance. The flows themselves were fixed, deployed and **verified
+directly against n8n** - the lag is in this directory, not in the deployment:
+
+| export | id | verified how |
+|---|---|---|
+| `mv-stage1-population.json` | `IKRXhIco1mwxrcPq` | full payload read back from n8n, rail correct |
+| `mv-stage4-verify.json` | `9T91z5VFH5g69WyT` | full payload read back from n8n, rail correct |
+| `wfc-deliver.json` | `yEF4BHYDZAnhBnYg` | full payload read back, `activeVersion.sameAsDraft: true` |
+
+`erp_compliance.py --all` therefore still reports the mute-rail failure for these three: it is
+reading these files, and these files are old. **Re-export them before trusting that output.**
+Written down rather than left as three unexplained reds, which is how a real finding gets ignored
+next to a known-stale one.
