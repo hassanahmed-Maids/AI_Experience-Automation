@@ -429,7 +429,8 @@ reachable at the engine level.** Stated plainly: a dynamic API is a code-executi
 
 | Guard | Where | What it actually does |
 |---|---|---|
-| **Token blacklist** | `DynamicApiUtil:50-54`, enforced `:203-214` | `FORBIDDEN_SPEL_TOKENS = ["CoreParameter", "Parameter", "BackgroundTask"]` — a **substring** check throwing `SecurityException`. Blocks only those three literals (`Parameter` also catches `CoreParameter`). Does **not** block `T(`, `new`, `Runtime`, `Class`, `@`, or reflection. |
+| **Token blacklist** | `DynamicApiUtil:50-54`, enforced `:203-214` | `FORBIDDEN_SPEL_TOKENS = ["CoreParameter", "Parameter", "BackgroundTask"]` — an **unconditional `String.contains`** throwing `SecurityException`, on the **evaluate path only** (never on write). Narrow in intent, **broad in effect**: `"Parameter"` matches inside *any* identifier, method name or string literal containing that sequence — `getParameter`, `RequestParameter`, a variable named `parameter`. Case-sensitive. Does **not** block `T(`, `new`, `Runtime`, `Class`, `@`, or reflection. See §8b for a live definition this kills. |
+| **Forbidden module** | `DynamicApiUtil:188-191` | Dynamic-API evaluation throws for module code **`officestaffpayroll`** outright (`FORBIDDEN_MODULE_CODE`), before the token check. |
 | **Module blacklist** | `DynamicApiUtil:180-201` | blocks the `officestaffpayroll` module only. |
 | **Write guard (the real one)** | `magnamedia-core/.../aspects/SpelSecurityAOP.java:23-32` | AOP `@Before` on `com.magnamedia.core.repository..*.save(..)`, `.saveAndFlush(..)`, `.delete(..)` and `com.magnamedia.core.schedule.JobScheduler..*(..)`: if `CurrentRequest.isSpelRequest()` it logs a severe "Security Violation" and throws `AuthorizationException("UNAUTHORIZED <LOGOUT>", "Security Violation - Can't perform database changes using SpEL!")`. |
 
@@ -861,20 +862,51 @@ pushes selection into the database. An id list is for ids that genuinely come fr
    `PageRequest.of`, defaults 0 / 20, `.withTotalCount(true)`. §5's "no pagination" is about
    *platform enforcement*; the convention supplies it.
 
-### Two open contradictions worth resolving
+### Both contradictions resolved (session 44667)
 
-- **`Contract.getDeleted()`.** ask-code (session 44663) says the client-management `Contract`
-  has no soft-delete flag, on the entity or its bases. But live API 27626 calls
-  `contract.getDeleted()` — in the **accounting** module. The entity is duplicated across seven
-  modules, so the copies plausibly differ. **Verify against `clientmgmt` before deciding whether
-  a bulk query must filter deleted rows.** The prompt now asks the generator to check and report.
-- **`CoreParameter` vs the token blacklist.** `FORBIDDEN_SPEL_TOKENS` is
-  `["CoreParameter", "Parameter", "BackgroundTask"]`, enforced by a **substring** check that
-  throws `SecurityException` (§6c). Yet definition 27626 contains
-  `T(com.magnamedia.core.Setup).getCoreParameter(T(com.magnamedia.core.entity.CoreParameter).PUBLIC_LINK_BASE)`
-  — which should fail that check on every call. Either that API is effectively dead, or the
-  blacklist is applied on a path this doesn't take. Unresolved; do not rely on either reading,
-  and steer clear of those tokens regardless.
+**1. `Contract` has no soft-delete — in *any* module. My reading of definition 27626 was the
+error, and it turned out to be a third defect in that definition.**
+
+Neither the accounting nor the client-management `Contract` declares or inherits
+`deleted`/`isDeleted`/`active`/`archived`, and neither does the shared chain
+`BaseEntityWithAdditionalInfo → BaseEntity → BaseEntityParent` (all in `magnamedia-core`). The
+copies do **not** differ here. Nor does any `contract.getDeleted()` call exist in the ERP source
+— the accounting `.getDeleted()` call sites are on unrelated unify-expense entities.
+
+So definition 27626 calls `.getDeleted()` on a `Contract` **that has no such method** — it would
+fail at runtime on that alone. Corroborated independently: of the live clientmgmt dynamic APIs
+that query `Contract`, **none filters a deleted flag**. Contracts are **hard-deleted**
+(`BaseEntity`'s `@BeforeDelete`/`@AfterDelete`, `:420/:439/:460`), so a deleted contract is
+simply not a row.
+
+⇒ **A bulk read over `Contract` needs no deleted predicate — there is nothing to filter.** If you
+mean "exclude ended contracts", that is `status` (`CANCELLED`/`EXPIRED`), a different concept.
+
+**2. The forbidden-token check is real, fires on the runtime path, and is broader than its
+intent. Definition 27626 is dead code.**
+
+- The check is **unconditional** (`:203-214`) — no flag, mode, `secured`, `canUpdate` or
+  `restricted` gate; it only skips a null/empty expression.
+- It **does** run on the stored-API runtime path:
+  `POST /dynamicApi/evaluateApi` → `DynamicApiUtil:119 → 128 → 108 → 110 → 192`. It is not
+  confined to a test/validate endpoint. (`/validateSpel` conversely does **not** call it — it
+  only parses and does the separate prohibited-*class* check.)
+- It is **absent from every write path** — `/create`, `/update`, and low-code `publishApi` never
+  call it, and the entity's `@BeforeInsert/@BeforeUpdate` only checks the
+  `restricted`/`managerResponsible` pairing.
+
+⇒ **A forbidden expression can be persisted and published successfully, and only explodes when
+someone calls it.** Definition 27626 contains `CoreParameter` twice, so on the current source
+every call throws `SecurityException` before the expression is even parsed. It is dead — and it
+carries **at least three** independent fatal defects (forbidden token, a non-existent
+`getDeleted()`, and fourteen redundant `findByUuid` executions). As a cautionary example for why
+rule 6 (read the generated `spel`) is non-negotiable, it is hard to beat.
+
+**The authoring trap** — because the guard is `String.contains`, not a type-reference check,
+`"Parameter"` is blocked **anywhere in the expression**: inside `getParameter`,
+`RequestParameter`, `parameterName`, a variable named `parameter`, even inside a string literal.
+Avoid the three literal substrings entirely; don't name anything `...Parameter...`. (It is
+case-sensitive, but do not build on that.)
 
 ## 9. Open items
 
@@ -890,8 +922,8 @@ pushes selection into the database. An id list is for ids that genuinely come fr
 | O8 | Whether the frontend/core calls `validateSpel` over HTTP | **Minor, open.** No in-repo callers exist; an HTTP caller outside these repos can't be ruled out. Doesn't change our practice — we should call it regardless. |
 | O9 | The Low-Code console `pageCode` | **CLOSED — it is `lc_docs`** (§8b). Management *reads* work under it, including reading any definition's `spel`. |
 | O10 | Whether `POST /apis/async` (create) is authorized for us | **CLOSED — no**, and established with zero side effects via `POST /admin/api-authorization/check` (§8b). Create, `test-spel`, publish and edit-by-ai all return `API_NOT_FOUND_FOR_PAGE`. Needs an `_APIS` binding, not a permission upgrade. |
-| O11 | Does `clientmgmt`'s `Contract` have a soft-delete flag? | **Open, contested** (§8b). ask-code says no; live API 27626 calls `getDeleted()` in the *accounting* copy. Resolve before trusting a bulk query's row set. |
-| O12 | `CoreParameter` in definition 27626 vs the `FORBIDDEN_SPEL_TOKENS` substring check | **Open** (§8b). One of the two readings is wrong; either that API is dead or the blacklist doesn't apply on its path. |
+| O11 | Does `Contract` have a soft-delete flag? | **CLOSED — no, in any module** (§8b), nor on the shared base chain; contracts are hard-deleted. My reading of 27626 was the error: it calls a `getDeleted()` that does not exist. A bulk read needs no deleted predicate. |
+| O12 | `CoreParameter` in definition 27626 vs the token check | **CLOSED — the definition is dead** (§8b). The check is unconditional and fires on the runtime path, so every call throws. It is absent from all write paths, which is how the row exists: **forbidden expressions persist and publish fine, then fail only when called.** |
 
 ## 10. Standing rules for us
 
@@ -903,7 +935,10 @@ list is much longer, and pretending otherwise is how a bulk API quietly becomes 
    `WorkflowType` (`SPEL`).
 2. Expect `path` and `method` to be assigned (`POST`, `/admin/dynamicApi/evaluateApi?code=`).
 3. Verify the `code` you actually got — a near-duplicate name silently becomes `…_1`.
-4. Don't reference `Parameter`, `CoreParameter` or `BackgroundTask` anywhere in an expression — a
+4. Don't let the substrings `Parameter`, `CoreParameter` or `BackgroundTask` appear **anywhere** in an
+   expression — not as a type, a method name, an identifier, or inside a string literal; the guard is
+   a naive `String.contains` (§8b), and it is checked only when the API is *called*, never when it is
+   saved. A
    substring match throws `SecurityException`. Don't target the `officestaffpayroll` module.
 5. Published APIs cannot write through core repositories. Don't design as if they could.
 

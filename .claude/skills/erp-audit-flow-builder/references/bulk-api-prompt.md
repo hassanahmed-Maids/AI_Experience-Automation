@@ -266,11 +266,11 @@ platform (ids 27626, 27629 — `work/lcp-dynamic-apis/real-examples/`).
 > would serialise a very large entity graph.
 >
 > **Filters.** Do **not** filter by status — the caller needs cancelled and expired contracts
-> too. Regarding soft deletion: **check whether the `clientmgmt` `Contract` (or its base
-> classes) actually has a `deleted`/`active`/`archived` flag.** If it does, exclude deleted rows
-> and say so explicitly in your answer; if it does not, apply no such filter and state that you
-> verified its absence. Do not assume either way — a sibling module's copy of this entity does
-> expose `getDeleted()`.
+> too. And apply **no soft-delete filter**: `Contract` has no `deleted`/`isDeleted`/`active`/
+> `archived` field in any module, and neither does its base chain
+> (`BaseEntityWithAdditionalInfo → BaseEntity → BaseEntityParent`). Contracts are hard-deleted,
+> so a missing row *is* the deletion. Do not invent a `getDeleted()` call — no such method
+> exists on `Contract`.
 >
 > **Edge cases.**
 > - An id with no matching contract is simply absent from the output — no placeholder, no error.
@@ -281,9 +281,12 @@ platform (ids 27626, 27629 — `work/lcp-dynamic-apis/real-examples/`).
 >   only when the parameter is missing entirely, matching the guard style of the existing
 >   definitions.
 >
-> **Do not reference `Parameter`, `CoreParameter` or `BackgroundTask`** anywhere in the
-> expression — those tokens are rejected at evaluation time by
-> `DynamicApiUtil.enforceSpelExpressionRestrictions`.
+> **The substrings `Parameter`, `CoreParameter` and `BackgroundTask` must not appear anywhere in
+> the expression** — not as a type, a method name, an identifier, or inside a string literal.
+> `DynamicApiUtil.enforceSpelExpressionRestrictions` is a naive `String.contains` check, so
+> `getParameter`, `RequestParameter` or a variable named `parameter` all trip it. It throws
+> `SecurityException` at **call** time, and it is absent from every save path — so a violation
+> persists and publishes cleanly and only fails when someone calls the API.
 >
 > **Before writing the expression, verify every entity, field, column, enum constant and
 > repository signature above against the current code, and cite class:line for each. If any
@@ -326,6 +329,12 @@ appears asynchronously.
 ## Reviewing what comes back — non-negotiable
 
 Nothing validated the expression, so this is the entire safety net.
+
+**Why this is not optional.** Live definition 27626 carries **three** independent fatal defects:
+a forbidden `CoreParameter` token (throws on every call), a `.getDeleted()` call on `Contract`
+where no such method exists, and fourteen redundant re-executions of `findByUuid` for one
+response. It was created, persisted and published without anything objecting. Nothing on the
+write path checks the token list, and nothing anywhere type-checks the expression.
 
 1. `GET /lowcode/apis/{apiId}` and **read the `spel` field**.
 2. Check it against the spec: right repository method, one call not a loop, scalar
