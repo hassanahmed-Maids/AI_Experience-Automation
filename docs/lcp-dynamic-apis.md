@@ -580,11 +580,34 @@ about 6.5 hours.
 
 ## 8. Our bulk use case
 
-**No precedent to copy in source.** There are **zero committed `LcApi` instances** anywhere: no
-`*.sql`, no changelogs, no seeds, no fixtures, no tests (`204 java files, 0 test dirs`). The session
-correctly refused to invent one. ⇒ *Step one of any real attempt is
-`GET /lowcode/apis/list/{appId}` against the live platform to read definitions that were actually
-accepted.*
+**Precedent exists — but not where session 44656 looked (corrected 2026-08-23, session 44664).**
+There are indeed **zero committed `LcApi` instances** in the low-code-platform repo (no `*.sql`, no
+changelogs, no seeds, no fixtures, `204 java files, 0 test dirs`). But the *runtime* entity is
+`core.entity.DynamicApi`, and there are **many** committed `DynamicApi.expression` literals, set in
+code by `SetupDynamicApis` classes across modules. **The established convention, verbatim:**
+
+```java
+// magnamedia-client-management/.../service/SetupDynamicApis.java:52
+api.setExpression("T(com.magnamedia.core.Setup).getApplicationContext().getBean(\"ccAppContentHelper\").fetchReplaceOrHireMaidVisibility(_entityId_)");
+// magnamedia-visa-processing/.../module/SetupYAYAFaqDynamicApis.java:22
+api.setExpression("!T(com.magnamedia.core.Setup).getApplicationContext().getBean('housemaidService').isEidAndPassportReceived(_entityId_)");
+```
+
+Three consequences:
+
+1. **`T(...)` is the sanctioned idiom, not a smell.** `T(com.magnamedia.core.Setup)` is not on the
+   prohibited-classes list. A blanket "reject `T(...)`" rule would reject every real dynamic API in
+   the ERP — judge a type reference by *what it names* (§6e's list), not by its presence. `@beanName`
+   also resolves (the `BeanFactoryResolver` is installed) and is used in `@Value("#{…}")` projections
+   elsewhere, but **no committed dynamic API uses it** — prefer the proven `getBean(...)` form.
+2. **`_entityId_` / `_entityType_` are referenced bare**, confirming §5: the context map is the root
+   with a `MapAccessor`, so there is no `#` prefix.
+3. **Every committed example wraps a *service/helper* bean and returns a scalar for one
+   `_entityId_`. None calls a `*Repository`, and none returns a `List`.** A bulk list-in/rows-out API
+   is therefore **a new pattern.** That's allowed, but say so when proposing one, keep the expression
+   minimal, and if it starts needing real branching, add a typed tested service method in the owning
+   module and let the expression be a one-line wrapper — matching every existing example at the cost
+   of a deploy.
 
 **One API = one module.** `moduleCode` is a single scalar
 (`interModuleConnector.call(moduleCode, "dynamicApiUtil", "evaluateApi", …)`), taken from
@@ -595,6 +618,18 @@ contracts and payroll is two APIs, not one.*
 entity list is platform-only). The table, PK, a repository method taking a collection of ids, and
 any soft-delete/status/test-data columns must be grounded in the owning ERP module via ask-code
 first — that grounding *is* the prompt.
+
+**Already done for contracts (session 44663).** Owning module `erp/magnamedia-client-management`
+(`Contract.java` is duplicated across **7 modules**; only that copy is the canonical `@Entity`);
+table `CONTRACTS`; PK column `ID`; bean `contractRepository`; and the bulk method **already exists** —
+`List<Contract> findAllByIdIn(ArrayList<Long> Ids)` (`ContractRepository.java:216`, note the concrete
+`ArrayList` parameter). `status`/`contractType` are `@Enumerated(STRING)`. **Two corrections to
+assumptions worth recording:** (1) there is **no `ContractProspectType` enum with a `MAID_VISA`
+constant** — CC/MV is a `PicklistItem` FK matched by `.getCode()`, CC = `maids.cc_prospect`,
+MV = `maidvisa.ae_prospect`; and `ContractType` holds only `LONG_TERM`/`SHORT_TERM`, unrelated to
+CC/MV. (2) `Contract` has **no soft-delete and no test/fake column at all** — rows are hard-deleted,
+so a correct query filters neither. A ready-to-paste grounded prompt, the create call and the review
+checklist live in `.claude/skills/erp-audit-flow-builder/references/bulk-api-prompt.md`.
 
 **The shape to ask for**, given everything above:
 
@@ -623,6 +658,13 @@ latency.
   call, not a loop.
 - **Entity-graph serialization** — returning entities serialises lazy graphs and triggers more
   loading; the result is Jackson-serialised raw with no DTO shaping. Projections solve this.
+- **LAZY associations outside a transaction** — the sharpest edge. `evaluateApi` is **not**
+  `@Transactional` (§5), so an expression touching a `fetch = LAZY` association risks
+  `LazyInitializationException`, and touching one per row re-introduces the N+1 you came to delete.
+  Return own-table scalars plus ids of `@ManyToOne` associations (EAGER by default); anything needing
+  a LAZY walk belongs in a repository `@Query` projection with an explicit join — a Java change, not
+  something to smuggle into a string. Worked example: `Contract.contractProspectType` is LAZY, which
+  is why CC/MV is excluded from the v1 bulk contract API.
 - **Memory / transaction scope** — no streaming, no `setMaxResults`, and `evaluateApi` isn't
   transactional, so a "return everything" expression materialises the whole result in heap.
 - **Timeout** — none client-side or server-side. Keep each call bounded. *(We hit exactly this class

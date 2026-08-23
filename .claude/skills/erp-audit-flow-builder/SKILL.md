@@ -142,7 +142,8 @@ list and returns a row per entity. The Low Code Platform can create one as
 *configuration* rather than a deployment, so this is a realistic move inside a build, not
 a quarter-long request to a backend team. Mechanism, limits and the full rule set:
 `docs/lcp-dynamic-apis.md` in the AI_Experience-Automation repo — read it before
-proposing one.
+proposing one. **How to write the prompt, plus a worked grounded example and the review
+checklist: `references/bulk-api-prompt.md`.**
 
 **Propose one when all of these hold:**
 
@@ -189,11 +190,16 @@ creation path performs no validation of it at all:
 
 - **Read the generated expression before anything depends on it.** Nothing reviewed it —
   there is no approval gate and no automatic check.
-- **Reject `T(...)`, `new`, reflection, and any bean call that isn't a read.** A
-  prohibited-classes list exists (Runtime, ProcessBuilder, System, Class, reflect.Method,
-  reflect.Field, File, FileInputStream, FileOutputStream, Files, Paths) and so does a
-  validator endpoint for it — but the validator only *reports*, and nothing invokes it
-  automatically. Run it yourself and treat any hit as a hard stop, not a warning.
+- **Judge `T(...)` by what it references, not by its presence.** The sanctioned idiom for
+  reaching a bean *is* a type reference —
+  `T(com.magnamedia.core.Setup).getApplicationContext().getBean('someBean').method(...)` —
+  and every committed dynamic API in the ERP uses it, so a blanket ban would reject the
+  convention. What must be rejected is a `T(...)` naming a **prohibited class**: Runtime,
+  ProcessBuilder, System, Class, reflect.Method, reflect.Field, File, FileInputStream,
+  FileOutputStream, Files, Paths. A validator endpoint exists for exactly this list — but
+  it only *reports*, and nothing invokes it automatically. Run it yourself and treat any
+  hit as a hard stop, not a warning. Reject `new`, reflection, and any bean call that
+  isn't a read, unconditionally.
 - **Never reference `Parameter`, `CoreParameter` or `BackgroundTask`** anywhere in an
   expression — a substring match rejects it outright.
 - **Never request a public endpoint.** It means no authentication.
