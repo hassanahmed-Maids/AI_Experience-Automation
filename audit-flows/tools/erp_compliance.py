@@ -307,7 +307,17 @@ def audit(w, canon):
     per_item = [n for n in erp_nodes if pacing.is_per_item(n) and not n.get('disabled')]
     triggers = [n.get('type') for n in nodes]
     is_subworkflow = 'n8n-nodes-base.executeWorkflowTrigger' in triggers
-    is_entry = any(t in triggers for t in ('n8n-nodes-base.webhook', 'n8n-nodes-base.scheduleTrigger'))
+    # A MANUAL-ONLY FLOW IS AN ENTRY POINT TOO, and leaving it out was a hole big enough to drive
+    # a whole check through: §4 is guarded by `if is_entry ... elif is_subworkflow`, so a flow
+    # whose only trigger is Run Manually matched NEITHER and its entire lease block was skipped
+    # in silence. CC Non Received's parent - which acquires the lease, reaches ERP through 14
+    # nodes and hands off fire-and-forget - was audited today and the tool never looked at its
+    # §4 at all. A human happened to check it by hand; nothing made that happen.
+    #
+    # Manual counts only when there is no executeWorkflowTrigger, because most sub-workflows keep
+    # a Run Manually beside their real trigger for testing, and those are sub-workflows.
+    is_entry = (any(t in triggers for t in ('n8n-nodes-base.webhook', 'n8n-nodes-base.scheduleTrigger'))
+                or ('n8n-nodes-base.manualTrigger' in triggers and not is_subworkflow))
 
     # ---- §1/§2: the numbers on each node -------------------------------------------------
     # A DISABLED NODE MAKES NO REQUESTS, so its pacing cannot fail: reporting it as a FAIL is the
@@ -593,8 +603,18 @@ def check_manifest(d, paths):
 def main(paths):
     canon = canonical_breaker_core()
     bad = 0
+    skipped = []
     for p in paths:
         w = load(p)
+        # NOT EVERY .json IN exports/ IS A WORKFLOW. The coverage contracts live there too -
+        # MANIFEST.json, instance-listing.json, instance-register.json, provenance-sweep.json -
+        # and auditing one produced a cheerful "=== PASS instance-register.json", a green verdict
+        # on a file with no nodes to be compliant about. A checker that reports PASS on something
+        # it did not check is the exact currency this project has spent all day devaluing.
+        if not isinstance(w, dict) or 'nodes' not in w:
+            print('\n--- skipped ' + os.path.basename(p) + ': not a workflow export (no "nodes")')
+            skipped.append(p)
+            continue
         name = w.get('name') or os.path.basename(p)
         fails, warns, notes = audit(w, canon)
         status = 'FAIL' if fails else ('WARN' if warns else 'PASS')
@@ -603,8 +623,9 @@ def main(paths):
         for wn in warns: print('  warn ' + wn)
         for f in fails: print('  FAIL ' + f)
         if fails: bad += 1
-    print('\n' + ('%d of %d flow(s) fail ERP-LOAD-POLICY.md' % (bad, len(paths)) if bad
-                  else 'all %d flow(s) comply with ERP-LOAD-POLICY.md' % len(paths)))
+    audited = len(paths) - len(skipped)
+    print('\n' + ('%d of %d flow(s) fail ERP-LOAD-POLICY.md' % (bad, audited) if bad
+                  else 'all %d flow(s) comply with ERP-LOAD-POLICY.md' % audited))
     return 1 if bad else 0
 
 if __name__ == '__main__':

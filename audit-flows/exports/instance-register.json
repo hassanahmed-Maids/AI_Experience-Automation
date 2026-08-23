@@ -496,7 +496,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "VERIFIED from its export 2026-08-23. 14 ERP nodes, 16 pacing violations: SIX at batchSize -1 / interval 0 (all items in one batch, unbounded concurrency), four of those per-item; eight at 5/500 = 10 req/s; two paginated sweeps with no requestInterval. No lease, no breaker, no budget gate. Live and scheduled. This is the \"golden\" several of the six were cloned from, which is where their 5/500 came from. NOT skill-built (no meta.aiBuilderAssisted)."
+      "reason": "SKILL-BUILT - verified from the payload 2026-08-23 after this row wrongly recorded the opposite. See manifest_exempt for the measured state and the scope ruling.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23, with the numbers in front of him. It IS skill-built (meta.aiBuilderAssisted; I had recorded the opposite and was wrong), it IS live and scheduled, and it is the worst ERP offender in the estate: 14 ERP nodes, SEVEN at batchSize -1 with interval 0 - n8n's explicitly-disabled batching, every item fired at once with unbounded concurrency - two paginated sweeps with no requestInterval, no lease, no breaker, no budget gate. It is also the golden several of the six were cloned from, which is where their 5/500 came from. Exempt so the decision is visible and dated, NOT because it is safe. Revisit before the next ERP incident, not after."
     },
     {
       "id": "v10m1b7dcBwS71sB",
@@ -507,7 +508,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
+      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23. Skill-built and reaches ERP, but part of the SDR audit programme rather than the six-check programme this policy was applied to - a separate body of work with its own arms, experiments and golden. Exempt so the decision is visible and dated, not because the flow is compliant. It is not."
     },
     {
       "id": "OT1m2FsqFuxWWJWp",
@@ -518,7 +520,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
+      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23. Skill-built and reaches ERP, but part of the SDR audit programme rather than the six-check programme this policy was applied to - a separate body of work with its own arms, experiments and golden. Exempt so the decision is visible and dated, not because the flow is compliant. It is not."
     },
     {
       "id": "I9KupNm36pBLBCMe",
@@ -573,7 +576,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
+      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23. Skill-built and reaches ERP, but part of the SDR audit programme rather than the six-check programme this policy was applied to - a separate body of work with its own arms, experiments and golden. Exempt so the decision is visible and dated, not because the flow is compliant. It is not."
     },
     {
       "id": "OG733y6CkJi0vyN9",
@@ -644,7 +648,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
+      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23. Skill-built and reaches ERP, but part of the SDR audit programme rather than the six-check programme this policy was applied to - a separate body of work with its own arms, experiments and golden. Exempt so the decision is visible and dated, not because the flow is compliant. It is not."
     },
     {
       "id": "5XSsAfHrxH7jpZE9",
@@ -688,7 +693,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
+      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23. Skill-built and reaches ERP, but part of the SDR audit programme rather than the six-check programme this policy was applied to - a separate body of work with its own arms, experiments and golden. Exempt so the decision is visible and dated, not because the flow is compliant. It is not."
     },
     {
       "id": "jYmwBoopFcot2IDN",
@@ -699,7 +705,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
+      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23. Skill-built and reaches ERP, but part of the SDR audit programme rather than the six-check programme this policy was applied to - a separate body of work with its own arms, experiments and golden. Exempt so the decision is visible and dated, not because the flow is compliant. It is not."
     },
     {
       "id": "zwSxrV00VE4rOSvd",
@@ -780,7 +787,8 @@
       "skill_built": "yes",
       "erp": "yes",
       "erp_verified_from_export": true,
-      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one."
+      "reason": "An ERP-touching audit check outside the six-check programme. Never covered by ERP-LOAD-POLICY.md; a candidate for a future programme, not a gap in this one.",
+      "manifest_exempt": "OUT OF SCOPE BY MOE, 2026-08-23. Skill-built and reaches ERP, but part of the SDR audit programme rather than the six-check programme this policy was applied to - a separate body of work with its own arms, experiments and golden. Exempt so the decision is visible and dated, not because the flow is compliant. It is not."
     },
     {
       "id": "H8g9m6OLVujaSfI7",
@@ -1161,5 +1169,6 @@
   "_the_rule": "A flow that the skill built AND that reaches ERP MUST be in MANIFEST.json, so erp_compliance.py --all audits it forever. tools/manifest_vs_instance.py FAILS when it is not. That is the whole tracker: not a list someone maintains out of diligence, but a rule that breaks the build.",
   "_sweep": "Provenance and ERP contact re-established from the workflow payloads on 2026-08-23 by a full sweep (exports/provenance-sweep.json), not from names. It corrected this file in two directions: it found the estate's worst ERP offender wrongly recorded as not skill-built, and four rows claiming ERP contact that make no ERP call at all. 32 of 103 workflows could not be read at all - see _unreachable.",
   "_unreachable": "32 workflows refuse get_workflow_details with 'Workflow is not available in MCP' (availableInMCP unset). They are recorded skill_built 'unreachable' rather than guessed. Seven are ACTIVE. This is a third of the estate that no checker in this repo can see, and it is the largest remaining blind spot - larger than anything the policy currently covers. Enable MCP access on a workflow's card to bring it into view.",
-  "_manifest_exempt": "Why a skill-built ERP-touching flow is legitimately absent from MANIFEST.json. The guard accepts a recorded reason and refuses SILENCE, which is the state every flow missed on 2026-08-23 was in. An exemption is a decision someone made and signed; an absent row is nobody having looked."
+  "_manifest_exempt": "Why a skill-built ERP-touching flow is legitimately absent from MANIFEST.json. The guard accepts a recorded reason and refuses SILENCE, which is the state every flow missed on 2026-08-23 was in. An exemption is a decision someone made and signed; an absent row is nobody having looked.",
+  "_scope_ruling_2026_08_23": "Moe, asked with the numbers in front of him whether 'all skill-generated flows comply' should reach the 8 newly-found ones: STOP AT THE FOUR IN FLIGHT. Travel Assist and the seven SDR flows carry manifest_exempt reasons rather than being quietly left out, so the guard is green because a decision was made and not because nobody looked. Exempt is not compliant. Every one of those eight still reaches ERP unpaced and unleased, and two of them are live."
 }

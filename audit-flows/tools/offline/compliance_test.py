@@ -506,5 +506,30 @@ ok('do not pass a literal' not in w6,
 ok('lease-held-by-caller' in nt6,
    'and the declaration it carries is still read as the exemption', nt6[:200])
 
+# --- a manual-only flow is an entry point ---------------------------------------------------
+# 2026-08-23: §4 is guarded by `if is_entry ... elif is_subworkflow`, and is_entry was webhook or
+# schedule only. A flow whose ONLY trigger is Run Manually matched neither, so its entire lease
+# block was skipped in silence - and CC Non Received's parent, which acquires the lease and
+# reaches ERP through 14 nodes, was audited with §4 never looked at. Manual counts as an entry
+# only when there is no executeWorkflowTrigger, because sub-workflows keep a Run Manually beside
+# their real trigger for testing.
+MANUAL = {'name': 'Run Manually', 'type': 'n8n-nodes-base.manualTrigger', 'typeVersion': 1,
+          'parameters': {}}
+f7, w7, nt7 = audit(
+    [MANUAL, per_item_erp('Call ERP', 'continueRegularOutput')],
+    {'Run Manually': {'main': [[{'node': 'Call ERP'}]]}})
+ok('NO ERP LEASE' in f7,
+   'a manual-only flow that reaches ERP is checked for the lease, not skipped', f7[:140])
+
+SUBTRIG = {'name': 'Called by Parent', 'type': 'n8n-nodes-base.executeWorkflowTrigger',
+           'typeVersion': 1.1, 'parameters': {}}
+f8, w8, nt8 = audit(
+    [SUBTRIG, MANUAL, DECLARER, per_item_erp('Call ERP', 'continueRegularOutput')],
+    {'Called by Parent': {'main': [[{'node': 'Expand Chunk'}]]},
+     'Expand Chunk': {'main': [[{'node': 'Call ERP'}]]}})
+ok('NO ERP LEASE' not in f8 and 'lease-held-by-caller' in nt8,
+   'a sub-workflow with a Run Manually beside its real trigger is still a sub-workflow',
+   (f8 + ' | ' + nt8)[:180])
+
 print('\n' + ('FAILED %d / %d' % (FAILN, PASS + FAILN) if FAILN else 'all %d passed' % PASS))
 sys.exit(1 if FAILN else 0)
