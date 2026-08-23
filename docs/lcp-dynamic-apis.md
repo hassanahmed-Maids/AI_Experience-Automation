@@ -25,10 +25,13 @@ verified: `erp/magnamedia-core` and `erp/magnamedia-admin`** (added to `docs/cod
    `BeanFactoryResolver` attached — `T(...)` type references, `new`, reflection and
    **arbitrary Spring beans** are all reachable. This is a remote-code-execution-shaped surface,
    mitigated by three narrow guards (§6), not by a sandbox.
-3. **The platform has a prohibited-classes validator and never calls it.** `DYNAMIC_API_PROHIBITED_CLASSES`
-   exists with a sensible 11-class default, but only the opt-in `/dynamicApi/validateSpel` endpoint
-   reads it, and that endpoint only *reports* — it doesn't throw. Nothing in create, update, publish
-   or evaluate consults it.
+3. **The prohibited-classes validator is worse than "never called" — when called, it reports
+   nothing.** `DYNAMIC_API_PROHIBITED_CLASSES` exists with a documented 11-class default, and only
+   the opt-in `/dynamicApi/validateSpel` reads it (nothing in create, update, publish or evaluate
+   does). But **verified live 2026-08-23**: `validateSpel` on
+   `T(java.lang.Runtime).getRuntime().exec("id")` returns `{"valid":true,"anyUsed":false,"usedClasses":[]}`.
+   It flags neither `Runtime` nor `Files`. It *does* correctly report syntax errors. So treat it as
+   a **syntax checker only** — a clean result is not evidence of safety. See §8c.
 4. **Writes are genuinely blocked for published APIs** — the one real, enforced guarantee. A
    published API gets `secured = true` and `canUpdate = null`, which puts SpEL in flag-on mode where
    an AOP aspect throws on repository `save`/`saveAndFlush`/`delete`. Caveats in §6.
@@ -908,6 +911,40 @@ rule 6 (read the generated `spel`) is non-negotiable, it is hard to beat.
 Avoid the three literal substrings entirely; don't name anything `...Parameter...`. (It is
 case-sensitive, but do not build on that.)
 
+## 8c. `validateSpel` — what it actually does (verified live, 2026-08-23)
+
+Reachable under `lc_docs` with **no secret required** — so this is a capability we have today,
+independent of O1 and the create binding.
+
+```
+POST /admin/dynamicApi/validateSpel        header: pageCode: lc_docs
+{"expression": "<spel>"}          ← the key MUST be `expression`; `spel` returns
+                                    400 {"valid":false,"error":"Missing 'expression' in request body"}
+```
+
+| Input | Response |
+|---|---|
+| valid expression | `{"valid": true, "anyUsed": false, "usedClasses": []}` |
+| syntax error | `{"valid": false, "position": 42, "error": "Expression [...] @42: EL1051E: Unexpectedly ran out of arguments"}` ✅ |
+| `T(java.lang.Runtime).getRuntime().exec("id")` | `{"valid": true, "anyUsed": false, "usedClasses": []}` ❌ **not flagged** |
+| `T(java.nio.file.Files).readAllBytes(null)` | `{"valid": true, "anyUsed": false, "usedClasses": []}` ❌ **not flagged** |
+| an expression containing `CoreParameter` | `{"valid": true, …}` — not flagged (expected; the token check lives only on the evaluate path, §8b) |
+| our intended `SelectQuery` + `.![…]` bulk shape | `{"valid": true, …}` — parses cleanly |
+
+`oldvalidateSpel` is a bare parse: same body, returns only `{"valid": true}`.
+
+⇒ **`validateSpel` is a SYNTAX CHECKER. It is not a security check.** Worth running on every
+expression — a syntax error caught before go-live is cheap, and nothing else parses it for you —
+but `anyUsed: false` must never be read as "this expression is safe". The `usedClasses` field
+reports nothing even for `Runtime.exec`.
+
+**This corrects an earlier version of this doc**, which told readers to "treat any
+prohibited-class hit as a hard stop". That advice was not wrong so much as vacuous: there are no
+hits to treat. Whether the cause is an unset `DYNAMIC_API_PROHIBITED_CLASSES` row (so the list is
+empty) or detection that doesn't understand `T(...)` type references is under investigation
+(O13) — but either way, **the human read of the stored `spel` is the only security review that
+exists.**
+
 ## 9. Open items
 
 | # | Item | Status |
@@ -923,6 +960,7 @@ case-sensitive, but do not build on that.)
 | O9 | The Low-Code console `pageCode` | **CLOSED — it is `lc_docs`** (§8b). Management *reads* work under it, including reading any definition's `spel`. |
 | O10 | Whether `POST /apis/async` (create) is authorized for us | **CLOSED — no**, and established with zero side effects via `POST /admin/api-authorization/check` (§8b). Create, `test-spel`, publish and edit-by-ai all return `API_NOT_FOUND_FOR_PAGE`. Needs an `_APIS` binding, not a permission upgrade. |
 | O11 | Does `Contract` have a soft-delete flag? | **CLOSED — no, in any module** (§8b), nor on the shared base chain; contracts are hard-deleted. My reading of 27626 was the error: it calls a `getDeleted()` that does not exist. A bulk read needs no deleted predicate. |
+| **O13** | **Why `validateSpel` reports no prohibited classes** | **Open, and a live safety gap** (§8c). Either `DYNAMIC_API_PROHIBITED_CLASSES` is unset so the list is empty, or the detection doesn't recognise `T(...)` type references. Worth reporting to the LCP owners either way — the check reads as protection and provides none. |
 | O12 | `CoreParameter` in definition 27626 vs the token check | **CLOSED — the definition is dead** (§8b). The check is unconditional and fires on the runtime path, so every call throws. It is absent from all write paths, which is how the row exists: **forbidden expressions persist and publish fine, then fail only when called.** |
 
 ## 10. Standing rules for us

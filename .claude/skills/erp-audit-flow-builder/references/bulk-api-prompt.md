@@ -398,8 +398,23 @@ write path checks the token list, and nothing anywhere type-checks the expressio
    and any reference to `Parameter`, `CoreParameter` or `BackgroundTask`. A
    `T(com.magnamedia.core.Setup)` bean lookup is the sanctioned convention — that one is
    expected.
-4. `POST /dynamicApi/validateSpel` and treat any prohibited-class hit as a hard stop. The
-   platform never calls this automatically; skip it and nobody checks.
+4. `POST /dynamicApi/validateSpel` — **a syntax check, not a security check.** It needs no
+   secret and works under `lc_docs`:
+
+   ```
+   POST /admin/dynamicApi/validateSpel     header: pageCode: lc_docs
+   {"expression": "<the spel>"}
+   → {"valid": true, "anyUsed": false, "usedClasses": []}
+   → {"valid": false, "position": 42, "error": "EL1051E: Unexpectedly ran out of arguments"}
+   ```
+
+   Run it — catching a syntax error before the API goes live is worth the one call, and nothing
+   else parses the expression for you. But **do not read a clean result as "safe"**: verified
+   2026-08-23, `T(java.lang.Runtime).getRuntime().exec("id")` returns
+   `valid: true, anyUsed: false, usedClasses: []`. It does not flag prohibited classes, and it
+   does not flag the forbidden `Parameter`/`CoreParameter`/`BackgroundTask` substrings either
+   (`oldvalidateSpel` is a bare parse, returning only `valid`). **Your own read of the `spel`
+   in step 2 is the security review.** There is no automated one.
 5. **Reconcile against Phase 2.** Run it on a handful of ids you already fetched
    per-contract and compare field by field. **Same ids, same values.** A bulk endpoint
    that disagrees with the single-entity route is the endpoint that's wrong — and finding
