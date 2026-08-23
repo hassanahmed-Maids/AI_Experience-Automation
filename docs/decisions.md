@@ -400,3 +400,54 @@ sentence, 10 minutes in the next; deployed value 600000 ms. Corrected to 10.
 Suites: compliance 41, fixture mutation 16, breaker 51, lease 63, population-guard 13, WF-E 62,
 WF-B evidence 48. `erp_compliance.py --all`: 6 flows, all comply; manifest coverage 6 of 16
 exported, the other 10 audited by hand or by fixture, **0 never audited**.
+
+---
+
+## 2026-08-23 (later) — the exports, and what a hand-copied one is worth
+
+`--all` covered 6 of 16 flows. The other 10 are now exported, so it covers **16 of 16, 0
+unaudited**. Getting there forced a judgment call worth recording, because the easy version of it
+would have been dishonest.
+
+**There is no API route to disk in this environment.** The n8n MCP saves a tool result to a file
+only above a size threshold; all ten of these workflows come back INLINE. No n8n credential exists
+in the env or in `.env.example`, and `get_workflow_history` returns metadata only — so there is no
+way to force a file and no way to `curl` for one. Checked all three before concluding it.
+
+**So ten exports were copied by hand out of the tool response — and that is a NEW way for the
+checker to lie.** Not stale: *wrong*. `exports/README.md` warned about staleness and had no word
+for this. Three things now bound it, and the honest part is that none of them proves the bytes
+match: `tools/export_report.py` prints the ~30 lines a verdict turns on (names, types, `onError`,
+pacing numbers, edges, which `ERP-COMPLIANCE:` tags are present, each Code body's length and hash)
+so the diff against the live fetch is short enough to actually read; `--check-js` runs
+`node --check` over every Code body, because most transcription damage is not valid JS; and the
+§5 byte-compare fails a corrupted breaker block whether the corruption came from drift or a typo.
+An undetected error would have to be valid JS, structurally intact, outside the breaker block, and
+clear of every tag.
+
+**The manifest records provenance per flow (`export: api | transcribed`) rather than burying it.**
+A green `--all` over 16 flows means something different when 10 of them rest on a copy, and the
+line that says so belongs next to the coverage claim, not in a commit message.
+
+**Reconstruction was considered and rejected, and the evidence arrived unprompted.** For Stage 2
+only a note and the node groups had changed, so rebuilding the export from the older fetch plus
+the two known edits looked equivalent to re-fetching and much cheaper. Then the Stage 4 fetch
+showed that `setNodeParameter` with a `/notes` pointer lands the text in `parameters.notes`, NOT
+at node level — which a reconstruction would have got wrong. Every flow was re-fetched.
+
+**The graph fixtures are deleted, not kept alongside.** They existed only because these flows
+could not be exported; once real exports existed, keeping both would mean two descriptions of one
+flow and one of them going stale unnoticed — the same failure the fixtures were built to avoid.
+`fixture_mutation_test.py` became `export_mutation_test.py`, mutating the real exports instead:
+30 assertions across all four sections, and it now also covers the CC sweeps and both CC delivery
+rails, which the fixtures never did. It skips loudly rather than passing when exports are absent.
+
+**Two more things the exports surfaced.** `erp_load_check.py` died with a bare `KeyError` on
+`exports/MANIFEST.json` — a file that is in that directory *by design* — so one non-workflow file
+took down every verdict in the run; it skips and says so now. And MV Stage 2's sticky note still
+read "3 concurrent with a 750ms interval" while both nodes had run 2/500 since 2026-08-20: the
+same prose-vs-reality defect this morning's audit turned into a policy rule, pointing the other
+way. Fixed before the export was taken, so the export records the corrected flow.
+
+Suites: compliance 41, export mutation 30, breaker 51, regen drift 0. `erp_compliance.py --all`:
+16 of 16, all comply.

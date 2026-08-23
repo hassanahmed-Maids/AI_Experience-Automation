@@ -5,93 +5,99 @@
     {
       "id": "uJ8UVNKdN2s5PHHA",
       "name": "WF-A  CC Below Agreed - parent",
-      "live": true
+      "live": true,
+      "export": "api"
     },
     {
       "id": "RbW2fT3b6rtqVQ9H",
       "name": "WF-Pop  CC Below Agreed - 0-Sweep Population",
       "live": true,
-      "audited_by_hand": "2026-08-23 by hand: paginated sweep, no-breaker-because declared (stops at page 1, stricter than the breaker); pacing 250ms OK; gate+lease declared"
+      "export": "transcribed"
     },
     {
       "id": "M79KcC9vaHte5Ibi",
       "name": "WF-P  CC Below Agreed - 0-Sweep Payments",
       "live": true,
-      "audited_by_hand": "2026-08-23 by hand: NOT paged - batch of one, no-breaker-because declared; gate+lease declared"
+      "export": "transcribed"
     },
     {
       "id": "D1mCMJuN9lMURJHb",
       "name": "WF-S  CC Below Agreed - 0-Sweep Statuses",
       "live": true,
-      "audited_by_hand": "2026-08-23 by hand: paginated sweep, no-breaker-because declared; pacing 250ms OK; gate+lease declared"
+      "export": "transcribed"
     },
     {
       "id": "NDk03cYGF4XSXsk5",
       "name": "WF-E  CC Below Agreed - 0-Enrich Candidates",
-      "live": true
+      "live": true,
+      "export": "api"
     },
     {
       "id": "pOa3yRIyguSyoBk4",
       "name": "WF-T  CC Below Agreed - 1-Score Batch",
-      "live": true
+      "live": true,
+      "export": "api"
     },
     {
       "id": "2LaIbHqQ1A2sEBKm",
       "name": "WF-B  CC Below Agreed - 2-Verify",
-      "live": true
+      "live": true,
+      "export": "api"
     },
     {
       "id": "yEF4BHYDZAnhBnYg",
       "name": "WF-C  CC Below Agreed - 3-Deliver",
       "live": true,
-      "audited_by_hand": "2026-08-23 by hand: no ERP nodes; success release + error rail added"
+      "export": "transcribed"
     },
     {
       "id": "7j5Z5KPvBcWRPfvy",
       "name": "CC Price by Cohort - Stage 1",
-      "live": true
+      "live": true,
+      "export": "api"
     },
     {
       "id": "bBYbpHcWMWybDQxN",
       "name": "CC Price by Cohort - Stage 2",
-      "live": true
+      "live": true,
+      "export": "api"
     },
     {
       "id": "ZJDiRTzk6uRYBJwq",
       "name": "CC Price by Cohort - Stage 3",
       "live": true,
-      "audited_by_hand": "2026-08-22 by graph fixture in tools/offline/fixtures - no ERP nodes, so section 4 is its whole audit"
+      "export": "transcribed"
     },
     {
       "id": "9jOMFEC2zEWy2RHM",
       "name": "MV Monthly Payment - 0-Sweep Population",
       "live": false,
-      "audited_by_hand": "2026-08-23 re-audit, then checked via tools/offline/fixtures/mv-stage0-graph.json: fixed a declared-but-unimplemented pacing (batchSize 1, no interval) and moved the breaker exemption onto the projection node. DRAFT, never published."
+      "export": "transcribed"
     },
     {
       "id": "IKRXhIco1mwxrcPq",
       "name": "MV Monthly Payment - 1-Population",
       "live": false,
-      "audited_by_hand": "2026-08-23 re-audit, then checked via tools/offline/fixtures/mv-stage1-graph.json: error-path lease release + re-throw added (was the standing outstanding item), breaker exemption on the cohort projection. DRAFT, never published."
+      "export": "transcribed"
     },
     {
       "id": "CopNHNsXUzFO59bW",
       "name": "MV Monthly Payment - 2-Score chunk",
       "live": false,
-      "audited_by_hand": "2026-08-23 re-audit, then checked via tools/offline/fixtures/mv-stage2-graph.json: breaker exemption on Score Contract Month, stale pacing label corrected. Pacing was already 2/500. DRAFT, never published."
+      "export": "transcribed"
     },
     {
       "id": "Z9fTvmaM526eYofe",
       "name": "MV Monthly Payment - 3-Deliver",
       "live": false,
-      "audited_by_hand": "2026-08-23 re-audit by reading: no ERP node, no lease call, no sub-workflow call - every section of the policy is vacuous. No fixture, nothing to check. DRAFT, never published."
+      "export": "transcribed"
     },
     {
       "id": "9T91z5VFH5g69WyT",
       "name": "MV Monthly Payment - 4-Verify findings",
       "live": false,
-      "audited_by_hand": "2026-08-23 re-audit, then checked via tools/offline/fixtures/mv-stage4-graph.json: pacing interval, error rail, the missing breaker, and a budget gate on the standalone re-verify webhook that the fixture found and reading had missed. DRAFT, never published."
+      "export": "transcribed"
     }
   ],
-  "_hand": "audited_by_hand records a manual audit where no export exists yet. It is NOT a substitute for one: only an export lets --all re-check the flow when the canonical breaker or a rule changes, which is how drift is caught. Where a line names a graph fixture under tools/offline/fixtures/, erp_compliance.py has actually been run - against a hand-transcribed graph, so it proves the checker's verdict on the flow as described, not that the deployment matches. tools/offline/fixture_mutation_test.py keeps those fixtures honest."
+  "_export_field": "How each export got here, because it changes what a green run means. 'api' = the n8n MCP returned the workflow to a file and it was copied verbatim. 'transcribed' = the MCP returned it INLINE (small workflows are not auto-saved) and no n8n API credential exists in this environment, so it was copied by hand from that response. A transcribed export is faithful-but-manual: it can be WRONG in a way a stale one cannot. Three things bound that - tools/export_report.py diffed against the live fetch, its --check-js pass over every Code node body, and the breaker byte-compare - and none of them proves the bytes match. Re-export any transcribed flow the moment a real API route exists."
 }

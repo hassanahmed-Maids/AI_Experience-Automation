@@ -6,8 +6,9 @@ publish" by their own author, so nothing here is live traffic.
 - **First audit 2026-08-20** — by reading, because the flows could not be exported to disk.
 - **Re-audit 2026-08-23** — against the rules tightened since (error-path lease release,
   node-scoped breaker exemptions, `lease_mode` read from the call, disabled-node handling), and
-  this time **run through `erp_compliance.py`** against hand-transcribed graph fixtures in
-  `tools/offline/fixtures/`.
+  this time **run through `erp_compliance.py`**. First against hand-built graph fixtures, then —
+  once all five were exported later the same day — against the real exports, which retired the
+  fixtures entirely.
 
 | stage | id | 2026-08-23 verdict |
 |---|---|---|
@@ -17,9 +18,14 @@ publish" by their own author, so nothing here is live traffic.
 | 3-Deliver | `Z9fTvmaM526eYofe` | **clean, still** — no ERP node, no lease call, no sub-workflow call; every section is vacuous |
 | 4-Verify findings | `9T91z5VFH5g69WyT` | fixed — pacing, error rail, a **missing breaker**, and a **missing budget gate** |
 
-`erp_compliance.py` now reports PASS for all four fixtures, and
-`tools/offline/fixture_mutation_test.py` breaks each fixed property in turn (16 assertions) so a
-green run means something.
+`erp_compliance.py --all` now covers **16 of 16 flows in the manifest, 0 unaudited**, and
+`tools/offline/export_mutation_test.py` breaks each fixed property in turn against the real
+exports (30 assertions) so a green run means something.
+
+**The five MV exports are hand-transcribed**, because the n8n MCP returns a small workflow inline
+rather than to a file and this environment holds no n8n API credential. `MANIFEST.json` records
+that per flow as `export: transcribed`, and `exports/README.md` says exactly what that does and
+does not prove. It is a standing debt, not a footnote.
 
 ## What the re-audit found that reading had not
 
@@ -152,15 +158,18 @@ reason it was found at all. `num()` now parses what is parseable and `unreadable
 the rest, and an expression-valued pacing field is a **FAIL**, not a silent pass. Pinned by a
 regression in `tools/offline/compliance_test.py` (41 assertions).
 
-**A fixture that passes proves nothing until you break it.** `tools/offline/fixture_mutation_test.py`
-breaks each property these fixtures claim to test — the two intervals, the four breaker
-exemptions, both rails, both re-throws, the gate — and requires the checker to notice. 16/16.
+**A green run proves nothing until you break it.** `tools/offline/export_mutation_test.py` breaks
+each property this audit fixed — the pacing intervals, every breaker exemption, all four error
+rails, the re-throws, both budget gates — against the real exports, and requires the checker to
+notice. 30/30. A checker that silently stopped looking is also green.
 
 ## Outstanding
 
-1. **No export, so `--all` still cannot re-check these five.** The fixtures prove the checker's
-   verdict on the flow *as transcribed*; only an export proves the deployment matches. Recorded in
-   `exports/MANIFEST.json` as `audited_by_hand`, which is deliberately not the same as covered.
+1. **The five MV exports are transcribed by hand, not fetched to a file.** `--all` now covers
+   them, but a transcribed export can be wrong in a way a stale one cannot. Bounded by
+   `export_report.py` (structural diff against the live fetch), its `--check-js` pass, and the
+   breaker byte-compare — none of which proves the bytes match. Re-export the moment an n8n API
+   route exists.
 2. **Nothing here has been smoke-tested.** These flows are DRAFT and marked UNTESTED by their own
    author. Everything above is structurally sound and unexercised — including the new rails, which
    by construction only run on a path nobody has taken.
