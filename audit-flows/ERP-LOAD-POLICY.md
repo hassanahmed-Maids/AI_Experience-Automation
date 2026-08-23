@@ -1,5 +1,8 @@
 # ERP load policy for audit flows
 
+> **What is left to do, and how to execute it:** `REMEDIATION-PLAN.md`. This file is the
+> policy; that one is the backlog, with a preflight, three tracks and a definition of done.
+
 **Status: binding on every audit flow, existing and future.** Agreed with Hassan 2026-08-20
 after ERP was brought down three times by audit traffic.
 

@@ -583,3 +583,36 @@ were `//` lines, but the weakness is real and now recorded next to the run comma
 tools/doc_check.py` is the answer, it runs over every `.md` in the tree, and it distinguishes a
 missing file from one a doc deliberately says is missing (so the honest sentence "X does not exist"
 does not itself fail the check and get deleted to make the tool green).
+
+---
+
+## 2026-08-23 — the backlog gets a file, and `doc_check.py` earns itself twice in an hour
+
+`audit-flows/REMEDIATION-PLAN.md`. Everything left, written so a session can execute it without
+asking: a preflight that must run first, **Track A** (no decisions, no ERP), **Track B** (two
+behaviour changes, each with a stated default and what would make that default wrong), **Track C**
+(blocked on ERP reactivation), the verified-deploy protocol, the eight traps this programme has paid
+for, and a definition of done.
+
+**Why tracks rather than a list.** The blocker is not effort, it is that the ERP accounts have been
+deactivated since execution 94355, so *every fix since 2026-08-20 is structurally verified and has
+never run* — including all four error rails, which by construction only execute on a path nobody has
+taken. A flat list hides that; three tracks make it the first thing a reader sees.
+
+**The two defaults, stated rather than deferred.** The canary chunk ships by default: it is §5
+blast-radius control on the flow that makes ~11,264 ERP calls a run, and without it an already-
+failing ERP absorbs 1,500 more calls before the breaker can speak. `merge_agent_verdicts.js` does
+not: its core fix is unambiguous, but the file itself flags that `'JUSTIFIED'` is absent from the
+Verdict Schema enum, so the cap makes `Agent Justified` unreachable through the model path. That is
+fail-safe and it changes what the check reports — Moe's call, and it gates WF-B's rail blind spot,
+because routing model failures into a merge that does not yet fail closed would turn an outage into
+silent clearances.
+
+**`tools/doc_check.py` caught two bad citations in the plan on the first run** — `wf-e/...` and
+`wf-b/...` written as if relative to the repo root when they live under `cc-below-agreed/`. Same
+class of error as the three "missing" tools an hour earlier, same tool, caught in seconds this time
+instead of propagating into four documents. That is the whole argument for it existing.
+
+Suites: compliance 48, export mutation 30, breaker 51, regen drift 0, seam check 0 dangling / 0
+mismatches across 16, load check 0 violations, doc check 86 citations / 0 missing.
+`erp_compliance.py --all`: 16 of 16.
