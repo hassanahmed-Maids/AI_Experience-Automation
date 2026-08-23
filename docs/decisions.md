@@ -777,3 +777,49 @@ Suites: compliance 50, export mutation 30, breaker 51, regen drift 0 across 15 e
 dangling across 22, load check 0 violations, doc check 96 citations / 0 missing, check-js clean.
 Every deployed body byte-compared against its repo source; the compare earned itself again by
 catching a comment rewrap made in a deploy call but not in the repo copy.
+
+## 2026-08-23 (later still) — the manifest gets a guard, and it immediately finds five more
+
+**`tools/manifest_vs_instance.py`.** Every checker in this project reads a set of exports, and
+that set had been built three different ways in one day, each narrower than reality: the exports
+directory, then the `audit: *` tag set, then "the checks Moe named". A green suite over an
+incomplete list is the failure this whole programme exists to prevent, reappearing one level up.
+
+**The fix is a shape, not a list.** The guard requires a disposition for EVERY workflow in the
+instance — a total function over `exports/instance-listing.json`, which is the only list in the
+repo built from the instance rather than from a tag or a directory. It fails on a workflow nobody
+has classified, on one whose `updatedAt` moved since it was classified (a reporting flow can grow
+an ERP node), on any disagreement with `MANIFEST.json` in either direction, and on a skill-built
+ERP-touching flow the manifest does not list. Five mutation tests pin those failure modes. A new
+workflow cannot slip past by not being interesting to anyone, which is precisely how the previous
+three lists failed.
+
+**It found five on the first run.** Moe asked whether all skill-generated flows are paced and
+leased. The answer was no, and nothing in the repo could have told us: **CC Overstay Fines**, **MV
+Overstay Fines**, **CC Non Received — generated v1**, **CC Non Received · 2-Verify** (LIVE) and
+**CC Non Received · 3-Deliver**, all carrying `meta.aiBuilderAssisted` / `builderVariant: mcp`,
+none of them ever brought to the policy. CC Non Received's parent still runs three nodes at
+**batchSize 15** — the exact drifted setting this policy was written about. Four are being
+remediated by subagents, one per flow; 3-Deliver needs nothing, being Sheets-only.
+
+**The tracker that should have existed.** `skill_built` is now a first-class field on every
+register row, decided by `meta.aiBuilderAssisted` and never by the name, the tag or the creation
+date — "CC Overstay Fines — generated v1" and "Applicant Real Ticket Refund Audit" are both audit
+checks with similar names and only the first came from the skill. The rule is **skill-built +
+reaches ERP ⇒ must be in MANIFEST.json**, enforced by the guard. The skill now has a "Register the
+flow" step as the last thing it does, and the policy has it as enforcement requirement 7. A rule
+that breaks the build, not a list someone keeps up to date out of diligence — diligence is what
+ran out the last five times.
+
+**The residual, stated rather than implied.** 27 ERP-touching audit checks exist outside the
+six-check programme, 11 of them active, and the policy has never been applied to any of them.
+The sharpest is **Travel Assist Payments Audit** — live, scheduled, **16 pacing violations**, six
+nodes at `batchSize: -1` with interval 0 (every item at once, unbounded concurrency), no lease, no
+breaker, no gate. It is also the "golden" several of the six were cloned from, which is where
+their 5/500 came from. Not skill-built, so out of scope by Moe's ruling; recorded because
+"out of scope" and "safe" are different words and the estate deserves the honest one.
+
+**The register was being gitignored.** `exports/*.json` was ignored with one exception for
+`MANIFEST.json`, and the new listing and register landed inside that rule. A coverage contract
+that lives only in a container is not a contract; the ignore now carries four exceptions and says
+why.

@@ -433,6 +433,25 @@ replacement phase fires, scattered 502s trip on rate.
 | §5 circuit breaker | **built + tested** (`tools/erp_breaker.js`, 41 + 62 assertions, 8/8 mutations) — *embedded in WF-E in the repo, not yet deployed* |
 | §6 phase 2 ERP Gateway | **not built** |
 
+### The checker only covers what someone remembered to list — until 2026-08-23
+
+Every checker in this policy reads a set of exports. That set was built three different ways and
+each was narrower than reality: the exports directory (missed six flows), then the `audit: *` tag
+set (missed three, one of them the worst-paced flow in the estate), then "the checks Moe named"
+(missed five that this skill had built). **A green suite over an incomplete list is the failure
+mode this whole document exists to prevent, reappearing one level up.**
+
+`tools/manifest_vs_instance.py` closes it by requiring a disposition for **every workflow in the
+instance** — a total function, not a list of interesting ones. It fails on a workflow nobody has
+classified, on one that changed since it was classified, on any disagreement with `MANIFEST.json`
+in either direction, and on a skill-built ERP-touching flow the manifest does not list. Run it
+beside `erp_compliance.py --all`; the second one's green means nothing without the first.
+
+It also states the residual rather than implying none: as of 2026-08-23 there are **27
+ERP-touching audit checks outside the six-check programme, 11 of them active**, that this policy
+has never been applied to. They are out of scope, not compliant, and the difference is now
+written down.
+
 **Phase 1 (now): every flow enforces it, and a static checker proves it.**
 `tools/erp_load_check.py` reads deployed workflow JSON and fails on any ERP node that exceeds
 concurrency, lacks pacing, lacks a timeout, or paginates without an interval. Run it before
@@ -500,6 +519,7 @@ because a second audit started ten minutes later.
 | 5 | lease acquire before the first ERP call, release on the success path | Execute Sub-workflow → `9gVijqvtLVEhQZXz` | `tools/erp_compliance.py` |
 | 5b | **an error-path release that re-throws**, in every stage that holds the lease | `onError: continueErrorOutput` → release → `throw` | `tools/erp_compliance.py` |
 | 6 | the acquire passes `no_wait: true` and the flow re-invokes itself on `queued` | Retry Entry + Normalize Entry + Build Retry Payload + Re-queue Self | by reading the flow — see `cc-price/README.md` |
+| 7 | **every flow this skill builds that reaches ERP is in `MANIFEST.json`**, so `--all` audits it forever | `exports/instance-register.json` (`skill_built: yes`) | `tools/manifest_vs_instance.py` |
 
 **Requirement 5b is not a second copy of 5 — the two paths are different rails, and conflating
 them is what let all three CC Price stages strand the lease while the checker said PASS.** On

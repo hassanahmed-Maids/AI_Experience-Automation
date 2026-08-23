@@ -334,6 +334,36 @@ the checker looks for — a declared exemption is visible to the next reader; a 
 blind spot, and this project has already watched a green suite hide a whole misfiled review
 queue.
 
+### Register the flow, or it will not stay compliant
+
+**The last step of building any flow is putting it in the register. Not optional, not later.**
+
+On 2026-08-23 an audit of this skill's output found **five flows the skill had built that nobody
+knew were outside the compliance programme** — two Overstay Fines drafts, and the whole CC Non
+Received chain, one of them live. They were not hidden. Nothing was tracking what the skill
+produced, so the only lists that existed were built from the exports directory, then from the
+`audit: *` tags, then from "the checks Moe named" — and each of those was narrower than reality
+in a different direction. A flow the skill builds is compliant on the day it is built and drifts
+out of view the moment attention moves on, unless something structural holds on to it.
+
+Two files, both under `audit-flows/exports/`:
+
+| file | what you add |
+|---|---|
+| `instance-register.json` | a row: `id`, `name`, `active`, `judged_at_updatedAt`, `disposition`, `skill_built: "yes"`, `erp`, `erp_verified_from_export: true`, `reason` |
+| `MANIFEST.json` | the flow, **if it reaches ERP** — this is what puts it under `erp_compliance.py --all` |
+
+Then run `python3 tools/manifest_vs_instance.py`. It **fails** on a skill-built ERP-touching flow
+that is not in the manifest, and it fails on any workflow in the instance with no register row —
+so a new flow cannot slip past by not being interesting to anyone. That failure is the point: the
+tracker is a rule that breaks the build, not a list someone keeps up to date out of diligence.
+Diligence is what ran out the last five times.
+
+`skill_built` is decided by `meta.aiBuilderAssisted` + `meta.builderVariant: "mcp"` in the
+workflow's own payload — never by the name, the tag or the creation date. "CC Overstay Fines —
+generated v1" and "Applicant Real Ticket Refund Audit" are both audit checks with similar names;
+only the first came from this skill, and only the first is this skill's problem to keep compliant.
+
 ## Phase 6 — Test end to end
 
 Goal: evidence it works, produced by you and not requiring the human to run anything.

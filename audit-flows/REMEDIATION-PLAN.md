@@ -34,6 +34,7 @@ cd audit-flows
 #    provenance in MANIFEST.json (export: api | transcribed).
 # 2. Then, in order:
 python3 tools/erp_compliance.py --all          # policy: expect 22 of 22, 0 unaudited
+python3 tools/manifest_vs_instance.py          # the manifest vs the INSTANCE, not vs exports/
 python3 tools/erp_load_check.py exports/*.json # pacing on live nodes
 python3 cc-below-agreed/tools/seam_check.py exports/*.json   # dangling refs + wire mismatches
 python3 tools/doc_check.py                     # every path a doc cites actually resolves
@@ -84,12 +85,19 @@ in ignorance of it.
 - **A0.4 — cut Real Tickets over.** The rebuild now passes; the live predecessor still runs at
   50 req/s with an unpaced HTTP loop inside a Code node. Cutting over retires all of that at once.
   Moe's call, not a compliance task.
-- **A0.5 — guard the manifest against the instance.** Still open, and still the right fix: the
-  manifest stops `--all` going green over a subset of `exports/`, but nothing stopped the export
-  list going green over a subset of the instance. `MANIFEST.json` carries a `_scope` field naming
-  the six checks and the two out-of-scope predecessors, but a field is a note, not a check. Write
-  the sweep: list every workflow, flag any that references `erpbackendpro.maids.cc` and is absent
-  from the manifest, and fail.
+- **A0.5 — guard the manifest against the instance. DONE.** `tools/manifest_vs_instance.py`,
+  backed by `exports/instance-listing.json` (every workflow the instance holds) and
+  `exports/instance-register.json` (a disposition for every one of them). It is a TOTAL function
+  over the instance, not a list of interesting flows — which is the only shape that cannot repeat
+  the mistake, and it fails on a workflow with no disposition, on one that changed since it was
+  judged, on any disagreement with `MANIFEST.json` in either direction, and on **a skill-built
+  ERP-touching flow the manifest does not list**. Five mutation tests pin those failure modes.
+
+  Running it immediately found what the earlier lists could not: **five flows this skill built
+  that were outside the compliance programme entirely** — CC and MV Overstay Fines, and the whole
+  CC Non Received chain including a live stage. It also put a number on the residual: 27
+  ERP-touching audit checks outside the programme, 11 of them active, that the load policy has
+  never been applied to.
 - **First real runs.** Every fix here is structurally verified and has never executed — see
   Track C. `tools/erp_runtime_estimate.py` says a full serialised pass over all six checks is
   roughly 17 h at 1 s mean ERP latency, of which MV Monthly Payment is 10 h.

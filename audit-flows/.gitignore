@@ -1,2 +1,12 @@
+# Exports are refreshed from n8n, not committed: they are large, they hold full node bodies, and
+# a committed copy gets read as current long after it stopped being. See exports/README.md.
 exports/*.json
+
+# ...but these four are NOT exports. They are the coverage contracts, and a contract that lives
+# only in a container is not a contract. Losing them loses the answer to "which flows must be
+# audited" and "which flows did the skill build" - the two questions whose absence let five
+# skill-built flows sit outside the compliance programme until 2026-08-23.
 !exports/MANIFEST.json
+!exports/instance-listing.json
+!exports/instance-register.json
+!exports/provenance-sweep.json
