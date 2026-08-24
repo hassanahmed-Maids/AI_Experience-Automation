@@ -79,3 +79,31 @@ that loops for ever in the second case.
 
 Regenerate the ops with `python3 tools/make_capture_failure_ops.py <export>` and redeploy. Listed
 here rather than left to be discovered, because a wrong diagnostic is worse than none.
+
+### CORRECTION, 2026-08-24 — "the other twelve run v2" IS NOT TRUE
+
+`ZJDiRTzk6uRYBJwq` (CC Price Stage 3) was fetched fresh from n8n today and its deployed
+`Capture Failure` is **v1**, not v2. It carries none of v2's machinery: no `statusCode`
+extraction, no JSON unwrap, no Whitelabel-HTML `<div>` extraction, no `<LOGOUT>` shape. It is
+literally
+
+```js
+const message = typeof raw === 'string' ? raw
+              : String((raw && raw.message) || item.message || 'unknown error');
+```
+
+and **an n8n HTTP error item has no `error.message`** - the text lives in `error.error`. So every
+HTTP failure on that rail reports `unknown error`, which is the exact defect v2 existed to fix.
+
+That matters more here than almost anywhere else: this flow's own `Fail Loudly` says DELIVERY
+REFUSED is a **designed** outcome, so this rail is not exotic - it fires whenever the Cases table
+is short of the population.
+
+**How many others are on v1 is UNKNOWN, and the exports in this directory cannot answer it.** All
+ten local exports carrying a `Capture Failure` read v1, including `aTmGMAlYLwsJQ7js`, which
+demonstrably has v3 deployed. So those files simply predate the rollout and say nothing about the
+instance. The only honest way to establish the real state is to fetch each flow from n8n and
+classify the deployed body - not to read this directory and not to trust the paragraph above.
+
+The lesson is the one already written at the top of this file: **a stale export is one way this
+checker lies.** It lied about this.
