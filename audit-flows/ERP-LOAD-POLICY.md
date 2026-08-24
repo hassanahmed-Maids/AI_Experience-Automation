@@ -121,7 +121,13 @@ execution 89604 died at 94m44s. Two consequences follow, and both are intended:
   load argument, not a tidiness one: half of `cc-below-agreed`'s enrichment calls are
   `401 INSUFFICIENT_PERMISSIONS` on an account without it (PROBE-RESULTS #6/#13). Granting it —
   or skipping the read when the account lacks it — removes ~5,632 calls and **~23 minutes of
-  ERP time per run**.
+  ERP time per run**. **Done 2026-08-24** — WF-E now probes the grant once per
+  chunk and skips the phase when it is refused, taking a denied run from ~5,632 refused
+  replacement calls to **9**. See §5.
+
+  The general rule underneath it is cheaper than every other lever in this file: **a refusal that
+  is fixed for the whole run should be discovered once, not once per entity.** Pacing, budgets and
+  the breaker all bound calls that might have worked. This bounds calls that provably cannot.
 
 ---
 
@@ -518,6 +524,42 @@ opts out of the wall only — 5xx, 429, timeouts, rate and latency all still tri
 rather than hidden in the code that did it. **The better fix for that flow is not a breaker
 setting**: probe the grant once per run and skip the phase, turning ~5,632 refused requests into
 one. That is a flow change and it is open.
+
+#### BUILT 2026-08-24, and the "into one" needed a correction
+
+`NDk03cYGF4XSXsk5` now gates the phase: `Project Plan -> Probe Replacements Grant` (one call,
+`executeOnce`) `-> Restore Chunk Items -> Replacements Granted?`, true to `Fetch Replacements`,
+false to a new `Skip Replacements`. Published and live.
+
+**It is once per CHUNK, not once per run — ~5,632 refused calls become 9, not 1.** WF-E is a
+sub-workflow invoked once per chunk and separate executions share no memory, so a WF-E-only probe
+cannot be a per-run probe. At the default chunk size of 750, a 5,632-candidate cohort is a
+50-candidate canary plus eight chunks = **nine executions**. That is a **99.84%** cut and it is
+worth stating exactly, because "into one" is the number the paragraph above prints and it is not
+reachable without WF-A probing and passing a flag down — a separate change, deliberately not made.
+
+**The opt-out above is KEPT, deliberately.** The probe removed the everyday full-denial batch —
+that node is no longer reached at all on a denied account — but not the case a probe cannot cover:
+the grant answering the probe 200 and then refusing the batch behind it. All three conditions
+still hold there, and the probe re-runs per sub-execution, so a mid-run revocation is re-detected
+by the next chunk and every chunk after it skips. The blast radius of not tripping is one chunk,
+which is the bound the wall itself would have given.
+
+**The part that had to not go wrong.** `Skip Replacements` emits `Project Replacements`' exact
+output shape AND still declares the gap: `_replacement_permission_denied` equals **the number of
+contracts that were not attempted**, never 0, and `replacements_meta.fetch_failed` stays `true` so
+gate 7 still reports coverage as capped. Trading ~5,632 wasted calls for a false all-clear would
+be the execution-100409 shape; the offline suite pins it by running both paths over the same chunk
+and asserting every counter, every `replacements_meta` field gate 7 reads and the whole top-level
+key set are identical. A probe answering 5xx/404 is `inconclusive` and **runs the phase anyway** —
+a transient must never read as a missing grant. A dead token throws.
+
+The new `Restore Chunk Items` carries an `ERP-COMPLIANCE: no-breaker-because` ruling: it reads a
+batch of ONE and not one of the four thresholds above can fire on it (5 consecutive, 20 samples,
+5 refusals, and a latency baseline taken from ≥200 calls). A breaker there could only ever return
+"nothing tripped".
+
+Full write-up: `cc-below-agreed/wf-e/README.md`.
 
 Tests: `tools/offline/auth_wall_test.js` — **70 assertions**, fixtures copied verbatim out of
 executions 100522 and 93601, including the negative cases (a transient 503 never reaches the

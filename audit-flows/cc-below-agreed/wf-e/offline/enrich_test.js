@@ -10,6 +10,8 @@ const D = path.join(__dirname, '..');
 const READ = fs.readFileSync(path.join(D, 'nodes', 'read_chunk.js'), 'utf8');
 const PLAN = fs.readFileSync(path.join(D, 'nodes', 'project_plan.js'), 'utf8');
 const REPL = fs.readFileSync(path.join(D, 'nodes', 'project_replacements.js'), 'utf8');
+const RESTORE = fs.readFileSync(path.join(D, 'nodes', 'restore_chunk_items.js'), 'utf8');
+const SKIP = fs.readFileSync(path.join(D, 'nodes', 'skip_replacements.js'), 'utf8');
 const CHUNK = fs.readFileSync(path.join(D, 'wfa', 'chunk_candidates.js'), 'utf8');
 const JOIN = fs.readFileSync(path.join(D, 'wfa', 'join_enrichment.js'), 'utf8');
 
@@ -450,6 +452,214 @@ console.log('\n--- circuit breaker, in place ---');
     'scattered failure that never reaches five in a row still trips, on rate',
     'of 60 responses were 5xx');
 }
+
+
+// =========================================================================================
+// THE CLIENTREPLACEMENT GRANT PROBE AND THE SKIP PATH (added 2026-08-24).
+//
+// `Fetch Replacements` used to be called once per candidate on an account that is refused every
+// single time - ~5,632 requests per run, all of them known to fail before they were sent. The
+// phase is now gated by ONE probe per sub-execution:
+//
+//   Project Plan -> Probe Replacements Grant (executeOnce) -> Restore Chunk Items
+//                -> Replacements Granted? --true--> Fetch Replacements -> Project Replacements
+//                                        \--false-> Skip Replacements
+//
+// What these cases pin, in order of how expensive getting them wrong would be:
+//   1. THE DECLARED GAP SURVIVES. A skipped chunk reports the SAME permission-denied count a
+//      fully refused chunk reports - the number of contracts that were not attempted. Trading
+//      5,632 wasted calls for a false all-clear would be a bad deal; this is the assertion that
+//      says the deal was not made.
+//   2. The fan-out is restored: 750 items go into Fetch Replacements, not the single probe item.
+//   3. An inconclusive probe RUNS the phase. A transient must never read as a missing grant.
+//   4. A dead token still throws, and is never reported as a permission gap.
+// =========================================================================================
+console.log('\n--- the grant probe and the skip path ---');
+
+function probeRun(probeResponses, n, chunkIndex) {
+  const chunkItems = run(READ, [{ json: { bearer: BEARER, cases: cand(n),
+                                          chunk_index: chunkIndex === undefined ? 3 : chunkIndex,
+                                          run_id: 'run-probe' } }], {}).out;
+  const planItems = run(PLAN, cand(n).map(function () { return { json: planResp(5712) }; }),
+    { 'Read Chunk': chunkItems }).out;
+  const nodes = { 'Read Chunk': chunkItems, 'Project Plan': planItems };
+  const list = Array.isArray(probeResponses) ? probeResponses : [probeResponses];
+  return { nodes: nodes, planItems: planItems,
+           restored: run(RESTORE, list.map(function (j) { return { json: j }; }), nodes) };
+}
+const GRANTED_PROBE = replResp([{ replacementDate: '2026-06-26', oldHousemaid: { id: '1', label: 'A' },
+                                  newHousemaid: { id: '2', label: 'B' } }]);
+const DENIED_PROBE = n8nError(401, '401 - {"developermessage":"INSUFFICIENT_PERMISSIONS"}');
+
+// ---- 1. the probe is answered YES: nothing about today's behaviour changes ---------------
+{
+  const p = probeRun(GRANTED_PROBE, 12);
+  ok(p.restored.out.length === 12,
+     'a granted probe hands back one item per candidate - the fan-out Fetch Replacements needs');
+  ok(p.restored.out.every(function (i) { return i.json._replacements_granted === true; }),
+     'every restored item carries the grant verdict, so the IF routes the whole chunk together');
+  ok(p.restored.out[5].json.contract_id === p.planItems[5].json.contract_id &&
+     p.restored.out[5].json.plan && p.restored.out[5].json.plan.expected_amount_known === true,
+     'the restored items are Project Plan\'s items, in order, with the plan delta intact');
+  ok(p.restored.log.probe_verdict === 'granted' &&
+     p.restored.log.replacement_calls_this_chunk_will_make === 12,
+     'the log states the verdict and what the chunk is about to spend');
+}
+
+// ---- 2. the probe is REFUSED: the phase is skipped and the gap is declared ---------------
+{
+  const N = 40;
+  const p = probeRun(DENIED_PROBE, N);
+  ok(p.restored.out.every(function (i) { return i.json._replacements_granted === false; }),
+     'a refused probe routes the whole chunk down the skip path');
+  ok(p.restored.log.probe_verdict === 'denied' && p.restored.log.replacement_calls_avoided === N,
+     'the log names the refusal and the calls it just avoided', JSON.stringify(p.restored.log));
+
+  const sk = run(SKIP, p.restored.out, p.nodes);
+  const out = sk.out[0].json;
+
+  // ------------------------------------------------------------------ THE PIN THAT MATTERS
+  ok(out._replacement_permission_denied === N,
+     'THE DECLARED GAP: the skipped chunk reports ' + N + ' permission-denied contracts - the ' +
+     'number NOT ATTEMPTED - not 0, which would read downstream as a complete run',
+     'got ' + out._replacement_permission_denied);
+  ok(out._replacement_fetch_failures === N && out._candidates === N && out.enriched.length === N,
+     'every candidate comes back, and every one of them is declared unread');
+  ok(out.enriched.every(function (e) {
+       return e.replacements_meta.fetch_failed === true &&
+              e.replacements_meta.permission_denied === true &&
+              e.replacements_meta.token_dead === false &&
+              Array.isArray(e.replacements) && e.replacements.length === 0; }),
+     'each case carries fetch_failed AND permission_denied, so coveredDays() reports coverage ' +
+     'UNKNOWN rather than walking an empty history as "no maid change"');
+  ok(out.enriched.every(function (e) { return e.replacements_meta.not_attempted === true; }),
+     'the skip is legible: not_attempted separates "we did not ask" from "we were refused"');
+  ok(out._replacement_phase_skipped === true && out._replacement_skip.calls_avoided === N,
+     'the run log can say how many ERP calls this chunk did not make');
+  ok(out._chunk_index === 3,
+     'the chunk index is carried, so a skipped chunk is still identifiable in the run log');
+  ok(sk.log.permission_denied === N && sk.log.replacement_calls_made === 0,
+     'the stage log declares the same gap and states that zero calls were made');
+}
+
+// ---- 3. the skip output is INDISTINGUISHABLE from a fully refused chunk ------------------
+// This is the same claim as above, made the only way that really settles it: run both paths
+// over the same chunk and compare what WF-A receives, field by field. If these two ever diverge,
+// a denied account starts scoring differently depending on whether the calls were made - which
+// is precisely what must not happen.
+{
+  const N = 25;
+  const denials = [];
+  for (let i = 0; i < N; i++) denials.push(n8nError(401, 'INSUFFICIENT_PERMISSIONS'));
+  const refused = replRun(denials, N).out[0].json;
+
+  // Same chunk index as replRun uses, because _chunk_index is one of the compared fields and a
+  // difference there would be an artefact of the fixture rather than of the two paths.
+  const p = probeRun(n8nError(401, 'INSUFFICIENT_PERMISSIONS'), N, 0);
+  const skipped = run(SKIP, p.restored.out, p.nodes).out[0].json;
+
+  const counters = ['_candidates', '_plan_fetch_failures', '_replacement_fetch_failures',
+                    '_replacement_permission_denied', '_replacement_permission_denied_unmarked',
+                    '_replacement_other_failures', '_projected_by', '_chunk_index'];
+  const differing = counters.filter(function (k) {
+    return JSON.stringify(refused[k]) !== JSON.stringify(skipped[k]); });
+  ok(differing.length === 0,
+     'skipping reports the SAME counters WF-A reads as making all ' + N + ' calls and being ' +
+     'refused - the load changed, what the audit knows did not',
+     'differ: ' + differing.join(', '));
+
+  const metaKeys = ['fetch_failed', 'permission_denied', 'token_dead', 'rows', 'declared_total',
+                    'truncated'];
+  const metaDiff = metaKeys.filter(function (k) {
+    return JSON.stringify(refused.enriched[0].replacements_meta[k]) !==
+           JSON.stringify(skipped.enriched[0].replacements_meta[k]); });
+  ok(metaDiff.length === 0,
+     'and the per-case replacements_meta gate 7 reads is identical on both paths',
+     'differ: ' + metaDiff.join(', '));
+
+  const missing = Object.keys(refused).filter(function (k) {
+    return !Object.prototype.hasOwnProperty.call(skipped, k); });
+  ok(missing.length === 0,
+     'the skip emits every top-level key Project Replacements emits - WF-A cannot tell which ' +
+     'node produced this item', 'missing: ' + missing.join(', '));
+
+  // And WF-A actually accepts it, rather than the shape merely looking right here.
+  const scalars = [];
+  for (let i = 0; i < N; i++) scalars.push({ json: { case_key: 'c' + i + ':2026-07',
+    contract_id: '90000' + i, client_id: '5' + i, needs_enrichment: true } });
+  const j = run(JOIN, [{ json: skipped }], { 'Needs enrichment?': scalars });
+  ok(j.out.length === N && j.logOf('join_enrichment').replacement_permission_denied === N,
+     'Join Enrichment joins a skipped chunk and rolls the SAME denial count into the run log');
+}
+
+// ---- 4. an unmarked refusal is charged to the whole chunk --------------------------------
+{
+  const N = 6;
+  const p = probeRun(n8nError(403, 'Forbidden'), N);
+  const out = run(SKIP, p.restored.out, p.nodes).out[0].json;
+  ok(out._replacement_permission_denied === N && out._replacement_permission_denied_unmarked === N,
+     'a bare 403 probe still declares the gap, and marks all ' + N + ' as UNMARKED so a change ' +
+     'in ERP\'s error vocabulary shows up as a number rather than as silence');
+}
+
+// ---- 5. an INCONCLUSIVE probe runs the phase anyway ---------------------------------------
+// The safe direction, and the one that is easy to get wrong: a 503 on the one probe call must
+// not be allowed to mean "no grant", or a single bad second converts a whole chunk into declared
+// non-coverage. It costs calls and loses nothing.
+{
+  const p = probeRun(n8nError(503, 'Service Unavailable'), 8);
+  ok(p.restored.out.every(function (i) { return i.json._replacements_granted === true; }),
+     'a 503 on the probe is INCONCLUSIVE and the phase runs - a transient is never a missing grant');
+  ok(p.restored.log.probe_verdict === 'inconclusive',
+     '...and it is logged as inconclusive rather than quietly as granted');
+  const p404 = probeRun(n8nError(404, 'Not Found'), 8);
+  ok(p404.restored.log.probe_verdict === 'inconclusive' &&
+     p404.restored.out[0].json._replacements_granted === true,
+     'so is a 404 - only 401/403 without a dead-token marker is read as a refusal');
+}
+
+// ---- 6. a dead token throws, and is never reported as a permission gap --------------------
+throws(function () { probeRun(n8nError(401, 'UNAUTHORIZED <LOGOUT>'), 5); },
+  'a logged-out probe throws instead of skipping the phase and blaming a missing grant',
+  'DEAD TOKEN');
+throws(function () { probeRun({ error: { message: '500 - {"status":498,"error":"token has expired"}' } }, 5); },
+  'the 498-inside-500 shape is a dead token on the probe too, not a refusal');
+
+// ---- 7. the two structural refusals ------------------------------------------------------
+throws(function () { probeRun([GRANTED_PROBE, GRANTED_PROBE], 5); },
+  'more than one probe response means executeOnce was lost - refused loudly rather than ' +
+  'silently making the whole phase of calls again', 'executeOnce');
+{
+  const p = probeRun(DENIED_PROBE, 10);
+  throws(function () { run(SKIP, p.restored.out.slice(0, 4), p.nodes); },
+    'a partial route is refused: an under-declared gap reads downstream as coverage the run ' +
+    'never had', 'partial declaration');
+}
+
+// ---- 8. the two things about Project Replacements that were NOT changed -------------------
+// Source pins rather than behavioural ones, and said so. Both are decisions, not oversights, and
+// both are recorded on the node itself (parameters.notes) and in wf-e/README.md.
+//
+// THE DIVISOR STAYS 2N. A granted chunk now makes 2N+1 ERP calls - N plan reads, ONE grant probe,
+// N replacement reads - while `callsMade` still says 2N and `elapsedMs` (stamped in Read Chunk)
+// now includes the probe. The bias that introduces is +0.07% on the divisor against a threshold
+// of 3x, which moves no verdict. It is left alone because correcting it means re-transmitting
+// 35 KB of the node that classifies permission denials, dead tokens and every breaker input by
+// hand, and a transcription error there is the one class of mistake this repo cannot detect from
+// a stale-export check. Nothing offline can tell 2N from 2N+1 anyway: ms_per_call rounds to 0
+// when Read Chunk stamped the clock microseconds earlier, so this is a source pin by necessity.
+ok(REPL.indexOf('callsMade: responses.length * 2,') !== -1,
+   'Project Replacements still divides the chunk latency by 2N - the probe is a documented ' +
+   '0.07% under-count, not an unnoticed one');
+// THE AUTH-WALL OPT-OUT STAYS. The probe removed the everyday full-denial batch - on a denied
+// account this node is no longer reached at all - but not the case the probe cannot cover: the
+// grant answering the probe and then refusing the batch behind it. All three conditions the
+// call site declares still hold there, and the probe re-runs per sub-execution, so a mid-run
+// revocation is re-detected by the next chunk and every chunk after it skips. Removing the
+// opt-out would buy nothing and would let one optional grant kill a run.
+ok(REPL.indexOf('config: { authWall: false }') !== -1,
+   'the declared auth-wall opt-out is still in place, and deliberately so');
+
 
 console.log('\n' + pass + '/' + (pass + fail) + ' assertions passed');
 process.exit(fail ? 1 : 0);
