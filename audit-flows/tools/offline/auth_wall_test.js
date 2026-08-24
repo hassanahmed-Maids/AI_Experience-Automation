@@ -260,5 +260,72 @@ const latency = B.erpBreakerEvaluate({ phase: 'p', responses: rep(OK_PLAN, 750),
 eq('the latency rule still fires on healthy-but-slow traffic', latency.trip.code, 'latency');
 eq('...and that batch is not a wall', latency.auth_wall, false);
 
+// ================================================================================
+head('the EMBEDDED copy, in the node body that made the ~2,400 calls');
+// Everything above proves the canonical logic. This runs the actual deployed node body -
+// dummy-tickets-hm/nodes/stage0_project_tickets.js, breaker block and all - against a chunk of
+// the real 100522 items, because a canonical fix that never reached the paste is the failure
+// mode this whole generate-and-byte-compare arrangement exists to prevent.
+{
+  const fs = require('fs'), path = require('path');
+  const BODY = fs.readFileSync(path.join(__dirname, '..', '..', 'dummy-tickets-hm', 'nodes',
+    'stage0_project_tickets.js'), 'utf8');
+
+  function runNode(responses) {
+    const applicants = responses.map(function (_, i) {
+      return { json: { applicant_id: 1000 + i, run_id: 'e2e-dtm', erp_t0: Date.now() - 12000,
+                       chunk_index: 0 } }; });
+    const nodes = { 'Expand Applicants': applicants };
+    const $ = function (name) {
+      const items = nodes[name] || [];
+      return { all: function () { return items; }, first: function () { return items[0]; } };
+    };
+    const $input = { all: function () { return responses.map(function (r) { return { json: r }; }); } };
+    const logs = [];
+    const fn = new Function('$', '$input', '$getWorkflowStaticData', 'console',
+      'return (function(){' + BODY + '})();');
+    const out = fn($, $input,
+      function () { throw new Error('no static data on a manual run'); },
+      { log: function (s) { try { logs.push(JSON.parse(s)); } catch (e) { logs.push({ raw: s }); } } });
+    return { out: out, logs: logs };
+  }
+
+  let thrown = '';
+  let logs = [];
+  try { runNode(rep(REAL_100522, 25)); }
+  catch (e) { thrown = e.message; }
+  ok('the deployed node body THROWS on 25 real refusals - it no longer projects 25 ' +
+     '"reachable:false" rows and lets the parent fetch the next chunk', thrown !== '', thrown);
+  ok('...as a permission wall', /ERP PERMISSION WALL/.test(thrown), thrown.slice(0, 200));
+  ok('...naming the pagecode its own HTTP node sends',
+     thrown.indexOf('RECRUITMENT__HustlersWorkflow') !== -1, thrown.slice(0, 200));
+  ok('...and naming the phase, so the operator knows which of the two ERP reads refused',
+     thrown.indexOf('Project Tickets (Dummy Tickets HM 0-Fetch)') !== -1, thrown.slice(0, 200));
+
+  // AND IT STILL WORKS. The projection must be untouched for a healthy chunk - a breaker that
+  // fixes the refusal case by breaking the normal case is not a fix.
+  const goodBody = { statusCode: 200, headers: REAL_200_HEADERS, body: { flightsTickets:
+    { requestFlightTicketActions: [{ id: 7, ticketType: 'ARRIVAL', status: 'DONE',
+                                     amountInAED: 1200, requestRefundOn: 'ARRIVAL' }] } } };
+  const good = runNode(rep(goodBody, 25));
+  eq('25 healthy responses project 25 rows', good.out.length, 25);
+  eq('...all reachable', good.out.filter(function (o) { return o.json.reachable; }).length, 25);
+  eq('...with their tickets parsed off the exact path', good.out[0].json.path_used, 'exact');
+  const bl = good.logs.filter(function (l) { return l.stage === 'erp_breaker'; })[0];
+  ok('...and the breaker logged a clean verdict over the batch',
+     bl && bl.tripped === null && bl.counts.ok === 25, JSON.stringify(bl && bl.counts));
+  eq('...with the wall reported as not seen', bl && bl.auth_wall, false);
+  eq('...and the pagecode carried into the log line', bl && bl.pagecode, 'RECRUITMENT__HustlersWorkflow');
+
+  // A SINGLE unreadable applicant among 24 good ones is a per-entity gap, not a wall: the row is
+  // marked unreachable and the run goes on, which is exactly the old behaviour.
+  const one = runNode(rep(goodBody, 24).concat([REAL_100522]));
+  eq('one refusal among 24 successes still projects 25 rows', one.out.length, 25);
+  eq('...with that one marked unreachable',
+     one.out.filter(function (o) { return o.json.reachable === false; }).length, 1);
+  const bl2 = one.logs.filter(function (l) { return l.stage === 'erp_breaker'; })[0];
+  eq('...and nothing tripped', bl2 && bl2.tripped, null);
+}
+
 console.log('\n' + (fail === 0 ? 'all ' + pass + ' passed' : pass + ' passed, ' + fail + ' FAILED'));
 process.exit(fail === 0 ? 0 : 1);
