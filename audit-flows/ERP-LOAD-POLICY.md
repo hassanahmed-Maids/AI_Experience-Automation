@@ -484,6 +484,84 @@ the execution that took it; that changes the shared lease workflow, so it is bei
 it is proposed. Until then, treat every error-rail release in this repo as unable to free the lease
 and clear a stranded one with `params.ignore_erp_lease` or the 3-hour backstop.
 
+#### ROUND 3, AND IT IS MEASURED: THE DISCRIMINATOR IS THE ERROR OUTPUT, NOT DISTANCE
+
+The paragraph above is now superseded. `$execution.id` was **not** needed, and the lease workflow
+did not change. An accessor diagnostic run on the real MV Overstay Fines rail (execution
+**100943**) measured what a cross-node lookup actually does from the error rail:
+
+```
+$('Validate Inputs').isExecuted             -> true          it DID run
+$('Validate Inputs').all().length           -> 0             it resolves to ZERO items
+$('Validate Inputs').first()                -> undefined     so .json THROWS
+$('Acquire ERP Lease').first()              -> undefined     same
+$('Build Manual Run Context').first().json.body.run_id -> RESOLVES
+$execution.id                               -> '100943'      always available
+```
+
+`Validate Inputs` and `Acquire ERP Lease` each carry a **SECOND output wired onto the error rail**.
+From that branch they resolve to it, and it is empty. `Build Manual Run Context` sits one node
+EARLIER, has a **SINGLE output**, and resolves normally. **Nearness was never the issue; a second
+output was.** Round 2 failed because it put the validate node first and fell back to `$('Webhook')`,
+which does not execute on a manual run — so every source missed and the stamp came out `''`.
+
+**THE RULE.** *The rail head's FIRST run_id source must be a node with NO error output* — in
+practice the entry / context node (`Build Manual Run Context`, `Manual Run Config`,
+`Normalize Entry`, `Receive Baton`, `When Called`, the webhook trigger itself). Keep the
+validate-equivalent as a later fallback, keep every source in its own try/catch, and keep the node
+unable to throw. Where a flow's entry node ALSO has an error output, say so rather than papering
+over it — see the two cases recorded below.
+
+**PROVEN, not argued.** `test_workflow` execution **100973** on `LDtsstXDfF99TnYe`, every ERP node
+pinned and `erp_call_budget: 1` so `ERP Budget Gate` refuses immediately after the acquire — the
+exact path that stranded execution 100774, at **zero ERP calls**:
+
+```
+Capture Failure       success  run_id "railproof-r3-2026-08-24a"   <- STAMPED, non-empty
+Acquire ERP Lease     success  sub-execution 100974, granted, holder = that run
+ERP Budget Gate       ERROR    "about 160 ERP calls against a budget of 1"
+Release Lease (error) success  sub-execution 100975 ->
+   {"action":"release","state":"free","holder_run_id":"","verified":true,
+    "took_over_stale_lease":false,"override_used":false,
+    "reason":"released by its holder"}
+```
+
+`released by its holder`, with `took_over_stale_lease` and `override_used` both **false** — so it
+was a genuine holder release, not a stale takeover and not an override. The run still ends `error`
+because `Fail Loudly` re-throws by design; **the lease row is the proof, not the run status.**
+
+**Rolled to the other flows 2026-08-24**, each choosing the entry node its own graph offers:
+`Manual Run Config` (ccnonreceived-1-score, dummy-stage1-score, terminated-hm-stage1-score,
+wfa-parent), `Normalize Entry` (ccprice-stage1), `Run Check` (mv-stage1-population),
+`Run (webhook)` (realticket-audit-check), `Test Baton` added for wfb-verify's manual path.
+`ccprice-stage2/3` (`Receive Baton`), `mv-stage4-verify` (`Verify In`), `wfc-deliver` and
+`ccnonreceived-2-verify` (`When Called`) and `cc-overstay-fines` (`Build Run Context`) already led
+with an error-output-free node and were left alone. All are **DRAFTS — nothing was published.**
+
+**TWO FLOWS STILL HAVE A PATH WITH NO ERROR-OUTPUT-FREE SOURCE. Recorded, not papered over:**
+
+- **`ccnonreceived-2-verify` (`qAuvLHhae2sKD7mM`), the MANUAL TEST path.** `Run Manually (test)`
+  feeds `Test Baton`, and `Test Baton` itself carries `onError: continueErrorOutput` onto the rail,
+  so it resolves empty there. The only remaining error-output-free node on that path is the manual
+  trigger, which carries no run id. The production path (`When Called`) is fine. Fixing it means
+  taking the error output off `Test Baton` and re-routing that rail — a routing change, not a
+  resolver change, so it is left for a decision rather than done quietly.
+- **The Error Trigger path**, unchanged and still unreachable by this pattern: `On Workflow Crash`
+  runs in a SEPARATE execution where no accessor can see the failed run. `wfa-parent` wires it
+  straight at `Release Lease (error)` and sends `''`; `cc-overstay-fines` routes it through
+  `Build Error Callback`, which falls back to the literal `'unknown'` — a value the lease will
+  treat as a non-holder and no-op on **silently**, which is arguably worse than `''`. Freeing a
+  lease stranded that way still needs `params.ignore_erp_lease` or the 3-hour backstop.
+
+**The suite can now go red on this.** `erp-lease/offline/capture_failure_identity_test.js` gained
+**section 6**: it reads `onError: continueErrorOutput` off each DEPLOYED graph and answers those
+nodes as an **empty collection** (and, in a second pass, by **throwing**), while everything else
+resolves — the state the live rail is actually in, and the one the old stub could not express. It
+ends with a **regression guard** that runs a miniature round-2 resolver through the same fixture and
+asserts it comes out empty, so the fixture cannot be neutered without going red first. 162
+assertions became **255, all passing**; re-running the round-2 body through section 6 yields
+`run_id ""` under both passes, i.e. it would have caught this before either round shipped.
+
 **Enforcement.** `tools/lease_release_check.py` (`bare_lookup_run_id`) fails any release on an
 error rail whose `run_id` is neither guarded nor read off the item. The behavioural half is
 `erp-lease/offline/capture_failure_identity_test.js`, which runs every DEPLOYED rail head against
