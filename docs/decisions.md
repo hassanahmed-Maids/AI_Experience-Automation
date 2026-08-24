@@ -1012,3 +1012,45 @@ saying the field is empty above a populated one) and a token in a note rather th
 scrubbed without rewriting shared history, which is not a call to make unilaterally. **Abdullaha and
 Malaz.a should be told their tokens were committed**, even though the exposure window has closed —
 they are the people whose credentials these were, and that is their information, not this project's.
+
+---
+
+## 2026-08-24 — The endpoint we went looking for does not exist, and is not needed
+
+Moe asked me to probe ERP for the right transaction-detail endpoint after a live run died on
+`GET /accounting/transactions/{id}`. The answer turned out to be that there is no such endpoint and
+the call should be deleted. Full working: `audit-flows/dummy-tickets-hm/ENDPOINT-FINDING.md`.
+
+**No such route.** Live ERP returns `401` + `developerMessage: API_NOT_FOUND_FOR_PAGE` while the same
+token gets `200` from two other endpoints in the same second. Ask-the-code (conversation 44674,
+`erp/magnamedia-accounting`) confirms `TransactionsController` declares no `@GetMapping("/{id}")`.
+Worth recording *why* this was invisible: the pageCode → route whitelist lives in the **frontend**
+repo (`acc-angular/src/custom/security-accounting.json`), so no amount of backend reading would have
+found it, and the ask-code API cannot see that file either. It could only be established by probing.
+
+**And the right endpoint returns the same data.** `advancesearchNew` returns a projection DTO, and it
+is the same one the flow's own sweep already receives — there is no richer view of a transaction under
+this pageCode. So the per-transaction detail call was structurally redundant even had the URL been
+right: one wasted ERP call per transaction, a third of this check's modelled load.
+
+**The data was on the row all along.** The transaction that failed carries
+`Maid Profile ID - 138719` in its description. The parser looks for `Applicant ID - N`, misses, and
+sets `needs_detail`. The node's own comment already noted that `Maid -` rows resolve a housemaid; the
+regex just never learned the second label.
+
+### The lesson, which is about testing and not about ERP
+
+This check was built, reviewed, compliance-audited and had its error rails, breakers, budget gates and
+lease wiring corrected — all before anyone discovered that its per-entity phase **had never once
+completed**. Every one of those passes read the flow. None of them ran it. A static reading cannot
+tell you that a URL is not a route, and the whole apparatus of this repo — the checkers, the manifest,
+the mutation tests — is static.
+
+`ERP-LOAD-POLICY.md` now says so directly: a check is not validated until a real run has reached its
+delivery stage, and until then its compliance verdict describes the drawing, not the machine.
+
+### Not decided here
+
+Teaching the parser `Maid Profile ID` is one line, but the id it yields is a housemaid profile id and
+the downstream fetch takes applicant ids. Whether a maid-profile row resolves through that lookup, a
+different one, or leaves the population is a question about what the check is for. Left for Moe.

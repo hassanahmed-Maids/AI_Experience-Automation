@@ -452,6 +452,26 @@ ERP-touching audit checks outside the six-check programme, 11 of them active**, 
 has never been applied to. They are out of scope, not compliant, and the difference is now
 written down.
 
+### A green checker describes the drawing, not the machine (added 2026-08-24)
+
+Every tool in this repo is STATIC. `erp_compliance.py` reads deployed JSON, `manifest_vs_instance.py`
+reconciles two lists, the mutation suites break exports and re-read them. Not one of them runs a flow.
+
+On 2026-08-24 that bill came due. Dummy Tickets Housemaids had been built, reviewed, compliance-audited,
+and had its lease, budget gate, breakers and error rails corrected across three separate passes — and
+the first time anyone actually ran it, it turned out its per-entity phase had **never once completed**.
+`Get Transaction Detail` calls `GET /accounting/transactions/{id}`, which is not a mapped route; ERP
+answers `401 / API_NOT_FOUND_FOR_PAGE`. No static reading can find that, because the pageCode-to-route
+whitelist is not in the backend at all — it is a JSON file in the frontend repo. Even the ask-the-code
+API cannot see it.
+
+The same run found two more things no checker could have: an n8n HTTP error item has no
+`error.message`, and inserting the lease call broke a node that read `$json` for its token.
+
+**So: a flow is NOT validated until a real run has reached its delivery stage.** Until then the
+compliance verdict is a statement about the drawing. Say which it is when reporting, and treat
+"passes `--all`" and "works" as different claims - because for three passes on this check they were.
+
 ### Prose is not enforcement — the note is right and the thing is wrong
 
 Added 2026-08-23, after this happened three times in one day. A checker reads values; a human reads
