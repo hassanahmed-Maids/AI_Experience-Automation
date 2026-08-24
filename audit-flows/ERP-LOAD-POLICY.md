@@ -307,6 +307,42 @@ Note what does NOT fix it:
 Until the tail is restructured, a leaked lease is cleared by the 3-hour staleness takeover or by
 `params.ignore_erp_lease: true` on the next run.
 
+**THE FIX, and it is three moves rather than one.** Corrected across the flows on 2026-08-24 and
+**verified live on execution 100502**: `action: release, state: free, holder_run_id: "",
+verified: true, reason: "released by its holder"` - on the exact clean-month path that had leaked.
+
+1. **Put the release at the LAST ERP CALL, not at the end of delivery.** Hang `Release ERP Lease`
+   off the breaker that judges the last ERP node, as a **dead-end parallel branch**. Everything
+   after that point - scoring, the LLM verifier, the runs log, the portal callback, the
+   spreadsheets - touches no ERP, so it has no business standing between the last ERP call and the
+   release. This also shortens the hold, which §4 wants anyway.
+
+   **Parallel, never in line.** `Release ERP Lease` is an Execute Sub-workflow with
+   `waitForSubWorkflow`, so in line it REPLACES the item with the lease's own output and starves
+   everything downstream - the same mistake that made twelve error rails say "unknown error".
+
+2. **A stage that makes no ERP calls releases on ENTRY.** `ccprice-stage3` and `wfc-deliver` hold
+   the lease only to write spreadsheets. There is nothing left to protect, so the release hangs off
+   the trigger.
+
+3. **`alwaysOutputData` + an IF, where the empty case is legitimate.** For an origin whose empty
+   outcome is normal - `Select For Verifier` on a clean month - set `alwaysOutputData: true` so n8n
+   emits one empty item instead of nothing, and put an IF after it that routes that item straight
+   to the release. Verified: this works on a **Code** node, not only on the Data Table nodes that
+   already used it.
+
+   **Do NOT reach for `alwaysOutputData` on a node that is meant to be loud.** `Validate Inputs`
+   and `Verify Population` throw rather than return nothing; injecting an empty item there would
+   turn a loud stop into a silent one. Those get a written ruling instead - an
+   `ERP-COMPLIANCE: empty-exit-ok` note stating why the node cannot hand back an empty stream. The
+   note lives on the node so it cannot drift away from the code it excuses.
+
+**Enforcement.** `tools/lease_release_check.py` walks the success route backwards from the release
+and fails on any node that can ORIGINATE emptiness and has no ruling. `tools/lease_route_map.py`
+prints the last ERP call, its breaker, and what currently feeds the release - the shape you need in
+order to place it.
+
+
 ### Built — `erp-lease/`
 
 Workflow `9gVijqvtLVEhQZXz` "ERP Lease · one audit at a time", published 2026-08-20, backed by
