@@ -50,6 +50,8 @@ source for the contract monthly rate — the open question in
 | `cases` | array of `{case_key, contract_id, client_id}` — **ids only**, never whole cases |
 | `chunk_index` | 0-based |
 | `run_id` | for log correlation |
+| `replacements_grant` | **optional**, added 2026-08-24 — `granted` \| `denied` \| `inconclusive`, the verdict of WF-A's once-per-run ClientReplacement probe. Anything else, including absent, makes WF-E probe for itself. |
+| `replacements_grant_probe` | **optional**, diagnostic only — `{http_code, marked, source}`. Nothing routes on it; it exists so `_replacement_permission_denied_unmarked` keeps its meaning across the hop. |
 
 **Output**: ONE item — `{ enriched: [ {case_key, contract_id, client_id, plan,
 replacements, replacements_meta} ], _candidates, _plan_fetch_failures,
@@ -72,7 +74,7 @@ no prose amount is.**
 shape the old `Attach Replacements` handed `Merge Streams` — so `Compute Case States` was
 not touched.
 
-## The ClientReplacement grant probe (2026-08-24) — ~5,632 refused calls become 9
+## The ClientReplacement grant probe (2026-08-24) — ~5,632 refused calls become 1
 
 `Fetch Replacements` calls `GET /complaints/replacement/page/contract/{id}` under pagecode
 `ClientReplacement`, once per candidate. On an operator whose ERP identity lacks that grant,
@@ -93,12 +95,83 @@ Project Plan -> Probe Replacements Grant  (ONE call, executeOnce)
                                       \-false-> Skip Replacements
 ```
 
-**It is once per CHUNK, not once per run, and the difference is stated rather than rounded away.**
-A WF-E execution handles one chunk and separate executions share no memory. At the default 750,
-a 5,632-candidate cohort is a 50-candidate canary plus eight chunks = **nine executions**, so a
-denied run makes **9** refused replacement calls instead of ~5,632 — a **99.84%** cut, not 100%.
-Collapsing those nine into one needs WF-A to probe and pass a flag down; that is a change to
-`uJ8UVNKdN2s5PHHA` and it is **not** made here.
+**Inside WF-E this is once per CHUNK, not once per run, and the difference is stated rather than
+rounded away.** A WF-E execution handles one chunk and separate executions share no memory. At the
+deployed chunk size of 750, a 5,632-candidate cohort is **eight executions**, so a denied run made
+**8** refused replacement calls instead of ~5,632.
+
+**Two corrections to numbers this file used to print.** It said *nine*, on the arithmetic
+"a 50-candidate canary plus eight chunks". **The canary is not deployed** — see *The canary chunk
+is in the repo and not in the instance* below — so live it was eight, not nine. And as of the same
+day it is **one**: WF-A now probes once per RUN and passes the verdict down. See the next section.
+
+### The last hop: WF-A probes once per RUN, and WF-E takes its word for it
+
+`uJ8UVNKdN2s5PHHA` — WF-A — runs once per run, which is the thing WF-E cannot be. It now carries
+its own `Probe Replacements Grant` (one `executeOnce` call, immediately after `Chunk Candidates`,
+inside the lease) and a `Classify Grant Probe` node that stamps the verdict onto every chunk before
+`Enrich Candidates (WF-E)` hands it over:
+
+```
+Chunk Candidates -> Probe Replacements Grant (ONE call, executeOnce)
+                 -> Classify Grant Probe   (three-way verdict onto every chunk)
+                 -> Enrich Candidates (WF-E)   +replacements_grant, +replacements_grant_probe
+```
+
+and inside WF-E:
+
+```
+Project Plan -> Caller Passed a Verdict?
+   --true (granted|denied|inconclusive)--> Apply Caller Verdict ----\
+   --false (absent / empty / unrecognised)-> Probe Replacements Grant -> Restore Chunk Items --\
+                                                                                                +-> Replacements Granted?
+```
+
+**Be honest about what this is worth.** It saves **7 refused calls out of ~11,264**, about
+**0.06%** of a run. It is worth having only because it is total: after it, the number of calls a
+denied run makes that were known to fail before they were sent is **one**.
+
+**The fallback is not optional and not decoration.** WF-E is callable standalone and by older
+callers. `Caller Passed a Verdict?` accepts *only* the three known verdicts, normalised for case
+and padding; **absent, empty string, `null`, a boolean, a number, a misspelling — all of them route
+to WF-E's own probe** and the workflow behaves exactly as it did before WF-A learned to probe. n8n
+fills a declared-but-unsent string field with `""`, so "I passed nothing" and "I passed a verdict"
+must be distinguishable, and they are. There is deliberately no fourth meaning and no default:
+`Apply Caller Verdict` **throws** rather than guess, because guessing `granted` would spend a whole
+chunk of refused calls and guessing `denied` would declare a permission gap nobody measured.
+`offline/enrich_test.js` runs the deployed IF condition itself — mirrored verbatim in
+`nodes/caller_verdict_gate.js` — over every one of those inputs, and then asserts that what the
+fallback path produces is **identical, key for key and value for value**, to what the caller path
+produces. The fallback is not a degraded mode; it is the same answer bought at a higher price.
+
+**The two ends cannot drift apart.** `Classify Grant Probe` (WF-A) and `Restore Chunk Items` (WF-E)
+carry byte-identical `httpCodeOf` / `failureText` / `isTokenDead` / `isPermissionDenied`, and the
+suite asserts that rather than trusting the comment that says so — one 401 must not mean two things
+depending on which end of the hop saw it.
+
+**A dead token throws in WF-A**, before the ~11,264-call enrichment phase rather than 11,264 calls
+into it, for exactly the reason it throws in WF-E: an empty maid history scores as *"no maid
+change"*, so a dead session has to be named as a dead session and never reported as a permission
+gap.
+
+#### The regression this buys, stated rather than buried
+
+Probing per chunk meant a grant **revoked mid-run** was re-detected by the next chunk, and every
+chunk after it skipped. Probing once per run loses that. If the grant is revoked after WF-A has
+answered `granted`, every remaining chunk is told `granted`, `Fetch Replacements` 401s through all
+of them, `Project Replacements` counts them denied and **the gap is still declared** — nothing reads
+as falsely clean — but the refused calls are made.
+
+**The bound is the REST OF THE RUN, not one chunk.** Worst case ~5,632 refused calls, which is
+exactly what this flow did on every denied run until 2026-08-24. Before this change the bound was
+one chunk (≤750). That is a real widening of the blast radius on a rare event, bought with seven
+calls on the everyday one, and it is written down here rather than rounded to "the same bound the
+opt-out already permits", which is what it is not.
+
+**Reversing it is one edit and no rebuild:** delete `replacements_grant` and
+`replacements_grant_probe` from WF-A's `Enrich Candidates (WF-E)` input mapping. WF-E's gate then
+sees nothing usable, every chunk probes for itself, and the one-chunk bound is back — at a cost of
+seven refused calls per denied run.
 
 ### The verdict is three-way, and the third value is the one that keeps it safe
 
@@ -107,6 +180,12 @@ Collapsing those nine into one needs WF-A to probe and pass a flag down; that is
 | `granted` | the probe returned a replacement page | the phase runs, exactly as before |
 | `denied` | 401/403 with no dead-token marker | the phase is skipped and the gap is **declared** |
 | `inconclusive` | 5xx, timeout, 404, anything else | **the phase runs anyway** |
+
+The verdict crosses the WF-A → WF-E boundary **as a verdict**, never as a boolean.
+`false` would have to mean both *"refused"* and *"we could not tell"*, and those have opposite safe
+answers. `granted` and `inconclusive` both mean "run the phase" and are still kept apart, because
+the run log has to be able to say which of the two happened: one is an answer and the other is the
+absence of one.
 
 A transient must never be allowed to mean "no grant": one bad second would otherwise convert a
 whole chunk into declared non-coverage. Falling through costs calls and loses nothing, and the
@@ -157,30 +236,74 @@ catch (`exports/README.md`). Fix it the next time that body is regenerated by a 
 the node itself (`parameters.notes`) and pinned in `offline/enrich_test.js` so it stays a decision
 rather than an oversight.
 
-**The `config: { authWall: false }` opt-out is KEPT.** The probe removed the *everyday* reason it
-existed — on a denied account `Project Replacements` is not reached at all, so the full-denial
-batch is never made and the wall never sees it. What is left is the case the probe **cannot**
-cover: the grant answering the probe 200 and then refusing the batch behind it, i.e. the state
-changing mid-chunk. All three conditions the call site declares still hold there (optional
-enrichment, account-scoped; the same chunk's plan phase succeeded; the gap is already declared),
-and one more now does too: **the probe re-runs per sub-execution**, so a mid-run revocation is
-re-detected by the next chunk and every chunk after it skips. The blast radius of not tripping is
-therefore **one chunk** — the same bound the wall itself would have given. Removing the opt-out
-would buy nothing and would let one optional grant kill a run. A dead token was never covered by
-it and still is not: that throws above the breaker.
+**The `config: { authWall: false }` opt-out is KEPT — and one leg of its reasoning has been
+withdrawn.** The probe removed the *everyday* reason the wall would have fired: on a denied account
+`Project Replacements` is not reached at all, so the full-denial batch is never made. What is left
+is the case no probe can cover — the grant answering the probe 200 and then refusing the batch
+behind it.
+
+Until the WF-A hop, that argument ended *"and the probe re-runs per sub-execution, so a mid-run
+revocation is re-detected by the next chunk; the blast radius of not tripping is one chunk, the same
+bound the wall itself would have given."* **That sentence is no longer true when WF-A is driving**,
+because the probe no longer re-runs per chunk — see *The regression this buys* above. The real bound
+is now the rest of the run.
+
+The opt-out survives that correction on the other three legs, which are untouched and are the ones
+that always did the work: the phase is an **optional** enrichment, its denial is **account**-scoped
+(PROBE-RESULTS correction 2), the same chunk's plan phase **succeeded**, and the gap is **already
+declared** in this node's own counters — `coveredDays()` still returns `known:false` and gate 7 still
+caps coverage on every one of those chunks. What is traded is ERP load on a rare event against
+ending a run over an enrichment that is optional by declaration, and ending the run is still the
+worse of the two.
+
+**The lever, named so it is a choice rather than an oversight.** Turning `authWall` back on would
+restore a one-chunk bound — the wall trips on the first fully refused batch — at the cost of killing
+the run. That is a more defensible choice than it was this morning, precisely because the everyday
+full-denial batch no longer reaches this node from either probe. **It is not made here:** it changes
+what a revocation does to a run, which is a decision for whoever owns the run, not for whoever is
+removing calls. The cheaper lever is the one in *The regression this buys*: drop the two fields from
+WF-A's mapping and the per-chunk bound returns for seven calls.
+
+A dead token was never covered by the opt-out and still is not: that throws above the breaker, in
+`Restore Chunk Items` or, with WF-A driving, in `Classify Grant Probe` before enrichment starts.
 
 ### What this does NOT touch
 
-- **WF-A.** `Chunk Candidates` still projects `cohort_size × 2` for the §3 budget gate. On a
-  granted run the real cost is now 9 calls higher (11,273 vs a projected 11,264, **0.08%**); on a
-  denied run it is ~5,623 calls **lower** than projected. Both errors are in the safe direction
-  for a gate that hard-fails on over-projection, so it is left alone rather than edited from here.
+- **`Chunk Candidates`' §3 projection.** It still projects `cohort_size × 2`. With WF-A probing,
+  the true cost is `2N + 1` on a granted run and `N + 1` on a denied one, so the projection is now
+  **one call low** on a granted run (11,265 against a projected 11,264, **0.009%**) and ~5,631
+  calls **high** on a denied one. Both errors are in the safe direction for a gate that hard-fails
+  on over-projection. **Declared, not corrected**, for the same reason as the `callsMade` divisor:
+  correcting it means hand-retransmitting the 9 KB body of the node that decides whether the run is
+  allowed to start at all, and a transcription error there is the one class of mistake a
+  stale-export check cannot catch. The fix when that body is next regenerated by a tool is to add a
+  fixed-cost term (`ERP_PHASE_FIXED_CALLS = 1`) to `projectedPhase` rather than bend
+  `ERP_CALLS_PER_ENTITY`, which is genuinely 2. Recorded on the node's `parameters.notes` and
+  pinned in `offline/enrich_test.js`.
 - **`Fetch Replacements`' editor note.** Its top-level `notes` field still contains the sentence
   *"the first thing to switch off if runtime matters more than readiness"*, which this change
   makes automatic. `update_workflow` has **no operation that reaches top-level `notes`**
   (ERP-LOAD-POLICY.md §4), so the correction was written as an addendum in `parameters.notes`,
   where every checker in this repo reads it but the n8n editor does not render it. Worth five
-  seconds in the editor next time someone is in there.
+  seconds in the editor next time someone is in there. The same applies to `Probe Replacements
+  Grant`'s and `Restore Chunk Items`' top-level notes, which still say the WF-A hop is "NOT done
+  here"; addenda saying otherwise are in their `parameters.notes`.
+
+### The canary chunk is in the repo and not in the instance (found 2026-08-24)
+
+Everything in this repo that computes *"a 50-candidate canary plus eight chunks = nine executions"*
+— this file until today, `ERP-LOAD-POLICY.md` §5, and four assertions in `offline/enrich_test.js` —
+is arithmetic about a body that **is not running**. `cc-below-agreed/wf-e/wfa/chunk_candidates.js`
+contains the canary (`params.erp_canary_chunk_size`, the `is_canary` flag, the
+`calls_before_the_breaker_can_first_speak` log line); the **deployed** `Chunk Candidates` in
+`uJ8UVNKdN2s5PHHA` does not, and neither did the 2026-08-23 export taken from the instance. Live,
+5,632 candidates split into **8 chunks of 750** with no canary, so the breaker's first verdict costs
+~1,500 calls and not ~100 — which is the saving §5 says the canary exists to buy.
+
+**Not fixed here, on purpose.** Deploying the canary is a change to chunking that nobody asked for,
+and deleting it from the mirror would throw away work that may simply never have been published. It
+needs a decision. Until then, read every "nine executions" in this repo as **eight**, and read the
+canary's protection as **not present**.
 
 ## Chunk size is a memory budget, not a throughput knob
 
@@ -223,35 +346,50 @@ the same strings and asserts they agree.
 
 ## Tests
 
-`node wf-e/offline/enrich_test.js` — **92/92** (plus the plan-date cases in `offline/guards_test.js`), covering all five nodes: the fan-out and
+`node wf-e/offline/enrich_test.js` — **130/130** (plus the plan-date cases in `offline/guards_test.js`), covering all seven WF-E Code/IF nodes and WF-A's `Classify Grant Probe`: the fan-out and
 every refusal, the discount prose parsing (including "1000 over 4 months" = 250/month and
 the non-empty string describing a zero discount), an empty `amountValue` reading as unknown
 rather than zero, ERP error bodies as fetch failures, the `newHousemaid: ""` no-successor
 signal, truncated histories, the 401 counted separately, chunk splitting and clamping,
-the join's missing-delta / duplicate-key refusals, and the whole grant-probe / skip path
-(including the pin that the declared gap survives the skip). With
+the join's missing-delta / duplicate-key refusals, the whole grant-probe / skip path
+(including the pin that the declared gap survives the skip), and the WF-A hop: the deployed IF
+condition run over every input a caller can produce, the three-way verdict surviving the boundary,
+a caller-supplied denial producing byte-identical output to WF-E's own probe AND to a chunk that
+made every call and was refused, and the fallback proving that with the flag absent nothing
+changed. With
 `WFE_LIVE_PLAN_FIXTURE=<path to a real get-client-details response>` it also asserts the
 live payload parses — flags only, never the amount, which is client financial data.
 
 ## Nodes
 
-1. `When Called` — `executeWorkflowTrigger`, four defined input fields
+1. `When Called` — `executeWorkflowTrigger`, six defined input fields (four required by the
+   contract, two optional grant fields added 2026-08-24)
 2. `Read Chunk` — validates, fans out one item per candidate
 3. `Fetch Contract Plan` — `POST /clientmgmt/client/get-client-details/{clientId}`, pagecode
    `ClientSummary`, batch 15 / 500 ms
 4. `Project Plan` — gates 3, 4 and the gate-5 inputs
-5. `Probe Replacements Grant` — `GET /complaints/replacement/page/contract/{id}?page=0&size=1`,
+5. `Caller Passed a Verdict?` — IF; true when the caller sent `granted`/`denied`/`inconclusive`,
+   false for absent, empty, `null` or anything unrecognised. Its condition is mirrored verbatim in
+   `nodes/caller_verdict_gate.js` and executed by the offline suite
+6. `Apply Caller Verdict` — takes WF-A's once-per-run verdict; makes **no ERP call**
+7. `Probe Replacements Grant` — `GET /complaints/replacement/page/contract/{id}?page=0&size=1`,
    pagecode `ClientReplacement`, **`executeOnce`** — ONE call that asks whether this account
-   holds the grant
-6. `Restore Chunk Items` — classifies the probe, then re-emits `$('Project Plan').all()` so the
+   holds the grant. **The fallback path**: reached only when the caller sent no usable verdict
+8. `Restore Chunk Items` — classifies the probe, then re-emits `$('Project Plan').all()` so the
    fan-out below still gets its 750 items
-7. `Replacements Granted?` — IF; true runs the phase, false skips it
-8. `Fetch Replacements` — `GET /complaints/replacement/page/contract/{id}`, pagecode
+9. `Replacements Granted?` — IF; true runs the phase, false skips it
+10. `Fetch Replacements` — `GET /complaints/replacement/page/contract/{id}`, pagecode
    `ClientReplacement`, **401 today**, and no longer called at all on an account without the grant
-9. `Project Replacements` — coverage rows, then collapse to one item
-10. `Skip Replacements` — the same one item, with the permission gap declared for every contract
+11. `Project Replacements` — coverage rows, then collapse to one item
+12. `Skip Replacements` — the same one item, with the permission gap declared for every contract
     that was not attempted
 
-Node bodies live in `nodes/` (WF-E) and `wfa/` (the two WF-A nodes). The two WF-A bodies
+WF-A's two new nodes, `Probe Replacements Grant` and `Classify Grant Probe`, sit between
+`Chunk Candidates` and `Enrich Candidates (WF-E)` — after the ERP lease is acquired, and after the
+§3 budget gate, which `Chunk Candidates` itself carries.
+
+Node bodies live in `nodes/` (WF-E, including `caller_verdict_gate.js` — the IF condition, mirrored
+so the offline suite can execute it) and `wfa/` (the WF-A nodes: `chunk_candidates.js`,
+`join_enrichment.js`, `classify_grant_probe.js`). The two WF-A bodies
 were diffed byte-for-byte against the deployed copies; WF-E's three were read back and
 checked line by line at every escape-sensitive point.

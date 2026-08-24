@@ -121,9 +121,9 @@ execution 89604 died at 94m44s. Two consequences follow, and both are intended:
   load argument, not a tidiness one: half of `cc-below-agreed`'s enrichment calls are
   `401 INSUFFICIENT_PERMISSIONS` on an account without it (PROBE-RESULTS #6/#13). Granting it —
   or skipping the read when the account lacks it — removes ~5,632 calls and **~23 minutes of
-  ERP time per run**. **Done 2026-08-24** — WF-E now probes the grant once per
-  chunk and skips the phase when it is refused, taking a denied run from ~5,632 refused
-  replacement calls to **9**. See §5.
+  ERP time per run**. **Done 2026-08-24** — WF-E probes the grant once per chunk and skips the
+  phase when it is refused, and WF-A now probes it once per RUN and passes the verdict down, taking
+  a denied run from ~5,632 refused replacement calls to **1**. See §5.
 
   The general rule underneath it is cheaper than every other lever in this file: **a refusal that
   is fixed for the whole run should be discovered once, not once per entity.** Pacing, budgets and
@@ -525,25 +525,51 @@ rather than hidden in the code that did it. **The better fix for that flow is no
 setting**: probe the grant once per run and skip the phase, turning ~5,632 refused requests into
 one. That is a flow change and it is open.
 
-#### BUILT 2026-08-24, and the "into one" needed a correction
+#### BUILT 2026-08-24 — first to one per chunk, then to one per run
 
 `NDk03cYGF4XSXsk5` now gates the phase: `Project Plan -> Probe Replacements Grant` (one call,
 `executeOnce`) `-> Restore Chunk Items -> Replacements Granted?`, true to `Fetch Replacements`,
 false to a new `Skip Replacements`. Published and live.
 
-**It is once per CHUNK, not once per run — ~5,632 refused calls become 9, not 1.** WF-E is a
-sub-workflow invoked once per chunk and separate executions share no memory, so a WF-E-only probe
-cannot be a per-run probe. At the default chunk size of 750, a 5,632-candidate cohort is a
-50-candidate canary plus eight chunks = **nine executions**. That is a **99.84%** cut and it is
-worth stating exactly, because "into one" is the number the paragraph above prints and it is not
-reachable without WF-A probing and passing a flag down — a separate change, deliberately not made.
+**A WF-E-only probe is once per CHUNK, not once per run.** WF-E is a sub-workflow invoked once per
+chunk and separate executions share no memory, so it cannot be a per-run probe. At the deployed
+chunk size of 750, a 5,632-candidate cohort is **eight executions**, so a denied run made **8**
+refused calls. (This paragraph said *nine*, on the arithmetic "a 50-candidate canary plus eight
+chunks". **The canary is in the repo mirror of WF-A's `Chunk Candidates` and is NOT deployed** —
+found 2026-08-24, and not in the 2026-08-23 instance export either. Live there is no canary, so the
+breaker's first verdict costs ~1,500 calls and not ~100, and every "nine executions" in this repo
+should be read as eight. It needs a decision, not a silent edit: see `cc-below-agreed/wf-e/README.md`.)
 
-**The opt-out above is KEPT, deliberately.** The probe removed the everyday full-denial batch —
-that node is no longer reached at all on a denied account — but not the case a probe cannot cover:
-the grant answering the probe 200 and then refusing the batch behind it. All three conditions
-still hold there, and the probe re-runs per sub-execution, so a mid-run revocation is re-detected
-by the next chunk and every chunk after it skips. The blast radius of not tripping is one chunk,
-which is the bound the wall itself would have given.
+**And then to ONE, 2026-08-24, by WF-A.** `uJ8UVNKdN2s5PHHA` now carries its own
+`Probe Replacements Grant` (one `executeOnce` call, after the lease and after the §3 gate) and a
+`Classify Grant Probe` node that stamps the three-way verdict onto every chunk, which
+`Enrich Candidates (WF-E)` passes as `replacements_grant` (+ a diagnostic
+`replacements_grant_probe`). WF-E's `Caller Passed a Verdict?` routes a recognised verdict to
+`Apply Caller Verdict` and everything else — absent, empty, `null`, a boolean, a misspelling — to
+its own probe. **The fallback is the point**: WF-E stays callable standalone and by older callers,
+unchanged. Net saving of the last hop: **7 refused calls out of ~11,264, about 0.06%**. It is worth
+having because it is total, not because it is large, and it is stated that way rather than sold.
+
+**The opt-out above is KEPT — with one leg of its reasoning withdrawn.** The probe removed the
+everyday full-denial batch — `Project Replacements` is no longer reached at all on a denied
+account — but not the case a probe cannot cover: the grant answering the probe 200 and then
+refusing the batch behind it. Three of the four conditions still hold word for word (optional
+enrichment, account-scoped denial, the same chunk's plan phase succeeded, the gap already declared).
+The fourth does not. This paragraph used to end *"the probe re-runs per sub-execution, so a mid-run
+revocation is re-detected by the next chunk... the blast radius of not tripping is one chunk"*.
+**With WF-A driving, the probe does not re-run per chunk, and the blast radius is the REST OF THE
+RUN** — worst case ~5,632 refused calls, which is what this flow did on every denied run until this
+morning. The gap is still declared in every one of those chunks, so nothing reads as falsely clean;
+what is spent is ERP load on a rare event, in exchange for not ending a run over an enrichment that
+is optional by declaration. Two levers exist and both are named rather than implied: turn `authWall`
+back on (one-chunk bound, at the cost of killing the run — a more defensible trade than it was
+before the probe, and still not taken), or drop the two grant fields from WF-A's mapping (per-chunk
+bound back, at the cost of the seven calls).
+
+**The general lesson, because it generalises past this flow.** *A refusal that is fixed for the
+whole run should be discovered once* — but "once" has a scope, and the scope is whatever execution
+holds the memory. Moving a probe up a level buys calls and sells re-detection. Say which you bought
+and which you sold.
 
 **The part that had to not go wrong.** `Skip Replacements` emits `Project Replacements`' exact
 output shape AND still declares the gap: `_replacement_permission_denied` equals **the number of
@@ -669,7 +695,7 @@ against what is deployed, so drift is a finding rather than an opinion.
 Tests: `tools/offline/breaker_test.js` — **53 assertions, 7/7 mutations caught**, fixtures being
 the response shapes ERP actually returns (the Spring error body, the n8n error object that carries
 no status code anywhere predictable, the permanent `INSUFFICIENT_PERMISSIONS`, the 498-inside-500).
-`cc-below-agreed/wf-e/offline/enrich_test.js` — **65 assertions**, proving the *embedded copy*
+`cc-below-agreed/wf-e/offline/enrich_test.js` — **130 assertions** (65 before the grant probe, 92 after it, 130 after the WF-A hop), proving the *embedded copy*
 runs in place: 40 straight denials pass untouched *because that call site declares an opt-out* —
 asserted as `auth_wall: true, auth_wall_enforced: false`, so nobody can read the green as "the
 wall does not exist here" — five consecutive 503s stop the chunk before its replacement phase

@@ -661,5 +661,323 @@ ok(REPL.indexOf('config: { authWall: false }') !== -1,
    'the declared auth-wall opt-out is still in place, and deliberately so');
 
 
+// =========================================================================================
+console.log('\n--- WF-A probes once per RUN, and WF-E takes its word for it (or does not) ---');
+// The last hop of the same argument. WF-E's own probe is once per CHUNK, because a WF-E
+// execution IS a chunk; WF-A runs once per run, so probing there and passing the verdict down
+// makes a denied run cost ONE refused call instead of one per chunk. At the deployed chunk size
+// of 750 that is 8 calls saved out of ~11,264 - 0.06% - and it is worth having only because it
+// is total: after it, the number of calls known to be refused before they were sent is one.
+//
+// Three properties are pinned below, and the third is the one that keeps WF-E usable at all:
+//   1. the three-way verdict survives the hop - inconclusive still RUNS the phase;
+//   2. a caller-supplied `denied` declares exactly the same gap as a chunk that made 750 calls
+//      and was refused 750 times;
+//   3. WITH THE FLAG ABSENT NOTHING CHANGES. WF-E is callable standalone and by older callers,
+//      so an unusable verdict falls back to WF-E's own probe rather than being interpreted.
+
+// ---- the deployed IF condition, executed rather than eyeballed ---------------------------
+// `Caller Passed a Verdict?` is an IF, and its condition is the only piece of logic in this flow
+// the harness cannot reach through a Code body. So the expression is mirrored in
+// nodes/caller_verdict_gate.js and run here for real. If the deployed node and that file ever
+// diverge, this suite is testing something that is not live - which is why the deploy report
+// diffs the two.
+const GATE_SRC = fs.readFileSync(path.join(D, 'nodes', 'caller_verdict_gate.js'), 'utf8');
+const GATE_EXPR = GATE_SRC.split('\n').filter(function (l) {
+  return l.trim() !== '' && l.trim().indexOf('//') !== 0; }).join('\n').trim();
+const gate = new Function('$', 'return (' + GATE_EXPR + ');');
+function gateWith(payload) {
+  return gate(function (n) {
+    if (n !== 'When Called') throw new Error('unexpected $(' + n + ') in the gate expression');
+    return { first: function () { return { json: payload }; }, all: function () { return [{ json: payload }]; } };
+  });
+}
+{
+  ok(gateWith({ replacements_grant: 'granted' }) === true &&
+     gateWith({ replacements_grant: 'denied' }) === true &&
+     gateWith({ replacements_grant: 'inconclusive' }) === true,
+     'the gate recognises all THREE verdicts - not a boolean, and not two of them');
+  ok(gateWith({}) === false,
+     'FLAG ABSENT: the gate routes to WF-E\'s own probe, so an older caller behaves as it always did');
+  ok(gateWith({ replacements_grant: '' }) === false &&
+     gateWith({ replacements_grant: null }) === false &&
+     gateWith({ replacements_grant: undefined }) === false,
+     '...and so do empty, null and undefined - n8n fills a declared-but-unsent string with "", ' +
+     'which must read as "nothing was passed" and never as a verdict');
+  ok(gateWith({ replacements_grant: 'maybe' }) === false &&
+     gateWith({ replacements_grant: 'true' }) === false &&
+     gateWith({ replacements_grant: 42 }) === false &&
+     gateWith({ replacements_grant: true }) === false &&
+     gateWith({ replacements_grant: { verdict: 'denied' } }) === false,
+     'an unrecognised value is DISTRUSTED, never interpreted - there is no fourth meaning and no ' +
+     'default verdict');
+  ok(gateWith({ replacements_grant: '  DENIED  ' }) === true,
+     'case and padding are normalised, because the gate and Apply Caller Verdict must agree on ' +
+     'exactly which strings are verdicts');
+}
+
+// ---- Apply Caller Verdict: the verdict lands, and no probe call is made -------------------
+const APPLY = fs.readFileSync(path.join(D, 'nodes', 'apply_caller_verdict.js'), 'utf8');
+function callerRun(payloadExtra, n, chunkIndex) {
+  const payload = Object.assign({ bearer: BEARER, cases: cand(n),
+    chunk_index: chunkIndex === undefined ? 3 : chunkIndex, run_id: 'run-caller' }, payloadExtra);
+  const chunkItems = run(READ, [{ json: payload }], {}).out;
+  const planItems = run(PLAN, cand(n).map(function () { return { json: planResp(5712) }; }),
+    { 'Read Chunk': chunkItems }).out;
+  const nodes = { 'Read Chunk': chunkItems, 'Project Plan': planItems,
+                  'When Called': [{ json: payload }] };
+  return { nodes: nodes, planItems: planItems,
+           applied: run(APPLY, planItems, nodes) };
+}
+{
+  const g = callerRun({ replacements_grant: 'granted' }, 12);
+  ok(g.applied.out.length === 12 &&
+     g.applied.out.every(function (i) { return i.json._replacements_granted === true; }),
+     'a caller-supplied GRANTED runs the phase over the whole chunk, with no probe call here');
+  ok(g.applied.log.probed_here === false && g.applied.log.probe_calls_avoided === 1 &&
+     g.applied.log.probe_source === 'caller',
+     'the log states plainly that this chunk did not ask ERP anything and where the answer came from');
+  ok(g.applied.out[7].json.contract_id === g.planItems[7].json.contract_id &&
+     g.applied.out[7].json.plan && g.applied.out[7].json.plan.expected_amount_known === true,
+     'the items handed on are Project Plan\'s items, in order, with the plan delta intact');
+
+  const inc = callerRun({ replacements_grant: 'inconclusive' }, 8);
+  ok(inc.applied.out.every(function (i) { return i.json._replacements_granted === true; }) &&
+     inc.applied.log.probe_verdict === 'inconclusive',
+     'INCONCLUSIVE SURVIVES THE HOP: the phase runs anyway, and it is logged as inconclusive ' +
+     'rather than quietly as granted - a transient at WF-A must never become a whole RUN of ' +
+     'declared non-coverage');
+}
+
+// ---- a caller-supplied DENIED declares exactly the same gap -------------------------------
+{
+  const N = 40;
+  const d = callerRun({ replacements_grant: 'denied',
+    replacements_grant_probe: { http_code: 401, marked: true, source: 'wf-a-run-probe' } }, N);
+  ok(d.applied.out.every(function (i) { return i.json._replacements_granted === false; }),
+     'a caller-supplied DENIED routes the whole chunk down the skip path');
+  const out = run(SKIP, d.applied.out, d.nodes).out[0].json;
+  ok(out._replacement_permission_denied === N && out._replacement_fetch_failures === N &&
+     out._candidates === N && out.enriched.length === N,
+     'THE DECLARED GAP IS UNCHANGED BY THE HOP: ' + N + ' contracts declared unread - the number ' +
+     'NOT ATTEMPTED - not 0, which would read downstream as a complete run',
+     'got ' + out._replacement_permission_denied);
+  ok(out.enriched.every(function (e) {
+       return e.replacements_meta.fetch_failed === true &&
+              e.replacements_meta.permission_denied === true &&
+              e.replacements_meta.token_dead === false; }),
+     'and every case still carries fetch_failed + permission_denied, so coveredDays() reports ' +
+     'coverage UNKNOWN and gate 7 caps it');
+}
+
+// ---- THE THREE PATHS ARE INDISTINGUISHABLE, which is the whole safety argument ------------
+// Same chunk, same denial, three routes to it: 25 real 401s through Project Replacements; WF-E's
+// own probe refused; WF-A's probe refused and the verdict passed down. If any two of these ever
+// diverge, a denied account starts scoring differently depending on WHERE the refusal was
+// discovered - which is precisely what must not happen.
+{
+  const N = 25;
+  const denials = [];
+  for (let i = 0; i < N; i++) denials.push(n8nError(401, 'INSUFFICIENT_PERMISSIONS'));
+  const refused = replRun(denials, N).out[0].json;
+
+  const p = probeRun(n8nError(401, 'INSUFFICIENT_PERMISSIONS'), N, 0);
+  const skippedByOwnProbe = run(SKIP, p.restored.out, p.nodes).out[0].json;
+
+  const c = callerRun({ replacements_grant: 'denied',
+    replacements_grant_probe: { http_code: 401, marked: true, source: 'wf-a-run-probe' } }, N, 0);
+  const skippedByCaller = run(SKIP, c.applied.out, c.nodes).out[0].json;
+
+  const counters = ['_candidates', '_plan_fetch_failures', '_replacement_fetch_failures',
+                    '_replacement_permission_denied', '_replacement_permission_denied_unmarked',
+                    '_replacement_other_failures', '_projected_by', '_chunk_index'];
+  const dA = counters.filter(function (k) {
+    return JSON.stringify(refused[k]) !== JSON.stringify(skippedByCaller[k]); });
+  ok(dA.length === 0,
+     'a caller-supplied denial reports the SAME counters WF-A reads as making all ' + N + ' calls ' +
+     'and being refused', 'differ: ' + dA.join(', '));
+  const dB = counters.filter(function (k) {
+    return JSON.stringify(skippedByOwnProbe[k]) !== JSON.stringify(skippedByCaller[k]); });
+  ok(dB.length === 0,
+     '...and the same counters as WF-E probing for itself - the hop changed the load, not what ' +
+     'the audit knows', 'differ: ' + dB.join(', '));
+
+  const metaKeys = ['fetch_failed', 'permission_denied', 'token_dead', 'rows', 'declared_total',
+                    'truncated', 'not_attempted'];
+  const mD = metaKeys.filter(function (k) {
+    return JSON.stringify(skippedByOwnProbe.enriched[0].replacements_meta[k]) !==
+           JSON.stringify(skippedByCaller.enriched[0].replacements_meta[k]); });
+  ok(mD.length === 0, 'and the per-case replacements_meta gate 7 reads is identical on both skip ' +
+     'paths', 'differ: ' + mD.join(', '));
+
+  const missing = Object.keys(refused).filter(function (k) {
+    return !Object.prototype.hasOwnProperty.call(skippedByCaller, k); });
+  ok(missing.length === 0,
+     'the caller-driven skip emits every top-level key Project Replacements emits - WF-A cannot ' +
+     'tell which of the three paths produced this item', 'missing: ' + missing.join(', '));
+
+  const scalars = [];
+  for (let i = 0; i < N; i++) scalars.push({ json: { case_key: 'c' + i + ':2026-07',
+    contract_id: '90000' + i, client_id: '5' + i, needs_enrichment: true } });
+  const j = run(JOIN, [{ json: skippedByCaller }], { 'Needs enrichment?': scalars });
+  ok(j.out.length === N && j.logOf('join_enrichment').replacement_permission_denied === N,
+     'Join Enrichment joins a caller-skipped chunk and rolls the SAME denial count into the run log');
+}
+
+// ---- the diagnostic detail is optional, and its absence is visible rather than baked in ----
+{
+  const N = 6;
+  const bare = callerRun({ replacements_grant: 'denied',
+    replacements_grant_probe: { http_code: 403, marked: false, source: 'wf-a-run-probe' } }, N);
+  const outBare = run(SKIP, bare.applied.out, bare.nodes).out[0].json;
+  ok(outBare._replacement_permission_denied === N &&
+     outBare._replacement_permission_denied_unmarked === N,
+     'an UNMARKED refusal survives the hop too: a bare 403 at WF-A still charges all ' + N + ' as ' +
+     'unmarked, so a change in ERP\'s error vocabulary shows up as a number and not as silence');
+
+  const noDetail = callerRun({ replacements_grant: 'denied' }, N);
+  ok(noDetail.applied.log.probe_detail_absent === true &&
+     noDetail.applied.log.probe_http_code === null,
+     'a verdict sent WITHOUT the diagnostic object is accepted, and the log says the detail was ' +
+     'absent rather than pretending to a status code it never saw');
+  const outNoDetail = run(SKIP, noDetail.applied.out, noDetail.nodes).out[0].json;
+  ok(outNoDetail._replacement_permission_denied === N &&
+     outNoDetail._replacement_permission_denied_unmarked === 0,
+     '...and the gap is still declared in full; only the unmarked count defaults, to the measured ' +
+     'shape of this route');
+}
+
+// ---- the structural refusals on the new path ----------------------------------------------
+throws(function () { callerRun({ replacements_grant: 'probably' }, 5); },
+  'Apply Caller Verdict refuses an unusable verdict rather than defaulting - reaching it with ' +
+  'one means the IF and this node no longer agree', 'not one of');
+{
+  const c = callerRun({ replacements_grant: 'denied' }, 10);
+  throws(function () { run(APPLY, c.planItems.slice(0, 4), c.nodes); },
+    'a partial route is refused here too: the verdict is a property of the RUN, so both paths ' +
+    'must carry the entire chunk', 'partial chunk');
+}
+
+// ---- FALLBACK PROOF: with the flag absent, WF-E is byte-for-byte the flow it was ----------
+// The gate says route to the probe; the probe path then produces exactly what the caller path
+// produces. Both halves are asserted, because either one alone would let a regression through:
+// a gate that routed correctly into a broken probe path, or a probe path that worked but was
+// never reached.
+{
+  const N = 25;
+  ok(gateWith({ bearer: BEARER, cases: cand(N), chunk_index: 0, run_id: 'r' }) === false,
+     'FALLBACK: a trigger payload with no replacements_grant at all routes to Probe Replacements ' +
+     'Grant, which is WF-E\'s behaviour before WF-A ever learned to probe');
+  const p = probeRun(n8nError(401, 'INSUFFICIENT_PERMISSIONS'), N, 0);
+  const fallback = run(SKIP, p.restored.out, p.nodes).out[0].json;
+  const c = callerRun({ replacements_grant: 'denied',
+    replacements_grant_probe: { http_code: 401, marked: true, source: 'wf-a-run-probe' } }, N, 0);
+  const viaCaller = run(SKIP, c.applied.out, c.nodes).out[0].json;
+  ok(JSON.stringify(fallback) === JSON.stringify(viaCaller),
+     '...and what it produces is IDENTICAL, key for key and value for value, to what the caller ' +
+     'path produces - so the fallback is not a degraded mode, it is the same answer bought at a ' +
+     'higher price');
+}
+
+// ---- WF-A's Classify Grant Probe: the node that actually asks, once per run ---------------
+// It is a WF-A body, so it is mirrored in wf-e/wfa/ alongside Chunk Candidates and Join
+// Enrichment and tested here rather than in a separate file - the thing being tested is the
+// boundary, and the boundary has two ends.
+const CLASSIFY = fs.readFileSync(path.join(D, 'wfa', 'classify_grant_probe.js'), 'utf8');
+// Built in the shape the DEPLOYED Chunk Candidates emits - {bearer, cases, chunk_index, run_id} -
+// rather than by running that node, so this section cannot be knocked over by a change to
+// chunking.
+function chunksOf(sizes) {
+  return sizes.map(function (n, i) {
+    return { json: { bearer: BEARER, cases: cand(n), chunk_index: i, run_id: 'run-wfa' } }; });
+}
+function classifyRun(probeResponses, sizes) {
+  const chunkItems = chunksOf(sizes);
+  const list = Array.isArray(probeResponses) ? probeResponses : [probeResponses];
+  return run(CLASSIFY, list.map(function (j) { return { json: j }; }),
+             { 'Chunk Candidates': chunkItems });
+}
+{
+  const g = classifyRun(GRANTED_PROBE, [50, 750, 750]);
+  ok(g.out.length === 3 &&
+     g.out.every(function (i) { return i.json.replacements_grant === 'granted'; }),
+     'ONE probe answers for the WHOLE RUN: every chunk carries the verdict, and the chunk\'s own ' +
+     'payload is passed through untouched beside it');
+  ok(g.out[1].json.cases.length === 750 && g.out[1].json.chunk_index === 1 &&
+     g.out[1].json.bearer === BEARER,
+     '...untouched meaning exactly that - bearer, cases and chunk_index are the ones WF-E already ' +
+     'expects, so the contract only grew');
+  ok(g.out[0].json.replacements_grant_probe.marked === true &&
+     g.out[0].json.replacements_grant_probe.source === 'wf-a-run-probe',
+     'the diagnostic object rides along and names where the verdict came from');
+
+  const d = classifyRun(DENIED_PROBE, [50, 750, 750]);
+  ok(d.out.every(function (i) { return i.json.replacements_grant === 'denied'; }) &&
+     d.log.replacement_calls_avoided === 1550 && d.log.wfe_probes_avoided === 3,
+     'a refused probe denies the whole run in ONE call, and the log states both what it saved ' +
+     '(1,550 refused replacement calls) and that it also removed 3 per-chunk probes',
+     JSON.stringify(d.log));
+  ok(d.out[0].json.replacements_grant_probe.http_code === 401 &&
+     d.out[0].json.replacements_grant_probe.marked === true,
+     'and it carries the http code and the INSUFFICIENT_PERMISSIONS marker down, so WF-E\'s ' +
+     'unmarked counter keeps meaning what it means');
+
+  const bare = classifyRun(n8nError(403, 'Forbidden'), [10]);
+  ok(bare.out[0].json.replacements_grant === 'denied' &&
+     bare.out[0].json.replacements_grant_probe.marked === false,
+     'a bare 403 is still a denial, and is flagged UNMARKED so a change in ERP\'s error ' +
+     'vocabulary surfaces as a number');
+
+  const inc = classifyRun(n8nError(503, 'Service Unavailable'), [750, 750]);
+  ok(inc.out.every(function (i) { return i.json.replacements_grant === 'inconclusive'; }) &&
+     inc.log.replacement_calls_this_run_will_make === 1500,
+     'a 503 on the ONE probe is INCONCLUSIVE and the whole run still makes its calls - at this ' +
+     'end of the hop a transient would otherwise cost an entire run, not one chunk');
+  ok(classifyRun(n8nError(404, 'Not Found'), [10]).out[0].json.replacements_grant === 'inconclusive',
+     'so is a 404 - only 401/403 without a dead-token marker is read as a refusal');
+}
+throws(function () { classifyRun(n8nError(401, 'UNAUTHORIZED <LOGOUT>'), [10]); },
+  'a logged-out probe throws in WF-A, before the enrichment phase, instead of blaming a missing ' +
+  'grant for a dead session', 'DEAD TOKEN');
+throws(function () { classifyRun([GRANTED_PROBE, GRANTED_PROBE], [10, 10]); },
+  'more than one probe response means executeOnce was lost on WF-A\'s probe - refused loudly ' +
+  'rather than silently making one refused call per chunk again', 'executeOnce');
+{
+  const none = classifyRun(GRANTED_PROBE, []);
+  ok(none.out.length === 0 && none.log.chunks === 0,
+     'ZERO CHUNKS IS LEGITIMATE IN WF-A and is the one place the two ends differ: gate 1 can ' +
+     'close out the whole cohort, so this returns [] where WF-E\'s Restore Chunk Items throws');
+}
+// THE TWO ENDS MUST NOT DRIFT APART. Both nodes decide what a refusal is, and if they ever
+// disagree the same 401 means "denied" at one end and something else at the other. The four
+// classifier functions are therefore lifted verbatim, and that is asserted rather than promised.
+{
+  const fns = ['function httpCodeOf(o) {', 'function failureText(o) {',
+               'function isTokenDead(text) {', 'function isPermissionDenied(code, text) {'];
+  const drift = fns.filter(function (sig) {
+    const a = RESTORE.indexOf(sig), b = CLASSIFY.indexOf(sig);
+    if (a === -1 || b === -1) return true;
+    return RESTORE.slice(a, RESTORE.indexOf('\n}', a)) !== CLASSIFY.slice(b, CLASSIFY.indexOf('\n}', b));
+  });
+  ok(drift.length === 0,
+     'WF-A and WF-E classify a refusal with byte-identical code - one 401 cannot mean two things ' +
+     'depending on which end of the hop saw it', 'drifted: ' + drift.join(', '));
+}
+
+// ---- source pins for the two things deliberately NOT changed ------------------------------
+// WF-A's Chunk Candidates still projects cohort_size x 2 for the §3 budget gate. With WF-A
+// probing once per run the true cost is 2N+1 on a granted run and N+1 on a denied one, so the
+// projection is now ONE call low on a granted run (0.009%) and ~5,631 calls HIGH on a denied one.
+// Both errors are in the safe direction for a gate that hard-fails on over-projection. It is left
+// alone for the same reason the callsMade divisor was: correcting it means hand-retransmitting
+// the 9 KB body of the node that decides whether the run is allowed to start at all, and that is
+// a worse risk than a one-call under-projection. Declared, not hidden.
+ok(CHUNK.indexOf('const ERP_CALLS_PER_ENTITY = 2;') !== -1,
+   'Chunk Candidates still declares 2 calls per entity - the WF-A probe is a documented one-call ' +
+   'under-projection, not an unnoticed one');
+ok(REPL.indexOf('config: { authWall: false }') !== -1,
+   'the auth-wall opt-out is STILL in place - and now it is what lets a mid-run revocation cost ' +
+   'the rest of the run in refused calls instead of killing the run; see wf-e/README.md');
+
 console.log('\n' + pass + '/' + (pass + fail) + ' assertions passed');
 process.exit(fail ? 1 : 0);

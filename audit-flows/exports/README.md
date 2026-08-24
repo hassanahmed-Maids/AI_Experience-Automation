@@ -53,6 +53,29 @@ So an undetected error would have to be valid JS, leave every structural field i
 the breaker block, and not touch a compliance tag. **Re-export any `transcribed` flow the moment a
 real API route exists**, and treat the field as a standing debt rather than a footnote.
 
+## DRAFT-AHEAD-OF-LIVE, 2026-08-24 — two exports are NOT what is running
+
+`wfa-parent.json` and `wfe-enrich.json` were re-fetched after the WF-A once-per-run grant-probe
+change and are therefore the **DRAFT** of each workflow, not the active version. The change was
+prepared as a draft deliberately: **no `publish_workflow` was called**, and the operator publishes.
+
+| file | draft `versionId` | still-active `activeVersionId` |
+|---|---|---|
+| `wfa-parent.json` | `e372043d-f360-4b0e-ab68-e937ea31d3a8` | `efea3a49-29c5-4af0-9be0-816b42ce8da5` |
+| `wfe-enrich.json` | `d03f739c-2017-4e45-b301-149ad8ac62fe` | `c0510c1e-a792-469d-8c97-13327278069f` |
+
+This inverts the usual failure this directory warns about. A stale export claims the live flow is
+older than it is; these two claim it is **newer** than it is, which is the more dangerous direction
+because every checker in this repo goes green on them. **`erp_compliance.py --all` passing on these
+two files says the DRAFT complies, and says nothing about what is executing right now.** Re-fetch
+both the moment they are published, and delete this section then.
+
+Publish order does not matter and was checked: WF-A published first would send two extra input
+fields to the old WF-E, whose trigger declares neither, so n8n drops them and WF-E probes per chunk
+exactly as it does today; WF-E published first declares the fields and nothing sends them, so its
+gate finds nothing usable and it probes per chunk exactly as it does today. Either single-published
+state is the current behaviour, not a broken one.
+
 ## STALE-BUT-VERIFIED, 2026-08-23 19:25Z — two of three cleared 2026-08-24
 
 Three exports here lagged the instance. The flows themselves were fixed, deployed and **verified

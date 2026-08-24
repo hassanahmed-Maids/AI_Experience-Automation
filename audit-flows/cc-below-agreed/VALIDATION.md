@@ -536,6 +536,14 @@ Built 2026-08-18 in response to §15: `CC Below Agreed · 0-Enrich Candidates`
 → `Join Enrichment` → `Merge Streams [0]`. `Compute Case States` is untouched, because
 `Join Enrichment` emits exactly the shape `Attach Replacements` did.
 
+**Amended 2026-08-24:** two nodes now sit between the first two —
+`Chunk Candidates` → `Probe Replacements Grant` → `Classify Grant Probe` →
+`Enrich Candidates (WF-E)` — one `executeOnce` ERP call that asks whether this account holds the
+`ClientReplacement` grant, and the node that stamps its three-way verdict onto every chunk. Both
+are after the lease and after the §3 budget gate. WF-E keeps its own per-chunk probe as the
+fallback for any caller that sends no recognised verdict, so nothing about the shape above changed.
+See `wf-e/README.md`.
+
 ### The memory arithmetic, itemised so it can be argued with
 
 | retained in WF-A | before | after |
