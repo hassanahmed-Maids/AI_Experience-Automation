@@ -226,6 +226,76 @@ def analyse(w):
     return findings
 
 
+def bare_lookup_run_id(w):
+    """The error rail's run_id must not be a bare cross-node lookup.
+
+    MEASURED, execution 100774 on LDtsstXDfF99TnYe, 2026-08-24. `Acquire ERP Lease` and
+    `Release Lease (error)` mapped run_id with the IDENTICAL expression:
+
+        {{ $('Validate Inputs').first().json.run_id }}
+
+    It resolved at step 5 to 'manual-100774-2026-06'. At step 14, in the same execution, with
+    Validate Inputs demonstrably successful, it resolved to NOTHING - and n8n did not raise:
+    it silently DROPPED the field. The lease received no run_id, refused the release exactly as
+    it is designed to, and the lease was stranded by a dead run. Every later audit queued behind
+    a holder that had already exited.
+
+    The difference between step 5 and step 14 is the ITEM. On the error rail the current item
+    comes from Capture Failure, which builds a synthetic {_failure:{...}} item, and the
+    cross-node lookup cannot be resolved from it. n8n's internal reason is NOT established here
+    and this rule does not claim one - it does not need to. The remedy is to stop depending on
+    the lookup: carry the identity ON the item, and guard whatever fallback remains.
+
+    Both halves already existed in this repo, in different flows, which is the part worth
+    noticing. ccnonreceived-2-verify read run_id off Capture Failure's own item; cc-overstay-fines
+    wrapped its lookup in a try/catch after being bitten on a crash path. Neither was general, so
+    eleven flows shipped exposed.
+
+    ACCEPTED: a bare lookup on the SUCCESS path. There the item chain is intact and the
+    expression demonstrably resolves - that is what step 5 proves. This rule is about the rail.
+    """
+    nodes = {n['name']: n for n in w['nodes']}
+    conns = w.get('connections', {})
+
+    # Every node reachable from ANY error output (index >= 1 on a non-brancher) is on a rail.
+    BRANCHERS = ('n8n-nodes-base.if', 'n8n-nodes-base.switch', 'n8n-nodes-base.filter')
+    rail, frontier = set(), []
+    for src, o in conns.items():
+        for outs in (o or {}).values():
+            for idx, lst in enumerate(outs or []):
+                if idx == 0 or nodes.get(src, {}).get('type') in BRANCHERS:
+                    continue
+                for c in (lst or []):
+                    frontier.append(c['node'])
+    while frontier:
+        cur = frontier.pop()
+        if cur in rail:
+            continue
+        rail.add(cur)
+        for outs in (conns.get(cur, {}) or {}).get('main', []) or []:
+            for c in (outs or []):
+                frontier.append(c['node'])
+
+    bad = []
+    for name in sorted(rail):
+        n = nodes.get(name)
+        if not n or n.get('type') != SUBFLOW:
+            continue
+        wi = (n.get('parameters') or {}).get('workflowInputs') or {}
+        val = wi.get('value') or {}
+        if str(val.get('mode', '')).find('release') < 0:
+            continue
+        expr = str(val.get('run_id', ''))
+        if not expr:
+            bad.append((name, '(no run_id mapped at all)'))
+            continue
+        guarded = 'try' in expr and 'catch' in expr
+        from_item = '$json' in expr
+        if not guarded and not from_item:
+            bad.append((name, expr.strip()[:88]))
+    return bad
+
+
 def main(paths):
     """FAILS ON ORIGINS ONLY, and that is the whole design of this checker.
 
@@ -249,9 +319,28 @@ def main(paths):
         if 'nodes' not in w:
             continue
         res = analyse(w)
+        label = '%s (%s)' % (os.path.basename(p), w.get('id', '?'))
+
+        # CHECKED BEFORE the reachability early-exit, deliberately. A flow can have NO
+        # success-path release and still hold the lease - the sweep stages do exactly that,
+        # acquiring in one stage and releasing in another - and those flows have only an error
+        # rail to fall back on. Skipping them here would have excused five of the eight that
+        # were exposed, including WF-A, the parent that holds the lease for the whole CC Below
+        # Agreed pipeline.
+        rail_bad = bare_lookup_run_id(w)
+        if rail_bad:
+            bad += 1
+            print('FAIL  %s' % label)
+            for nm, expr in rail_bad:
+                print('        %-28s error-rail run_id is a BARE cross-node lookup' % nm)
+                print('        %-28s   %s' % ('', expr))
+                print('        %-28s   carry it on the item (Capture Failure stamps run_id) and '
+                      'guard any fallback' % '')
+            if res is None:
+                continue
+
         if res is None:
             continue                      # flow holds no lease - nothing to reach
-        label = '%s (%s)' % (os.path.basename(p), w.get('id', '?'))
         origins = [f for f in res if f['why'].startswith('ORIGINATES')]
         carriers = [f for f in res if not f['why'].startswith('ORIGINATES')]
         if not origins:
