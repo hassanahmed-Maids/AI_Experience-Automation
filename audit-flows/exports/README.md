@@ -53,21 +53,29 @@ So an undetected error would have to be valid JS, leave every structural field i
 the breaker block, and not touch a compliance tag. **Re-export any `transcribed` flow the moment a
 real API route exists**, and treat the field as a standing debt rather than a footnote.
 
-## STALE-BUT-VERIFIED, 2026-08-23 19:25Z
+## STALE-BUT-VERIFIED, 2026-08-23 19:25Z — two of three cleared 2026-08-24
 
-Three exports here lag the instance. The flows themselves were fixed, deployed and **verified
-directly against n8n** - the lag is in this directory, not in the deployment:
+Three exports here lagged the instance. The flows themselves were fixed, deployed and **verified
+directly against n8n** - the lag was in this directory, not in the deployment:
 
-| export | id | verified how |
+| export | id | status |
 |---|---|---|
-| `mv-stage1-population.json` | `IKRXhIco1mwxrcPq` | full payload read back from n8n, rail correct |
-| `mv-stage4-verify.json` | `9T91z5VFH5g69WyT` | full payload read back from n8n, rail correct |
-| `wfc-deliver.json` | `yEF4BHYDZAnhBnYg` | full payload read back, `activeVersion.sameAsDraft: true` |
+| `mv-stage1-population.json` | `IKRXhIco1mwxrcPq` | **REFRESHED 2026-08-24** during the lease-release-placement work (§4). No longer stale. |
+| `mv-stage4-verify.json` | `9T91z5VFH5g69WyT` | **REFRESHED 2026-08-24** during the lease-release-placement work (§4). No longer stale. |
+| `wfc-deliver.json` | `yEF4BHYDZAnhBnYg` | still lagging - full payload read back, `activeVersion.sameAsDraft: true` |
 
-`erp_compliance.py --all` therefore still reports the mute-rail failure for these three: it is
-reading these files, and these files are old. **Re-export them before trusting that output.**
-Written down rather than left as three unexplained reds, which is how a real finding gets ignored
+`erp_compliance.py --all` therefore still reports the mute-rail failure for `wfc-deliver.json`
+only: it is reading that file, and that file is old. **Re-export it before trusting that output.**
+Written down rather than left as an unexplained red, which is how a real finding gets ignored
 next to a known-stale one.
+
+**How the two MV refreshes were taken, because it is not the `api` path.** `get_workflow_details`
+returned both payloads **inline** rather than to a file, so neither could be copied verbatim.
+Each on-disk export was instead reconciled field by field against the live payload: per-node
+`jsCode` lengths and sha1s compared, the changed nodes replaced, `connections` taken wholesale.
+`export_report.py --check-js` is clean on every Code body in both. By the rule above these are
+**`transcribed`**, not `api`, and carry that class of risk - re-export them the moment a real API
+route exists.
 
 ## Capture Failure v3 is deployed to ONE flow only, 2026-08-24
 
