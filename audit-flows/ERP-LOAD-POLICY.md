@@ -338,7 +338,31 @@ verified: true, reason: "released by its holder"` - on the exact clean-month pat
    note lives on the node so it cannot drift away from the code it excuses.
 
 **Enforcement.** `tools/lease_release_check.py` walks the success route backwards from the release
-and fails on any node that can ORIGINATE emptiness and has no ruling. `tools/lease_route_map.py`
+and fails on any node that can ORIGINATE emptiness and has no ruling.
+
+### `setNodeParameter /notes` REPLACES. Append, or you destroy a ruling (2026-08-24)
+
+A node's `notes` field is where this project records its `ERP-COMPLIANCE:` rulings, and a node can
+carry MORE THAN ONE. `update_workflow`'s `setNodeParameter` with path `/notes` overwrites the whole
+field. There is no append mode, and nothing warns you.
+
+Measured, on a live published flow: `Verify Population` in `aTmGMAlYLwsJQ7js` held the
+paginated-sweep breaker exemption from 2026-08-23. Writing an `empty-exit-ok` ruling to the same
+node the next morning silently deleted it, and `erp_compliance.py` went from PASS to
+**`§5 NO CIRCUIT BREAKER in "Verify Population"`**. The same edit destroyed the equivalent note on
+`sXsn4NUYt4kh3OAU`. Nothing caught it for two hours; it surfaced only because a deploy agent
+reported the §5 failure as pre-existing and that claim was checked.
+
+**So: read the existing note first and concatenate.** A subagent working the same day did exactly
+that on `Build Page List` without being told to - appending its ruling after the existing one - and
+kept both. That is the standard.
+
+Worth knowing while you are in there: `/notes` does not write n8n's own node-note field, which is
+**top-level** `notes`, not `parameters.notes`. `update_workflow` has no operation that reaches the
+top-level field, so a ruling written this way lives in the workflow JSON - where every checker in
+this repo reads it (`erp_compliance.py:86` reads both) - but does not render in the n8n editor. The
+repo is split, 190 top-level against 28 in `parameters`. Prefer putting a ruling for a **Code** node
+in its `jsCode` header comment instead: it renders, and it sits against the code it excuses. `tools/lease_route_map.py`
 prints the last ERP call, its breaker, and what currently feeds the release - the shape you need in
 order to place it.
 
