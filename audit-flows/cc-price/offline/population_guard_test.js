@@ -106,19 +106,34 @@ console.log('\n--- five consecutive server errors ---');
      'the message carries the two things not to do');
 }
 
-console.log('\n--- a dead token is NOT degradation ---');
-// Every page answers 498. If auth counted as degradation this would trip on page five and
-// report ERP as failing, sending someone to check a healthy server.
+console.log('\n--- a dead token is NOT degradation, but it IS a wall ---');
+// Every page answers 498, and not one page comes back. If auth counted as DEGRADATION this
+// would trip on page five and report ERP as failing, sending someone to check a healthy server.
+// It still must not do that - and that is what the last assertion here pins.
+//
+// AMENDED 2026-08-24. This block used to assert that twelve refusals reach the breaker
+// untouched and the SHAPE CHECK stops the run. That produced the message "POPULATION SHAPE
+// UNEXPECTED ... the account lacks the grant" for what is actually a dead session - the exact
+// wrong-diagnosis complaint the 5xx block twenty lines above makes about this same ordering.
+// The auth wall now speaks first and names all three readings, because from the response item
+// alone the three are genuinely indistinguishable (n8n puts no response headers on an error
+// item; see tools/erp_breaker.js).
 {
   const pages = [];
   for (let i = 0; i <= FULL_PAGES; i++) pages.push(authPage());
   throwsWith(() => run(pages),
-    'twelve auth failures do NOT trip the breaker - the shape check stops the run instead',
-    'POPULATION SHAPE UNEXPECTED');
+    'twelve refusals with not one page returned stop the run as a PERMISSION WALL',
+    'ERP PERMISSION WALL', 'Population Guard (CC Price Stage 1)');
   let msg = '';
   try { run(pages); } catch (e) { msg = e.message; }
-  ok(msg.indexOf('CIRCUIT BREAKER') === -1,
+  ok(msg.indexOf('POPULATION SHAPE UNEXPECTED') === -1,
+     'and the misleading "the account lacks the grant" diagnosis never surfaces on its own');
+  ok(/\(a\)/.test(msg) && /\(b\)/.test(msg) && /\(c\)/.test(msg),
+     'the message offers all three readings rather than asserting one it cannot see');
+  ok(msg.indexOf('CIRCUIT BREAKER TRIPPED') === -1 && msg.indexOf('Check ERP is healthy') === -1,
      'and ERP is not blamed for a token problem');
+  ok(msg.indexOf('DO NOT retry') !== -1,
+     'and it forbids the retry, which only doubles a refusal that cannot heal');
 }
 
 console.log('\n--- under the threshold ---');

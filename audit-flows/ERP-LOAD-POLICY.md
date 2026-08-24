@@ -415,6 +415,7 @@ Every projection node that reads a batch of ERP responses MUST carry the breaker
 | consecutive `5xx` / `429` / connection timeouts | **5** | the shape of a server falling over |
 | share of the batch degraded | **≥ 25%**, over at least 20 responses | scattered failure that never reaches 5 in a row |
 | mean ms per call vs the run's first full batch | **> 3×** | ERP still answering, but dying |
+| **an auth wall — a batch refused outright with NOT ONE success** | **≥ 5 refusals, 0 ok** | a refusal that is total cannot heal, so every further call is load for zero information |
 
 **A `401`/`403`/`498` is not degradation.** It is a permission or a dead token — the same answer
 arriving quickly every time, which is the opposite of an overloaded server. This is not a nicety:
@@ -423,6 +424,113 @@ ClientReplacement, ~5,632 of them unbroken, so a breaker that counted them would
 five of every run ever fired — and the fix anyone reaches for at that point is to raise the
 threshold until it stops complaining, at which point it detects nothing. Auth failures are
 counted and reported; they have their own detectors (`isTokenDead`) and their own consequence.
+
+### …but "auth is not degradation" was read as "auth can never stop a run" (fixed 2026-08-24)
+
+Those are two claims, and only the first is true. The second cost **~2,400 requests to production
+ERP in one day**. Dummy Tickets 0-Fetch fans out over 399 unique applicants against
+`GET /recruitment/maid-at-common/get-main-data/{id}`, pagecode `RECRUITMENT__HustlersWorkflow`.
+The operator's ERP identity lacks that grant, so **every call returned 401** — with
+`retryOnFail`/`maxTries 2`, ~800 requests per run, three runs. The breaker watched all of them go
+past, because auth was excluded from every counter it owns. The run then reported `overall: pass`.
+
+**What the breaker can actually SEE, established from stored execution data, not assumed.**
+Execution 100522 (workflow `YQlNlxrnhbQpBbdl`, node `Get Hustler Tickets`) stores the item verbatim:
+
+```
+{ error: { message: '401 - "<html>…<div>UNAUTHORIZED &lt;LOGOUT&gt;</div></body></html>"',
+           name: 'AxiosError', code: 'ERR_BAD_REQUEST', status: 401, stack: '…' } }
+```
+
+There is **no `response` key and therefore no headers**, so `developerMessage` — the one thing
+that separates ERP's three refusals — is genuinely unreachable, and the string
+`INSUFFICIENT_PERMISSIONS` is nowhere in the item. The body says `UNAUTHORIZED <LOGOUT>`, which
+per `dummy-tickets-hm/ENDPOINT-FINDING.md` means any of three things. **A breaker that claimed to
+detect a missing grant from this item would be inventing a signal that is not in it.**
+
+**So the test is not _which_ refusal — it is _how total_.** All three meanings of `<LOGOUT>` share
+the only property a fan-out cares about: the grant, the token and the pagecode are all fixed for
+the whole run, so none of them can change between call 1 and call N.
+
+> **The rule: the batch produced not one successful response and the failures are auth → stop.**
+
+The negative case is what keeps it from crying wolf, and it is the real one: a **per-entity**
+denial arrives mixed with successes, so `counts.ok > 0`, nothing trips, those entities are
+recorded unreachable and the run continues exactly as before. **One success anywhere in the batch
+proves the token, the pagecode and the endpoint all work.**
+
+It deliberately does **not** consult static data. "Have we seen an ok earlier in this run" would
+make the rule stronger and would also make it silently inert on manual runs, where static data is
+not written — the false-clearance shape this project keeps finding.
+
+**Cost, measured:** with chunks of 25 the wall trips on the first chunk — **25 calls instead of
+~800**. That is the whole saving available: the HTTP node returns only when its last request is
+done, so "trip on the first refusal" can only ever mean "trip on the first BATCH", and the batch
+size is the bill. Same reasoning as the canary chunk, above.
+
+**Its message is a different message**, and that is the point. The degradation message says
+"check ERP is healthy, re-run from a capped cohort" — every word of which is wrong advice for a
+permission gap and sends the operator to inspect a server that is working perfectly. The wall
+message names the pagecode (**declared by the call site**, because the request headers are not on
+the item either), states plainly that `developerMessage` could not be read, lists all three
+readings, and gives the one curl that settles which it is.
+
+**Where the header IS reachable.** On a node configured `fullResponse: true` **and**
+`neverError: true`, a response arrives as `{body, headers, statusCode, statusMessage}` — verified
+on execution 93601, workflow `YXRZdtk2Geeeqaal`, the same ERP endpoint. The breaker reads
+`developerMessage` opportunistically there and names the reason instead of hedging. It is read as
+a **header lookup and never as a text scan**, because that same verified 200 response carries
+`access-control-expose-headers: … developerMessage` on *every* successful call — a
+`has('developermessage')` scan would match every healthy response ERP returns, which is the
+identical bug shape as the bare `503` scan that classified a contract id of 503 as a server error.
+
+**The one declared opt-out**, and the bar for adding another. `cc-below-agreed/wf-e`'s
+`Project Replacements` passes `config: { authWall: false }` at its call site, in writing, because
+three things hold together: the phase is an *optional enrichment* whose denial is **account**-scoped
+(PROBE-RESULTS correction 2 — the same route returns 200 on another operator's token), the same
+chunk's plan phase **succeeded**, and the gap is **already declared** in the flow's output. It
+opts out of the wall only — 5xx, 429, timeouts, rate and latency all still trip there — and
+`auth_wall: true` is still written to the run log on every chunk, so the suppression is visible
+rather than hidden in the code that did it. **The better fix for that flow is not a breaker
+setting**: probe the grant once per run and skip the phase, turning ~5,632 refused requests into
+one. That is a flow change and it is open.
+
+Tests: `tools/offline/auth_wall_test.js` — **70 assertions**, fixtures copied verbatim out of
+executions 100522 and 93601, including the negative cases (a transient 503 never reaches the
+permission path; a whole batch of 503s is still reported as degradation; one success in 750
+refusals keeps the run going; a real 200 whose headers contain the word `developerMessage` is
+still `ok`).
+
+### Retrying a refusal (`retryOnFail`) — judged 2026-08-24, and the framing needs a correction
+
+`retryOnFail: true, maxTries: 2` on `Get Hustler Tickets` doubled ~400 refusals into ~800. It is
+true that **retrying a permission denial is never right**. It is also true that **n8n cannot
+express that**: `retryOnFail` is unconditional — the node cannot distinguish a 401 from a 503, and
+a 503 genuinely does sometimes heal on the second try. So "turn retry off" trades a real defence
+against transients for a saving that the auth wall has already taken:
+
+* before: retry doubled the whole run — 399 refusals → ~800 requests.
+* after: the run stops on the first chunk, so retry doubles **one chunk of 25** → 50 requests.
+
+**The retry is now a ~25-call rounding error on a run that stops, not a 400-call multiplier on a
+run that grinds.** It is not worth buying that back with a flow that no longer retries a genuine
+blip. Left alone deliberately.
+
+The change that *would* fix it properly is `neverError: true` (with `fullResponse: true`, which
+these nodes already set): an HTTP refusal then stops throwing, so **it is never retried at all**,
+only transport-level failures are — which is exactly the retry semantics you want — **and**
+`developerMessage` becomes readable, so the wall message can name the grant instead of listing
+three possibilities. It is a real behaviour change (`statusCode !== 200` handling moves from the
+error rail into the projection) and it has not been tested against a live 401, which would cost an
+ERP call. **Proposed, not done.** Nine ERP nodes are in this state today:
+
+| flow | nodes |
+|---|---|
+| `ccprice-stage1` | Get Population (dynamic API), Get Independent Count |
+| `ccprice-stage2` | Get Contract Details, Get LiveInOut Logs, Get Active CPT |
+| `dummy-stage0-fetch-tickets` | Get Hustler Tickets |
+| `terminated-hm-stage0-fetch-profiles` | Get Housemaid Info |
+| `terminated-hm-stage1-score` | Get Transaction Detail, Get All-Time Reversals |
 
 ### Two things this section originally asked for that are not possible, and what replaced them
 
@@ -492,12 +600,14 @@ into each projection node. Generated rather than hand-copied for one reason: han
 tell had drifted. `tools/erp_compliance.py` re-generates the block and compares it byte-for-byte
 against what is deployed, so drift is a finding rather than an opinion.
 
-Tests: `tools/offline/breaker_test.js` — **51 assertions, 7/7 mutations caught**, fixtures being
+Tests: `tools/offline/breaker_test.js` — **53 assertions, 7/7 mutations caught**, fixtures being
 the response shapes ERP actually returns (the Spring error body, the n8n error object that carries
 no status code anywhere predictable, the permanent `INSUFFICIENT_PERMISSIONS`, the 498-inside-500).
-`cc-below-agreed/wf-e/offline/enrich_test.js` — **62 assertions**, proving the *embedded copy*
-runs in place: 40 straight denials pass untouched, five consecutive 503s stop the chunk before its
-replacement phase fires, scattered 502s trip on rate.
+`cc-below-agreed/wf-e/offline/enrich_test.js` — **65 assertions**, proving the *embedded copy*
+runs in place: 40 straight denials pass untouched *because that call site declares an opt-out* —
+asserted as `auth_wall: true, auth_wall_enforced: false`, so nobody can read the green as "the
+wall does not exist here" — five consecutive 503s stop the chunk before its replacement phase
+fires, and scattered 502s trip on rate.
 
 ---
 

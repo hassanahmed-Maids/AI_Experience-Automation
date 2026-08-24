@@ -164,10 +164,14 @@ function erpBreakerGuard(opts) {
   if (sd && sd.erp_breaker_run !== runId) { sd.erp_breaker_run = runId; sd.erp_breaker_baseline = {}; }
   const base = (sd && sd.erp_breaker_baseline) || {};
 
+  // opts.config is the per-call-site override. It exists for ONE declared case - a phase whose
+  // whole-batch 401 is a known account-scoped gap the flow already reports - and a call site
+  // that passes it must say in writing why, next to the code. It is not a threshold dial.
   const v = erpBreakerEvaluate({
     phase: opts.phase, responses: opts.responses,
     elapsedMs: elapsed, callsMade: opts.callsMade,
-    baselineMsPerCall: base[opts.key]
+    baselineMsPerCall: base[opts.key],
+    pagecode: opts.pagecode, config: opts.config
   });
 
   console.log(JSON.stringify({ stage: 'erp_breaker', phase: opts.phase, key: opts.key,
@@ -176,10 +180,16 @@ function erpBreakerGuard(opts) {
     consecutive_max: v.consecutive_max, ms_per_call: v.ms_per_call,
     baseline_ms_per_call: v.baseline_ms_per_call, baseline_carried: v.baseline_carried,
     latency_multiple: v.latency_multiple, tripped: v.trip ? v.trip.code : null,
+    // Logged on EVERY batch, tripped or not. A wall that a call site opted out of has to stay
+    // visible in the run log, or the opt-out becomes the thing nobody can see.
+    auth_wall: v.auth_wall, auth_wall_enforced: v.auth_wall_enforced,
+    first_auth_index: v.first_auth_index,
+    developer_message: v.developer_message, pagecode: v.pagecode,
     static_data_available: sd !== null,
-    note: 'ERP-LOAD-POLICY.md §5. auth failures are counted but are NOT degradation - the ' +
-          'permanent 401 on every replacement call would otherwise trip this on call five of ' +
-          'every run ever fired' }));
+    note: 'ERP-LOAD-POLICY.md §5. A 401 among successes is NOT degradation and is not counted ' +
+          'as one - the permanent 401 on every replacement call would otherwise trip this on ' +
+          'call five of every run ever fired. A batch where NOTHING succeeded is a different ' +
+          'thing: it is a wall, it cannot heal, and it stops the run.' }));
 
   if (v.trip) throw new Error(erpBreakerMessage(v, opts.phase, runId));
 

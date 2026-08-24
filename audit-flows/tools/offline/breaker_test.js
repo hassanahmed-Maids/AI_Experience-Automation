@@ -57,14 +57,35 @@ eq('auth wins over a server-ish wrapper',
   B.erpBreakerClassify({ error: { message: 'Internal Server Error', description: 'SecurityException: UNAUTHORIZED' } }),
   'auth');
 
-head('THE RUN-KILLER: 5,632 consecutive 401s must not trip anything');
-const allAuth = B.erpBreakerEvaluate({ phase: 'replacements', responses: rep(AUTH_401, 5632),
-  elapsedMs: 5632 * 250, callsMade: 5632 });
-ok('no trip on an all-401 replacement phase', allAuth.trip === null,
+head('THE RUN-KILLER: 5,632 401s must never be counted as DEGRADATION');
+// AMENDED 2026-08-24, and the amendment is the point. This block used to assert that a batch of
+// 5,632 straight 401s trips NOTHING. That was two claims wearing one coat:
+//
+//   (i)  a 401 is not degradation and must not be counted as one   - still true, still asserted
+//        here, and still the reason the thresholds cannot be raised until they detect nothing.
+//   (ii) auth can therefore never stop a run                        - FALSE, and it cost ~2,400
+//        pointless requests to production ERP on 2026-08-24 before anyone noticed.
+//
+// A batch where NOTHING succeeded is not a per-entity gap, it is a wall, and no amount of
+// continuing changes it. That rule and its negative cases live in tools/offline/auth_wall_test.js.
+// What is pinned HERE is (i), using the fixture that actually occurs: denials arriving alongside
+// successes, which is what the replacement phase looks like when the account HAS the grant for
+// some contracts - and, per PROBE-RESULTS correction 2, whether it does is account-scoped.
+const allAuth = B.erpBreakerEvaluate({ phase: 'replacements',
+  responses: rep(AUTH_401, 5632).concat(rep(OK_PLAN, 1)),
+  elapsedMs: 5633 * 250, callsMade: 5633 });
+ok('5,632 denials alongside even one success do not trip', allAuth.trip === null,
    'trip=' + JSON.stringify(allAuth.trip));
 eq('...and none of them counted as degraded', allAuth.degraded_count, 0);
 eq('...they are counted as auth, so the run can still see them', allAuth.counts.auth, 5632);
 eq('...consecutive run of degradation is zero', allAuth.consecutive_max, 0);
+// And the half of the old claim that was wrong, stated as the assertion it should always have
+// been: with no successes at all, the same denials are a wall and the run stops.
+const allAuthNoOk = B.erpBreakerEvaluate({ phase: 'replacements', responses: rep(AUTH_401, 5632),
+  elapsedMs: 5632 * 250, callsMade: 5632 });
+eq('with ZERO successes the same denials are a wall, and it is an auth_wall - never a degradation code',
+   allAuthNoOk.trip && allAuthNoOk.trip.code, 'auth_wall');
+eq('...and they are STILL not counted as degradation', allAuthNoOk.degraded_count, 0);
 
 head('consecutive 5xx/429/timeout');
 const four = B.erpBreakerEvaluate({ phase: 'plan',

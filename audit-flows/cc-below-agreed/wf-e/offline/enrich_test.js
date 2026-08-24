@@ -398,6 +398,31 @@ console.log('\n--- circuit breaker, in place ---');
      '40 consecutive denials do not count as one consecutive degradation');
   ok(bl && bl.baseline_carried === false,
      'no static data offline, so it reports the baseline as not carried rather than inventing one');
+  // 2026-08-24: IT NOW PASSES FOR A DIFFERENT REASON, AND THAT REASON MUST BE VISIBLE.
+  // The canonical breaker gained an auth-wall rule - a batch that was refused outright with not
+  // one success stops the run, because a missing grant cannot heal and the remaining calls are
+  // load for zero information. This phase is the single declared exception in the repo (the
+  // denial is account-scoped, the same chunk's plan phase succeeded, and the gap is already
+  // reported), so its call site passes config.authWall:false in writing.
+  //
+  // The assertions above would now be green EITHER because auth is harmless OR because someone
+  // silenced the rule. These two separate those readings: the wall was SEEN, and it was
+  // deliberately not enforced. If the opt-out is ever removed, this block fails loudly instead
+  // of a run dying in production with no test having noticed.
+  ok(bl && bl.auth_wall === true,
+     'the wall IS detected - 40 refusals and not one success - and is written to the run log');
+  ok(bl && bl.auth_wall_enforced === false,
+     '...and is passing only because THIS call site declares an opt-out, not because it went unseen');
+}
+{
+  // The opt-out is for the permission path only. Degradation still stops this node.
+  const mixed = [];
+  for (let i = 0; i < 20; i++) mixed.push(n8nError(401, 'INSUFFICIENT_PERMISSIONS'));
+  for (let i = 0; i < 5; i++) mixed.push(n8nError(503, 'Service Unavailable'));
+  let threw = '';
+  try { replRun(mixed, 25); } catch (e) { threw = e.message; }
+  ok(threw.indexOf('ERP CIRCUIT BREAKER TRIPPED') !== -1 && threw.indexOf('5 consecutive') !== -1,
+     'opting out of the auth wall does NOT opt this node out of degradation', threw.slice(0, 160));
 }
 {
   const resp = [];

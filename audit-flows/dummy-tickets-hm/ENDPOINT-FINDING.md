@@ -133,3 +133,47 @@ All three seen live on 2026-08-24, all with the session demonstrably alive:
 
 `tools/erp_capture_failure.js` v3 names the first and third. It should name all three, and it should
 say plainly that the marker alone settles nothing.
+
+---
+
+# What was done about it (2026-08-24) — the breaker now stops this on call 25, not call 800
+
+The permission gap itself is unchanged and is still Hassan's to resolve: no change to any flow can
+produce a grant. What changed is that the run no longer *pays* for it 399 times.
+
+## What a breaker can actually see, settled rather than assumed
+
+Pulled from stored execution data, not reasoned about. Execution **100522**, workflow
+`YQlNlxrnhbQpBbdl`, node `Get Hustler Tickets` — the item the projection node receives, verbatim:
+
+```
+{ error: { message: '401 - "<html>…<div>UNAUTHORIZED &lt;LOGOUT&gt;</div></body></html>"',
+           name: 'AxiosError', code: 'ERR_BAD_REQUEST', status: 401, stack: '…' } }
+```
+
+- There is **no `response` key**, therefore no headers, therefore **`developerMessage` is
+  unreachable**. The `<LOGOUT>` table above cannot be applied at runtime from this item.
+- The string `INSUFFICIENT_PERMISSIONS` **is not in the item at all**. It was only ever in the
+  header. Anything claiming to detect it from the response body is inventing a signal.
+- `error.status` is a reliable numeric `401`.
+
+So the runtime test cannot be *which* refusal. It is **how total**: all three meanings of
+`<LOGOUT>` are fixed for the whole run, so a batch that produced **not one success** cannot be
+improved by making the next call. That is the rule the breaker now enforces
+(`auth_wall`, ERP-LOAD-POLICY.md §5). A **per-entity** denial still arrives mixed with successes,
+still does not trip, and still just marks those entities unreachable.
+
+## Where the header IS readable, and the experiment that has not been run
+
+Execution **93601**, workflow `YXRZdtk2Geeeqaal`, node `Get Flight Tickets` — the **same endpoint
+and pagecode**, on a node configured `fullResponse: true` **and** `neverError: true` — returns
+`{body, headers, statusCode, statusMessage}`. Headers are present. On a 200 ERP sends
+`access-control-expose-headers: … developerMessage` but **no `developerMessage` of its own**.
+
+Whether a **401** under `neverError: true` carries `developerMessage` in `headers` has **not been
+observed**, because observing it costs a live ERP call. If it does, that node configuration would
+settle the three-way ambiguity at runtime *and* stop n8n retrying refusals at all (a non-2xx no
+longer throws). That is the one worthwhile follow-up here — see the retry section of §5.
+
+The breaker reads the header opportunistically **as a header lookup, never as a text scan**: a
+`has('developermessage')` scan would match the CORS list on every healthy 200 ERP returns.
