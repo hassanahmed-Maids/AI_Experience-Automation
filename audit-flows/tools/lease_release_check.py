@@ -117,6 +117,18 @@ def can_emit_nothing(n):
     """Conservative in ONE direction only: a return whose emptiness cannot be ruled out from
     the text is reported. A return of an array LITERAL with at least one element is the only
     shape treated as guaranteed non-empty."""
+    # n8n's OWN GUARANTEE, and the one this checker exists alongside. With alwaysOutputData set,
+    # a node that would return nothing emits ONE EMPTY ITEM instead - so the branch survives and
+    # the release downstream is reached. It is the mechanism ERP-LOAD-POLICY section 4 tells you
+    # to use for an origin whose empty case is legitimate, paired with an IF that routes that item
+    # to the release.
+    #
+    # Not recognising it was a real hole: on 2026-08-24 this checker FAILED Select For Verifier in
+    # aTmGMAlYLwsJQ7js - a node whose emptiness had already been fixed by exactly this flag, and
+    # whose fix had been PROVEN LIVE by execution 100502 releasing the lease. A checker that fails
+    # the remedy it recommends teaches people to ignore it.
+    if n.get('alwaysOutputData') is True:
+        return None
     t = n.get('type')
     if t in EMPTY_CAPABLE_TYPES:
         return 'ORIGINATES: node type can return zero rows'
