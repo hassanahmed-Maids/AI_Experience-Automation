@@ -262,6 +262,51 @@ own execution.
   run record, because the reason to reach for it (a stuck lease) is indistinguishable from the
   reason not to (another audit genuinely running).
 
+### A ZERO-ITEM NODE STRANDS THE LEASE, and n8n calls that run a success (found 2026-08-24)
+
+Measured on execution 100409 (`aTmGMAlYLwsJQ7js`, Dummy Tickets HM): the run finished with status
+**success**, and the ERP lease was still held. The next run queued behind a dead holder and would
+have waited the full 3-hour staleness window.
+
+The cause is structural, not a typo. `Release ERP Lease` sits at the END of the delivery tail:
+
+```
+Score Cases -> Build Runs Log -> ... -> Build Sheet Rows -> Cases -> Sheet
+  -> Build Summary Row -> Run Summary -> Sheet -> Select For Verifier
+  -> Get All-Time Refunds -> ... -> Verdicts -> Sheet -> Release ERP Lease
+```
+
+**An n8n node that returns zero items does not fail — it stops its branch, and every node after it
+is simply never executed.** So any node in that chain that legitimately goes empty silently deletes
+the release. Two of them go empty as a NORMAL outcome:
+
+| node | when it returns `[]` | how normal |
+|---|---|---|
+| `Build Sheet Rows` | `if (!rows.length) return [];` — no portal rows | a clean month |
+| `Select For Verifier` | `return out;` with nothing needing a verifier | a clean month |
+
+So the lease was leaked on **every clean run**. The only runs that released it were the ones that
+happened to have both a portal row and a verifier candidate — which is why this survived a live
+smoke test, three compliance passes and an endurance run: all of them had findings.
+
+This is the same shape as the mute error rail (§7): a step that matters was made conditional on
+something unrelated to it, and the failure is invisible because the run is marked green.
+
+**The rule.** *A lease release must not be reachable only through a chain that can legitimately go
+empty.* Checking that the release node EXISTS and is wired is not enough — the question is whether
+every success path reaches it.
+
+Note what does NOT fix it:
+
+- **A sentinel item** (the `_empty` / `_seed_only` / `_no_population` pattern this flow already uses
+  upstream) cannot simply be added to `Select For Verifier`: the next node is an ERP call, and the
+  one after `Build Sheet Rows` is a Sheets append. A sentinel there buys a junk ERP call and a junk
+  spreadsheet row. Making it work needs IF gates around both — a real change to the delivery tail.
+- **`alwaysOutputData: true`** has the same problem for the same reason.
+
+Until the tail is restructured, a leaked lease is cleared by the 3-hour staleness takeover or by
+`params.ignore_erp_lease: true` on the next run.
+
 ### Built — `erp-lease/`
 
 Workflow `9gVijqvtLVEhQZXz` "ERP Lease · one audit at a time", published 2026-08-20, backed by

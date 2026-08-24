@@ -1054,3 +1054,72 @@ delivery stage, and until then its compliance verdict describes the drawing, not
 Teaching the parser `Maid Profile ID` is one line, but the id it yields is a housemaid profile id and
 the downstream fetch takes applicant ids. Whether a maid-profile row resolves through that lookup, a
 different one, or leaves the population is a question about what the check is for. Left for Moe.
+
+## 2026-08-24 — A run that could not look is not a run that found nothing
+
+Execution 100409 was the first time Dummy Tickets HM ever reached its delivery stage. It reported:
+
+```
+overall: "pass"   result: "pass"   findings: 0
+pending: 399      by_verdict: {"erp_unreachable": 399}
+```
+
+399 of 399 applicants came back `erp_unreachable` — the Hustlers endpoint refuses Hassan's identity
+with `INSUFFICIENT_PERMISSIONS` — so the run had not read a single applicant's tickets. The field a
+reader reads first said the month was clean.
+
+`overall` was computed from the finding count alone: `(counts.finding || 0) === 0 ? 'pass' : 'fail'`.
+**A check that could not look produces exactly the same zero as a check that looked and found
+nothing.** Those two states were indistinguishable, and one of them is a false all-clear about real
+people's money.
+
+Gate 2 already refuses to trust an absence before `pulled == totalElements`. That guards the
+POPULATION. Nothing guarded the EVIDENCE. The fix is the same rule one layer down:
+
+| findings | evidence | `overall` | portal `result` |
+|---|---|---|---|
+| > 0 | any | `fail` | `fail` |
+| 0 | all readable | `pass` | `pass` |
+| 0 | some unreadable | `incomplete` | `error` |
+
+`summary` now always carries `evidence_complete` and `applicants_unreadable`, both ways round, so
+completeness never has to be inferred from a count someone might not scroll to. A finding still
+outranks partiality — a real finding is real even on a partial run. Pinned by
+`tools/offline/verdict_test.js`, which includes the case that stops it crying wolf: zero findings
+with everything readable is still a pass.
+
+### Not decided here
+
+Whether the same shape exists in the other checks. `cc-below-agreed` is already safe by a different
+route — an entity it could not read becomes an `inconclusive` case, and inconclusive counts toward
+`fail` — so this is not automatically a family-wide defect. The survey is Moe's call to commission.
+
+## 2026-08-24 — A zero-item node strands the ERP lease, and n8n calls that run a success
+
+Found while re-running the check to confirm the fix above: execution 100409 finished **success** and
+never released the ERP lease. The next run queued behind a dead holder and timed out after ten
+minutes.
+
+`Release ERP Lease` is the last node of the delivery tail. An n8n node that returns zero items does
+not fail — it stops its branch, and everything after it is never executed. Two nodes ahead of the
+release go empty as a *normal* outcome: `Build Sheet Rows` (`if (!rows.length) return []`) and
+`Select For Verifier` (nothing needed a verifier). **So the lease was leaked on every clean run.**
+The only runs that released it were the ones that happened to have both a portal row and a verifier
+candidate — which is why it survived a live smoke test, three compliance passes and an endurance run.
+
+Same shape as the mute error rail: a step that matters was made conditional on something unrelated
+to it, and the failure is invisible because the run is marked green.
+
+The rule, now in `ERP-LOAD-POLICY.md` §4: *a lease release must not be reachable only through a chain
+that can legitimately go empty.* Checking the release node exists and is wired is not enough.
+
+A sentinel item — the `_empty` / `_no_population` pattern this flow already uses upstream — does not
+fix it as-is: the node after `Select For Verifier` is an ERP call and the node after `Build Sheet
+Rows` is a Sheets append, so a sentinel buys a junk ERP call and a junk spreadsheet row. Making it
+work needs IF gates around both. `alwaysOutputData` fails for the same reason.
+
+### Not decided here
+
+A coarse scan of the exports puts a candidate empty-return on the success path of **7 of the 9 flows
+that hold a lease**. Restructuring nine delivery tails is well beyond fixing the verdict bug, and the
+scan is a heuristic, not a verdict. Raised for Moe with the survey; not started.
