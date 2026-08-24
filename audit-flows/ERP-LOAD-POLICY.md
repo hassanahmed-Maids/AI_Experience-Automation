@@ -373,6 +373,131 @@ prints the last ERP call, its breaker, and what currently feeds the release - th
 order to place it.
 
 
+### A BARE CROSS-NODE `run_id` LOOKUP ON THE ERROR RAIL STRANDS THE LEASE (found 2026-08-24)
+
+Execution **100774** on MV Overstay Fines (`LDtsstXDfF99TnYe`), a manual run at 11:04 UTC:
+
+```
+ 2 Validate Inputs        success  -> run_id: 'manual-100774-2026-06'
+ 5 Acquire ERP Lease      success  -> lease granted, holder manual-100774-2026-06
+12 ERP Budget Gate        ERROR    -> error output
+13 Capture Failure        success  -> emits { _failure: {...} }   (a SYNTHETIC item)
+14 Release Lease (error)  ERROR    -> "no run_id was passed"
+```
+
+Nodes 5 and 14 mapped `run_id` with the **identical** expression,
+`={{ $('Validate Inputs').first().json.run_id }}`. It resolved at step 5 and resolved to
+**nothing** at step 14, in the same execution, with `Validate Inputs` demonstrably successful.
+The payload the lease actually received was
+
+```
+{"mode":"release","check_id":"mv-overstay-fines","ignore_lease":false,
+ "max_wait_ms":null,"operator":null,"no_wait":null}
+```
+
+`run_id` is **absent, not null** — n8n silently DROPPED the field when the expression failed to
+resolve, while the three sibling fields that are LITERALS all arrived intact. The node's
+`workflowInputs.schema` does declare `run_id`, so this is not a schema omission.
+
+**The lease then refused, and that refusal is correct.** It will not release without knowing who
+holds it, because releasing without a holder id could free someone else's lease. Result: the
+lease was stranded by a dead run, and retries `100781`, `100782`, `100807` all sat 10+ minutes
+behind a holder that had already exited. **Fix the callers, never the guard.**
+
+**The trigger is the SYNTHETIC ITEM.** On the error rail the current item comes from
+`Capture Failure`, which builds a brand-new `{_failure:{...}}` item, and the cross-node lookup
+cannot be resolved from it. n8n's internal reason is **not established** and nothing here relies
+on one — the remedy does not need it.
+
+**THE RULE, and it is two halves. Both already existed in this repo, in different flows, which is
+the part worth noticing** — `ccnonreceived-2-verify` read `run_id` off its capture node's own
+item; `cc-overstay-fines` wrapped its lookup in a try/catch after being bitten on a crash path.
+Neither was general, so eleven flows shipped exposed.
+
+1. **The rail head stamps the identity onto its own output item** — `run_id` and `check_id` at
+   top level, beside `_failure`, each source in its own try/catch. `Capture Failure` must never
+   throw: it is the node that makes a failure legible, so a throw there strands the lease AND
+   destroys the diagnostic.
+2. **The error-rail release reads the item first, with a guarded fallback:**
+   `={{ (function () { try { return $json.run_id || $('<Validate node>').first().json.<path> || '' } catch (e) { return '' } })() }}`
+   Never a bare cross-node lookup.
+
+**Every flow's validate-equivalent node has a different name and shape** — `Validate Inputs`,
+`Build Run Context`, `Validate Run Input` (`runId`, not `run_id`), `Verify In` (`leaseRunId`),
+`Receive Baton` (`params.run_id`), `When Called`, `Validate Inputs` → `_baton.run_id`,
+`params.run_id`. Read each one; do not assume.
+
+**The SUCCESS release is guarded but must NOT read `$json`.** There the current item is an
+ordinary pipeline item and its `run_id` is the AUDIT run id, which is not always the lease
+holder: MV Stage 4 leases under `runId + ':verify'` while its case rows carry the bare `runId`,
+so an item-first read there would name a non-holder and turn the release into a silent no-op.
+Success releases get the guard only.
+
+**Two places this pattern cannot reach, recorded rather than papered over:**
+
+- **The Error Trigger path.** `wfa-parent` wires `On Workflow Crash` straight at
+  `Release Lease (error)`. An Error Trigger runs in a **separate execution**, where no accessor
+  can recover the failed run's `run_id` — the envelope does not carry it. That path now sends
+  `''` and is refused loudly instead of having the field silently dropped; freeing the lease
+  still needs the 3-hour staleness backstop or `params.ignore_erp_lease`. Routing it through
+  `Build Error Callback` first, as `cc-overstay-fines` does, is the available improvement.
+- **A refusal costs the diagnostic.** `Release Lease (error)` has no error output, so when the
+  lease refuses, `Fail Loudly` never runs and the operator loses the message. Giving that node
+  `onError: continueErrorOutput` wired to `Fail Loudly` would keep both. Not done here — it
+  changes rail routing and wants its own review.
+
+#### CORRECTION, measured the same day: THE FIX ABOVE DOES NOT WORK. DO NOT COPY IT.
+
+Everything above about the DEFECT is accurate. **The remedy is not.** It was proven wrong by
+`test_workflow` execution **100899** on `LDtsstXDfF99TnYe` — the identical failure forced with
+`erp_call_budget: 1` and every ERP node pinned, so it cost zero ERP calls:
+
+```
+Validate Inputs   success   run_id = 'railtest-lowbudget-2026-06'
+ERP Budget Gate   ERROR     error item carries no run_id
+Capture Failure   success   run_id = ''          <- THE STAMP IS EMPTY
+Release Lease     ERROR     "no run_id was passed"
+```
+
+The lease had genuinely been acquired — clearing it afterwards returned
+`reason: "released by its holder"`, so the acquire resolved and only the release did not. The bug
+reproduced **on the fixed code**.
+
+The reason is that step 1 populates the stamp *from the very lookup that does not work there*:
+
+```js
+const s0 = $('Validate Inputs').first().json || {};   // returns nothing on the rail
+```
+
+so it falls through every source to `''`. `check_id` survived only because it is a hardcoded
+literal in that node, and that is the tell: **every literal arrived, every lookup died.** The
+premise written into the deployed node — *"the identity is resolved HERE, where the lookup still
+works"* — is false. `$('Node')` fails inside a **Code node** on the error rail exactly as it fails
+in expression mapping.
+
+Nothing caught this because the offline suite exercises the resolver against fixtures where the
+accessor is stubbed and always resolves. **A test that stubs the thing that is broken cannot fail.**
+
+The mechanism that replaces it must not depend on an item chain or a node lookup at all. The
+candidate is `$execution.id` — a global available anywhere — with the lease matching the holder on
+the execution that took it; that changes the shared lease workflow, so it is being measured before
+it is proposed. Until then, treat every error-rail release in this repo as unable to free the lease
+and clear a stranded one with `params.ignore_erp_lease` or the 3-hour backstop.
+
+**Enforcement.** `tools/lease_release_check.py` (`bare_lookup_run_id`) fails any release on an
+error rail whose `run_id` is neither guarded nor read off the item. The behavioural half is
+`erp-lease/offline/capture_failure_identity_test.js`, which runs every DEPLOYED rail head against
+real error items and asserts it stamps `run_id`, returns `''` rather than throwing when every
+source is missing, and survives malformed error items. It lives beside `lease_test.js` on
+purpose: that suite proves the lease refuses a caller with no holder id, this one proves the
+callers stop making it refuse. `tools/offline/` would be the tidier home once someone is free to
+move it.
+
+**Known divergence to fold in.** The deployed rail heads are now canonical v3 **plus** the
+identity stamp, so they no longer byte-match `tools/erp_capture_failure.js`, and
+`make_capture_failure_ops.py` would deploy a stamp-less body to the next new rail. The stamp
+belongs in the canonical copy and its offline suite.
+
 ### Built — `erp-lease/`
 
 Workflow `9gVijqvtLVEhQZXz` "ERP Lease · one audit at a time", published 2026-08-20, backed by
