@@ -68,3 +68,14 @@ directly against n8n** - the lag is in this directory, not in the deployment:
 reading these files, and these files are old. **Re-export them before trusting that output.**
 Written down rather than left as three unexplained reds, which is how a real finding gets ignored
 next to a known-stale one.
+
+## Capture Failure v3 is deployed to ONE flow only, 2026-08-24
+
+`tools/erp_capture_failure.js` was corrected (v3) after a live measurement showed v2's `<LOGOUT>`
+message was wrong half the time. Deployed so far to **`aTmGMAlYLwsJQ7js` only**. The other twelve
+flows carrying a `Capture Failure` node still run v2, which asserts "the session is dead, go get a
+fresh token" on a marker that also means "this API is not registered under your pagecode" - advice
+that loops for ever in the second case.
+
+Regenerate the ops with `python3 tools/make_capture_failure_ops.py <export>` and redeploy. Listed
+here rather than left to be discovered, because a wrong diagnostic is worse than none.
