@@ -2,6 +2,15 @@
 # a committed copy gets read as current long after it stopped being. See exports/README.md.
 exports/*.json
 
+# The same reasoning, and the rule above missed it. Pulling a single node body out of a deployed
+# flow to diff it leaves a .js scratch file here, and `exports/*.json` does not match it - three
+# of them (.cf.js, .fln.js, .flo.js, extracts of Capture Failure and Fail Loudly) sat untracked
+# until a commit hook asked about them on 2026-08-24. A stale COPY OF ONE NODE is the same lie as
+# a stale copy of the whole flow, only harder to spot, so nothing extracted from the instance is
+# committed from this directory.
+exports/*.js
+exports/.*.js
+
 # ...but these four are NOT exports. They are the coverage contracts, and a contract that lives
 # only in a container is not a contract. Losing them loses the answer to "which flows must be
 # audited" and "which flows did the skill build" - the two questions whose absence let five
