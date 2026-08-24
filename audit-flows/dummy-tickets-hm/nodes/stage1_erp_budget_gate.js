@@ -1,11 +1,11 @@
 // ERP PRE-FLIGHT BUDGET GATE — ERP-LOAD-POLICY.md §3. Canonical: tools/erp_preflight_gate.js.
 //
-// Sits between Select Unresolved and Get Transaction Detail, which is the last point before the
-// first PER-ENTITY ERP call. Everything upstream of here is the paginated sweep, whose cost is a
+// Sits between Select Unresolved and Resolve Applicants, which is the last point before the
+// first PER-ENTITY ERP call (Fetch Tickets, launched from Resolve Applicants' chunks). Everything upstream of here is the paginated sweep, whose cost is a
 // handful of pages; everything downstream multiplies by the population.
 //
 // WHY VOLUME NEEDS ITS OWN CONTROL. Pacing bounds requests per second. It does not bound how many
-// there are. This flow paced perfectly at 4 req/s still makes 3N calls for a population of N, and
+// there are. This flow paced perfectly at 4 req/s still makes 2N calls for a population of N, and
 // that is the shape of the failure that took ERP down three times: a check tested on a week of
 // transactions behaves identically on a year of them, and nothing in between makes the cost
 // visible before the calls go out.
@@ -15,15 +15,18 @@
 // failure this whole check family exists to avoid.
 
 // --- per-flow constants: what this run actually costs, stated honestly -----------------------
-// 1. Get Transaction Detail   - one call per in-window transaction.
-// 2. Fetch Tickets (0-Fetch)  - one call per UNIQUE applicant. Unknown here, because identity is
-//                               only resolved after the detail call. Worst case is one applicant
-//                               per transaction, so it is budgeted at 1 per transaction rather
-//                               than guessed lower - a budget that assumes the happy case is not
-//                               a budget.
-// 3. Get All-Time Refunds     - one call per case selected for the verifier, worst case one per
+// 1. Fetch Tickets (0-Fetch)  - one call per UNIQUE applicant. Worst case is one applicant per
+//                               transaction, so it is budgeted at 1 per transaction rather than
+//                               guessed lower - a budget that assumes the happy case is not a
+//                               budget.
+// 2. Get All-Time Refunds     - one call per case selected for the verifier, worst case one per
 //                               transaction.
-const ERP_CALLS_PER_TRANSACTION = 3;
+//
+// WAS 3. The third was Get Transaction Detail, one call per in-window transaction, DELETED
+// 2026-08-24: GET /accounting/transactions/{id} is not a mapped route, and the endpoint that is
+// returns the same projection the sweep already holds (ENDPOINT-FINDING.md). A third of this
+// check's modelled ERP load was being spent on a call that could never succeed.
+const ERP_CALLS_PER_TRANSACTION = 2;
 const SWEEP_CALLS_FALLBACK = 5;      // pages, when the run cannot report what it walked
 
 const DEFAULT_BUDGET = 2000;         // ERP-LOAD-POLICY.md §1 — a run that names no budget
@@ -76,7 +79,7 @@ if (projectedTotal > budget) {
     'ERP PRE-FLIGHT GATE: this run would make about ' + projectedTotal + ' ERP calls against a ' +
     'budget of ' + budget + '. Refusing to start the per-entity phase.\n' +
     '  ' + entities + ' transactions x ' + ERP_CALLS_PER_TRANSACTION +
-    ' (detail + tickets + all-time refunds, worst case) = ' + projectedPhase + '\n' +
+    ' (tickets + all-time refunds, worst case) = ' + projectedPhase + '\n' +
     '  sweep pages already spent = ' + sweepCalls + '\n' +
     '  at the 4 req/s policy rate that is roughly ' + Math.round(projectedTotal / 4 / 60) +
     ' minutes of ERP time.\n' +
@@ -90,6 +93,6 @@ if (projectedTotal > budget) {
       : ''));
 }
 
-// Pass the population on untouched. Select Unresolved's items reach Get Transaction Detail
-// exactly as they did before this node existed.
+// Pass the population on untouched. Select Unresolved's items reach Resolve Applicants exactly
+// as they did before this node existed.
 return $input.all();

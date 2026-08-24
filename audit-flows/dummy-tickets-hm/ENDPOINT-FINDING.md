@@ -67,3 +67,69 @@ Fixing the regex to also accept `Maid Profile ID - (\d+)` is one line. But the i
 take applicant ids. Whether a maid-profile row should resolve through the same lookup, a different
 one, or be excluded from the population, is a question about what this check is supposed to catch —
 not a wiring detail. Flagged for Moe rather than guessed at.
+
+---
+
+# The run after the fix: it completed, and reported a FALSE CLEAN
+
+Execution **100409**, 2026-08-24 07:06Z, 3m52s, status `success`. First time this check has ever
+run to its delivery stage.
+
+## What worked
+
+| | |
+|---|---|
+| population | **581 declared, 581 collected, 3 pages** — gate 2 passed |
+| identity | **560** applicant ids parsed off the swept row |
+| housemaid charges | **18**, with their ids — including 138719 on tx 2042434, the row that broke the previous run |
+| unattributable | **3**, declared as a gap, not silently dropped |
+| unique applicants | **399** |
+| detail calls | **0** — the deleted call cost nothing |
+
+## What it then concluded, and why that is the worst bug found today
+
+```
+overall: "pass"        findings: 0        clean: 0
+pending: 399           applicants_unreachable: 399
+by_verdict: {"erp_unreachable": 399}
+```
+
+**Every single applicant came back unreachable, and the run called the month a pass.**
+
+The summary row is not hiding it — `applicants_unreachable: 399` is right there. But `overall` is
+computed from `findings == 0`, and a check that could not read a single applicant's tickets has
+zero findings for the same reason a check with nothing wrong does. Those two states are
+indistinguishable in the field a reader looks at first.
+
+This is the exact failure this check family exists to prevent, stated in this flow's own gate-2
+comment: *a partial audit that looks complete*. Gate 2 guards the POPULATION and passed honestly;
+nothing guards the EVIDENCE. **`overall` must not be able to say `pass` while
+`applicants_unreachable > 0`** — 399 of 399 is not a pass, it is a run that did not happen.
+
+## Why they were unreachable — and it is NOT a flow bug
+
+`GET /recruitment/maid-at-common/get-main-data/{applicant_id}`, pagecode
+`RECRUITMENT__HustlersWorkflow`:
+
+```
+HTTP 401   developerMessage: INSUFFICIENT_PERMISSIONS
+```
+
+Contrast with the transaction-detail call above, which returned `API_NOT_FOUND_FOR_PAGE`. The
+discriminator works: **this pagecode is correct and this API is mapped to it — the operator's ERP
+identity simply lacks the grant.** Per this project's own denial classifier, that is *a FINDING to
+report, not something to route around*. Hassan needs the permission; no change to the flow can
+produce one.
+
+## `<LOGOUT>` now has THREE meanings
+
+All three seen live on 2026-08-24, all with the session demonstrably alive:
+
+| body | developerMessage | means |
+|---|---|---|
+| `UNAUTHORIZED <LOGOUT>` | `API_NOT_FOUND_FOR_PAGE` | the request is wrong — re-tokening loops for ever |
+| `UNAUTHORIZED <LOGOUT>` | `INSUFFICIENT_PERMISSIONS` | a real permission gap — report it |
+| `Access Token is missing or malformed <LOGOUT>` | (absent) | the session really is dead |
+
+`tools/erp_capture_failure.js` v3 names the first and third. It should name all three, and it should
+say plainly that the marker alone settles nothing.
