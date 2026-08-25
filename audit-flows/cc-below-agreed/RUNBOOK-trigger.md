@@ -223,17 +223,48 @@ in the other three. The symptom is the quietest one this codebase produces: a si
 (`_silent`). The set therefore has to exist in all five *before* the portal moves, drafts
 included. Any future step that touches the shared value is a five-flow step.
 
-The value itself is four characters and is committed to git in eleven files, so it has no
-strength against anyone who can read the repository or the n8n project. It keeps strangers
-out, nothing more.
+The value itself is **four characters**, which no constant-time compare can rescue — it is
+guessable by hand, never mind by a script. It is also committed to git in three tracked files
+(`cc-below-agreed/nodes/Validate_Inputs.js`, `cc-below-agreed/nodes/Manual_Run_Config.js`,
+`cc-non-received/nodes/wfa_manual_run_config.js`) and sits in five untracked local exports
+under `audit-flows/exports/`. So it has no strength against anyone who can read the repository
+or the n8n project, and not much against anyone who cannot. It keeps casual strangers out,
+nothing more.
+
+Two consequences worth being explicit about. First, **the security is bought at step 6, not
+step 1** — until the `live` slot is deleted, the four-character value still opens every one of
+these webhooks, and adding a strong second slot next to it changes nothing about that.
+Second, the new value must never be written into `audit-flows/exports/` — refreshing an export
+from a deployed flow would drop it into a directory one `git add .` away from being committed,
+which is the exposure this whole exercise exists to end.
 
 ### What *is* done
 
-**Step 1 is complete, 2026-08-25, across all five flows.** Each `Validate Inputs` now accepts
-a **set** of named secret slots instead of one literal, and logs which slot matched (never
-the value). That removes the ordering trap — with a single literal there was no sequence that
+**Step 1 is deployed in all five flows, 2026-08-25.** Each `Validate Inputs` now accepts a
+**set** of named secret slots instead of one literal, and logs which slot matched (never the
+value). That removes the ordering trap — with a single literal there was no sequence that
 avoided an outage, because changing the portal first makes the flows reject everything and
 changing the flows first makes the portal's old value reject.
+
+**Deployed is not the same as in force, and on one live flow it is not yet in force:**
+
+| Flow | Slot deployed | Version answering live traffic |
+|---|---|---|
+| CC Below Agreed `uJ8UVNKdN2s5PHHA` | yes | **published `084f8783` — in force** |
+| Dummy Tickets 1-Score `aTmGMAlYLwsJQ7js` | yes, as a draft | **still `cd9fdad9` — NOT in force** |
+| CC Non Received `Qq473Ygj543jxPUN` | yes, as a draft | flow is unpublished |
+| Terminated HM 1-Score `sXsn4NUYt4kh3OAU` | yes, as a draft | flow is unpublished |
+| MV Overstay Fines `LDtsstXDfF99TnYe` | yes, as a draft | flow is unpublished |
+
+Dummy Tickets is the one that matters, because it is live. Its rotation edit sits on top of a
+pre-existing unpublished draft (the round-3 error-rail `run_id` fix), so publishing it ships
+**both** changes — which is a decision about that flow, not about this rotation, and is why it
+was left standing rather than pushed through quietly.
+
+**Until Dummy Tickets is published, step 4 must not happen.** Switching the portal now would
+take that audit offline with a `_silent` `unauthorized` and no alert email — exactly the
+failure the set was built to prevent, arriving through the one flow the set had not yet
+reached.
 
 Both slots are live: `live` (the four-character value the portal has always sent) and
 `rotating` (256 bits, generated 2026-08-25). **The new value is deliberately not in this
