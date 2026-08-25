@@ -249,5 +249,20 @@ read §4 again.
   being company-owned is the requirement; a service account for the *writer*
   is the better end state and should follow the same path as the ERP service
   account.
-- Carry-forward of `Auditor note` / `Human status` (§4) is specified but not yet
-  built. Until it is, notes do not survive into the next month's tab.
+- **Known-degraded sources belong in `Data completeness`, not in an alert.**
+  Travel Assist proved the rule: `Get Maid Status History` fails 31/31 every run
+  on a missing ERP permission. Alerting on it monthly trains people to filter
+  the alerts, and the next *real* failure lands in a filtered inbox. Recorded in
+  every Run log row, excluded from the alert; a source goes back on the alert
+  list the moment it is not expected to fail. The fix belongs in a ticket.
+- Verified end to end on Travel Assist (execution 102442, 2026-07): 31 rows,
+  2 RED / 26 GREEN / 3 PENDING, verdicts attached, `2026-07` snapshot tab,
+  one Run log row, one notification e-mail carrying no figures.
+
+## 11. Done since first draft
+
+- Carry-forward of `Auditor note` / `Human status` (§4) **is now built.** The run
+  reads the outgoing `Latest` tab before clearing it and re-applies Q and R by
+  case key. This was not optional: rewriting `Latest` monthly without it would
+  silently destroy everything an auditor had written, which is worse than having
+  no notes column at all — it invites the work and then eats it.
