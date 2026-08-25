@@ -48,7 +48,7 @@ To temporarily restore success data for debugging, one call per flow:
 
 ### 1.2 Webhook shared-secret rotation — step 1 complete, and step 4 is unblocked
 
-The secret is **shared by five flows**, not one. Rotating it in a single flow and then
+The secret is **shared by five flows**, not one (six as of tonight — see §3.4). Rotating it in a single flow and then
 switching the portal would have taken the others offline with a deliberately silenced
 `unauthorized` — the quietest failure this codebase produces.
 
@@ -258,6 +258,46 @@ re-deploy — `cc-below-agreed/nodes/Manual_Run_Config.js:33`,
 ### 3.3 Webhook auth on four unpublished flows
 
 `IKRXhIco1mwxrcPq`, `Z9fTvmaM526eYofe`, `9T91z5VFH5g69WyT`, `YXRZdtk2Geeeqaal` (§1.3).
+
+### 3.4 SA-101 / SA-105 / SA-142 — Housemaid Payroll Critical Checks
+
+`zwSxrV00VE4rOSvd`, node `Guard Inbound Request` (renamed from `Guard Callback Origin`),
+draft **`8fb7eacd`**. Active version is still `318048f1` (2026-08-02) and has no guard at all.
+
+**A bypass was already there, and it is the most important thing on this page.** A draft from
+2026-08-25 08:48 had added an origin check whose parser was `/^(https:\/\/)([^/?#@\\]+)/i` —
+**unanchored**. `https://<allowed-host>@evil.com/…` matched as the allowlisted origin and was
+**accepted**. The classic userinfo bypass, in a node named "Guard". It is closed, and twelve of
+the thirty-five simulation cases exist to keep it closed.
+
+What the draft now does: constant-time two-slot secret check; `callback_url` origin allowlist
+plus an anchored `/ta-callback/<64-hex>` path shape parsed without the `URL` constructor (n8n's
+sandbox does not expose it); and CRLF-injection shape checks on all **three** SA-105 values —
+`erp_token`, `erp_is_auth` and `erp_device_id` are string-concatenated into a `Cookie` header,
+so all three are injection points, not just the bearer. 35/35 simulation cases pass, run with
+`global.URL` shadowed to `undefined` throughout.
+
+**SA-142** is pinned, not closed: the `workers.dev` origin is allowlisted on its own line,
+commented as a personal-account host pending replacement, so it is one line to change once a
+company host exists.
+
+**Before publishing this one — read all four:**
+
+1. **The header requirement is unproven against the real caller.** This flow has **zero
+   retained executions** — not one, at any status, at any date. Nobody has ever seen what its
+   caller actually sends. That absence is pruning and pre-existing settings, not §1.1 (turning
+   retention off does not delete what was stored) — but §1.1 does mean no new evidence will
+   accumulate either. So: set `saveDataSuccessExecution: "all"` on this flow, let one
+   legitimate run land, read the captured `headers`, then publish. Publishing first makes every
+   caller that does not send the header fail.
+2. **The callback path shape is inherited from a sibling, not measured here.** If the portal
+   posts this check to anything other than `/ta-callback/<64-hex>`, that is a second break.
+   Confirm it from the same captured request.
+3. **A rejected caller sees HTTP 200 and silence.** `Webhook → Respond 200` runs independently
+   of the guard, so a refused request is acknowledged and then simply never gets a callback.
+   This flow has **no Error Workflow set** — attach one before publishing if you want a
+   rejection to reach an inbox rather than only the execution list.
+4. **It is now the sixth flow in the rotation.** Step 6 must delete its `live` slot too.
 
 ---
 

@@ -215,6 +215,7 @@ them:
 | CC Non Received Monthly Payments | `Qq473Ygj543jxPUN` | no (draft) |
 | Terminated Housemaids Tickets 1-Score | `sXsn4NUYt4kh3OAU` | no (draft) |
 | MV Overstay Fines | `LDtsstXDfF99TnYe` | no (draft) |
+| Housemaid Payroll Critical Checks | `zwSxrV00VE4rOSvd` | no (draft) — **added 2026-08-25, see below** |
 
 So switching `SR_WEBHOOK_SECRET` on the portal after adding a slot **here only** does not
 half-rotate one check — it takes Dummy Tickets offline immediately and arms the same failure
@@ -222,6 +223,18 @@ in the other three. The symptom is the quietest one this codebase produces: a si
 `unauthorized` in the execution list with the alert email deliberately suppressed
 (`_silent`). The set therefore has to exist in all five *before* the portal moves, drafts
 included. Any future step that touches the shared value is a five-flow step.
+
+**Make that SIX as of 2026-08-25.** `zwSxrV00VE4rOSvd` (Housemaid Payroll Critical Checks) was
+not originally one of them — it is a different caller route on an older payload contract
+(`ansari_data` / `payroll_data` / `credentials.erp_token`, not `params.erp_auth.bearer`), and
+the "`ta-trigger-run` sends the header on every call" evidence does **not** transfer to it.
+Closing SA-101 gave it the same two-slot set, so it now accepts the same secret. Consequences:
+
+- **Step 6 must delete the `live` slot from six flows, not five.** Miss it and the payroll
+  audit is the one endpoint still trusting a dead secret.
+- Its draft is **unpublished**, and publishing it is riskier than the others were: there is no
+  retained execution anywhere on that flow, so nobody has ever seen what its real caller sends.
+  Capture one live request first — see `SECURITY-STATUS.md` §3.4.
 
 The value itself is **four characters**, which no constant-time compare can rescue — it is
 guessable by hand, never mind by a script. It is also committed to git in three tracked files
