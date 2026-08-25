@@ -224,6 +224,12 @@ in the other three. The symptom is the quietest one this codebase produces: a si
 (`_silent`). The set therefore has to exist in all five *before* the portal moves, drafts
 included. Any future step that touches the shared value is a five-flow step.
 
+**Make that THIRTEEN as of 2026-08-25 — see the authoritative table in
+`audit-flows/SECURITY-STATUS.md` §1.2 and work from it, not from this section.** Closing the
+unauthenticated-webhook findings and tickets SA-101/105/142, SA-116 and SA-129 gave eight more
+flows the same two-slot set. Step 6 is a thirteen-flow step. The paragraph below covers only
+the first of those eight and is kept because its reasoning generalises.
+
 **Make that SIX as of 2026-08-25.** `zwSxrV00VE4rOSvd` (Housemaid Payroll Critical Checks) was
 not originally one of them — it is a different caller route on an older payload contract
 (`ansari_data` / `payroll_data` / `credentials.erp_token`, not `params.erp_auth.bearer`), and

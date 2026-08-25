@@ -48,40 +48,60 @@ To temporarily restore success data for debugging, one call per flow:
 
 ### 1.2 Webhook shared-secret rotation — step 1 complete, and step 4 is unblocked
 
-The secret is **shared, not one flow's** — five flows originally, and six as of tonight (§3.4
-adds the payroll flow). Rotating it in a single flow and then switching the portal would have
-taken the others offline with a deliberately silenced `unauthorized` — the quietest failure
-this codebase produces.
+The secret was **shared by five flows** at the start of the night. Rotating it in one and then
+switching the portal would have taken the others offline with a deliberately silenced
+`unauthorized` — the quietest failure this codebase produces.
 
-All five now accept a **two-slot set** (`live` = the old value, `rotating` = a new 256-bit
-value) instead of a single literal, so there is no ordering in which the audit stops running.
-The two live ones are **published**:
+### THE AUTHORITATIVE LIST: THIRTEEN FLOWS NOW CARRY IT
 
-| Flow | Workflow | State |
-|---|---|---|
-| CC Below Agreed | `uJ8UVNKdN2s5PHHA` | published `084f8783` — in force |
-| Dummy Tickets 1-Score | `aTmGMAlYLwsJQ7js` | published `da348166` — in force |
-| CC Non Received | `Qq473Ygj543jxPUN` | draft (flow unpublished) |
-| Terminated HM 1-Score | `sXsn4NUYt4kh3OAU` | draft (flow unpublished) |
-| MV Overstay Fines | `LDtsstXDfF99TnYe` | draft (flow unpublished) |
-| Housemaid Payroll Critical Checks | `zwSxrV00VE4rOSvd` | draft — **added tonight, see §3.4** |
+I said five, then six. Both were wrong by the time I said them, and the reason matters: **every
+fix I applied tonight used this same two-slot set**, so each one added a flow to the shared
+secret's blast radius. I did not track the running total until the last agent reported. Here it
+is, measured rather than remembered:
 
-Verified by executing the **deployed** `safeEqual`, array and match loop — extracted from the
-live body, not re-implemented, because re-implementing tests an idea of the check rather than
-the check — against nine cases: both secrets match their own slot; wrong
-value, empty string, missing header, a 20-character prefix, both values with a trailing space,
-and the old value lowercased are all rejected; the value appears in no log line. Script:
-`$SCRATCHPAD/rotation/verify_atmg.mjs`.
+| Workflow | Flow | State | Came from |
+|---|---|---|---|
+| `uJ8UVNKdN2s5PHHA` | CC Below Agreed (WF-A) | **published `084f8783`** | rotation |
+| `aTmGMAlYLwsJQ7js` | Dummy Tickets 1-Score | **published `da348166`** | rotation |
+| `7j5Z5KPvBcWRPfvy` | CC Price by Cohort Stage 1 | **published `cf1b1677`** | unauthenticated webhook |
+| `Qq473Ygj543jxPUN` | CC Non Received (parent) | draft | rotation |
+| `sXsn4NUYt4kh3OAU` | Terminated HM 1-Score | draft | rotation |
+| `LDtsstXDfF99TnYe` | MV Overstay Fines | draft | rotation |
+| `IKRXhIco1mwxrcPq` | MV Monthly Payment 1-Population | draft | unauthenticated webhook |
+| `Z9fTvmaM526eYofe` | MV Monthly Payment 3-Deliver | draft | unauthenticated webhook |
+| `9T91z5VFH5g69WyT` | MV Monthly Payment 4-Verify | draft | unauthenticated webhook |
+| `YXRZdtk2Geeeqaal` | Applicant Real Ticket | draft | unauthenticated webhook |
+| `zwSxrV00VE4rOSvd` | Housemaid Payroll Critical Checks | draft `8fb7eacd` | SA-101/105/142 |
+| `N3OWVknR68JImzvl` | Same Day Recruitment Fee Verification | draft `464bcdcf` | SA-129 |
+| `5juo1j8x7gcVQVK5` | SDR Agentic Judge | draft `6a0a810e` | SA-116 |
 
-**The old value is four characters.** No constant-time compare rescues that — it is guessable
-by hand. The security is bought at **step 6**, when the `live` slot is deleted. Until then the
-four-character value still opens every one of these webhooks.
+**Step 6 — deleting the `live` slot — is a thirteen-flow step.** Miss one and it is the single
+endpoint still trusting a secret nothing else accepts; it will fail the next time it is
+triggered, not at the moment of the mistake. Work from this table, not from memory.
 
-Full sequence, corrected for the six-flow scope: `cc-below-agreed/RUNBOOK-trigger.md`.
+**Was spreading one secret to thirteen endpoints the right call?** It is a deliberate trade and
+you should be able to overrule it. Against: one leak now opens thirteen doors instead of five.
+For: the value was already public in git and four characters long, so it was never protecting
+anything against an insider; using one set means step 6 replaces it *everywhere at once* rather
+than leaving a long tail of endpoints on the old value; and per-flow secrets would have meant
+thirteen rotations to sequence instead of one. If you would rather have per-flow secrets, the
+time to say so is before step 2 — after the credential is bound it is a much bigger change.
 
-**Step 6 must delete the `live` slot from all six.** Missing one leaves a single endpoint
-trusting a secret nothing else accepts, and it will fail the next time it is triggered rather
-than at the moment of the mistake.
+All thirteen accept both slots, so **there is no ordering in which switching the portal breaks
+an audit**. That was the point of the exercise and it holds.
+
+Verification: the deployed `safeEqual`, array and match loop were extracted from each live body
+and executed — not re-implemented, because re-implementing tests an idea of the check rather
+than the check. Both secrets match their own slot; wrong value, empty string, missing header, a
+20-character prefix, both values with a trailing space, and the old value lowercased are all
+rejected; the value appears in no log line. Scripts: `$SCRATCHPAD/rotation/verify_all.mjs` and
+the per-ticket harnesses under `$SCRATCHPAD/sa116/`, `$SCRATCHPAD/sa129/`, `$SCRATCHPAD/sa101/`.
+
+**The old value is four characters.** No constant-time compare rescues that — it is guessable by
+hand. The security is bought at **step 6**, when the `live` slot is deleted. Until then the
+four-character value still opens all thirteen.
+
+Full sequence: `cc-below-agreed/RUNBOOK-trigger.md`.
 
 ### 1.3 Unauthenticated webhooks — five closed
 
@@ -315,6 +335,74 @@ company host exists.
    This flow has **no Error Workflow set** — attach one before publishing if you want a
    rejection to reach an inbox rather than only the execution list.
 4. **It is now the sixth flow in the rotation.** Step 6 must delete its `live` slot too.
+
+---
+
+### 3.5 SA-129 — Same Day Recruitment Fee Verification
+
+`N3OWVknR68JImzvl`, node `Validate Inputs`, draft **`464bcdcf`**.
+
+**The ticket understates it. The check was not "failing open" in some edge case — it has never
+run at all.** The condition gates on
+`$getWorkflowStaticData('global').SR_WEBHOOK_SECRET`, and that key has never been populated,
+so the secret block has been inert for the life of the flow. This was established by probing
+the live endpoint (bounded to stop at input validation, zero ERP calls): a request with **no
+header**, one with a **deliberately wrong header**, and one with an **empty header** all sailed
+past the secret block and failed at the *downstream* `auth.erp.token required` check. So the
+only barrier to eleven authenticated ERP reads has been knowing the URL.
+
+Consequence: **publishing this turns authentication on for the first time**, rather than closing
+a latent hole. The accepted set is now a literal in code — there is no runtime value left that
+can be unset.
+
+**It will break a caller.** `SDRF Monthly Orchestrator` (`H8g9m6OLVujaSfI7`), node
+`Fire flag flow`, POSTs to this webhook sending only `content-type`. It is currently inactive,
+scheduled `0 2 1 * *` — so it breaks the moment it is activated, not now. Add the header to
+that node in the same change.
+
+### 3.6 SA-116 — SDR Agentic Judge
+
+`5juo1j8x7gcVQVK5`, draft **`6a0a810e`**. Two distinct defects; the second is the serious one.
+
+**The caller-supplied verdict lane.** `deterministic_red[]` is a legitimate pre-computed
+non-LLM verdict lane — a sibling gatherer flags "paid then refunded" itself and marks it
+`report_to: 'PIL'`, saving a model call. The hole was that "trusted sibling flow" was never
+enforced. Combined with the open webhook, **anyone could POST
+`{"deterministic_red":[{"contract_id":1234,...}]}` and have `verdict=genuine_shortfall`,
+`confidence=1`, `report_to=PIL` stamped, the model skipped entirely, and a caller-authored
+money-recovery finding emailed as an action item.**
+
+Gated rather than deleted, behind **both** the authenticated path **and** an explicit
+`"deterministic_verdicts": true` opt-in — because auth alone is thin cover when the shared
+secret is four characters and public in git, and because a flag means silence is never consent.
+`report_to` is clamped to `'PIL'`, and caller-supplied `verdict` / `exception` / `confidence` /
+`evidence_cited` / `reasoning` are stripped from the `review[]` lane (routing labels kept).
+
+**A node setting had to change, and it is the kind of thing that hides a fix.** This webhook
+answers `onReceived`, so there is no HTTP response to carry a rejection — and `Extract Cases`
+had `onError: continueErrorOutput` with **output 1 connected to nothing**, which would have
+swallowed the throw into a green, silent no-op. Set to `stopWorkflow`.
+
+**Prompt injection — recommendation only, deliberately not implemented.** `Render Evidence`
+honours `c.gatherer.evidence_text` verbatim, so an authenticated caller can hand the judge an
+entire prompt of its choosing. The suggested mitigation (delimit caller-derived text; one line
+in both system messages saying delimited content is data, never instructions) is documented
+in-node. Restructuring a live verdict prompt overnight is not something I would do unwatched.
+
+**Publishing this ships more than the fix.** The active `Extract Cases` is a 311-byte legacy
+`cases[]`-only body; the draft underneath mine is the whole v2.1 whiteboard-routing feature
+work, and the trigger set differs too. That is your call, not a side effect to discover
+afterwards.
+
+**It will break both callers.** `SDR Gatherer v2.1` (`F1xw4pMpdl39kjMP`) and
+`SDR Deterministic Gatherer` (`jYmwBoopFcot2IDN`) POST to it sending only `content-type`. Both
+need **two** changes: the header on `Post Bundle to Agent` *and* `Post Error to Agent`, plus
+`"deterministic_verdicts": true` in `Assemble Evidence Bundle`'s output — without the second,
+every bundle carrying a PIL red flag fails loudly. Both are inactive drafts today.
+
+**Publish order, both tickets:** update each flow's callers *first*. A caller updated early
+sends a header nobody checks yet, which is harmless; a flow published early rejects its caller
+immediately.
 
 ---
 
