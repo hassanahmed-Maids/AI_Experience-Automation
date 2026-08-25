@@ -139,12 +139,22 @@ Ordered by how much they matter.
 
 SA-97 asks for three things. §1.1 does the third (stop the bleeding). The other two are UI:
 
-**Prune the retained runs.** n8n's MCP surface has no delete-execution tool. §1.1 stops new
-writes; it cannot remove what is stored. One retained execution of `zwSxrV00VE4rOSvd` holds
-25,290 payroll rows plus four live ERP session fields. *Every ERP token in retained executions
-has now expired*, so the credential half is closed by time — the payroll rows are not.
+**Prune the retained runs — likely already done for you, by n8n's own retention.** Measured
+2026-08-25 shortly before midnight UTC, twice, independently: `zwSxrV00VE4rOSvd` has **zero** retained
+executions — every status, every date, `count: 0`. So does `NIUelKhaMucLLSqK` (Client Refunds
+Audit, the other flow named in SA-101). The execution SA-97 cites, holding 25,290 payroll rows
+and four live ERP session fields, has aged out. Execution `77442` — the one the sibling flows'
+code comments cite as evidence — is likewise gone.
 
-→ n8n → each affected workflow → Executions → delete the retained runs.
+Two caveats before you close the ticket on this:
+
+- I am reading the API's view of what exists **now**. The security team evidenced the finding
+  from a snapshot taken on 10 or 18 August; if their process retains a copy of that data, the
+  exposure lives there rather than in n8n, and that is theirs to purge, not yours.
+- n8n's MCP surface has **no delete-execution tool**, so if runs do appear on other flows,
+  pruning them is a UI action. §1.1 stops new writes; it cannot remove what is stored.
+
+→ Spot-check n8n → each affected workflow → Executions, and reply to SA-97 with the count.
 
 **Enable production masking.** This is a real per-workflow capability — the API exposes
 `workflow:enableRedaction` / `workflow:disableRedaction` as *scopes* — but there is no
