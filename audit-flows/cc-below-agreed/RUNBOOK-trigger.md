@@ -251,20 +251,25 @@ changing the flows first makes the portal's old value reject.
 | Flow | Slot deployed | Version answering live traffic |
 |---|---|---|
 | CC Below Agreed `uJ8UVNKdN2s5PHHA` | yes | **published `084f8783` — in force** |
-| Dummy Tickets 1-Score `aTmGMAlYLwsJQ7js` | yes, as a draft | **still `cd9fdad9` — NOT in force** |
+| Dummy Tickets 1-Score `aTmGMAlYLwsJQ7js` | yes | **published `da348166` — in force** |
 | CC Non Received `Qq473Ygj543jxPUN` | yes, as a draft | flow is unpublished |
 | Terminated HM 1-Score `sXsn4NUYt4kh3OAU` | yes, as a draft | flow is unpublished |
 | MV Overstay Fines `LDtsstXDfF99TnYe` | yes, as a draft | flow is unpublished |
 
-Dummy Tickets is the one that matters, because it is live. Its rotation edit sits on top of a
-pre-existing unpublished draft (the round-3 error-rail `run_id` fix), so publishing it ships
-**both** changes — which is a decision about that flow, not about this rotation, and is why it
-was left standing rather than pushed through quietly.
+Both live flows are published on both slots as of 2026-08-25, so **step 4 is unblocked** —
+switching the portal will not take either audit offline.
 
-**Until Dummy Tickets is published, step 4 must not happen.** Switching the portal now would
-take that audit offline with a `_silent` `unauthorized` and no alert email — exactly the
-failure the set was built to prevent, arriving through the one flow the set had not yet
-reached.
+Publishing Dummy Tickets also shipped a pre-existing unpublished draft it was stacked on (the
+round-3 error-rail `run_id` fix). That was the owner's call, made explicitly, not a side
+effect nobody noticed.
+
+Before publishing, the deployed body was simulated against nine cases — old value, new value,
+wrong value, empty string, missing header, a 20-character prefix of the new value, both values
+with a trailing space, and the old value lowercased. Both secrets matched their own slot; all
+seven near-misses were rejected; the value appears in no log line. The harness executes the
+**deployed** `safeEqual`, array and loop pulled out of the live body rather than a
+re-implementation, because re-implementing would have tested an idea of the check instead of
+the check. Script: `$SCRATCHPAD/rotation/verify_atmg.mjs`.
 
 Both slots are live: `live` (the four-character value the portal has always sent) and
 `rotating` (256 bits, generated 2026-08-25). **The new value is deliberately not in this
