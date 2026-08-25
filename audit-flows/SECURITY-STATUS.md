@@ -48,9 +48,10 @@ To temporarily restore success data for debugging, one call per flow:
 
 ### 1.2 Webhook shared-secret rotation — step 1 complete, and step 4 is unblocked
 
-The secret is **shared by five flows**, not one (six as of tonight — see §3.4). Rotating it in a single flow and then
-switching the portal would have taken the others offline with a deliberately silenced
-`unauthorized` — the quietest failure this codebase produces.
+The secret is **shared, not one flow's** — five flows originally, and six as of tonight (§3.4
+adds the payroll flow). Rotating it in a single flow and then switching the portal would have
+taken the others offline with a deliberately silenced `unauthorized` — the quietest failure
+this codebase produces.
 
 All five now accept a **two-slot set** (`live` = the old value, `rotating` = a new 256-bit
 value) instead of a single literal, so there is no ordering in which the audit stops running.
@@ -63,9 +64,11 @@ The two live ones are **published**:
 | CC Non Received | `Qq473Ygj543jxPUN` | draft (flow unpublished) |
 | Terminated HM 1-Score | `sXsn4NUYt4kh3OAU` | draft (flow unpublished) |
 | MV Overstay Fines | `LDtsstXDfF99TnYe` | draft (flow unpublished) |
+| Housemaid Payroll Critical Checks | `zwSxrV00VE4rOSvd` | draft — **added tonight, see §3.4** |
 
 Verified by executing the **deployed** `safeEqual`, array and match loop — extracted from the
-live body, not re-implemented — against nine cases: both secrets match their own slot; wrong
+live body, not re-implemented, because re-implementing tests an idea of the check rather than
+the check — against nine cases: both secrets match their own slot; wrong
 value, empty string, missing header, a 20-character prefix, both values with a trailing space,
 and the old value lowercased are all rejected; the value appears in no log line. Script:
 `$SCRATCHPAD/rotation/verify_atmg.mjs`.
@@ -74,7 +77,11 @@ and the old value lowercased are all rejected; the value appears in no log line.
 by hand. The security is bought at **step 6**, when the `live` slot is deleted. Until then the
 four-character value still opens every one of these webhooks.
 
-Full sequence, corrected for the five-flow scope: `cc-below-agreed/RUNBOOK-trigger.md`.
+Full sequence, corrected for the six-flow scope: `cc-below-agreed/RUNBOOK-trigger.md`.
+
+**Step 6 must delete the `live` slot from all six.** Missing one leaves a single endpoint
+trusting a secret nothing else accepts, and it will fail the next time it is triggered rather
+than at the moment of the mistake.
 
 ### 1.3 Unauthenticated webhooks — five closed
 
