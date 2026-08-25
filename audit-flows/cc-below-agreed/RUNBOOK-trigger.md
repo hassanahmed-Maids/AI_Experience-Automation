@@ -200,28 +200,68 @@ credentials already exist in Hassan's personal project (`Header Auth account 2` 
 reject every real call from the portal or "harden" the trigger with a value nobody has
 checked. Both are worse than leaving it. So the credential is a UI action.
 
-What *is* done: `Validate Inputs` now accepts a **set** of named secret slots instead of one
-literal, and logs which slot matched (never the value). That removes the trap — with a single
-literal there was no ordering that avoided an outage, because changing the portal first makes
-the flow reject everything and changing the flow first makes the portal's old value reject.
+### THE SECRET IS NOT THIS FLOW'S. IT IS SHARED BY FIVE.
+
+Discovered 2026-08-25, and it invalidates every earlier version of this section. The same
+literal is the accepted secret in **five** audit flows, all called by the same portal
+trigger. Two of them are published and answering traffic today; the other three carry the
+check but are unpublished drafts, and would inherit the outage the day someone publishes
+them:
+
+| Flow | Workflow | Published? |
+|---|---|---|
+| CC Below Agreed (this one) | `uJ8UVNKdN2s5PHHA` | **yes — live** |
+| Dummy Tickets Housemaids 1-Score | `aTmGMAlYLwsJQ7js` | **yes — live** |
+| CC Non Received Monthly Payments | `Qq473Ygj543jxPUN` | no (draft) |
+| Terminated Housemaids Tickets 1-Score | `sXsn4NUYt4kh3OAU` | no (draft) |
+| MV Overstay Fines | `LDtsstXDfF99TnYe` | no (draft) |
+
+So switching `SR_WEBHOOK_SECRET` on the portal after adding a slot **here only** does not
+half-rotate one check — it takes Dummy Tickets offline immediately and arms the same failure
+in the other three. The symptom is the quietest one this codebase produces: a silent
+`unauthorized` in the execution list with the alert email deliberately suppressed
+(`_silent`). The set therefore has to exist in all five *before* the portal moves, drafts
+included. Any future step that touches the shared value is a five-flow step.
+
+The value itself is four characters and is committed to git in eleven files, so it has no
+strength against anyone who can read the repository or the n8n project. It keeps strangers
+out, nothing more.
+
+### What *is* done
+
+**Step 1 is complete, 2026-08-25, across all five flows.** Each `Validate Inputs` now accepts
+a **set** of named secret slots instead of one literal, and logs which slot matched (never
+the value). That removes the ordering trap — with a single literal there was no sequence that
+avoided an outage, because changing the portal first makes the flows reject everything and
+changing the flows first makes the portal's old value reject.
+
+Both slots are live: `live` (the four-character value the portal has always sent) and
+`rotating` (256 bits, generated 2026-08-25). **The new value is deliberately not in this
+repository and not in any version description** — it exists only inside the five deployed
+nodes and in the file handed to the owner out of band. If it is lost before step 4, generate
+a fresh one and redo step 1; nothing breaks in the meantime, because `live` still works.
 
 ### The sequence
 
-1. **Add the new secret alongside the old.** In `nodes/Validate_Inputs.js`, uncomment the
-   `rotating` slot and put a fresh random value in it (32+ chars). Deploy and **publish** —
-   both secrets are now accepted, and nothing has broken.
+1. ~~**Add the new secret alongside the old**, in all five flows.~~ **Done 2026-08-25.**
+   Both slots are accepted everywhere; nothing has broken.
 2. **Create the credential.** n8n → Credentials → new **Header Auth**, name it
-   `SR Webhook - CC Below Agreed`, header name `X-SR-Webhook-Secret`, value = the new secret
-   from step 1.
-3. **Bind it to the Webhook node.** WF-A (`uJ8UVNKdN2s5PHHA`) → the `Webhook` node →
-   Authentication → **Header Auth** → the credential from step 2. Publish. n8n now rejects
+   `SR Webhook - Audit Flows`, header name `X-SR-Webhook-Secret`, value = the `rotating`
+   value. One credential serves all five, because they share the secret.
+3. **Bind it to each Webhook node.** Each of the five flows' webhook trigger → Authentication →
+   **Header Auth** → the credential from step 2. Publish each. n8n then rejects
    unauthenticated callers before the workflow runs; the in-flow check stays as a second
-   layer.
-4. **Switch the portal.** Update `SR_WEBHOOK_SECRET` to the new value.
-5. **Verify on live traffic, do not assume.** Trigger a run and read the `validate_inputs`
-   log line: `secret_slot_matched` must read `rotating`. If it still reads `live`, the portal
-   change has not taken effect and step 6 would break the trigger.
-6. **Remove the `live` slot** from the array and publish. The old secret is now dead.
+   layer. (This step is a UI action — the n8n API can neither create a credential nor attach
+   one, verified against the whole tool surface 2026-08-19.)
+4. **Switch the portal.** Update `SR_WEBHOOK_SECRET` to the `rotating` value. This is the
+   step that must not precede step 1 on any of the five.
+5. **Verify on live traffic, do not assume.** Trigger a run of each of the two published
+   flows and read its `validate_inputs` log line: `secret_slot_matched` must read `rotating`.
+   If either still reads `live`, the portal change has not reached that caller and step 6
+   would break it. The three drafts cannot be verified this way — they answer no traffic — so
+   for those, step 6 is a code review, not a measurement.
+6. **Remove the `live` slot** from all five and publish. The old secret — and its eleven
+   copies in git — is then dead, which is also what closes the committed-secret exposure.
 
 Do **not** compress steps 1 and 6 into one change — that is exactly the outage the set
 exists to prevent.
