@@ -32,11 +32,20 @@ Drive.** This is not a preference. A sheet of client payment data in a personal
 Drive is SA-142 in a new location: it is owned by a person, it leaves with them,
 and it is outside any company retention or access review.
 
-- One folder for all audit outputs, e.g. `Shared Drive ▸ Internal Audit ▸ Automated checks`.
-- **One spreadsheet per check.** Not one workbook for everything: access differs
-  per check (whoever reviews refunds should not automatically see payroll), and a
-  single file accumulating a tab a month across ten checks becomes unnavigable
-  inside a year.
+- One folder for all audit outputs, on a Shared Drive.
+  **Current folder:** `1DyG9PHws8-52t_vNN96ZAh-T0Ewpoh1w`.
+- **Access is the department, not the company** (2026-08-25, Hassan): the folder
+  is scoped to the AI Experience & Automation team — Hassan, Malaz, Abdullah —
+  rather than shared org-wide. That is least privilege and it costs nothing: the
+  requirement was never *broad* access, it was *company ownership*. A personal My
+  Drive fails because the file is owned by a person and leaves with them; a
+  narrowly-shared Shared Drive folder is owned by the company and does not.
+  If a check's findings need a different audience later (payroll reviewers are
+  not the same people as refund reviewers), share that one **file** wider — do
+  not widen the folder, and do not move the file out of it.
+- **One spreadsheet per check.** Not one workbook for everything: it keeps
+  per-file sharing available as the escape hatch above, and a single file
+  accumulating a tab a month across ten checks becomes unnavigable inside a year.
 - File name: `Audit — <Check name>` (e.g. `Audit — Travel Assist Payments`).
 - The URL is **stable and permanent**. Every month's e-mail links to the same
   spreadsheet; the run adds a tab, it never creates a new file. A link that
