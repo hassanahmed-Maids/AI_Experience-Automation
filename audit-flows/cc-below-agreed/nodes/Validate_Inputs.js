@@ -116,6 +116,20 @@ function safeEqual(a, b) {
 const ACCEPTED_WEBHOOK_SECRETS = [
   { slot: 'live', value: 'LAWP' }
   // { slot: 'rotating', value: '<the new random value>' }   <- step 1 of a rotation
+  //
+  // 2026-08-25: STEP 1 IS DONE AND PUBLISHED. The deployed node (uJ8UVNKdN2s5PHHA,
+  // active version 084f8783) carries a real second entry here and accepts BOTH
+  // secrets right now. The value is deliberately NOT in git - this file is readable
+  // by everyone with clone access, which is the exposure the rotation exists to end -
+  // so the placeholder above stays a placeholder.
+  //
+  // THIS FILE AND THE DEPLOYED NODE ARE THEREFORE INTENTIONALLY DIVERGENT, and this
+  // block is the only place they differ. Anything that byte-compares the two will hit
+  // on it; that hit is not drift and must not be "fixed" by copying either direction.
+  // To see what is actually accepted, read the array in n8n, never this file.
+  //
+  // The same set now exists in the four sibling flows that share this secret - see
+  // RUNBOOK-trigger.md, "the secret is not this flow's, it is shared by five".
 ];
 
 // Only these origins may receive the audit results. Both are real: the
