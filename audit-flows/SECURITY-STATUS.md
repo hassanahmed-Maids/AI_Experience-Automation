@@ -135,16 +135,27 @@ history still hold both values, and the n8n API has no delete — see §2.2.
 
 Ordered by how much they matter.
 
-### 2.1 Purge retained executions — UI
+### 2.1 SA-97 — the two halves I could not reach
 
-n8n's MCP surface has no delete-execution tool. §1.1 stops new writes; it cannot remove what is
-stored. **SA-97 specifically** — one retained execution of `zwSxrV00VE4rOSvd` holds 25,290
-payroll rows plus four live ERP session fields.
+SA-97 asks for three things. §1.1 does the third (stop the bleeding). The other two are UI:
 
-*Every ERP token in retained executions has now expired*, so the credential half is closed by
-time. The payroll rows are not.
+**Prune the retained runs.** n8n's MCP surface has no delete-execution tool. §1.1 stops new
+writes; it cannot remove what is stored. One retained execution of `zwSxrV00VE4rOSvd` holds
+25,290 payroll rows plus four live ERP session fields. *Every ERP token in retained executions
+has now expired*, so the credential half is closed by time — the payroll rows are not.
 
 → n8n → each affected workflow → Executions → delete the retained runs.
+
+**Enable production masking.** This is a real per-workflow capability — the API exposes
+`workflow:enableRedaction` / `workflow:disableRedaction` as *scopes* — but there is no
+corresponding MCP tool and no `settings` field for it, so I could not set it. It is the
+better long-term control than §1.1, because it lets you keep execution data for debugging
+*and* redact the sensitive fields, rather than choosing between them.
+
+→ n8n → workflow → Settings → the redaction/masking control.
+
+**Rotate the ERP session credentials** named in the ticket — external to n8n, and covered by
+§2.5.
 
 ### 2.2 Delete the diagnostic probe with its history — UI
 
