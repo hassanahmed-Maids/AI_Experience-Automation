@@ -139,9 +139,31 @@ note — found one live credential beyond the one cleared on 2026-08-23:
 | `7HYpRKJQnH5C7jkj` Wellcare → `Manual Run Config` → `ERP_BEARER` | **Malaz.a** | expired 22:00Z 2026-08-25; live most of that day. Cleared. |
 | `uJ8UVNKdN2s5PHHA` WF-A → `Manual Run Config` (2026-08-23) | **Abdullaha** | already cleared |
 
-Nothing else. Every other bearer and cookie in the estate is an `={{ }}` expression reading
-from a baton or sub-workflow input, never a literal. The repo is clean — the only JWT-shaped
-strings tracked are offline test fixtures with absent or fake signatures.
+Every other bearer and cookie in the estate is an `={{ }}` expression reading from a baton or
+sub-workflow input, never a literal. The repo is clean — the only JWT-shaped strings tracked are
+offline test fixtures with absent or fake signatures.
+
+**"Nothing else" was wrong, and the reason is worth keeping.** That sweep read each workflow via
+`get_workflow_details`, which returns the **draft**. A third hardcoded credential was found later
+in an **active** version whose draft is clean:
+
+`RTCQUXJ2Iss6IVwW` (SDR Audit - Consolidated) has been running since 7 August on active version
+`a8cea538`, which carries **Malaz.a's** ERP session token as a literal `authorization` header on
+all eight `Fetch * (ERP)` nodes, plus `isERPAuth=Malaz.Alool` in the cookie. Its draft uses
+expressions, so a draft-only scan sees nothing. The token expired 2026-08-07T22:00Z — the same
+day it was added — so there is no live credential exposure; the username and device id remain
+disclosed, and this is the **second** place Malaz's session has surfaced.
+
+Three of the workflow's 51 saved versions carry it (`8fc40118`, the active `a8cea538`,
+`92ddec9b`), all from 7 August; everything outside that window was machine-checked and is clean.
+
+Two further traps in that flow. A version that de-hardcodes all eight nodes (`0065dd63`, 12:40Z
+the same day) was **saved and never published**, so the pre-fix version is what has run for
+eighteen days — and that version's own description asserts *"No live credential remains in the
+definition or version history"*, which is false. It also disables the Monthly Schedule, so
+publishing it stops unattended runs until a credential is restored.
+
+**Any future credential sweep must read active versions as well as drafts.**
 
 ### 1.5 SA-124 — the diagnostic probe
 
