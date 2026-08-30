@@ -75,7 +75,7 @@ The two `/complaints/*` endpoints already work under `HousemaidComplaints` (HTTP
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/1VIwyOPJmCesJwJY60ajke4T7ioyKRg_yBVId7Zzf7DQ/edit?gid=0#gid=0). 4 Google Sheets nodes.
   Four Google Sheets nodes write it: `Cases -> Google Sheet`, `Verdicts -> Google Sheet`, `Run -> Google Sheet`, `Run (error) -> Google Sheet`.
 - **No callbacks.** Both callback nodes have been deleted.
-- Two Gmail draft nodes exist (`Draft: cases to review`, `Draft: audit failed`). TODO — confirm the recipient, and that the mail carries the check name, period and sheet link only.
+- **No e-mail.** Two Gmail draft nodes exist (`Draft: cases to review`, `Draft: audit failed`) but both are **disabled and carry no recipient**, so the check sends and drafts nothing. The workbook is the only delivery.
 
 Nothing is written back to ERP. No client-facing messages.
 

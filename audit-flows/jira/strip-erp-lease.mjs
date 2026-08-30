@@ -15,6 +15,16 @@
 // Lease nodes are mid-chain, so removal is a BRIDGE: every inbound edge is re-pointed at every
 // target of the lease node's main output 0. The lease node's own error output (index 1) simply
 // goes away with it — there is no lease left to fail.
+//
+// IT ALSO DETACHES THE ERP CREDENTIAL, added 2026-08-30. Staging binds the ERP nodes to a real
+// credential so the flow can be tested; production is a READ-ONLY MIRROR and the deploying team
+// attaches their own credential holding a production token. Shipping the staging binding would
+// either carry a staging identity into production or leave them with a slot that looks filled.
+// The node keeps `authentication: genericCredentialType` and its `genericAuthType`, so the slot
+// is present and empty — which is exactly what the deployment ticket asks them to fill.
+//
+// Google Sheets, Gmail and model credentials are NOT touched: those are the real accounts the
+// flow delivers through, and the ticket names them for the deploying team to reuse.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -25,6 +35,25 @@ const LEASE = /lease/i;
 // production export, where a webhook or a callback has no business existing at all.
 const RETIRED_TYPES = [/\.webhook$/i, /respondToWebhook/i];
 const RETIRED_NAMES = [/^callback/i, /retired/i];
+
+// The credential types that carry an ERP identity. Anything else (googleSheetsOAuth2Api,
+// gmailOAuth2, anthropicApi) is a delivery account and stays.
+const ERP_CRED_KEYS = [/^httpBearerAuth$/i, /^httpHeaderAuth$/i, /^httpCustomAuth$/i];
+
+function stripErpCredentials(nodes) {
+  const detached = [];
+  for (const n of nodes) {
+    if (!n.credentials) continue;
+    for (const key of Object.keys(n.credentials)) {
+      if (ERP_CRED_KEYS.some((r) => r.test(key))) {
+        detached.push(`${n.name} [${key}: ${n.credentials[key]?.name ?? '?'}]`);
+        delete n.credentials[key];
+      }
+    }
+    if (Object.keys(n.credentials).length === 0) delete n.credentials;
+  }
+  return detached;
+}
 
 function isRetired(n) {
   if (!n.disabled) return false;                       // only ever remove what is already disabled
@@ -103,6 +132,8 @@ console.log(`workflow : ${before.name}`);
 console.log(`nodes    : ${before.nodes.length} -> ${after.nodes.length}`);
 console.log(`leases   : ${after.__leases.join(', ') || '(none)'}`);
 console.log(`retired  : ${after.__retired.join(', ') || '(none)'}`);
+const detachedCreds = stripErpCredentials(after.nodes);
+console.log(`erp creds: ${detachedCreds.join(', ') || '(none were attached)'}`);
 console.log(`bridges  : ${after.__bridges.length}`);
 for (const b of after.__bridges) console.log(`           ${b}`);
 console.log(`reachable: ${rBefore.size} -> ${rAfter.size}`);
