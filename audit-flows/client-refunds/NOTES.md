@@ -357,3 +357,84 @@ Meta, TikTok, Reddit, Clarity, Snapchat) and the `user` cookie — which carries
 email and a second copy of the token — were not read, not stored and not sent anywhere.
 **Ask for the two named values, never the blob:** a blob puts unrelated secrets into
 transcripts and logs for no benefit.
+
+---
+
+# Rule set completed, 2026-08-30 (offline work while the grants move)
+
+## 15. The full partition is now in code, and it reconciles
+
+`groups.js` holds all **41 purposes across 12 groups** (13 keys — G2 splits into G2a/G2b).
+`assertPartition()` re-checks the spec's claim rather than trusting it:
+
+- 41 purposes, **no duplicates, none orphaned** ✅
+- group totals sum to **AED 8,344,605** against the spec's stated **8,344,603** — a
+  **AED 2** delta, which is rounding in the per-group figures. ✅
+
+An **unmapped purpose is PENDING and says so**, never scored. If ERP adds or renames a
+purpose the partition has drifted, and a silently unmatched purpose would otherwise fall
+through every group test and reach ⓭ looking like an ordinary unsettled case.
+
+## 16. A SECOND gate can conclude today: G-ATTACH
+
+Reading the group rules end to end turned up one control the coverage table missed.
+Three groups name it independently:
+
+| Group | Purpose | `requireAttachment` |
+|---|---|---|
+| G2b | `Full refunds of unused monthly payments` | ✅ *"a new deterministic control on this group"* |
+| G7 | `Removing Bad Google Review` | ✅ *"a missing document there **is** a violation"* |
+| G10 | `Taxi Reimbursements` | ✅ (and `Passport renewal refund` explicitly **not**) |
+| G2a | the three escalation rows of `Partial Refunds for Cancellation` | ✅ (default row: not) |
+
+**It needs no extra call and no extra permission.** `requireAttachment` comes from the
+same config read ⓫ already uses, and `attachments` / `paymentProofAttachment` /
+`proofUploaded` all arrive inline on the population row.
+
+Two safeguards, both tested:
+
+- **Presence is never evidence the amount is right** (G10 says so outright). The gate
+  fires only on *absence where the config demands presence*.
+- **A missing field is not an absent document.** If a slim projection dropped the
+  attachment fields the gate returns `pending`, not `finding`. Inventing a finding from a
+  missing input is the mirror of a false clearance and just as wrong.
+
+This raises the check from one concluding gate to **two**, and G7's *"all three controls
+are closed"* verdict now holds for **three of its four members, not four** — which is a
+smaller and more precise ask than the whole group.
+
+## 17. What each group can conclude, once the two grants land
+
+| Group | AED/qtr | Can it conclude? |
+|---|---|---|
+| G1 duplicate payments | 368,727 | 🔴 **Coverage gap, permanent.** The offending row is deleted or replaced once refunded; notes 0%. A charge may be CONFIRMED by the payment log but never DENIED by it. |
+| G2a partial cancellation | 850,335 | Termination readable; day arithmetic needs the write-only detail lines. → verifier (+ G-ATTACH on 3 of 4 setup rows) |
+| G2b full cancellation | 800,980 | Gross match needs the 401 payment reads. → verifier (+ G-ATTACH on the big member) |
+| G3 partial freeze | 636,831 | Neither leg readable, **permanently**. → verifier |
+| G4 full freeze | 981,814 | Same. Live CEO limit 6,000, both methods auto-approved. → verifier |
+| G5 recruitment fee | 1,937,804 | Expense ledger has no legal ERP read. → verifier |
+| G6 trial-day / travel | 642,673 | Agreed rate readable; days-claimed is write-only. **All eight have their own limits (800–2,000)**, all auto-approved. → verifier |
+| G7 goodwill / overstay | 1,138,014 | 🔴 Gap on the **two big members only**; `Removing Bad Google Review` and `Overstay fines` now have live controls. |
+| G8 WPS / service charge | 88,089 | Detail lines + 401 payment reads. → verifier |
+| G9 maid salary | 578,577 | Ledger read documented but unread; ⚠️ `Maid's salary due to missing medical certificate` is **unauditable** — ledger 53%, notes 0%, approval 0%, detail lines 0%. |
+| G10 taxi / passport | 44,752 | Only the receipt's **amount** is a control → verifier. **G-ATTACH fires on Taxi.** |
+| G11 nationality switch | 45,296 | No confirmed ERP route yet; two calls would settle `getReplacementHistory`. → verifier |
+| G12 other / referral | 230,713 | `Other` is reclassification-only; **`Referral Case` has no source at all** — every REFERRAL object in the warehouse is maid-side and this is a client bonus. |
+
+## 18. A discrepancy worth a ruling
+
+⓮ states the purpose list carries **both** `Pre-collected Salary` and
+`Pre-collected Salary - No VAT` as separate purposes — that is its whole argument for
+never deriving VAT. But G9 lists only `Pre-collected Salary` among its six, and the
+partition totals 41 with that one entry. So either the `- No VAT` variant is folded into
+G9's count, or the partition is 42 and one purpose is unassigned.
+
+Not resolved here, and deliberately not guessed: an unmapped purpose returns `pending`
+with the drift named, so a real `Pre-collected Salary - No VAT` row routes to a human
+instead of being silently scored under the wrong VAT assumption.
+
+## 19. Test coverage
+
+- `scorer.test.js` — **38 cases**, the framing gates, the AED 0.50 basis and ⓫.
+- `groups.test.js` — **27 cases**, the partition, G-ATTACH and group routing.
+- **65 total, all green**, no regression on the original 38.

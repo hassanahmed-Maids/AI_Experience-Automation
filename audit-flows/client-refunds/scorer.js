@@ -260,8 +260,130 @@ function finalize(r, refund) {
   };
 }
 
+
+/**
+ * G-ATTACH — a purpose whose config REQUIRES a document, on a refund that has none.
+ *
+ * This is the second gate that can conclude from data already inline: `requireAttachment`
+ * comes from the same config read ⓫ uses, and the refund's own attachment fields arrive
+ * on the population row. No extra call, no extra permission.
+ *
+ * It exists because three group rules each name it independently:
+ *   G2b — `Full refunds of unused monthly payments` requires an attachment ("a new
+ *         deterministic control on this group").
+ *   G7  — `Removing Bad Google Review` carries requireAttachment=true, "so a missing
+ *         document there IS a violation" — the one member of that group not unguarded.
+ *   G10 — `Taxi Reimbursements` requires one; `Passport renewal refund` does NOT, and
+ *         applying either purpose's flag to the other is called out as forbidden.
+ *   G2a — the three escalation rows of `Partial Refunds for Cancellation` require one;
+ *         the default row does not. That is the two-key lookup earning its keep again.
+ *
+ * ⚠️ Presence is NEVER evidence the amount is right (G10 states this outright). This gate
+ * only ever fires on ABSENCE where the config demands presence.
+ */
+function gateAttachment(refund, setupRow) {
+  if (!setupRow || setupRow.requireAttachment !== true) {
+    return { verdict: CLEAN, rule: 'G-ATTACH', reason: 'no document required for this purpose' };
+  }
+
+  const arrays = ['attachments', 'paymentProofAttachment'];
+  let sawPresent = false;
+  let sawEmptyArray = false;
+  for (const k of arrays) {
+    const v = refund[k];
+    if (Array.isArray(v)) {
+      if (v.length > 0) sawPresent = true;
+      else sawEmptyArray = true;
+    }
+  }
+  if (refund.proofUploaded === true) sawPresent = true;
+
+  if (sawPresent) {
+    return { verdict: CLEAN, rule: 'G-ATTACH', reason: 'a document is required and one is attached' };
+  }
+
+  // Only red when absence is POSITIVELY established. A slim projection that dropped the
+  // attachment fields must not read as "no document" — that is a finding invented from a
+  // missing input, which is the mirror of the false-clearance bug and just as wrong.
+  const definitelyAbsent = refund.proofUploaded === false || sawEmptyArray;
+  if (!definitelyAbsent) {
+    return { verdict: PENDING, rule: 'G-ATTACH', reason: 'a document is required but the attachment fields were not present on the row — cannot tell' };
+  }
+  return { verdict: RED, rule: 'G-ATTACH', reason: 'this purpose requires a supporting document and the refund carries none' };
+}
+
+/**
+ * Full scoring pass: framing gates, the two live gates, then group routing.
+ *
+ * `scoreRefund` above is the narrow ⓫-only path kept for the offline reference tests.
+ * This is what the flow runs.
+ */
+function scoreRefundWithGroups(refund, setupRows, opts) {
+  const o = opts || {};
+  const groups = o.groups || require('./groups.js');
+  const gaps = [];
+  const findings = [];
+  const reasons = [];
+
+  // ❹ — no contract, no basis. "We could not check it" is not "we checked it and it was fine".
+  if (!lbl(refund.contract)) {
+    return finalize({ verdict: PENDING, reasons: ['no resolvable contract id (❹)'], gaps: [], rules_fired: ['4'] }, refund);
+  }
+
+  // ❺ — the purpose selects the rule set, nothing more.
+  const purposeName = lbl(refund.purpose && refund.purpose.name) || lbl(refund.purposeName);
+  const groupKey = groups.groupOf(purposeName);
+  if (!groupKey) {
+    // An unmapped purpose means the partition has drifted, not that the case is fine.
+    return finalize({
+      verdict: PENDING,
+      reasons: ['purpose "' + (purposeName || '(none)') + '" is not in the 41-purpose partition — ERP has added or renamed one. Route to a human and update groups.js; never score an unmapped purpose.'],
+      gaps: [], rules_fired: ['5']
+    }, refund);
+  }
+  const group = groups.GROUPS[groupKey];
+
+  const method = lbl(refund.partialRefundForCancellationPaymentMethod);
+  const pid = refund.purpose && refund.purpose.id != null ? refund.purpose.id : null;
+  const setupRow = pid === null ? null : findSetup(setupRows, pid, method);
+
+  // ⓫ — approval against this purpose's own configured limit.
+  const a = gateApproval(refund, setupRows);
+  reasons.push(a.reason + ' (⓫)');
+  if (a.verdict === RED) findings.push(a.reason + ' (⓫)');
+
+  // G-ATTACH — required document missing.
+  const att = gateAttachment(refund, setupRow);
+  if (att.verdict === RED) findings.push(att.reason + ' (G-ATTACH)');
+  else if (att.verdict === PENDING) gaps.push(att.reason + ' (G-ATTACH)');
+
+  // The group's own test, which for every group is currently unsourceable.
+  gaps.push(group.gap);
+  if (group.coverageGap) {
+    const members = group.coverageGapMembers;
+    const applies = !members || members.indexOf(purposeName) !== -1;
+    if (applies) gaps.push('DECLARED COVERAGE GAP (' + groupKey + '): reported as a gap, never as a clean bill.');
+  }
+  if (group.unauditableMembers && group.unauditableMembers.indexOf(purposeName) !== -1) {
+    gaps.push('UNAUDITABLE MEMBER: on roughly half these cases there is no evidence at all — not scoreable and not reviewable. Routes to the auditor, never clean on absence.');
+  }
+  for (const g of (o.unsourcedGates || [])) gaps.push(g);
+
+  // A finding is never downgraded by a later gap.
+  if (findings.length) {
+    return finalize({ verdict: RED, reasons: findings, gaps: gaps, rules_fired: ['4', '5', '11', 'G-ATTACH', groupKey] }, refund);
+  }
+
+  // ⓭ — nothing exits clean by silence.
+  const verdict = gaps.length ? PENDING : (a.verdict === CLEAN ? CLEAN : PENDING);
+  const out = finalize({ verdict: verdict, reasons: reasons, gaps: gaps, rules_fired: ['4', '5', '11', 'G-ATTACH', groupKey] }, refund);
+  out.group = groupKey;
+  out.group_name = group.name;
+  return out;
+}
+
 module.exports = {
   TOLERANCE_AED, exceeds, num, lbl, hasApproval,
-  findSetup, autoApprovedFor, gateApproval, inPopulation, scoreRefund,
+  findSetup, autoApprovedFor, gateApproval, gateAttachment, inPopulation, scoreRefund, scoreRefundWithGroups,
   RED, CLEAN, PENDING
 };
