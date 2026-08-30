@@ -107,11 +107,35 @@ rather than scoring a wrong cohort. The golden could not have caught this — it
 cohort fits in a single page at `size=200`, so `content.length < 200` is true on
 the first request and its pagination never iterates.
 
-### A mistake of mine, recorded
+### A mistake of mine, recorded — and it got worse than it first looked
 
-I passed `ignore_erp_lease: true` on both test runs, so two sweeps hit ERP
-concurrently. The ERP lease exists precisely to stop that, and bypassing it made
-the contention worse. Test runs should take the lease like any other run.
+I passed `ignore_erp_lease: true` on both test runs, so two executions hit ERP
+concurrently. The ERP lease exists precisely to stop that.
+
+Compounded with the doubled `page` parameter, the cost is not small. Each
+execution contains **two** paginated sweeps, each capped at `maxRequests: 400`.
+If neither terminates early, one execution issues up to **800** requests, and two
+concurrent executions up to **1,600** — against a run that should cost about 20.
+
+Pacing held: at a 500 ms `requestInterval` per sweep, two executions come to
+roughly 4 req/s, which is the ERP-LOAD-POLICY rate. So this was a **volume**
+breach, not a rate breach — which is exactly the distinction the golden's ERP
+pre-flight budget gate exists to enforce, and which I dropped from this build on
+the grounds that there was no per-entity fan-out left to multiply.
+
+**That reasoning was wrong, and the gate should come back.** A runaway paginated
+sweep multiplies just as effectively as a per-entity fan-out; the budget gate
+counts calls, not entities. Restoring it — counting projected sweep pages
+against `params.erp_call_budget` before the first request — would have refused
+this run instead of issuing it.
+
+Two follow-ups, both real:
+1. **Restore the ERP pre-flight budget gate**, counting projected pages rather
+   than projected entities.
+2. **Lower `maxRequests`** to something the population can actually justify
+   (July needs 18 pages; 400 was defensive padding that turned into the failure
+   budget). A cap just above the largest measured month is a tripwire; 400 is a
+   licence.
 
 ## 4. The one deliberate delta between what was tested and what will run
 
