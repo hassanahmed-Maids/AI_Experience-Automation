@@ -9,6 +9,34 @@ of their own that this workspace can reach.
 Judgment calls here are logged in `audit-flows/decisions.md`, **not** in `docs/decisions.md`
 — that file is the migration log and mixing the two would make both harder to trust.
 
+## Two systems share `.claude/`
+
+`.claude/agents/` and `.claude/commands/` are the only place Claude Code loads agents and commands
+from, so the Audit Flow Factory pipeline lives alongside the CustomerIO migration's fifteen agents.
+They are separate systems and must not be confused:
+
+| | CustomerIO migration | Audit Flow Factory |
+|---|---|---|
+| Governed by | `CLAUDE.md` | this directory + the Notion **Audit Flow Factory** page |
+| Decisions log | `docs/decisions.md` | `audit-flows/decisions.md` |
+| Agents | `cluster-analyzer`, `code-interrogator`, `flow-diagrammer`, … | `audit-spec-readiness` |
+| Commands | `/cluster`, `/migrate-cluster`, `/prepare-golive`, `/system3` | `/audit-queue` |
+| Skill | `.claude/skills/cio-campaign-migration/` | `.claude/skills/erp-audit-flow-builder/` |
+
+Audit-flow agents and commands are named so they read as such. If you add one, keep that.
+
+## The builder skill now lives here
+
+`.claude/skills/erp-audit-flow-builder/` was moved in from personal synced scope on 2026-08-29 so
+it is versioned with the work and reviewable in a PR.
+
+Its `references/erp-and-n8n-traps.md` — which `SKILL.md` has always told you to read **before
+Phase 1** — did not exist. The skill shipped with only `SKILL.md`, so every run silently skipped its
+own trap list. It has been reconstructed from evidence that can be cited: incidents recorded in the
+live flows' own comments, the dead-end routes document, the ERP Variables Database's own field
+warnings, and defects found repairing the five flows on 2026-08-26/27. **Every entry names its
+evidence; add new ones the same way, or not at all.**
+
 ## What is here
 
 | Path | What it is |
