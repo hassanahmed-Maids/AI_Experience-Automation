@@ -6,7 +6,7 @@
 |---|---|
 | Project | `SD` — Service Desk |
 | Issue Type | `n8n Flow` (11166) |
-| Summary | Deploy to prod: Wellcare Advanced Clinic — Medical Loan Check (n8n, TODO trigger) |
+| Summary | Deploy to prod: Wellcare Advanced Clinic — Medical Loan Check (n8n, scheduled monthly) |
 | Company Department (`customfield_10822`) | **Money Control** (12011) |
 | Accountable PIL (`customfield_10825`) | Amin Aljebbeh (11099) |
 | N8N Link (`customfield_12033`) | https://sami-team.app.n8n.cloud/workflow/7HYpRKJQnH5C7jkj |
@@ -34,7 +34,7 @@ No AI verifier on this check (`AI verifier: Not required` — the finding is a r
 
 No webhook, no manual trigger, no inbound endpoint of any kind.
 
-> **PRE-DEPLOYMENT CONVERSION REQUIRED — the smallest of the batch.** The workflow has no trigger node at all today (all 6 recorded executions ran in `manual` mode), and no callbacks. Adding the schedule trigger and setting the workflow timezone to `Asia/Dubai` is the whole conversion. See `records/webhook-to-schedule-conversion.md`.
+The conversion is **already applied** — it was the smallest of the batch. `Run Monthly` schedule trigger present, workflow timezone `Asia/Dubai`, no callbacks and none needed. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 

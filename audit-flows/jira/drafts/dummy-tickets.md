@@ -6,7 +6,7 @@
 |---|---|
 | Project | `SD` — Service Desk |
 | Issue Type | `n8n Flow` (11166) |
-| Summary | Deploy to prod: Dummy Tickets Submitted for Refund — Housemaids (n8n, webhook) |
+| Summary | Deploy to prod: Dummy Tickets Submitted for Refund — Housemaids (n8n, scheduled monthly) |
 | Company Department (`customfield_10822`) | **Money Control** (12011) |
 | Accountable PIL (`customfield_10825`) | Amin Aljebbeh (11099) |
 | N8N Link (`customfield_12033`) | https://sami-team.app.n8n.cloud/workflow/aTmGMAlYLwsJQ7js |
@@ -34,7 +34,7 @@ An AI verifier reads the ERP paper trail behind each red flag and returns an adv
 
 No webhook, no manual trigger, no inbound endpoint of any kind.
 
-> **PRE-DEPLOYMENT CONVERSION REQUIRED.** The flow today is webhook-triggered (`POST /applicant-dummy-ticket-refund-audit`) with three outbound callback nodes. Under the 2026-08-30 ruling the webhook trigger and its two respond nodes are replaced by a schedule trigger, and all three callbacks are deleted. **This workflow is currently PUBLISHED — unpublish before rewiring, do not edit it live.** See `records/webhook-to-schedule-conversion.md`.
+The conversion is **already applied**: the workflow was unpublished first, then `Run Monthly` added, the workflow timezone set to `Asia/Dubai`, and the webhook trigger, its two respond nodes and all three callbacks disabled. The disabled nodes are removed from the shipped export by `strip-erp-lease.mjs`, so the production artifact has no inbound endpoint at all. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 

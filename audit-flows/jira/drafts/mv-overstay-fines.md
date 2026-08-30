@@ -6,7 +6,7 @@
 |---|---|
 | Project | `SD` — Service Desk |
 | Issue Type | `n8n Flow` (11166) |
-| Summary | Deploy to prod: MV Overstay Fines (n8n, webhook) |
+| Summary | Deploy to prod: MV Overstay Fines (n8n, scheduled monthly) |
 | Company Department (`customfield_10822`) | **Money Collection** (11058) |
 | Accountable PIL (`customfield_10825`) | Amin Aljebbeh (11099) |
 | N8N Link (`customfield_12033`) | https://sami-team.app.n8n.cloud/workflow/LDtsstXDfF99TnYe |
@@ -34,7 +34,7 @@ An AI verifier reads the complaint thread and reduction reason behind each red f
 
 No webhook, no manual trigger, no inbound endpoint of any kind.
 
-> **PRE-DEPLOYMENT CONVERSION REQUIRED.** The flow today is webhook-triggered (`POST /mv-overstay-fines-audit`) with three outbound callback nodes. Replace the webhook trigger and its two respond nodes with a schedule trigger, delete all three callbacks, and set the workflow timezone to `Asia/Dubai`. See `records/webhook-to-schedule-conversion.md`.
+The conversion is **already applied**: `Run Monthly` added, workflow timezone set to `Asia/Dubai`, and the webhook trigger, its two respond nodes and all three callbacks disabled. The disabled nodes are removed from the shipped export by `strip-erp-lease.mjs`, so the production artifact has no inbound endpoint at all. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 

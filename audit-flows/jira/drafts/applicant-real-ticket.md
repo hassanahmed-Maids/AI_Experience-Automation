@@ -6,7 +6,7 @@
 |---|---|
 | Project | `SD` — Service Desk |
 | Issue Type | `n8n Flow` (11166) |
-| Summary | Deploy to prod: Applicant Real Ticket (n8n, webhook) |
+| Summary | Deploy to prod: Applicant Real Ticket (n8n, scheduled monthly) |
 | Company Department (`customfield_10822`) | **Money Control** (12011) |
 | Accountable PIL (`customfield_10825`) | Amin Aljebbeh (11099) |
 | N8N Link (`customfield_12033`) | https://sami-team.app.n8n.cloud/workflow/YXRZdtk2Geeeqaal |
@@ -34,7 +34,11 @@ An AI verifier reads the ERP paper trail behind each red flag and returns an adv
 
 No webhook, no manual trigger, no inbound endpoint of any kind.
 
-> **PRE-DEPLOYMENT CONVERSION REQUIRED, AND THIS ONE IS NOT JUST A REWIRE.** The flow today is webhook-triggered (`POST /applicant-real-ticket`) and has **zero Google Sheets nodes** — its results live only in its five Data Tables, and nothing leaves the flow. Converting it means swapping the trigger, deleting the two respond nodes, **and building the Sheets output**. The workflow also has no timezone set; `Asia/Dubai` must be set explicitly, because the window boundary decides which month a ticket falls in. See `records/webhook-to-schedule-conversion.md`.
+> **PARTIALLY CONVERTED — THE SHEETS OUTPUT IS STILL MISSING, AND THIS CHECK MUST NOT DEPLOY WITHOUT IT.**
+>
+> Done: `Run Monthly` schedule trigger added, workflow timezone set to `Asia/Dubai` (the window boundary decides which month a ticket falls in, so this was not optional), webhook trigger and both respond nodes disabled.
+>
+> **Not done: the flow still has zero Google Sheets nodes.** Its results live only in its five Data Tables and nothing leaves the flow, so under the 2026-08-30 ruling — results are posted to Google Sheets — there is no delivery. Building that output is outstanding work, not a deployment step. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 
