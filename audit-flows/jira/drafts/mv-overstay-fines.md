@@ -13,7 +13,6 @@
 | Urgency (`customfield_10043`) | Necessary and NOT urgent (10048) |
 | Show Demo (`customfield_11902`) | No (11908) |
 | Labels | `audit`, `n8n`, `prod-deployment`, `mv-overstay-fines` |
-| Assignee | Wesam.Tanous (`63a9dc13347fae5346833e58`) |
 
 ---
 
@@ -85,11 +84,10 @@ Names as they appear in the n8n credential dropdown. No secrets in this ticket o
 
 | Credential name | Type | Used by |
 | --- | --- | --- |
-| ERP Token 12th Aug 2026 | HTTP Bearer Auth | 6 nodes |
+| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer Auth | 6 ERP nodes |
 | Malaz | Google Sheets OAuth2 | 3 nodes |
 | Anthropic account 4 | Anthropic API | 1 node |
-
-⚠ **The ERP credential is named for a date 18 days before this draft**, and every recent run failed. Check whether the two facts are the same fact before doing anything else.
+⚠ **A staging ERP credential is currently wired: `ERP Token 12th Aug 2026`.** It must **not** travel to production inside the export. Remove it before export, or replace it at deployment with a production token. The ask is the same as the other checks in this batch: **the deploying team creates the ERP credential with a prod token.**
 
 ## APIs used
 

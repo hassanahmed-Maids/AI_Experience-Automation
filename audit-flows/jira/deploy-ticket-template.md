@@ -24,8 +24,9 @@ screen here **does** carry `description`. Verified creatable by this account.
 | Urgency | `customfield_10043` | | precedent: `Necessary and NOT urgent` (10048) |
 | Show Demo | `customfield_11902` | | precedent: `No` (11908) — also the field default |
 | Labels | `labels` | | `audit`, `n8n`, `prod-deployment`, `<check-slug>`, `<team-agenda-label>` |
-| Assignee | `assignee` | | precedent: Wesam.Tanous (`63a9dc13347fae5346833e58`) |
 | Priority | `priority` | | precedent left it **unset** (field default is `Not Urgent`) |
+
+**Do not set an assignee.** The project auto-assigns; setting one fights the routing.
 
 Left null on the precedent, so leave null unless there is a reason: `Speccer` (11769),
 `Analyst` (10033), `Pending BA` (10062), `Accountable PIL Updated` (10841), all story-point fields.
@@ -132,7 +133,18 @@ Names as they appear in the n8n credential dropdown. **No secrets in this ticket
 
 | Credential name | Type | Used by |
 | --- | --- | --- |
-| … | HTTP Custom Auth | N ERP nodes |
+| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer / Custom Auth | N ERP nodes |
+| Hassan Maids Account | Google Sheets OAuth2 | N nodes |
+
+**The ERP credential is deliberately absent, and that is the ask.** A staging flow holds no ERP
+credential; the deploying team creates one with a **production token** at deployment. Write it as an
+action, never as a gap.
+
+If a staging ERP credential *is* wired (a dated token like `ERP Token 12th Aug 2026`), say so and
+ask for it to be removed or replaced — **a staging token must never travel to production inside an
+export.**
+
+Where a flow writes a results workbook, the Google Sheets credential is **Hassan Maids Account**.
 
 State whether environment variables are used.
 

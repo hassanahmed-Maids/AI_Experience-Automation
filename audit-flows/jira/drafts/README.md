@@ -5,9 +5,9 @@
 | Draft | Dept | Trigger | Measured run | Verdict |
 |---|---|---|---|---|
 | `dummy-tickets.md` | Money Control | webhook | 238 s (2026-08-24) | ready bar TODOs — ⚠ **PUBLISHED in prod today** |
-| `applicant-real-ticket.md` | Money Control | webhook | 273 s (2026-08-19) | ready bar TODOs — ⚠ no Sheets credential |
+| `applicant-real-ticket.md` | Money Control | webhook | 273 s (2026-08-19) | ready bar TODOs — Sheets node not wired |
 | `wellcare-medical-loan.md` | Money Control | ⚠ **none found** | 264 s (2026-08-25) | needs a trigger before it can deploy |
-| `cc-overstay-fines.md` | Money Control | ⚠ **none found** | 33 s (2026-08-24) | needs a trigger; ⚠ dated ERP credential |
+| `cc-overstay-fines.md` | Money Control | ⚠ **none found** | 33 s (2026-08-24) | needs a trigger; ⚠ staging ERP token wired |
 | `mv-overstay-fines.md` | Money Collection | webhook | ⚠ **none — last 5 runs failed** | do not deploy until a clean run exists |
 | `mv-monthly-payment.md` | Money Collection | 5-stage chain | — | ⛔ **four stop conditions — do not post** |
 
@@ -18,12 +18,18 @@ Things the drafts surface that were not visible from the Notion queue:
 - **Two flows have no trigger node at all** (Wellcare, CC Overstay Fines). Every recorded execution
   ran in `manual` mode. A flow with no trigger cannot run in production.
 - **MV Overstay Fines has no successful run.** Eleven executions; the five most recent are all
-  `error` or `canceled`. Its ERP credential is named `ERP Token 12th Aug 2026` — check whether
-  those two facts are the same fact.
+  `error` or `canceled`. A likely cause is the staging ERP token it holds (`ERP Token 12th Aug
+  2026`) having expired — worth checking first, but the failures still have to be resolved before
+  this deploys, whatever the cause.
 - **Dummy Tickets is the only published flow**, with a live production webhook, while every other
   check in the batch is an unpublished draft.
-- **Applicant Real Ticket has a results sheet in Notion but no Google Sheets credential** on the
-  workflow. The results destination cannot be traced from the flow alone.
+- **Applicant Real Ticket has a results sheet in Notion but no Sheets node wired** on the workflow.
+  The credential to use is **Hassan Maids Account**; the wiring still needs confirming.
+
+- **Two flows hold a staging ERP token** (`ERP Token 12th Aug 2026` — CC Overstay Fines and MV
+  Overstay Fines). A staging token must never travel to production inside an export. The intended
+  state is *no* ERP credential in the flow, with the deploying team creating one from a production
+  token — which is how every draft now words the ask.
 - **Every one of the six calls at least one banned route.** `advancesearchNew` is Section A (no
   alternative) on five of them; MV Overstay Fines additionally calls
   `/accounting/payments/page/advancesearch`, the endpoint recorded as having taken Accounting ERP

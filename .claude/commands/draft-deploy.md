@@ -34,7 +34,8 @@ the draft, then says to create it.
 
 ## Field values
 
-Project `SD` (Service Desk), issue type `n8n Flow` (11166). Full spec, including the
+Project `SD` (Service Desk), issue type `n8n Flow` (11166). **Never set an assignee** — the project
+auto-assigns. Full spec, including the
 `Module → Company Department` mapping and the `Accountable PIL` value, is in
 `audit-flows/jira/deploy-ticket-template.md`. Do not guess a required field — the mapping is
 there because it is derivable, and anything not derivable is asked, not invented.
@@ -51,6 +52,11 @@ did. Details in `audit-flows/jira/README.md`.
 
 - **Never post the ticket.** Draft only, until the operator says otherwise.
 - **Never put a secret in the ticket or the export** — credential *names* only.
+- **Never treat a missing ERP credential as a defect.** A staging flow holds none by design; the
+  deploying team creates one with a **production token**. Write it as an action. Conversely, a
+  staging ERP token that *is* wired (a dated one like `ERP Token 12th Aug 2026`) is the finding —
+  it must never travel to production inside an export. Where a flow writes a results workbook and
+  has no Sheets credential, the credential is **Hassan Maids Account**.
 - **Never omit a banned route** from Known route exceptions. Disclosure is the whole point of that
   section; `VPMGOV-1633` shipped without it and the ban and the ticket have disagreed silently since.
 - **Never invent a load figure.** An unmeasured run is a TODO.

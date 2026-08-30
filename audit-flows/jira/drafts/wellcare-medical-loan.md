@@ -13,7 +13,6 @@
 | Urgency (`customfield_10043`) | Necessary and NOT urgent (10048) |
 | Show Demo (`customfield_11902`) | No (11908) |
 | Labels | `audit`, `n8n`, `prod-deployment`, `wellcare-medical-loan` |
-| Assignee | Wesam.Tanous (`63a9dc13347fae5346833e58`) |
 
 ---
 
@@ -90,10 +89,10 @@ Names as they appear in the n8n credential dropdown. No secrets in this ticket o
 
 | Credential name | Type | Used by |
 | --- | --- | --- |
+| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer Auth | 5 ERP nodes |
 | Malaz | Google Sheets OAuth2 | 3 nodes |
 | Malaz Gmail | Gmail OAuth2 | 2 nodes |
-
-**No stored ERP credential**, and 5 ERP endpoints are wired — the token is supplied per run rather than held. Stated so it does not read as a missing credential.
+**The ERP credential is deliberately absent, and creating it is part of this deployment.** The staging flow holds no ERP credential; the deploying team creates one with a **production token** when the flow is deployed. This is an action, not a gap.
 
 Note: `check_id` on this check reads *"n/a — this check has no Security Room delivery (workbook + email draft + runs log only)"*. No portal integration to deploy.
 

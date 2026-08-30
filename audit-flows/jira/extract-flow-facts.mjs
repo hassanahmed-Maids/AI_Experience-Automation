@@ -179,6 +179,7 @@ out.push('Names as they appear in the n8n credential dropdown. No secrets in thi
 out.push('| Credential name | Type | Used by |');
 out.push('| --- | --- | --- |');
 if (!creds.size) out.push('| TODO | | no credentials found on any node |');
+const hasSheets = [...creds.keys()].some((k) => /googleSheets/i.test(k));
 const hasErpCred = [...creds.keys()].some((k) => /erp/i.test(k));
 const erpNodes = [...endpoints].filter(([u]) => u.includes('erpbackendpro')).length;
 for (const [key, n] of [...creds].sort((a, b) => b[1] - a[1])) {
@@ -186,10 +187,24 @@ for (const [key, n] of [...creds].sort((a, b) => b[1] - a[1])) {
   out.push(`| ${name} | ${type} | ${n} node${n === 1 ? '' : 's'} |`);
 }
 
+// The ERP credential is DELIBERATELY absent from a staging flow: the deploying team creates it
+// with a PRODUCTION token. So "no ERP credential" is the correct state, and a stored one is the
+// finding — a staging token must never travel to prod inside an export.
+if (!hasSheets) {
+  out.push('\n> **No Google Sheets credential wired.** If this check writes a results workbook, the');
+  out.push('> credential is **Hassan Maids Account** — name it in the ticket and confirm the nodes are');
+  out.push('> wired to it before deployment.');
+}
 if (erpNodes && !hasErpCred) {
-  out.push('\n> **No stored ERP credential, and ERP endpoints are wired.** This flow takes its token');
-  out.push('> per run in the request payload rather than holding one. Say so in the ticket — otherwise');
-  out.push('> it reads as a missing credential rather than a deliberate design.');
+  out.push('\n> **No stored ERP credential — correct.** ' + erpNodes + ' ERP endpoint(s) are wired and the');
+  out.push('> flow holds no ERP credential. The deploying team creates it with a PRODUCTION token.');
+  out.push('> State it in the ticket as an action, not as a gap.');
+}
+if (erpNodes && hasErpCred) {
+  const names = [...creds.keys()].filter((k) => /erp/i.test(k)).map((k) => k.split('|')[0]);
+  out.push('\n> ⚠ **A STAGING ERP CREDENTIAL IS WIRED: ' + names.join(', ') + '.** It must not go to');
+  out.push('> production. Remove it, or have the deploying team replace it with a production token.');
+  out.push('> The ticket asks for a prod credential to be created — it never ships a staging one.');
 }
 
 console.log(out.join('\n'));

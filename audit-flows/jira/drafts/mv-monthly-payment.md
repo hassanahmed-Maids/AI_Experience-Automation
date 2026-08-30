@@ -13,7 +13,6 @@
 | Urgency (`customfield_10043`) | Necessary and NOT urgent (10048) |
 | Show Demo (`customfield_11902`) | No (11908) |
 | Labels | `audit`, `n8n`, `prod-deployment`, `mv-monthly-payment` |
-| Assignee | Wesam.Tanous (`63a9dc13347fae5346833e58`) |
 
 ---
 
@@ -96,7 +95,14 @@ TODO — no cadence chosen, and no clean full-population run exists to measure.
 
 ## Credentials used
 
-TODO — only Stages 0 and 3 were read for this draft. Stage 0 holds no credential (bearer/token/device are passed in from Stage 1).
+| Credential name | Type | Used by |
+| --- | --- | --- |
+| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer Auth | ERP nodes |
+| Hassan Maids Account | Google Sheets OAuth2 | results workbook |
+
+**The ERP credential is deliberately absent, and creating it is part of this deployment.** The staging flow holds no ERP credential; the deploying team creates one with a **production token** when the flow is deployed. This is an action, not a gap.
+
+TODO — complete the non-ERP rows once Stages 1, 2 and 4 are read. Stage 0 holds no credential of its own (bearer/token/device are passed in from Stage 1).
 
 ## APIs used
 

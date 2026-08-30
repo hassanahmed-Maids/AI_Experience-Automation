@@ -13,7 +13,6 @@
 | Urgency (`customfield_10043`) | Necessary and NOT urgent (10048) |
 | Show Demo (`customfield_11902`) | No (11908) |
 | Labels | `audit`, `n8n`, `prod-deployment`, `dummy-tickets` |
-| Assignee | Wesam.Tanous (`63a9dc13347fae5346833e58`) |
 
 ---
 
@@ -84,10 +83,10 @@ Names as they appear in the n8n credential dropdown. No secrets in this ticket o
 
 | Credential name | Type | Used by |
 | --- | --- | --- |
+| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer Auth | ERP nodes |
 | Hassan Maids Account | Google Sheets OAuth2 | 3 nodes |
 | Hassan LangCC | Anthropic API | 1 node |
-
-**No stored ERP credential.** The ERP token is supplied per run in the request payload rather than held by the flow — deliberate, stated so it does not read as a missing credential.
+**The ERP credential is deliberately absent, and creating it is part of this deployment.** The staging flow holds no ERP credential; the deploying team creates one with a **production token** when the flow is deployed. This is an action, not a gap.
 
 ⚠ TODO — the flow holds two webhook-secret values inline in a Code node body. Moving them to an `httpHeaderAuth` credential is an open item (it needs a UI click the n8n API cannot make). Flag for the reviewer; do not put the values in this ticket.
 

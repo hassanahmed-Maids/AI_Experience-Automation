@@ -13,7 +13,6 @@
 | Urgency (`customfield_10043`) | Necessary and NOT urgent (10048) |
 | Show Demo (`customfield_11902`) | No (11908) |
 | Labels | `audit`, `n8n`, `prod-deployment`, `applicant-real-ticket` |
-| Assignee | Wesam.Tanous (`63a9dc13347fae5346833e58`) |
 
 ---
 
@@ -56,7 +55,7 @@ No databases, no files, no Snowflake.
 ## Outputs & recipients
 
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/1DeVSbOADEWwDx3wR3qURNKcwINxUwvMzRigErR0qE0o/edit?gid=813136346#gid=813136346).
-- TODO — **no Google Sheets credential is wired on this workflow**, yet a results sheet exists. Establish how the sheet is written (via the caller's callback?) before deployment; a results destination nobody can trace is a gap.
+- The Google Sheets credential for the results workbook is **Hassan Maids Account**. ⚠ No Sheets node is currently wired on this workflow — confirm the results path before deployment.
 - TODO — notification e-mail recipient, if any.
 
 Nothing is written back to ERP. No client-facing messages.
@@ -86,9 +85,10 @@ Names as they appear in the n8n credential dropdown. No secrets in this ticket o
 
 | Credential name | Type | Used by |
 | --- | --- | --- |
+| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer Auth | ERP nodes |
+| Hassan Maids Account | Google Sheets OAuth2 | results workbook |
 | Hassan LangCC | Anthropic API | 1 node |
-
-**No stored ERP credential.** The token is supplied per run in the request payload — deliberate, and the workflow description says so.
+**The ERP credential is deliberately absent, and creating it is part of this deployment.** The staging flow holds no ERP credential; the deploying team creates one with a **production token** when the flow is deployed. This is an action, not a gap.
 
 ⚠ TODO — two webhook-secret values are held inline in a Code node body. Same open item as the sibling checks; do not put the values in this ticket.
 
