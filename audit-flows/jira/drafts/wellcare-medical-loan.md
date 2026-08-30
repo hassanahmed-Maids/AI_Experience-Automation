@@ -64,26 +64,23 @@ Both disclosed here rather than omitted. ERP-team dependency.
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/11mkXopBVZcXDCJF1uNLkmvXEjqm1Ze9xyBQE8YnT0wI/edit?gid=0#gid=0).
   Three Google Sheets nodes write it: `Runs Log (no input)`, `Cases -> Workbook`, `Runs Log (scored)`.
 - **No callbacks** — none exist today, and none are to be added.
-- **E-mail** — recipients are **Malaz, Abdullah and Hassan**. Two Gmail nodes are wired, on the
-  `Malaz Gmail` credential, and they do **different** things:
+- **E-mail** — recipients are **Malaz, Abdullah and Hassan**, and all three are now wired on both
+  Gmail nodes (credential `Malaz Gmail`). The two nodes behave differently, and the difference is
+  deliberate:
 
-  | Node | Behaviour today | Reaches the three recipients? |
+  | Node | Behaviour | Recipients |
   | --- | --- | --- |
-  | `Email: no workbook` | **Sends**, to one address | No — one recipient, and it is the *no data file found* alert, not the findings |
-  | `Draft: findings email` | **Creates a Gmail draft** — the node has no recipient field at all | **No.** A draft is saved in one mailbox and delivered to nobody |
+  | `Email: no workbook` | **Sends** automatically. Fires only on the *no clinic data file found* condition — an operational alert, not findings | all three |
+  | `Draft: findings email` | **Creates a Gmail draft**, pre-addressed. It does not send | all three |
 
-  ⚠ **As built, the findings mail reaches no one.** Wiring the three recipients is therefore a
-  decision, not a field edit, and it should be made before deployment rather than after:
+  **The findings mail is deliberately not automatic.** A person opens the draft, reads the findings
+  and sends it. This is the pattern the sibling checks use, and it keeps a human between an audit
+  finding and the people it names. If the team would rather it sent unattended each month, that is a
+  one-node change — but it is a change in what this check does and should be decided explicitly,
+  not assumed at deployment.
 
-  - **Keep it a draft** — a person opens it, reads it, adds the three recipients and sends. Slower,
-    but a human sees every finding before it leaves. This is the pattern the sibling checks use.
-  - **Convert to a send** — the three recipients get it automatically each month. Faster, but the
-    check then mails three people unattended, which is a change in what this flow does and should
-    be an explicit choice.
-
-  Either way, both nodes must carry all three recipients, and the mail body must carry the check
-  name, period and sheet link only — no counts, amounts, names or case keys. The exact addresses are
-  set in the nodes at deployment; the alert node already holds Malaz's.
+  The mail body carries the check name, period and sheet link only — no counts, amounts, names or
+  case keys.
 
 Nothing is written back to ERP. No client-facing messages.
 
