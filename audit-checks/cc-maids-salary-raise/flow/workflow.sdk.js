@@ -724,7 +724,7 @@ const narrowCandidates = node({
         + '\n' + 'return out;'
     }
   },
-  output: [{ maid_id: '3978', nationality_name: 'Filipina', basic_salary_today: 3050 }]
+  output: [{ maid_id: '3978', nationality_name: 'Filipina', basic_salary_today: 3050, is_switcher: false, _empty: false }]
 });
 
 const anyCandidates = ifElse({
@@ -898,7 +898,7 @@ const buildSweepPages = node({
         + '\n' + 'return extra;'
     }
   },
-  output: [{ maid_id: '3978', page: 1 }]
+  output: [{ maid_id: '3978', page: 1, _no_extra: false }]
 });
 
 const anyExtraPages = ifElse({
@@ -1017,7 +1017,7 @@ const buildThreadRequests = node({
         + '\n' + 'return wanted;'
     }
   },
-  output: [{ maid_id: '3978', complaint_id: '228006' }]
+  output: [{ maid_id: '3978', complaint_id: '228006', _no_threads: false }]
 });
 
 const anyThreads = ifElse({
@@ -1503,7 +1503,7 @@ const selectVerifier = node({
         + '\n' + 'return cands.map(function (c) { return { json: c }; });'
     }
   },
-  output: [{ maid_id: '3978', verdict: 'candidate' }]
+  output: [{ maid_id: '3978', verdict: 'candidate', _none: false }]
 });
 
 const anyVerifier = ifElse({
@@ -2105,7 +2105,7 @@ const releaseLeaseError = node({
       workflowId: { __rl: true, mode: 'id', value: LEASE_WF },
       workflowInputs: {
         mappingMode: 'defineBelow',
-        value: { mode: 'release', run_id: expr('{{ $json.run_id }}'), check_id: 'cc-maids-salary-raise', ignore_lease: false },
+        value: { mode: 'release', run_id: expr('{{ $("Build Error Run Row").first().json.run_id }}'), check_id: 'cc-maids-salary-raise', ignore_lease: false },
         matchingColumns: [],
         schema: [
           { id: 'mode', displayName: 'mode', required: false, defaultMatch: false, display: true, type: 'string', canBeUsedToMatch: true },

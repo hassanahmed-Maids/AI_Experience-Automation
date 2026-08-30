@@ -1,0 +1,94 @@
+{
+  "jsCode#1": {
+    "node": "Validate Inputs",
+    "param": "jsCode"
+  },
+  "jsCode#2": {
+    "node": "Assert Rulings",
+    "param": "jsCode"
+  },
+  "jsCode#3": {
+    "node": "Build Page List",
+    "param": "jsCode"
+  },
+  "jsCode#4": {
+    "node": "ERP Budget Gate",
+    "param": "jsCode"
+  },
+  "jsCode#5": {
+    "node": "Population Guard",
+    "param": "jsCode"
+  },
+  "jsCode#6": {
+    "node": "Build Switcher Pages",
+    "param": "jsCode"
+  },
+  "jsCode#7": {
+    "node": "Collect Switcher Ids",
+    "param": "jsCode"
+  },
+  "jsCode#8": {
+    "node": "Narrow To Candidates",
+    "param": "jsCode"
+  },
+  "jsCode#9": {
+    "node": "Build Sweep Pages",
+    "param": "jsCode"
+  },
+  "jsCode#10": {
+    "node": "No Extra Sweep Pages",
+    "param": "jsCode"
+  },
+  "jsCode#11": {
+    "node": "Build Thread Requests",
+    "param": "jsCode"
+  },
+  "jsCode#12": {
+    "node": "No Threads To Read",
+    "param": "jsCode"
+  },
+  "jsCode#13": {
+    "node": "Score Deterministic",
+    "param": "jsCode"
+  },
+  "jsCode#14": {
+    "node": "Select Verifier Cases",
+    "param": "jsCode"
+  },
+  "systemMessage#1": {
+    "node": "Read The Evidence",
+    "param": "systemMessage"
+  },
+  "jsCode#15": {
+    "node": "Merge Readings",
+    "param": "jsCode"
+  },
+  "jsCode#16": {
+    "node": "No Verifier Needed",
+    "param": "jsCode"
+  },
+  "jsCode#17": {
+    "node": "Adjudicate",
+    "param": "jsCode"
+  },
+  "jsCode#18": {
+    "node": "Build Case Rows",
+    "param": "jsCode"
+  },
+  "jsCode#19": {
+    "node": "Build Verdict Rows",
+    "param": "jsCode"
+  },
+  "jsCode#20": {
+    "node": "Build Run Row",
+    "param": "jsCode"
+  },
+  "jsCode#21": {
+    "node": "No Candidates",
+    "param": "jsCode"
+  },
+  "jsCode#22": {
+    "node": "Build Error Run Row",
+    "param": "jsCode"
+  }
+}
