@@ -63,13 +63,43 @@ So the swap trades a **Restricted** paginated route (§A1, already in use and al
 does not make the ban position worse — but it is not an escape from the ban either, and the
 deployment ticket's *Known route exceptions* section must list it.
 
-## Recommended next steps, in order
+## PROBED LIVE — the answer changes which grant to request
 
-1. **Probe `POST /housemaidtransactions/page/advancesearch` with the current token.** One call
-   settles whether the permission is already held. If it is, the access request is moot.
-2. If held, rewire the six detail nodes to a **single batched** attribution call per chunk rather
-   than one call per transaction — the load win is the point, not just the permission.
-3. Keep the `AddEditTransaction` request open **only** if the probe fails.
-4. Either way, add `/housemaidtransactions/page/advancesearch` to the drafts' route-exception list.
+Five probes plus a control, 2026-08-30. Results, and what each proved:
+
+| Probe | Result | Proves |
+|---|---|---|
+| `/housemaidtransactions/...` (no module prefix) | bare nginx **403 HTML** | wrong path — no route without `/accounting`. The documented "missing module prefix reads like a ban" trap |
+| **CONTROL** `/accounting/transactions/page/advancesearchNew`, pc `ManageTransactions` | **500**, a Java type error on the filter value | **the token is alive and authorised there** — so every 401 below is real, not an expired session |
+| `/accounting/housemaidtransactions/...`, pc `ManageTransactions` | **401**, `developerMessage: API_NOT_FOUND_FOR_PAGE` | the route is genuinely not in that page's whitelist — exactly as the code said |
+| `/accounting/housemaidtransactions/...`, pc **`HousemaidTransactions`** | **401**, `developerMessage: INSUFFICIENT_PERMISSIONS` | **the page EXISTS and whitelists the route. Only the user's policy is missing.** |
+
+The disambiguation came from the **`developerMessage` response header**. The body message is a fixed
+constant (`ApiAuthorizationService.java:56`) that never says why; the header carries the real reason
+(`WebConfiguration.java:107`). Worth remembering — a 401 body from this ERP is not diagnostic on its
+own, and reading only the body is what made the first probes look like a dead token.
+
+## So the grant to request is NOT the one we were about to ask for
+
+| | `AddEditTransaction` | **`HousemaidTransactions`** |
+|---|---|---|
+| Page | "Edit Transaction" | "Housemaid Transactions" |
+| Whitelists the attribution route? | **no** — CRUD + a name lookup only | **yes**, exclusively (`security-staff-mgmt.json:113-116`) |
+| Shape of the grant | read on a transaction-**editing** page | read on a maid-transaction **listing** page |
+| Enables batching? | no — one detail call per transaction | **yes** — one filtered search per chunk |
+
+**Request `HousemaidTransactions` — Read-only.** It is row 3 on the same access screen, also managed
+by Chekri Khalife. It is the narrower grant *and* the one that unlocks the batched design; the
+`AddEditTransaction` request can be dropped.
+
+## Remaining steps
+
+1. Request **`HousemaidTransactions` Read-only** (not `AddEditTransaction`).
+2. Once granted, rewire the six detail nodes to one batched attribution search per chunk — the ERP
+   load win is the point, not just the unblock.
+3. Add `/accounting/housemaidtransactions/page/advancesearch` to the drafts' route-exception list
+   (§A2, see above).
+4. The four other CC Overstay endpoints remain **untested**, not confirmed — the breaker never
+   reached them.
 
 *Answer obtained through `scripts/ask-code.sh`, the sanctioned API. No ERP code is held locally.*
