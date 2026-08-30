@@ -11,3 +11,7 @@ __pycache__/
 
 # Work state (on-disk pipeline state)
 work/
+
+# ...but the audit-flow factory's run records ARE deliverables
+!audit-flows/work/
+!audit-flows/work/**
