@@ -31,7 +31,7 @@ Assertions applied per queued check:
 5. no variable at `Doc Status ∈ {Generic stub - do not trust, No matching route}`
 6. no variable whose only source is a banned/dead-end route with **no confirmed alternative**
 7. a named reviewer exists where `Independent review required` = YES
-8. `check_id` assigned
+8. `check_id` assigned **— withdrawn, see §2e**
 9. `Skeleton Version` recorded (drift assessable)
 
 ---
@@ -46,7 +46,7 @@ correction rather than a build:
 | Check | Fails only | Reality |
 |---|---|---|
 | **Dummy Tickets Submitted for Refund — Housemaids** | A5 (1 var at `Generic stub`), A9 (no skeleton version) | **Built.** Staging workflow `aTmGMAlYLwsJQ7js`, `check_id` assigned, results sheet linked. Extended this session (verifier-outcome stamping). |
-| **Applicant Real Ticket** | A5 (same 1 var), A8 (no `check_id`), A9 | **Built.** Staging workflow `YXRZdtk2Geeeqaal`, results sheet linked. Extended this session (per-slice supersession fix). |
+| **Applicant Real Ticket** | A5 (same 1 var), A9 | **Built.** Staging workflow `YXRZdtk2Geeeqaal`, results sheet linked. Extended this session (per-slice supersession fix). |
 
 Both fail A5 on the *same single row*: `transaction_applicant_id`, whose `Doc Status` is
 `Generic stub - do not trust`. That flag describes the **API catalog entry**, not the value — the
@@ -54,8 +54,9 @@ row itself is `ERP Value Status = Confirmed`, `Status = Verified`, and its `Trap
 real shape (`applicants[0].applicant.id`, plural array, never resolve by name). This is a
 **documentation gap, not a data gap**, and should not hold a build.
 
-**Recommended action, not a build:** move both to their true stage and assign `Applicant Real
-Ticket` a `check_id`. The queue's real count of *new* buildable checks is **0**.
+**Recommended action, not a build:** move both to their true stage. *(Done 2026-08-30 — both,
+plus Terminated Housemaids Tickets, now read `Built on n8n — Staging`.)* The queue's real count of
+*new* buildable checks is **0**.
 
 ---
 
@@ -144,8 +145,17 @@ Housemaids Tickets carry a Tech Owner.
 
 ### 2e · Housekeeping
 
-- **`check_id` missing on 10 of 12.** Only Dummy Tickets has one. Applicant Real Ticket is built and
-  running without one.
+- **`check_id` is NOT a build-time field — assertion 8 is withdrawn.** `check_id` is the check's id
+  in the **Security Room portal**, and it exists only for checks that actually deliver there. The
+  Wellcare Advanced Clinic row states the rule in its own field: *"n/a — this check has no Security
+  Room delivery (workbook + email draft + runs log only). Assign one only if it is ever pointed at
+  the portal."* CC Overstay Fines is likewise at Staging with `check_id` null. So a null `check_id`
+  is normal, not a gap, and nothing in the build pipeline may mint one — a fabricated id would not
+  resolve in the portal. It is missing on 10 of 12 queued checks; that number is an observation,
+  not a blocker.
+  Note the flows' *internal* `check_id` (the Runs-table slug: `applicant-real-ticket`,
+  `mv-monthly-payment`, `manual-cc-price-by-cohort`) is a different namespace from this field and
+  must not be copied into it.
 - **Google Sheet link present on 3 of 12** — the three that are actually built.
 - **`Jira Task Link` empty on all 12.**
 - **`Handles sensitive data = YES` on 10 of 12** (all but Entry Visa Audit and Terminated Housemaids

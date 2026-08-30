@@ -147,7 +147,8 @@ and they happen at fixed moments — not at whoever-remembers time:
 |---|---|---|
 | **Build starts** (stage C begins) | `Tech Owner` | **Hassan Ahmed** (`29ad872b-594c-8199-9944-00028180ebfc`) |
 | **Build finishes** (flow exists in staging) | `Status` | `Built on n8n — Staging` |
-| | `n8n Staging Link` · `Flow Version` · `check_id` | filled in the same write |
+| | `n8n Staging Link` · `Flow Version` · `n8n Version` | filled in the same write |
+| | `check_id` | **never minted** — Security Room portal id, see below |
 | **Operator says the Jira prod-deployment task exists** | `Status` | `On Jira pending production` |
 | | `Jira Task Link` | the ticket URL the operator gives |
 
@@ -164,6 +165,13 @@ Three properties of this rule that matter:
   and does not decide when one exists. The operator says so and supplies the link; only then does
   the status move. This is the same posture as *Jira: draft, do not post* below — the ticket is a
   human act, and the status follows the human, not the other way round.
+
+**`check_id` is not the pipeline's to assign.** It is the check's id in the Security Room portal
+and exists only for checks that deliver there — the Wellcare row records the rule verbatim:
+*"n/a — this check has no Security Room delivery … Assign one only if it is ever pointed at the
+portal."* A minted id would not resolve. It is also a different namespace from the `check_id` slug
+the flows stamp into their own Runs tables (`applicant-real-ticket`, `mv-monthly-payment`); never
+copy one into the other.
 
 `Live on Production` and `Retired` are outside the pipeline entirely.
 

@@ -241,7 +241,14 @@ The moment the flow exists in staging, write to its `Checks — <Category>` row:
 | `Status` | `Built on n8n — Staging` |
 | `n8n Staging Link` | the staging workflow URL |
 | `Flow Version` | the version this build produced |
-| `check_id` | assign one if the row has none |
+| `n8n Version` | the published `activeVersionId`, which is what proves which code ran |
+
+**Do not touch `check_id`.** It is the check's id in the **Security Room portal**, assigned only to
+checks that deliver there; a build never mints one. The Wellcare Advanced Clinic row states the rule
+in the field itself: *"n/a — this check has no Security Room delivery (workbook + email draft + runs
+log only). Assign one only if it is ever pointed at the portal."* It is a different namespace from
+the `check_id` slug a flow stamps into its own Runs table (`applicant-real-ticket`,
+`mv-monthly-payment`) — never copy one into the other.
 
 `Built on n8n — Staging` is a statement about **where the code is**, not a claim that it is
 correct. Phases 6 and 7 still have to pass, and the results-validation gate still stands between
