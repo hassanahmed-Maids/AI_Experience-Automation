@@ -94,19 +94,30 @@ audits hitting ERP at once.
 | Orders 30–150 — fine sizing, recovery, waivers (`/visa/overstay-fines`, `/payroll/loans` refused) | A fine's **presence** is still detected (amount > era base) but it cannot be sized or its recovery checked. Those rows exit `pending`, capped and named — never clean, never a finding. |
 | Over-365 repeats | Cleared as expected visa cycles, and **counted** in the run summary. Historically 4 of 117 such pairs shared one visa request; those are undetectable without visa access. |
 | Trailing history is a 400-day sweep, not all-time | A repeat whose prior charge is older than the window reads as a first charge. Consistent with the over-365 band being legitimate, but it is a bound, not a proof. |
-| Live end-to-end run | **Not completed** — see `04-test-results.md` §3 and §3b. A pagination fix (`page` was sent twice) is applied but untested. |
+| Live end-to-end run | **Completed twice**, identical results — see `04-test-results.md` §3. |
 
 ## Population proof
 
-July 2026, three independent reads, **delta zero**:
+July 2026, now **five** independent reads agreeing, delta zero:
 
 | Read | totalElements |
 |---|---|
-| head `1677` alone | 646 |
-| head `1589` alone | 58 |
-| both heads via `operation: "in"` | **704** |
+| probe: head `1677` alone | 646 |
+| probe: head `1589` alone | 58 |
+| probe: both heads via `operation: "in"` | **704** |
+| live run 110429 | **704** walked, 18 pages, reconciled |
+| live run 110690 | **704** walked, 18 pages, reconciled |
 
-646 + 58 = 704, and the spec's own warehouse table gives July = 704.
+646 + 58 = 704, and the spec's own warehouse table gives July = 704. The two live
+runs also agree with each other on **every** scored figure — 1 finding, 105
+pending, 0 inconclusive, 598 clean — which is a determinism proof, not a repeat.
+
+## The findings reproduce the spec's test cases
+
+The single finding matches the spec's **test case 1** (80-day repeat) on maid id
+and both transaction ids; the one out-of-window pending matches **test case 6**
+(140 days) the same way. The spec keeps `Test cases verified` unticked pending an
+ERP re-pull — these runs are that re-pull for two of the six.
 
 ## Could any clearance in here be wrong?
 

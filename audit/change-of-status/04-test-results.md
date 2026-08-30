@@ -65,9 +65,56 @@ Zero findings on this page is the expected result and not a null test: the
 earlier census measured 0 repeat maid ids within the page, and the spec puts
 duplicates at roughly 10 pairs in 8.2 months.
 
-## 3. Live, end to end — NOT YET COMPLETED
+## 3. Live, end to end — COMPLETED, TWICE
 
-Status: **blocked on the n8n instance, not on the flow.**
+Two full-month runs against production ERP, on the operator's token.
+
+| | run 110429 | run 110690 |
+|---|---|---|
+| window | July 2026 | July 2026 |
+| wall clock | 15m 51s | **14m 17s** |
+| population | 704 rows, 18 pages | 704 rows, 18 pages |
+| reconciled vs `totalElements` | 704 = 704 | 704 = 704 |
+| history (120 days) | 3,933 rows | 3,933 rows, 99 pages, reconciled |
+| findings | **1** | **1** |
+| pending | 105 | 105 |
+| inconclusive | 0 | 0 |
+| clean | 598 | 598 |
+
+**The two runs are identical on every scored figure.** That is a determinism
+proof across independent live executions, not a repeat of one result.
+
+### The findings match the spec's own test cases
+
+The single finding is a repeat **80 days apart** on the MV leg. Maid id and
+**both** transaction ids match the spec's **test case 1** exactly. The one
+`91-365` pending is a repeat **140 days apart**, matching **test case 6** exactly
+on maid and both transactions.
+
+The spec marks `Test cases verified: NO`, because those cases were warehouse
+reads and it "stays unticked until these are re-pulled from ERP". These runs
+re-pulled two of them from ERP, and the flow rediscovered both without being
+told what to look for.
+
+### The three guards, exercised live (run 110690)
+
+- **`ERP Budget Gate`**: projected 119 calls (18 + 99 + 2) against a 600 budget.
+  Its projection matched the actual walk exactly — population 704, history 3,933.
+- **`Verify History Pull`**: 3,933 collected == 3,933 `totalElements`, 99 pages,
+  reconciled.
+- **Caps**: population walked 18 pages against a 40 cap; history 99 against 420.
+
+### Other measured figures
+
+- legs 646 MV / 58 CC — matching the two Phase 2 probes taken separately
+- base band 575.65 resolved on all 704 rows
+- fine-bearing 104/704 = **14.8%** (the spec states 12.5%; close, and the small
+  gap is worth a look, since 105 pending = 104 fine-bearing + 1 out-of-window repeat)
+- 0 inconclusive, consistent with the maid id being present on every row
+
+## 3z. Superseded: the earlier "blocked" status
+
+Status at the time: **blocked on the n8n instance, not on the flow.**
 
 - Execution `110420` proved the validator: it correctly **refused to run** with
   no `params.erp_auth.bearer`, with the intended message.
@@ -85,7 +132,7 @@ month, `Score Cases` over 704 rows, and both data-table writes. The ERP request
 shapes themselves ARE proven live — the Phase 2 probes returned 200 with the
 exact bodies, headers and page size the flow uses.
 
-## 3b. A second bug, found by the live run being slow
+## 3b. SUPERSEDED — a bug I diagnosed twice and got wrong both times
 
 The two live executions ran for 25+ minutes each — far longer than ~88 pages at
 a 500 ms interval can account for. Diagnosis: **`page` was being sent twice.**
@@ -94,12 +141,28 @@ The base `queryParameters` carried `page=0` while the pagination block also sets
 returns the same rows, `content.length < 40` is never true, and the sweep runs to
 its 400-request cap — which is almost exactly the observed duration.
 
-Fixed: the base query now carries `size` only, and pagination owns `page`.
+**BOTH HYPOTHESES WERE WRONG, and a controlled probe settled it.**
 
-**Two honest caveats.** First, this is the leading hypothesis, not a confirmed
-diagnosis — confirmation would be the `Verify Population Pull` error naming
-`collected` vs `totalElements`, and the runs had not finished when this was
-written. Second, the fix is untested for the same reason.
+`ZZ paging probe` ran the two configurations back to back over one small window:
+
+| config | pages | collected | distinct rows | totalElements | reconciles |
+|---|---|---|---|---|---|
+| `size` only, pagination owns `page` | 3 | 97 | 97 | 97 | yes |
+| `page` declared twice | 3 | 97 | 97 | 97 | yes |
+
+Identical, and neither is stuck on page zero. The duplicate parameter was
+harmless, and removing it was a no-op. I first claimed it broke pagination, then
+— when a later run looked slow — suspected the reverse. Neither was true.
+
+**What actually varied was ERP latency**, plus my own misreading: the execution
+list reported run 110690 as still `running` long after it had in fact finished in
+14m17s, and I took that stale metadata at face value and reported "50 minutes and
+still running".
+
+**The lesson, and it is the same one twice:** I changed a working request shape
+on the strength of an unconfirmed theory, when the evidence to confirm it (the
+runs' own outcome) was minutes away. The controlled probe that settled it cost
+25 seconds and six calls, and should have come first.
 
 What is worth noting either way: **the failure mode is safe.** A capped sweep
 collects far more rows than `totalElements`, and the reconciliation guard throws
