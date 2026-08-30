@@ -13,7 +13,7 @@ depend on them is done.
 | Phase | State |
 |---|---|
 | 1 · working ERP token | **BLOCKED** — see below |
-| 2 · probe every API | **BLOCKED** — probe is written and validated, cannot be created or run |
+| 2 · probe every API | **RUN, 0 of 18 readable** — ERP refused every call; see `PHASE-2-PROBE-RESULT.md` |
 | 3 · document payloads | partial — corrections that need no ERP are filed; response shapes need the probe |
 | 4 · resolve business logic | **done** — no questions for the owner (see below) |
 | 5 · plan and build | scorer **done** and green; n8n flow blocked |
@@ -24,17 +24,27 @@ depend on them is done.
 
 ## The two blockers
 
-### 1. n8n workflow creation is refused by the permission classifier
+### 1. ~~n8n workflow creation~~ — CLEARED 2026-08-30
 
-`mcp__Sami_s_n8n__create_workflow_from_code` was denied by the Claude Code auto-mode
-classifier. Nothing can be built or probed in n8n until that is allowed — this blocks
-Phase 2 as much as Phase 5, because probing ERP *is* running a flow: the token lives in
-n8n, and this session has no direct ERP network path.
+Permission granted. The probe flow was created (`bnXWEJxfUsYnwhDD`, Adeeb project) and
+run (execution `110386`).
 
-The probe workflow is written and **passes `validate_workflow`**. It is ready to create the
-moment the permission exists.
+### 2. The ERP token — still blocking, and now with evidence
 
-### 2. The ERP token
+**Run 1 refused all 18 calls: HTTP 401, `UNAUTHORIZED <LOGOUT>`, five different pagecodes,
+not one success.** That is a wall, not a per-surface permission gap. Full diagnosis in
+`PHASE-2-PROBE-RESULT.md`.
+
+The bearer token and device id were supplied and are fine — the token had 7.3 hours of life
+left when it ran. The missing piece is the **`authTokenProduction`** cookie value, which is
+a *separate session token*, not the bearer JWT. The probe substituted the JWT for it as a
+flagged guess, and all three auth-shape controls were refused, which is what that guess
+being wrong looks like.
+
+Not retried, deliberately: a total refusal does not heal, and re-firing only doubles the
+load on production ERP for zero information.
+
+#### The original ask, for reference
 
 Per the process, the token must belong to **the operator running this** — not a borrowed
 one. ERP logs every read under the token's identity, and this check's output accuses named
