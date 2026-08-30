@@ -20,6 +20,17 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const LEASE = /lease/i;
 
+// Retired intake / delivery nodes. Left DISABLED in staging so the graph still documents what the
+// flow used to be and so a disabled node keeps forwarding data to its successors; removed from the
+// production export, where a webhook or a callback has no business existing at all.
+const RETIRED_TYPES = [/\.webhook$/i, /respondToWebhook/i];
+const RETIRED_NAMES = [/^callback/i, /retired/i];
+
+function isRetired(n) {
+  if (!n.disabled) return false;                       // only ever remove what is already disabled
+  return RETIRED_TYPES.some((r) => r.test(n.type)) || RETIRED_NAMES.some((r) => r.test(n.name));
+}
+
 function load(p) {
   const raw = JSON.parse(readFileSync(p, 'utf8'));
   return raw.workflow ?? raw;
@@ -45,10 +56,13 @@ function reachable(wf) {
 
 function strip(wf) {
   const conns = structuredClone(wf.connections ?? {});
+  const byName = new Map((wf.nodes ?? []).map((n) => [n.name, n]));
   const leases = (wf.nodes ?? []).filter((n) => LEASE.test(n.name)).map((n) => n.name);
+  const retired = (wf.nodes ?? []).filter(isRetired).map((n) => n.name);
+  const doomed = [...new Set([...leases, ...retired])];
   const bridges = [];
 
-  for (const L of leases) {
+  for (const L of doomed) {
     // Targets of the lease's SUCCESS output only. Its error output dies with it.
     const successors = (conns[L]?.main?.[0] ?? []).map((l) => ({ ...l }));
 
@@ -70,8 +84,8 @@ function strip(wf) {
     delete conns[L];
   }
 
-  const nodes = (wf.nodes ?? []).filter((n) => !LEASE.test(n.name));
-  return { ...wf, nodes, connections: conns, __leases: leases, __bridges: bridges };
+  const nodes = (wf.nodes ?? []).filter((n) => !doomed.includes(n.name));
+  return { ...wf, nodes, connections: conns, __leases: leases, __retired: retired, __bridges: bridges };
 }
 
 const [file, ...rest] = process.argv.slice(2);
@@ -82,11 +96,13 @@ const after = strip(before);
 
 const rBefore = reachable(before);
 const rAfter = reachable(after);
-const lost = [...rBefore].filter((n) => !rAfter.has(n) && !LEASE.test(n));
+const gone = new Set([...after.__leases, ...after.__retired]);
+const lost = [...rBefore].filter((n) => !rAfter.has(n) && !gone.has(n));
 
 console.log(`workflow : ${before.name}`);
 console.log(`nodes    : ${before.nodes.length} -> ${after.nodes.length}`);
-console.log(`removed  : ${after.__leases.join(', ') || '(none)'}`);
+console.log(`leases   : ${after.__leases.join(', ') || '(none)'}`);
+console.log(`retired  : ${after.__retired.join(', ') || '(none)'}`);
 console.log(`bridges  : ${after.__bridges.length}`);
 for (const b of after.__bridges) console.log(`           ${b}`);
 console.log(`reachable: ${rBefore.size} -> ${rAfter.size}`);

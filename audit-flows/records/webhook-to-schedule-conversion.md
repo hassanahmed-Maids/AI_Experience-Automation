@@ -1,8 +1,8 @@
 # Ruling: no webhooks, monthly schedule, Google Sheets output
 
 **Date:** 2026-08-30 · **Source:** operator ruling
-**Status:** Dummy Tickets unpublished. **Wellcare and CC Overstay Fines converted.** The other four
-are specified below but **NOT applied** — two findings below say why, and both are load-bearing.
+**Status: all six converted, 2026-08-30.** Verified by read-back. None can RUN yet — see the ERP
+credential finding — but every flow now has the shape the ruling requires.
 
 ## The rule
 
@@ -229,3 +229,86 @@ reachability assertion rather than a hand edit.
 **Ordering note.** The four flows still awaiting the webhook→schedule conversion will change their
 entry node, and the `Respond 200 -> …` bridges above will become `<new schedule entry> -> …`. Re-run
 the strip after converting, not before; its output is derived, never stored.
+
+
+---
+
+# All six converted — 2026-08-30
+
+| Flow | Entry now | Retired | Notes |
+|---|---|---|---|
+| Wellcare | `Run Monthly` → `Manual Run Config` | nothing to retire | pure addition; month unpinned |
+| CC Overstay Fines | `Run Monthly` → `Build Run Context` | 2 callbacks **deleted** | true leaves; window now computed |
+| Dummy Tickets | `Run Monthly` → `Manual Run Config` | webhook + 2 respond + 3 callbacks **disabled** | window now computed |
+| MV Overstay Fines | `Run Monthly` → `Build Manual Run Context` | webhook + 2 respond + 3 callbacks **disabled** | window computed; `delivery.workbook` corrected |
+| Applicant Real Ticket | `Run Monthly` / `Run Manually` → **new** `Run Config` | webhook + 2 respond **disabled** | had no manual path at all |
+| MV Monthly Payment | Stage 1 `Run Monthly` → **`Run Check`** (now a Code node); Stage 3 `Rollup In` **disabled** | webhook renamed + disabled | see the rename note below |
+
+## Why disable rather than delete
+
+CC Overstay's callbacks were true leaves, so they were deleted outright. Everywhere else the intake
+and callback nodes are **mid-chain**, and `Validate Inputs` is referenced by **12–34 nodes per flow**
+— it is the config spine, not an adapter. Disabling exploits a mechanism the flows already
+document for themselves:
+
+> *"For a TEST run, disable the three 'Callback -' nodes first. n8n forwards through a disabled
+> node, so the Sheets and verifier branches still receive data while nothing reaches the portal."*
+> — Dummy Tickets, `Manual Run Config`
+
+So a disabled node keeps the chain intact with zero bridging risk in staging, and
+`strip-erp-lease.mjs` removes it from the production export with the bridge computed and asserted.
+
+## The rename trick, used once
+
+MV Monthly Payment Stage 1 had no manual path, and **three nodes read `$('Run Check').first().json.body`
+directly** (`Acquire ERP Lease`, `ERP Budget Gate`, `Capture Failure`). Disabling the webhook would
+have broken all three at runtime.
+
+Instead the webhook was renamed `Run Check (webhook, retired)` and a **Code node inherited the name
+`Run Check`**, emitting the same `{body:{…}}` shape. n8n's `renameNode` rewrites connections but
+**not** `$()` references inside Code bodies — verified on a throwaway workflow earlier this session
+— so all six references now resolve to the live config node with no edit to any of them.
+
+Verified after applying: `Run Check` is a Code node and enabled; the retired webhook is disabled
+with no connections; all three readers resolve to a node that runs.
+
+## Pinned windows found and fixed
+
+Three of the six would have re-audited a fixed month forever under a schedule:
+
+| Flow | Was | Now |
+|---|---|---|
+| Wellcare | pinned June 2026 | previous full month (its own note said to unpin once proven) |
+| CC Overstay Fines | `2026-05-01`..`2026-08-31` — four months | previous full month |
+| Dummy Tickets | `2026-06-01`..`2026-06-30` | previous full month |
+| MV Overstay Fines | `2026-06-01`..`2026-06-30` | previous full month |
+
+Applicant needed none — its `Validate Inputs` already carries a `lastMonth()` default and refuses a
+window ending today or later. MV Stage 1's month is computed in the new `Run Check`.
+
+The shared helper was unit-tested across year rollover, leap February, non-leap February and 30-day
+months (6/6) before any of it was applied.
+
+## Production export
+
+`strip-erp-lease.mjs` now removes **leases and the disabled intake/callback nodes**, bridging each
+and asserting nothing is orphaned:
+
+| Flow | staging | prod export |
+|---|---:|---:|
+| Wellcare | 37 | 37 |
+| MV Stage 1 | 21 | 17 |
+| Dummy Tickets | 54 | 45 |
+| Applicant Real Ticket | 66 | 60 |
+| CC Overstay Fines | 67 | 64 |
+| MV Overstay Fines | 81 | 72 |
+
+## Still true, and still blocking
+
+**Nothing here can run yet.** The ERP credential finding is unchanged: tokens last 24 hours and four
+of these flows take theirs from a workflow variable or a payload. Every new config node fails loudly
+on a missing token rather than running blind — which is correct, but it means the schedule produces
+a failed run every month until a stored production credential exists.
+
+**None of this has been tested end to end**, because that needs a token. The builder skill's Phase 6
+is unsatisfied for all six.
