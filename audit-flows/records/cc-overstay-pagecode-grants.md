@@ -163,3 +163,43 @@ is the narrowest form of it.
    fines node now carries the right pageCode.
 3. Regenerate the CC Overstay deploy draft — it still names `advancesearchNew` and the deleted
    detail node.
+
+---
+
+# ⚠ CORRECTION 2026-08-30 — the grants are missing from *Hassan's account*, not from ERP
+
+Everything above is accurate about which pageCodes whitelist which route. But the framing — "we need
+two grants" — was drawn entirely from probes made with **one token** (`Hassan Bearer`). Checking a
+flow that already works shows another account has them.
+
+**Wellcare Advanced Clinic, execution `101978` (2026-08-25):** its `Get Loans` node calls
+`GET /payroll/loans/getHousemaidLoans/{id}` with pageCode **`HousemaidsPayrollLoans`** — the exact
+pageCode that returns `INSUFFICIENT_PERMISSIONS` for Hassan's token today — and returned
+**HTTP 200 with 3 rows, twice, no error.**
+
+The same flow also calls two nodes under **`AddEditTransaction`** (`Get Transaction`,
+`Download Data File`) and both succeeded — the very pageCode whose absence started the
+transaction-attribution investigation.
+
+Wellcare holds **no stored ERP credential**; its Authorization header comes from an expression, so a
+token was supplied per run. Whoever supplied it holds `AddEditTransaction`, `HousemaidsPayrollList`
+and `HousemaidsPayrollLoans`.
+
+## What this changes
+
+- **The pageCode analysis stands. The provisioning conclusion does not.** The correct question is not
+  "does ERP grant this page?" but **"does the account behind the production token hold it?"**
+- Every deploy draft says *the deploying team creates the ERP credential with a production token*.
+  So the grants may already be satisfied the moment that credential is made, with no request at all.
+- **Ask the deploying team first, before requesting anything from Chekri Khalife:** which ERP account
+  will back the production credential, and does it already hold `Visa_OverStayFinesMonitoring`,
+  `HousemaidsPayrollLoans` / `HousemaidPayroll`, `HousemaidComplaints` and `ManageTransactions`?
+- Only if that account lacks them does the two-policy request above apply — and then it applies to
+  *that* account, not to Hassan's.
+
+## Not yet established
+
+Whether `Visa_OverStayFinesMonitoring` is held by that broader account. No flow has ever successfully
+called `/visa/overstay-fines/housemaid/*` — MV Overstay has no successful run at all, and CC Overstay
+reached it for the first time on 2026-08-30 and was refused. So the fines route remains genuinely
+unproven on *any* token, unlike the loans route.
