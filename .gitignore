@@ -11,3 +11,6 @@ __pycache__/
 
 # Work state (on-disk pipeline state)
 work/
+
+# Personal Claude Code overrides
+.claude/settings.local.json

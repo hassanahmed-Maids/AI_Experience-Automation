@@ -5,8 +5,8 @@ Spec: Notion "E-ID Audit" v0.5 (road-map #57, module Visa). Status of this build
 
 | Phase | State |
 |---|---|
-| 1 — working ERP token | **BLOCKED.** Needs one paste from the operator. See below. |
-| 2 — probe every surface | Not started (needs Phase 1). Probe list drafted below. |
+| 1 — working ERP token | **Done.** Operator token verified against the 794-row reference count. |
+| 2 — probe every surface | **Round 1 done, live, 2026-08-30.** Surface table below. One BLOCKER found. |
 | 3 — document payloads | Done from the spec's own ERP-Variables rows, which are unusually complete and ERP-confirmed 2026-08-20. Call budget recounted below. |
 | 4 — resolve business logic | Done. 13 deterministic gates + 5 verifier rules + 1 shared rule implemented or declared. 3 genuine questions remain, all already open on the spec. |
 | 5 — build in n8n | Not started. Golden identified. |
@@ -94,7 +94,74 @@ spec does not state and the build needs:
 - **The flowchart's two unbuilt rules** (1-year vs 2-year option; fine
   responsibility) are NOT PASSED by design and are held on the spec.
 
-## Phase 2 probe list (drafted, not run)
+## Phase 2 — probe results (live ERP, 2026-08-30, execution 110701)
+
+Read-only. 17 paced calls on the operator's own token. Throwaway probe flow
+`x7MwvtXZdln2Q0iS` in the Adeeb project; it holds no ERP credential.
+
+| Surface | Route | pagecode | Status | Shape | Can the check proceed? |
+|---|---|---|---|---|---|
+| Population sweep | `POST /accounting/transactions/page/advancesearchNew` | `ManageTransactions` | **200** | — | yes |
+| Wrong-pagecode control | same | `ManageNothingAtAll` | 401 | `PAGE_NOT_FOUND` | (control) |
+| Housemaid-id filter ×5 | same | `ManageTransactions` | **500** ×5 | rejected filter clause | no such filter |
+| Transaction detail ×10 | `GET /accounting/transactions/{id}` | `AddEditTransaction` | **401** ×10 | `INSUFFICIENT_PERMISSIONS` | **BLOCKER** |
+
+### Confirmed
+- **The population route is exactly as documented.** `expense.id = 1682` over
+  Feb-2026 returned `totalElements` **794**, matching the ERP-Variables row to the
+  row. The expense object came back verbatim. The 8-head enumeration is sound.
+- **`housemaids[]` really is absent from the search row**, and `contractId` really
+  is an empty string. The spec's two structural claims both hold.
+- **The wrong-pagecode discriminator is `PAGE_NOT_FOUND`** in `developermessage`.
+  That is what separates a bad pagecode from a missing permission, and it is why
+  the detail-route refusal below can be read as a permission gap rather than a
+  header mistake.
+
+### 🔴 BLOCKER — the maid id is unreachable on the operator's token
+
+`GET /accounting/transactions/{id}` returned **401 INSUFFICIENT_PERMISSIONS on all
+ten** spec test transactions — not `PAGE_NOT_FOUND`, so the route exists and the
+token may not use it. Combined with the other two results, all three doors to the
+maid id are shut:
+
+1. the search response does not carry `housemaids[]`;
+2. the search rejects a housemaid-id filter under all five property spellings tried
+   (all HTTP 500 — and none returned the unfiltered count, so nothing was silently
+   ignored);
+3. the detail route, the only documented source, is refused.
+
+**Consequence, and it is the whole check:** ACP ❷ (identity) can never be satisfied,
+so every row parks unidentified, so ❺ (the duplicate rule) can never fire. The check
+would run clean and find nothing. This is not the spec's call-budget problem — a
+raised ERP budget does not help, because the calls are refused, not expensive.
+
+This reframes *Still open* item 1. The question is no longer "ERP or warehouse,
+which do we prefer" — **ERP cannot supply the population's identities at all on this
+account today.** Either the permission is granted, or the population is a warehouse
+read, which is a handover to the ERP/Data team rather than something to build here.
+
+### Spec correction filed
+`cc_overstay_txn_maid_id` records the maid id as *"Confirmed present and correct on
+all five E-ID test-case transactions (1763388, 1763389, 1770515, 1489422, 1764251),
+housemaids[] length 1 on each"*, read 2026-08-20. **On the operator's token on
+2026-08-30 all five are 401.** Either that verification was made on a different
+login, or the permission changed in ten days. The row should record the account the
+read was made on; a "Confirmed" that does not name its login is not reproducible.
+
+### Free win (pending round 2 read)
+`vatAmount` and `vatType` are on the **search** row. The spec requires the VAT basis
+to be read from ERP rather than the warehouse and implies the detail call for it. If
+those fields carry real values inline, the comparison basis needs no detail call at
+all. Round 2 (execution `110802`) checks this; the result is stored but unread —
+the execution-read tool was intermittently refused.
+
+### Undocumented fields on the search row
+25 keys, of which the spec names five. Also present: `vatAmount`, `vatType`,
+`supplier`, `paymentType`, `attachments`, `revenue`, `fromBucket`/`toBucket`
+(+`...IsSecure`), `isDescriptionSecured`, `previouslyUnknown`, `qashioTransactionId`,
+`license`, `creationDate`, `pnlValueDate`, `paymentId`, `id`.
+
+## Phase 2 probe list (round 1 run; items 4-5 outstanding)
 
 Population `POST /accounting/transactions/page/advancesearchNew`, pagecode
 `ManageTransactions`, one call per head with `operation: "="` (a list with
