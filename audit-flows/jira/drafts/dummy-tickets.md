@@ -48,7 +48,7 @@ Per-applicant ticket detail is read through the same run; no database, no files,
 
 ### Known route exceptions
 
-- `/accounting/transactions/page/advancesearchNew` — on the 2026-08-25 dead-end route ban, **Section A: no alternative exists**. There is no id-list finder and no unpaged JSON accessor for the expense ledger. This is an ERP-team dependency, disclosed here rather than omitted.
+- `/accounting/transactions/page/advancesearchNew` — on the 2026-08-25 dead-end route ban. Previously disclosed here as **Section A, no alternative**; that is **no longer true**. `POST /accounting/transactions/page/advancesearch` (the legacy route, whitelisted under the `ManageTransactions` pageCode we already hold) accepts a bounded id list — `[{"property":"id","operation":"in","value":[...]}]` — and returns exactly those rows, 120 verified in a single call on 2026-08-30. That is the id-list accessor whose absence made this a dead end. The flow should be rewired to it before production; the ERP-team dependency is withdrawn.
 
 ## Outputs & recipients
 

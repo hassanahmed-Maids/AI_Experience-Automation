@@ -54,7 +54,7 @@ No Snowflake. One ERP-hosted file download.
 
 Two endpoints are on the 2026-08-25 dead-end route ban:
 
-- `/accounting/transactions/page/advancesearchNew` — Section A, no alternative exists.
+- `/accounting/transactions/page/advancesearchNew` — on the 2026-08-25 dead-end route ban. Previously disclosed here as **Section A, no alternative**; that is **no longer true**. `POST /accounting/transactions/page/advancesearch` (the legacy route, whitelisted under the `ManageTransactions` pageCode we already hold) accepts a bounded id list — `[{"property":"id","operation":"in","value":[...]}]` — and returns exactly those rows, 120 verified in a single call on 2026-08-30. That is the id-list accessor whose absence made this a dead end. The flow should be rewired to it before production; the ERP-team dependency is withdrawn.
 - `/payroll/HousemaidPayroll/filterHousemaids` — paginated. ⚠ Note the ERP Variables entry for this route: *omitting the `maidPayrollTypes` filter returns EVERY maid ever* (121,216 live at 2026-08-19). Confirm the filter is always sent explicitly and can never fall through to empty.
 
 Both disclosed here rather than omitted. ERP-team dependency.

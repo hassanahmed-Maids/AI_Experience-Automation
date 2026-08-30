@@ -55,7 +55,7 @@ No databases, no files, no Snowflake.
 
 Two endpoints are on the 2026-08-25 dead-end route ban, and one carries incident history:
 
-- `/accounting/transactions/page/advancesearchNew` — Section A, no alternative exists.
+- `/accounting/transactions/page/advancesearchNew` — on the 2026-08-25 dead-end route ban. Previously disclosed here as **Section A, no alternative**; that is **no longer true**. `POST /accounting/transactions/page/advancesearch` (the legacy route, whitelisted under the `ManageTransactions` pageCode we already hold) accepts a bounded id list — `[{"property":"id","operation":"in","value":[...]}]` — and returns exactly those rows, 120 verified in a single call on 2026-08-30. That is the id-list accessor whose absence made this a dead end. The flow should be rewired to it before production; the ERP-team dependency is withdrawn.
 - `/accounting/payments/page/advancesearch` — ⚠ **this is the endpoint the ban document records as having taken Accounting ERP down once.** A non-paging replacement (`POST /accounting/payments/search`) exists and has already been adopted on MV Monthly Payment Stage 2; it returns a bare list rather than a page envelope, so swapping it requires a response-shape adapter, not just a URL edit. **Recommend swapping before production**, or state explicitly why not.
 
 Both disclosed rather than omitted.

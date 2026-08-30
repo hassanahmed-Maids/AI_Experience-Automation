@@ -41,10 +41,15 @@ Things the drafts surface that were not visible from the Notion queue:
   Overstay Fines). A staging token must never travel to production inside an export. The intended
   state is *no* ERP credential in the flow, with the deploying team creating one from a production
   token — which is how every draft now words the ask.
-- **Every one of the six calls at least one banned route.** `advancesearchNew` is Section A (no
-  alternative) on five of them; MV Overstay Fines additionally calls
-  `/accounting/payments/page/advancesearch`, the endpoint recorded as having taken Accounting ERP
-  down once — and a swap for it already exists and is in use on MV Monthly Payment Stage 2.
+- **Every one of the six calls at least one banned route**, but `advancesearchNew` is **no longer
+  Section A**. As of 2026-08-30 a live-probed alternative exists: the legacy
+  `POST /accounting/transactions/page/advancesearch`, whitelisted under the `ManageTransactions`
+  pageCode we already hold, accepts a bounded id list and returns exactly those rows (120 in one
+  call). See `records/erp-attribution-solved.md`. The five drafts have been corrected — do not post
+  a claim of an unresolvable ERP dependency that we can resolve ourselves. MV Overstay Fines
+  additionally calls `/accounting/payments/page/advancesearch`, the endpoint recorded as having
+  taken Accounting ERP down once — and a swap for it already exists and is in use on MV Monthly
+  Payment Stage 2.
 - **MV Monthly Payment should not be in this batch.** Stage 0 is marked UNTESTED by its author,
   exists because this check caused the 2026-08-19 `clientmgmt` outage, and still calls the endpoint
   implicated in it.

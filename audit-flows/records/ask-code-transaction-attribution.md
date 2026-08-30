@@ -103,3 +103,11 @@ by Chekri Khalife. It is the narrower grant *and* the one that unlocks the batch
    reached them.
 
 *Answer obtained through `scripts/ask-code.sh`, the sanctioned API. No ERP code is held locally.*
+
+---
+
+> **SUPERSEDED 2026-08-30.** Steps 1–3 below are withdrawn. No access request is needed: the legacy
+> `POST /accounting/transactions/page/advancesearch` is whitelisted under `ManageTransactions` — the
+> pageCode we already hold — and returns the housemaid link with `amount` and `contractId`, batched
+> by id list. Verified by live probe. See `records/erp-attribution-solved.md`. Step 4 (the four
+> untested CC Overstay endpoints) still stands.
