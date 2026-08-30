@@ -19,24 +19,32 @@ Operator / token identity: hassan.ahmed@maids.cc (`Hassan Bearer`).
 Throwaway probe workflows to delete once the corrections are filed:
 `GJxubuyT27j5FVr6`, `vnsyLedHRpUcyhri`, `Puff7xnNYLN2rVPt`.
 
-## ⚠️ MUST BE DONE BEFORE THIS FLOW IS USED
+## State of the flow
 
-Test scaffolding is still in place. Three things to revert:
+Test scaffolding has been **reverted and the revert verified** by reading the
+workflow back. Both ERP nodes are `authentication: "none"` with the
+`Authorization` header sourced from `params.erp_auth.bearer`, and
+`Build Manual Run Context` carries no placeholder token.
 
-1. **`Get Population` and `Get Trailing History` are bound to the stored
-   `Hassan Bearer` credential.** They must go back to reading
-   `params.erp_auth.bearer`: set `authentication` back to `none`, drop the
-   credential, and restore the `Authorization` header parameter
-   `={{ $("Validate Inputs").first().json.erp_bearer }}`.
-2. **`Build Manual Run Context` contains a placeholder bearer string**
-   (`'Bearer credential-bound-test-only'`). It is not a token and never was, but
-   it must come out — a manual run should be handed a real token, not fall
-   through on a placeholder.
-3. Re-read the workflow afterwards and confirm both, rather than assuming.
+The flow holds **no ERP credential of its own**: every read is logged under the
+identity of the person who ran it, so findings that name real clients are
+attributable to a real person.
 
-The flow is designed to hold **no ERP credential of its own**: every read is
-logged under the identity of the person who ran it, so findings that name real
-clients are attributable to a real person.
+**One residue to clear in the UI:** the `Hassan Bearer` credential reference
+still sits on `Get Population` and `Get Trailing History`. It is inert while
+`authentication` is `none`, but it should be removed so nobody later flips
+authentication back on and silently re-binds a shared token.
+
+## How to run it
+
+Manual: it defaults to the month just ended, but still needs a token —
+`params.erp_auth.bearer` must be supplied (`"Bearer <token>"`).
+Webhook: `POST https://sami-team.app.n8n.cloud/webhook/cos-audit-run` with header
+`x-sr-webhook-secret`, and a body carrying `check_id`, `run_id`, `audit_window`
+and `params.erp_auth.bearer`.
+
+Do **not** pass `ignore_erp_lease: true` — that bypasses the lease that stops two
+audits hitting ERP at once.
 
 ## What still needs a human
 
@@ -66,7 +74,7 @@ clients are attributable to a real person.
 | Orders 30–150 — fine sizing, recovery, waivers (`/visa/overstay-fines`, `/payroll/loans` refused) | A fine's **presence** is still detected (amount > era base) but it cannot be sized or its recovery checked. Those rows exit `pending`, capped and named — never clean, never a finding. |
 | Over-365 repeats | Cleared as expected visa cycles, and **counted** in the run summary. Historically 4 of 117 such pairs shared one visa request; those are undetectable without visa access. |
 | Trailing history is a 400-day sweep, not all-time | A repeat whose prior charge is older than the window reads as a first charge. Consistent with the over-365 band being legitimate, but it is a bound, not a proof. |
-| Live end-to-end run | Not completed — see `04-test-results.md` §3. |
+| Live end-to-end run | **Not completed** — see `04-test-results.md` §3 and §3b. A pagination fix (`page` was sent twice) is applied but untested. |
 
 ## Population proof
 

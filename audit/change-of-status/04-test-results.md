@@ -85,6 +85,34 @@ month, `Score Cases` over 704 rows, and both data-table writes. The ERP request
 shapes themselves ARE proven live — the Phase 2 probes returned 200 with the
 exact bodies, headers and page size the flow uses.
 
+## 3b. A second bug, found by the live run being slow
+
+The two live executions ran for 25+ minutes each — far longer than ~88 pages at
+a 500 ms interval can account for. Diagnosis: **`page` was being sent twice.**
+The base `queryParameters` carried `page=0` while the pagination block also sets
+`page={{ $pageCount }}`. If the server reads the first occurrence, every page
+returns the same rows, `content.length < 40` is never true, and the sweep runs to
+its 400-request cap — which is almost exactly the observed duration.
+
+Fixed: the base query now carries `size` only, and pagination owns `page`.
+
+**Two honest caveats.** First, this is the leading hypothesis, not a confirmed
+diagnosis — confirmation would be the `Verify Population Pull` error naming
+`collected` vs `totalElements`, and the runs had not finished when this was
+written. Second, the fix is untested for the same reason.
+
+What is worth noting either way: **the failure mode is safe.** A capped sweep
+collects far more rows than `totalElements`, and the reconciliation guard throws
+rather than scoring a wrong cohort. The golden could not have caught this — its
+cohort fits in a single page at `size=200`, so `content.length < 200` is true on
+the first request and its pagination never iterates.
+
+### A mistake of mine, recorded
+
+I passed `ignore_erp_lease: true` on both test runs, so two sweeps hit ERP
+concurrently. The ERP lease exists precisely to stop that, and bypassing it made
+the contention worse. Test runs should take the lease like any other run.
+
 ## 4. The one deliberate delta between what was tested and what will run
 
 The flow authenticates from `params.erp_auth.bearer`, so that it holds no ERP
@@ -93,5 +121,11 @@ who ran it. To test it live without the raw token entering this session, the two
 ERP nodes were **temporarily** bound to the stored `Hassan Bearer` credential and
 the `Authorization` header parameter removed.
 
-**That scaffolding must be reverted before the flow is used**, along with the
-placeholder bearer in `Build Manual Run Context`. See `05-handover.md`.
+**This scaffolding has since been REVERTED and the revert verified by reading
+the workflow back**: both ERP nodes are `authentication: "none"` with
+`Authorization` sourced from `params.erp_auth.bearer`, and
+`Build Manual Run Context` no longer contains the placeholder.
+
+One residue: the `Hassan Bearer` credential reference still sits on both nodes,
+inert while `authentication` is `none`. It should be cleared in the n8n UI so
+nobody later flips authentication back on and silently re-binds it.
