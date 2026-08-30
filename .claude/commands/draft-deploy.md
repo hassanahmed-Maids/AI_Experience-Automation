@@ -60,3 +60,7 @@ did. Details in `audit-flows/jira/README.md`.
 - **Never omit a banned route** from Known route exceptions. Disclosure is the whole point of that
   section; `VPMGOV-1633` shipped without it and the ban and the ticket have disagreed silently since.
 - **Never invent a load figure.** An unmeasured run is a TODO.
+- **Never draft a webhook-triggered flow as though it ships.** Since 2026-08-30 every audit flow is
+  **scheduled monthly, with no inbound endpoint and no outbound callback, delivering to Google
+  Sheets.** A flow still carrying a webhook trigger or a callback node needs a stated pre-deployment
+  conversion in the ticket — see `audit-flows/records/webhook-to-schedule-conversion.md`.

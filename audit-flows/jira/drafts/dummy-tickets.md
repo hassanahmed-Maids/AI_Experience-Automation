@@ -30,11 +30,11 @@ An AI verifier reads the ERP paper trail behind each red flag and returns an adv
 
 ## Trigger & schedule
 
-**Webhook.** `POST /applicant-dummy-ticket-refund-audit`, authenticated by a shared secret header checked against a two-slot allowlist (live + rotating) inside the flow. Timezone `Asia/Dubai`.
+**Scheduled.** Monthly, on the 15th at 06:00 Asia/Dubai. Each run audits the *previous full calendar month* — payments need time to settle, so the two-week lag is deliberate.
 
-⚠ **This workflow is currently PUBLISHED (`active: true`)** — the production webhook is live today. Every other check in this batch is an unpublished draft. Confirm that is intended before deployment, or unpublish first.
+No webhook, no manual trigger, no inbound endpoint of any kind.
 
-There is no schedule trigger. The caller decides when a run happens.
+> **PRE-DEPLOYMENT CONVERSION REQUIRED.** The flow today is webhook-triggered (`POST /applicant-dummy-ticket-refund-audit`) with three outbound callback nodes. Under the 2026-08-30 ruling the webhook trigger and its two respond nodes are replaced by a schedule trigger, and all three callbacks are deleted. **This workflow is currently PUBLISHED — unpublish before rewiring, do not edit it live.** See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 
@@ -53,14 +53,15 @@ Per-applicant ticket detail is read through the same run; no database, no files,
 ## Outputs & recipients
 
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/172R3JzxXm1nf6Vc3qTesin7eys-jT0ng3SOxUsf3LD8/edit?gid=1358016816#gid=1358016816). One row per audited applicant plus a run log.
-- **Callback to the caller** — `Callback — Results`, `Callback — Runs Log` and `Callback — Error` POST to a URL supplied in the request, validated against an origin allowlist inside the flow. ⚠ TODO: the allowlist currently names Security Room origins. Under the 2026-08-30 ruling that nothing delivers to the Security Room, state whether these stay.
+  Three Google Sheets nodes write it: `Cases -> Sheet`, `Run Summary -> Sheet`, `Verdicts -> Sheet`.
+- **No callbacks.** The three callback nodes present today are deleted as part of the conversion — results are delivered to the workbook and nowhere else.
 - TODO — notification e-mail recipient, if any. No Gmail credential is wired on this flow.
 
 Nothing is written back to ERP. No client-facing messages.
 
 ## Expected number of executions per day
 
-**TODO — rate.** There is no schedule; the caller decides. State the intended production cadence.
+**~0.03 per day — one scheduled execution per month (12 per year).** One execution on the 15th; none on any other day.
 
 Per-run load, measured on execution `100502` (2026-08-24):
 

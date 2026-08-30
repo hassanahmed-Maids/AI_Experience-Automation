@@ -69,12 +69,15 @@ state and only a human closes a case.
 
 ## Trigger & schedule
 
-**Scheduled** or **Webhook**, the cadence, the timezone, and which window each run audits.
-Say why any lag is deliberate.
+**Scheduled, monthly** — that is the only shape that deploys (ruling, 2026-08-30). State the cadence,
+the timezone, and which window each run audits, and say why the lag is deliberate. House default:
+the 15th at 06:00 `Asia/Dubai`, auditing the previous full calendar month.
 
-Where it is true, say so outright: *No webhook, no manual trigger, no inbound endpoint of any kind.*
-Where it is **not** true, say what the endpoint is and what authenticates it — a live inbound webhook
-is exactly what a deployment reviewer needs to know about. ⚙ *(trigger node type + cron)*
+Then say it outright: *No webhook, no manual trigger, no inbound endpoint of any kind.*
+
+If the flow still has a webhook trigger or an outbound callback, it is **not deployable yet** — say
+what the conversion is and link the record, rather than describing the webhook as though it ships.
+⚙ *(trigger node type + cron)*
 
 ## Inputs & data sources ⚙
 
@@ -96,11 +99,15 @@ silently ever since.
 
 ## Outputs & recipients
 
-- **Google Sheet** — name, row shape, tab retention, and which Drive folder scopes access.
+- **Google Sheet** — the delivery mechanism. Name, row shape, tab retention, and which Drive folder
+  scopes access. Credential `Hassan Maids Account` unless the check already has one wired.
 - **Notification e-mail per run** — to whom, and exactly what it carries. The house pattern is check
   name, period and sheet link only: *no counts, amounts, names or case keys*, so findings stay behind
   Google permissions rather than travelling by e-mail.
 - **Failure / degraded alert** — to whom, and on what condition.
+
+**No callbacks.** A scheduled flow delivers to the workbook, not to a caller-supplied URL. If
+callback nodes still exist, say they are deleted as part of the conversion.
 
 Close with what is *not* written: nothing back to ERP, no client-facing messages, no third-party
 systems updated.

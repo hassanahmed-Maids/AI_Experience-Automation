@@ -30,9 +30,11 @@ An AI verifier reads the complaint thread and loan history behind each red flag 
 
 ## Trigger & schedule
 
-⚠ **TODO — no trigger node was found in the workflow.** All recorded executions ran in `manual` mode. Establish and state the intended production trigger before deployment.
+**Scheduled.** Monthly, on the 15th at 06:00 Asia/Dubai. Each run audits the *previous full calendar month* — payments need time to settle, so the two-week lag is deliberate.
 
-TODO — no workflow timezone is set.
+No webhook, no manual trigger, no inbound endpoint of any kind.
+
+> **PRE-DEPLOYMENT CONVERSION REQUIRED.** The workflow has no trigger node today (all recorded executions ran in `manual` mode) and two outbound callback nodes. Add the schedule trigger, set the workflow timezone to `Asia/Dubai`, and delete both callbacks. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 
@@ -56,13 +58,15 @@ No databases, no files, no Snowflake.
 ## Outputs & recipients
 
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/1VIwyOPJmCesJwJY60ajke4T7ioyKRg_yBVId7Zzf7DQ/edit?gid=0#gid=0). 4 Google Sheets nodes.
-- TODO — notification e-mail recipient, if any. No Gmail credential is wired.
+  Four Google Sheets nodes write it: `Cases -> Google Sheet`, `Verdicts -> Google Sheet`, `Run -> Google Sheet`, `Run (error) -> Google Sheet`.
+- **No callbacks.** The two callback nodes present today are deleted as part of the conversion.
+- Two Gmail draft nodes exist (`Draft: cases to review`, `Draft: audit failed`). TODO — confirm the recipient, and that the mail carries the check name, period and sheet link only.
 
 Nothing is written back to ERP. No client-facing messages.
 
 ## Expected number of executions per day
 
-**TODO — rate.** No trigger exists yet.
+**~0.03 per day — one scheduled execution per month (12 per year).** One execution on the 15th; none on any other day.
 
 Per-run load, measured on execution `100753` (2026-08-24):
 

@@ -30,9 +30,11 @@ An AI verifier reads the complaint thread and reduction reason behind each red f
 
 ## Trigger & schedule
 
-**Webhook.** `POST /mv-overstay-fines-audit`, authenticated by a shared-secret header. No schedule trigger.
+**Scheduled.** Monthly, on the 15th at 06:00 Asia/Dubai. Each run audits the *previous full calendar month* — payments need time to settle, so the two-week lag is deliberate.
 
-TODO — no workflow timezone is set.
+No webhook, no manual trigger, no inbound endpoint of any kind.
+
+> **PRE-DEPLOYMENT CONVERSION REQUIRED.** The flow today is webhook-triggered (`POST /mv-overstay-fines-audit`) with three outbound callback nodes. Replace the webhook trigger and its two respond nodes with a schedule trigger, delete all three callbacks, and set the workflow timezone to `Asia/Dubai`. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 
@@ -61,13 +63,15 @@ Both disclosed rather than omitted.
 ## Outputs & recipients
 
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/11bffryqcrvoTo6WFh2IUfHAn3cS4L0jVfrN5aAAACrI/edit?gid=1396015918#gid=1396015918). 3 Google Sheets nodes.
-- TODO — notification e-mail recipient, if any. No Gmail credential is wired.
+  Three Google Sheets nodes write it: `Cases -> Google Sheet`, `Run -> Google Sheet`, `Verdicts -> Google Sheet`.
+- **No callbacks.** The three callback nodes present today — including `Callback: Agent Review` — are deleted as part of the conversion.
+- Three Gmail draft nodes exist. TODO — confirm the recipient, and that the mail carries the check name, period and sheet link only.
 
 Nothing is written back to ERP. No client-facing messages.
 
 ## Expected number of executions per day
 
-**TODO — rate.** No schedule; state the intended production cadence.
+**~0.03 per day — one scheduled execution per month (12 per year).** One execution on the 15th; none on any other day.
 
 ⚠ **Per-run load cannot be stated: there is no successful run to measure.** 11 executions recorded; the five most recent (2026-08-24) are all `error` or `canceled`. **This check should not deploy until it completes a clean run**, and section 5 stays a TODO until then.
 

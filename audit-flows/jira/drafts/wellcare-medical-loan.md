@@ -30,9 +30,11 @@ No AI verifier on this check (`AI verifier: Not required` — the finding is a r
 
 ## Trigger & schedule
 
-⚠ **TODO — no trigger node was found in the workflow.** All 6 recorded executions ran in `manual` mode. Establish and state the intended production trigger before deployment; a flow with no trigger cannot run in prod.
+**Scheduled.** Monthly, on the 15th at 06:00 Asia/Dubai. Each run audits the *previous full calendar month* — payments need time to settle, so the two-week lag is deliberate.
 
-TODO — no workflow timezone is set.
+No webhook, no manual trigger, no inbound endpoint of any kind.
+
+> **PRE-DEPLOYMENT CONVERSION REQUIRED — the smallest of the batch.** The workflow has no trigger node at all today (all 6 recorded executions ran in `manual` mode), and no callbacks. Adding the schedule trigger and setting the workflow timezone to `Asia/Dubai` is the whole conversion. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 
@@ -60,13 +62,15 @@ Both disclosed here rather than omitted. ERP-team dependency.
 ## Outputs & recipients
 
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/11mkXopBVZcXDCJF1uNLkmvXEjqm1Ze9xyBQE8YnT0wI/edit?gid=0#gid=0).
+  Three Google Sheets nodes write it: `Runs Log (no input)`, `Cases -> Workbook`, `Runs Log (scored)`.
+- **No callbacks** — none exist today, and none are to be added.
 - **E-mail** — 2 Gmail nodes are wired (`Malaz Gmail`). TODO — name the recipient and confirm the mail carries the check name, period and sheet link only: no counts, amounts, names or case keys.
 
 Nothing is written back to ERP. No client-facing messages.
 
 ## Expected number of executions per day
 
-**TODO — rate.** No trigger exists yet, so there is no cadence to state until one is chosen.
+**~0.03 per day — one scheduled execution per month (12 per year).** One execution on the 15th; none on any other day.
 
 Per-run load, measured on execution `101978` (2026-08-25):
 

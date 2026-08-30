@@ -163,6 +163,22 @@ A quietly absorbed gap is worse than a loud one.
 
 Goal: a working draft flow, built on proven rails.
 
+**The flow shape is fixed (ruling, 2026-08-30). Do not design around it:**
+
+- **A schedule trigger. Monthly.** Not a webhook — no inbound endpoint of any kind, and no manual
+  trigger as the production path. The house cadence is the 15th at 06:00 `Asia/Dubai`, auditing the
+  *previous full calendar month*; the two-week lag lets payments settle.
+- **No outbound callbacks.** Not to the Security Room, not anywhere. A caller-supplied
+  `callback_url` and its origin allowlist have no place in a scheduled flow.
+- **Results are posted to Google Sheets.** The workbook is the delivery mechanism — Cases, Run
+  Summary and Verdicts tabs, credential `Hassan Maids Account` unless the check already has one.
+  An e-mail carries the check name, period and sheet link only.
+- **Set the workflow timezone explicitly** to `Asia/Dubai`. A monthly schedule with no timezone is
+  ambiguous about which month a boundary transaction falls in.
+
+A webhook trigger drags a shared secret, a respond node and an allowlist behind it, and every one of
+those has been a hygiene finding on the flows built before this ruling.
+
 **Before the first node exists**, set the check's `Tech Owner` in its
 `Checks — <Category>` Notion row to **Hassan Ahmed**
 (`29ad872b-594c-8199-9944-00028180ebfc`). Ownership is assigned when the build starts,

@@ -57,9 +57,13 @@ All five are **unpublished drafts** (`active: false`).
 
 ## Trigger & schedule
 
-Stage 1 is the entry point. Stage 3 additionally exposes `POST /mv-monthly-payment-rollup`, a standalone entry that rolls up an existing run from the Cases table with no ERP access — needed because a run can die mid-slice and everything already scored would otherwise be unreportable.
+**Scheduled.** Monthly, on the 15th at 06:00 Asia/Dubai. Each run audits the *previous full calendar month* — payments need time to settle, so the two-week lag is deliberate.
 
-TODO — the intended production trigger and cadence.
+No webhook, no manual trigger, no inbound endpoint of any kind.
+
+> **PRE-DEPLOYMENT CONVERSION REQUIRED — two webhooks to remove.** Stage 1's entry is a webhook (`Run Check`) and must become the schedule trigger. Stage 3 additionally exposes `POST /mv-monthly-payment-rollup`, which is deleted.
+>
+> **Deleting the rollup entry has a stated cost.** It exists because a run can die mid-slice and everything already scored would otherwise be unreportable — Stage 1 is the only other way in and it always sweeps the ERP first. The replacement is a **manual execution of Stage 3** for a dead run. That is acceptable, but it must be a documented fallback rather than a capability that silently disappears.
 
 ## Inputs & data sources
 
@@ -82,7 +86,9 @@ TODO — complete this table from Stages 1, 2 and 4; only Stages 0 and 3 were re
 
 Counts, flags and totals only. **Per-entity amounts and identifiers stay in the Cases table** — no names, contact details or salary components leave the check. Stage 3 enforces this in its Run Report node.
 
-TODO — sheet, notification recipient, failure alert.
+**Google Sheet** — the results workbook is the delivery mechanism. ⚠ No Google Sheets node was found on the two stages read for this draft; establish which stage writes the workbook, and build it if none does.
+
+TODO — notification recipient, failure alert.
 
 ## Expected number of executions per day
 

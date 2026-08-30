@@ -30,9 +30,11 @@ An AI verifier reads the ERP paper trail behind each red flag and returns an adv
 
 ## Trigger & schedule
 
-**Webhook.** `POST /applicant-real-ticket`, authenticated by a shared-secret header. No schedule trigger — the caller decides when a run happens.
+**Scheduled.** Monthly, on the 15th at 06:00 Asia/Dubai. Each run audits the *previous full calendar month* — payments need time to settle, so the two-week lag is deliberate.
 
-TODO — no workflow timezone is set. State which timezone the audit window means, since the window boundary decides which month a ticket falls in.
+No webhook, no manual trigger, no inbound endpoint of any kind.
+
+> **PRE-DEPLOYMENT CONVERSION REQUIRED, AND THIS ONE IS NOT JUST A REWIRE.** The flow today is webhook-triggered (`POST /applicant-real-ticket`) and has **zero Google Sheets nodes** — its results live only in its five Data Tables, and nothing leaves the flow. Converting it means swapping the trigger, deleting the two respond nodes, **and building the Sheets output**. The workflow also has no timezone set; `Asia/Dubai` must be set explicitly, because the window boundary decides which month a ticket falls in. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 
@@ -55,14 +57,16 @@ No databases, no files, no Snowflake.
 ## Outputs & recipients
 
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/1DeVSbOADEWwDx3wR3qURNKcwINxUwvMzRigErR0qE0o/edit?gid=813136346#gid=813136346).
-- The Google Sheets credential for the results workbook is **Hassan Maids Account**. ⚠ No Sheets node is currently wired on this workflow — confirm the results path before deployment.
+  Credential: **Hassan Maids Account**.
+- ⚠ **The Sheets output does not exist yet.** No Google Sheets node is wired on this workflow. Cases / Run Summary / Verdicts writes must be built to match the sibling checks' layout before this deploys.
+- **No callbacks** — none exist today, and none are to be added.
 - TODO — notification e-mail recipient, if any.
 
 Nothing is written back to ERP. No client-facing messages.
 
 ## Expected number of executions per day
 
-**TODO — rate.** No schedule; state the intended production cadence.
+**~0.03 per day — one scheduled execution per month (12 per year).** One execution on the 15th; none on any other day.
 
 Per-run load, measured on execution `93601` (2026-08-19):
 
