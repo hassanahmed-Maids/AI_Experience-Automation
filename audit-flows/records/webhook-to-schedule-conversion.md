@@ -1,8 +1,8 @@
 # Ruling: no webhooks, monthly schedule, Google Sheets output
 
 **Date:** 2026-08-30 · **Source:** operator ruling
-**Status:** Dummy Tickets unpublished. **Wellcare converted.** The other five are specified below
-but **NOT applied** — two findings below say why, and both are load-bearing.
+**Status:** Dummy Tickets unpublished. **Wellcare and CC Overstay Fines converted.** The other four
+are specified below but **NOT applied** — two findings below say why, and both are load-bearing.
 
 ## The rule
 
@@ -98,7 +98,34 @@ Two things need a decision, and one needs design:
   timezone to `Asia/Dubai`. 37 → 38 nodes. This was the safe one: **a pure addition**, nothing
   deleted, nothing rewired. The manual trigger stays as a re-run path.
 
-## Finding 1 — the other five are not deletions, they are bridges
+- **`3465kkSf4JYjlpXk` CC Overstay Fines — converted.** Added `Run Monthly` feeding the same
+  `Build Run Context` node as the manual trigger; deleted `Callback — Results` and `Callback — Error`
+  (both verified true leaves — the four Google Sheets writes hang off `Build Case Rows` /
+  `Build Verdict Rows` / `Build Run Row`, an independent branch, and were untouched); set the
+  timezone. 68 → 67 nodes.
+
+  Three things the conversion turned up inside the flow:
+
+  - **The run window was two hand-edited constants**, `2026-05-01`..`2026-08-31` — a four-month
+    range a monthly schedule would have re-audited forever. Replaced with a computed previous full
+    calendar month, with `OVERRIDE_FROM`/`OVERRIDE_TO` for a deliberate one-off. The helper was
+    unit-tested across year rollover, leap February and 30-day months before it was applied.
+  - **`delivery.workbook` was declared `false`**, with the note *"produced outside the flow from the
+    Cases table"* — which stopped being true when the flow gained its four Google Sheets nodes. The
+    declaration now matches the wiring, which is what the ruling requires it to say.
+  - **`run_id` was hard-prefixed `manual-` and `trigger` hard-set `'manual'`.** Both now record
+    whether the window was pinned or scheduled. Checked first that nothing branches on either — they
+    are written into run rows and never tested.
+
+  Left behind deliberately: `Build Case Payload` → `Portal Delivery Declared?` is now a dead chain
+  (it only ever fed the deleted callback). Harmless — it computes and stops — and noted in the node
+  for a tidy-up pass rather than removed on judgement.
+
+  **Read back and diffed after applying:** 67 nodes, no webhook nodes, no callback nodes, both
+  triggers feeding `Build Run Context`, zero stale references to the deleted nodes, `jsCode`
+  byte-identical to what was intended.
+
+## Finding 1 — the remaining four are not deletions, they are bridges
 
 The callback and respond nodes are **mid-chain, not leaves**. Deleting them naively severs the main
 execution path. Measured from the live graph:
@@ -112,7 +139,7 @@ execution path. Measured from the live graph:
 | MV Overstay | `Respond 400` | → `Alert on rejection?` | rejection alerting severed |
 | MV Overstay | `Callback — Results` | → `Capture Failure` | failure capture severed |
 | MV Overstay | `Callback: Agent Review` | → `Format Agent Review Email` | verifier e-mail severed |
-| CC Overstay | `Callback — Results`, `Callback — Error` | → nothing | ✅ genuine leaves, safe to delete |
+| CC Overstay | `Callback — Results`, `Callback — Error` | → nothing | ✅ genuine leaves — **deleted 2026-08-30** |
 
 So each removal is **`removeNode` + `addConnection(predecessor → successor)`** to bridge the gap, and
 the bridge has to be right or the flow silently loses a branch. Only CC Overstay Fines' two callbacks
@@ -163,9 +190,10 @@ Dummy Tickets' has not yet.
 ## What is left, and what it needs
 
 1. **A decision on the ERP credential** — nothing scheduled runs without it. This is the first domino.
+   CC Overstay Fines is the closest to ready: it already uses a stored credential, so it needs a
+   production token in place of `ERP Token 12th Aug 2026` and nothing else.
 2. **The four bridged conversions** (Dummy Tickets, MV Overstay, Applicant, MV Monthly Payment
    Stages 1+3), each `removeNode` + a verified bridge.
-3. **CC Overstay Fines** — the easy one after Wellcare: add a trigger, delete two true-leaf callbacks.
 4. **Applicant Real Ticket's Sheets output** — still new build work, unchanged by any of the above.
 5. **An end-to-end test per flow.** The builder skill's Phase 6 requires it, and it cannot run without
    a token — which is finding 2 again. Converting without testing is exactly what the skill's phase
