@@ -75,7 +75,7 @@ Execution ceiling 40 minutes. TODO — throttle: concurrency and interval.
 
 ## Attachments
 
-- n8n flow export: "Dummy Tickets Housemaids · 1-Score — generated v1.json" (53 nodes) — attach
+- n8n flow export: **lease-stripped production export**, 50 nodes (staging has 53; the three ERP lease nodes are a staging construct and do not ship). Produce it with `strip-erp-lease.mjs` — do **not** attach the staging workflow.
 - n8n workflow link: https://sami-team.app.n8n.cloud/workflow/aTmGMAlYLwsJQ7js
 
 ## Credentials used

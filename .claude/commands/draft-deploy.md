@@ -27,9 +27,13 @@ the draft, then says to create it.
 5. **Measure the load**, or say you have not. Section 5 requires figures from a REAL run. Use
    `search_workflow_executions` for the run history. If no run exists, write
    `TODO — no measured run` rather than an estimate.
-6. **Save to** `audit-flows/jira/drafts/<check-slug>.md`, using the field block and the eight
+6. **Produce the production export**:
+   `node audit-flows/jira/strip-erp-lease.mjs <saved-workflow.json> --out <check>-prod.json`
+   ERP lease nodes are staging-only. The script bridges the connections and refuses (exit 2) if any
+   node would be orphaned. The ticket attaches the STRIPPED export and quotes its node count.
+7. **Save to** `audit-flows/jira/drafts/<check-slug>.md`, using the field block and the eight
    sections from `audit-flows/jira/deploy-ticket-template.md`.
-7. **Report** the draft path, and anything the extractor flagged: banned routes, a published
+8. **Report** the draft path, and anything the extractor flagged: banned routes, a published
    workflow, a missing or stale credential, an inbound webhook.
 
 ## Field values
@@ -60,6 +64,8 @@ did. Details in `audit-flows/jira/README.md`.
 - **Never omit a banned route** from Known route exceptions. Disclosure is the whole point of that
   section; `VPMGOV-1633` shipped without it and the ban and the ticket have disagreed silently since.
 - **Never invent a load figure.** An unmeasured run is a TODO.
+- **Never attach the staging workflow as the export**, and never strip the leases from the staging
+  workflow itself — testing needs them. The strip is an export-time transform.
 - **Never draft a webhook-triggered flow as though it ships.** Since 2026-08-30 every audit flow is
   **scheduled monthly, with no inbound endpoint and no outbound callback, delivering to Google
   Sheets.** A flow still carrying a webhook trigger or a callback node needs a stated pre-deployment

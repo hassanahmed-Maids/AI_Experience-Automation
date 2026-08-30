@@ -84,7 +84,7 @@ TODO — execution ceiling and throttle (concurrency, interval).
 
 ## Attachments
 
-- n8n flow export: (37 nodes) — attach
+- n8n flow export: **production export** (37 nodes) — attach. This flow has **no ERP lease nodes**, so the staging workflow and the production export are identical; it is already prod-shaped in that respect.
 - n8n workflow link: https://sami-team.app.n8n.cloud/workflow/7HYpRKJQnH5C7jkj
 
 ## Credentials used

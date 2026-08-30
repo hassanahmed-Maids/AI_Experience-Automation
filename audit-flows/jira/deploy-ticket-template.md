@@ -128,7 +128,9 @@ Then the throttle and the ceiling: concurrency, interval, execution timeout.
 
 ## Attachments ⚙
 
-- n8n flow export: `<Name>.json` (N nodes) — attached
+- n8n flow export: `<Name>.json` (N nodes) — attached. **This is the lease-stripped production
+  export**, produced by `strip-erp-lease.mjs`, not the staging workflow: the ERP lease nodes are a
+  staging construct and must not ship. State the node count of the *stripped* export.
 - n8n workflow link: `https://sami-team.app.n8n.cloud/workflow/<id>`
 
 Repeat the link here even though it is also in the `N8N Link` field — the field is what tooling

@@ -77,5 +77,30 @@ nobody re-derives it from the name.
 
 | File | What it is |
 |---|---|
+| `strip-erp-lease.mjs` | Produces the **production export** from a staging workflow JSON — removes the ERP lease nodes and bridges the connections |
 | `deploy-ticket-template.md` | The canonical 8-section template, in Markdown, with the auto-derivable sections marked |
 | `VPMGOV-1633-corrected.md` | The Travel Assist body, same content, correctly formatted — paste into the Jira UI editor |
+| `extract-flow-facts.mjs` | Derives the auto-fillable ticket sections from a workflow JSON |
+
+## The export attached to a ticket is not the staging workflow
+
+**ERP lease nodes are a staging construct** (`Acquire ERP Lease`, `Release ERP Lease`,
+`Release Lease (error)` — all `executeWorkflow` calls into a shared lease sub-workflow). They
+serialise ERP access while people run checks by hand. Production runs on a monthly schedule, one
+flow at a time, and the deployed version must not carry them. Ruling 2026-08-30.
+
+**Strip at export time, never in the workflow.** Deleting the lease nodes from the staging flow
+would remove exactly the protection testing needs — the 2026-08-19 `clientmgmt` 503 is what the
+leases exist to prevent. Staging keeps them; the artifact attached to the ticket does not.
+
+```
+node audit-flows/jira/strip-erp-lease.mjs <staging.json> --out <prod.json>
+```
+
+The lease nodes are **mid-chain**, so removal is a bridge, not a delete: every inbound edge is
+re-pointed at whatever the lease fed on its success output. The script asserts that **no node
+becomes unreachable** and exits non-zero if one does. Verified across all seven audit flows — the
+two bridges that matter every time are the main path (`… -> Get <first ERP call>`) and the error
+path (`Capture Failure -> Fail Loudly`).
+
+Wellcare has no lease nodes at all and is already prod-shaped in this respect.

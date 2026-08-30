@@ -79,7 +79,7 @@ TODO — execution ceiling and throttle (concurrency, interval).
 
 ## Attachments
 
-- n8n flow export: (80 nodes) — attach
+- n8n flow export: **lease-stripped production export**, 77 nodes (staging has 80; the three ERP lease nodes are a staging construct and do not ship). Produce it with `strip-erp-lease.mjs` — do **not** attach the staging workflow.
 - n8n workflow link: https://sami-team.app.n8n.cloud/workflow/LDtsstXDfF99TnYe
 
 ## Credentials used

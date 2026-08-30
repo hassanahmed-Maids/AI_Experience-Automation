@@ -175,6 +175,11 @@ Goal: a working draft flow, built on proven rails.
   An e-mail carries the check name, period and sheet link only.
 - **Set the workflow timezone explicitly** to `Asia/Dubai`. A monthly schedule with no timezone is
   ambiguous about which month a boundary transaction falls in.
+- **ERP lease nodes are STAGING-ONLY.** `Acquire ERP Lease` / `Release ERP Lease` /
+  `Release Lease (error)` serialise ERP access while people run checks by hand. Keep them in the
+  staging flow — they are what stands between a manual re-run and another `clientmgmt` 503 — and
+  strip them from the *export* at deployment with `audit-flows/jira/strip-erp-lease.mjs`. Never
+  delete them from the workflow itself.
 - **A STORED ERP CREDENTIAL, never a per-run token.** ERP tokens last 24 hours, so a flow that reads
   its token from `$vars.ERP_BEARER` or from a request payload has no valid token on 29 days out of
   30 — a monthly schedule and a per-run token are mutually exclusive. Travel Assist, the one audit

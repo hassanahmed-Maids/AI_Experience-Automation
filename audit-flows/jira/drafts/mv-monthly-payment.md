@@ -96,7 +96,7 @@ TODO — no cadence chosen, and no clean full-population run exists to measure.
 
 ## Attachments
 
-- n8n flow exports: all five workflows — attach
+- n8n flow exports: all five workflows, each as a **lease-stripped production export** (`strip-erp-lease.mjs`). Stage 1 measured: 18 nodes staging → 15 stripped. The other four still need measuring. Do **not** attach the staging workflows.
 - n8n workflow links: `9jOMFEC2zEWy2RHM`, `IKRXhIco1mwxrcPq`, `CopNHNsXUzFO59bW`, `Z9fTvmaM526eYofe`, `9T91z5VFH5g69WyT` under https://sami-team.app.n8n.cloud/workflow/
 
 ## Credentials used

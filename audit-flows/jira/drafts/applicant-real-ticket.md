@@ -80,7 +80,7 @@ TODO — execution ceiling and throttle (concurrency, interval).
 
 ## Attachments
 
-- n8n flow export: "Applicant Real Ticket · the audit check (draft).json" (63 nodes) — attach
+- n8n flow export: **lease-stripped production export**, 60 nodes (staging has 63; the three ERP lease nodes are a staging construct and do not ship). Produce it with `strip-erp-lease.mjs` — do **not** attach the staging workflow.
 - n8n workflow link: https://sami-team.app.n8n.cloud/workflow/YXRZdtk2Geeeqaal
 
 ## Credentials used

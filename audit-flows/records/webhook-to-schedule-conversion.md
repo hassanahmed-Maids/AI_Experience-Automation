@@ -198,3 +198,34 @@ Dummy Tickets' has not yet.
 5. **An end-to-end test per flow.** The builder skill's Phase 6 requires it, and it cannot run without
    a token — which is finding 2 again. Converting without testing is exactly what the skill's phase
    order exists to prevent.
+
+
+---
+
+# Addendum 2026-08-30 — ERP lease nodes do not ship
+
+Ruling: the production version carries no ERP lease nodes. They exist to serialise ERP access while
+checks are run by hand, and production runs on a schedule, one flow at a time.
+
+**Implemented as an export-time strip, not a workflow edit** — see `../jira/README.md`. Deleting
+them from staging would remove the protection that testing depends on; the 2026-08-19 `clientmgmt`
+503 is the incident the leases exist to prevent.
+
+| Flow | staging | prod export | bridges |
+|---|---:|---:|---|
+| Wellcare | 37 | 37 | none — **no lease nodes at all** |
+| MV Stage 1 | 18 | 15 | `Validate Run Input -> Build Cohort Counts`, `Capture Failure -> Fail Loudly` |
+| Terminated HM | 52 | 49 | `Respond 200 -> Get FT29 Transactions`, `Capture Failure -> Fail Loudly` |
+| Dummy Tickets | 53 | 50 | `Respond 200 -> Get Dummy Ticket Transactions`, `Capture Failure -> Fail Loudly` |
+| Applicant Real Ticket | 63 | 60 | `Respond 200 (accepted) -> Get Independent Count`, `Capture Failure -> Fail Loudly` |
+| CC Overstay Fines | 67 | 64 | `Build Run Context -> Get CC Change of Status Transactions`, `Build Error Callback -> Fail Loudly` |
+| MV Overstay Fines | 80 | 77 | `Webhook Run? -> …`, `Respond 200 -> …`, `Capture Failure -> Build Error Callback` |
+
+Note what the bridges are: in every single flow the lease sits **between the entry and the first ERP
+call**, and the error-side lease sits **between the failure capture and `Fail Loudly`**. A naive
+delete would sever the main path *and* silence the error path — which is why this is a script with a
+reachability assertion rather than a hand edit.
+
+**Ordering note.** The four flows still awaiting the webhook→schedule conversion will change their
+entry node, and the `Respond 200 -> …` bridges above will become `<new schedule entry> -> …`. Re-run
+the strip after converting, not before; its output is derived, never stored.
