@@ -228,3 +228,50 @@ no regression), a plain 403, a paired-item throw, and an empty payload (still th
 
 **The underlying ERP grant is still needed** — the run still stops at the same place, for the same
 reason. It just says so now.
+
+
+---
+
+# Porting the classifier fix — not needed, and that is the finding
+
+Checked all six flows before changing anything. **The siblings already had the fix.** CC Overstay
+Fines was the outlier.
+
+| Flow | Rail head | string err | `.statusCode` | `response.status` | `err.error` | parses JSON | breaker code | lines |
+|---|---|:--:|:--:|:--:|:--:|:--:|:--:|--:|
+| **CC Overstay (before)** | `Build Error Callback` | **NO** | yes | **NO** | **NO** | **NO** | yes | 104 |
+| Dummy Tickets | `Capture Failure` | yes | yes | yes | yes | yes | yes | 187 |
+| MV Overstay | `Capture Failure` | yes | yes | yes | yes | yes | yes | 202 |
+| Applicant Real Ticket | `Capture Failure` | yes | yes | yes | yes | yes | yes | 182 |
+| MV Stage 1 | `Capture Failure` | yes | yes | yes | yes | yes | yes | 184 |
+| Terminated HM | `Capture Failure` | yes | yes | yes | yes | yes | yes | 187 |
+
+MV Overstay also has a `Build Error Callback`, and it does lack string handling — but the graph
+shows it sits **downstream** of the rail head, reading
+`$('Capture Failure').first().json._failure`, i.e. consuming a failure that is already classified
+correctly. Its own extraction is a fallback that only runs if that is missing. Nothing to fix.
+
+## What this actually was: skeleton drift
+
+CC Overstay's rail head was a **104-line** node named `Build Error Callback`. Every sibling uses a
+**182–202-line** `Capture Failure` that had already solved string errors, nested JSON bodies,
+`response.status` and breaker classification. CC Overstay was not missing a fix nobody had written —
+it was running an **older generation of the same rail**.
+
+That drift cost three debugging runs and two wrong hypotheses before the cause was visible.
+
+**And it is exactly the drift the readiness gate reported it could not measure.** From
+`work/readiness-2026-08-30.md`:
+
+> *"`Skeleton Version` is null on every queued row … There is no version string to compare a built
+> flow against, so assertion 9 fails universally and drift is invisible."*
+
+This is that failure mode landing for real. A populated `Skeleton Version` would have shown CC
+Overstay behind the family without anyone reading a line of code.
+
+## Recommended, not applied
+
+Rather than back-porting anything, the cheaper correction is the reverse: **CC Overstay's rail head
+should be brought onto the sibling `Capture Failure` pattern**, so there is one rail implementation
+instead of two. The fix now in place makes it behave correctly, but it is still a second
+implementation of the same thing — and a second implementation is how this drift happened.
