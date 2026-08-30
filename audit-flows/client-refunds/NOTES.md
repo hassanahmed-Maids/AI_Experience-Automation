@@ -248,3 +248,112 @@ ERP auth problem in any check in this family.
 **One ERP request per failed run.** The cheap config read is deliberately first, so an
 access problem costs one call rather than a 44-page population sweep. That ordering has
 now paid for itself three times.
+
+---
+
+# Live findings, 2026-08-30 evening (runs 110687 / 110692 / 110695)
+
+## 10. Authentication is SOLVED — and it was simpler than the earlier note implied
+
+`authTokenProduction` holds the **same JWT as the bearer**. There is no third secret to
+find; the same token goes in two places:
+
+```
+authorization: Bearer <JWT>
+cookie:        deviceIdProduction=<numeric device id>; authTokenProduction=<the same JWT>
+```
+
+The earlier run failed only because that cookie was sent **empty**. Section 7 above,
+which reasoned that the bearer "is not the session", was half right: ERP requires the
+cookie, but it is not a separate credential. **Corrected here rather than rewritten above,
+so the reasoning trail stays visible.**
+
+The `erp_is_auth` field in every golden flow is therefore just the token again.
+
+## 11. The real blocker: BOTH pagecodes are refused on this account
+
+With the cookie populated, the refusal changed from `498 Access Token is missing` to:
+
+```
+HTTP 401   developermessage: INSUFFICIENT_PERMISSIONS
+```
+
+on **both** endpoints the check needs:
+
+| Pagecode | Endpoint | Result on hassan.ahmed |
+|---|---|---|
+| `accounting_ClientRefundSetup` | `GET /accounting/clientRefundSetup/list` | ❌ 401 INSUFFICIENT_PERMISSIONS |
+| `accounting_client-refund-summary` | `POST /accounting/clientRefundTodo/search/page` | ❌ 401 INSUFFICIENT_PERMISSIONS |
+
+The session is valid — a dead session returns 498 and this does not. This is a **grant
+gap on the account running the check**, and nothing in the flow can produce one.
+
+### This contradicts the spec on both rows, and the reason matters
+
+The spec records both as verified:
+
+- `clientRefundSetup/list` — *"LIVE-VERIFIED 2026-08-27 … 68 rows in one call"*, and the
+  permission ask for `clientRefundSetup` was explicitly **WITHDRAWN**: *"it was never
+  needed."*
+- `clientRefundTodo/search/page` — *"pagecode accounting_client-refund-summary (PROVEN
+  LIVE 26 Aug 2026 — the population read runs on this)"*.
+
+Both were verified on **a different login** from the one that would run the check. That is
+the exact failure the builder process warns about: *a route documented as verified turns
+out to be refused on the auditing account, because the original check was made on a
+different login.* A permission tested on a borrowed token gets recorded as working and
+stays recorded.
+
+**Spec corrections to file:**
+1. Re-open the `clientRefundSetup` permission ask — the withdrawal was made on evidence
+   from an account that is not the one running the check.
+2. Add `accounting_client-refund-summary` to the outstanding-permissions list; it is
+   currently recorded as proven and is not.
+3. Both "verified" rows should record **which identity** the verification was made on.
+   A verification without an identity attached is not reusable.
+
+**The permission list to request** (superseding the spec's six):
+`accounting_ClientRefundSetup` · `accounting_client-refund-summary` — these two are what
+stand between the flow and a first real run. The previously listed six
+(`clientRefundTodo:getClientRefundsPreviousRequests`, `getRefundProofs`,
+`getClientRefundPaymentsSummary`, `payments:search`, `Payments:getAllPayments`,
+`contract:getTheRefundAndPaidEndDateFromContract`) remain outstanding but only widen
+coverage beyond rule 11.
+
+## 12. A fourth trap: the LOGOUT marker cannot identify which refusal happened
+
+ERP appends `<LOGOUT>` to the body of **both** a dead session (498) and a permission
+denial (401). The first classifier tested the body for that marker *before* looking at the
+status code, so the 401 printed *"Access Token is missing or malformed — get a fresh
+token"* — sending the operator to refresh a token that had 416 minutes left, for a problem
+no token can fix.
+
+**Classify by status first; use the `developermessage` RESPONSE HEADER to separate the
+three refusals; never let a body marker decide.** Both assert nodes now do this. This is
+the same lesson the shared circuit breaker already carries in a different form, and it
+belongs in the traps file.
+
+## 13. Flow status
+
+| Stage | State |
+|---|---|
+| Token shape + expiry gate | ✅ verified live |
+| Auth (bearer + cookie) | ✅ **solved** — session accepted |
+| Refusal classifier | ✅ verified live against both 498 and 401 |
+| Config read (68-row checksum) | ⛔ 401 — grant needed |
+| Population sweep | ⛔ 401 — grant needed |
+| Scoring (rule 11) | ✅ built, 38 offline tests green; refuses to run without config |
+| Delivery | not built — stage 2 |
+
+On a smoke run a config denial now records and continues, so one run probes both
+endpoints and reports how far access extends. A full run still aborts on the first denial.
+Every failed run so far has cost **two ERP requests**.
+
+## 14. Credential hygiene
+
+The cookie was supplied as a full browser blob. Only `deviceIdProduction` and
+`authTokenProduction` were used; the analytics and marketing cookies (VWO, GA, Mixpanel,
+Meta, TikTok, Reddit, Clarity, Snapchat) and the `user` cookie — which carries the login
+email and a second copy of the token — were not read, not stored and not sent anywhere.
+**Ask for the two named values, never the blob:** a blob puts unrelated secrets into
+transcripts and logs for no benefit.
