@@ -1,4 +1,4 @@
-<!-- DRAFT — NOT POSTED. Rewritten 2026-08-30 to Maya Ali's SD template, required items only. -->
+<!-- POSTED 2026-08-30 as https://jira-maids-cc.atlassian.net/browse/SD-67695. Notion status moved to "On Jira pending production". -->
 
 # Jira fields
 
