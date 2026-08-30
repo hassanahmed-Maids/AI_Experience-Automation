@@ -35,6 +35,26 @@ still sits on `Get Population` and `Get Trailing History`. It is inert while
 `authentication` is `none`, but it should be removed so nobody later flips
 authentication back on and silently re-binds a shared token.
 
+## Guards added after the runaway test run (2026-08-30)
+
+Three fixes, all applied to the flow, none yet exercised live:
+
+1. **`ERP Budget Gate` restored** — two `size=1` counting calls read
+   `totalElements` for both windows, project the page count, and **hard-fail**
+   if it exceeds `params.erp_call_budget` (default 400). It counts CALLS, not
+   entities, because a runaway paginated sweep multiplies just as effectively as
+   a per-entity fan-out — which is the reasoning error that let the test run
+   issue hundreds of requests.
+2. **`Verify History Pull` added** — the history sweep was previously
+   unreconciled. That was a **false-clearance hole**: if the sweep truncates, a
+   maid's prior charge simply is not there, the row reads as `first charge` and
+   exits **clean**. A duplicate cleared by a gap in the evidence. `Score Cases`
+   refused an *empty* history, but empty is the easy case — a merely SHORT
+   history looks exactly like a clean month.
+3. **`maxRequests` lowered** from 400 to tripwires just above the real
+   requirement: 40 for the population (July needs 18, the largest measured month
+   needs 26) and 260 for the history (400 days needs ~210).
+
 ## How to run it
 
 Manual: it defaults to the month just ended, but still needs a token —
