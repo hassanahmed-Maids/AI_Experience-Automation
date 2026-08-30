@@ -13,7 +13,7 @@ depend on them is done.
 | Phase | State |
 |---|---|
 | 1 · working ERP token | **BLOCKED** — see below |
-| 2 · probe every API | **RUN, 0 of 18 readable** — ERP refused every call; see `PHASE-2-PROBE-RESULT.md` |
+| 2 · probe every API | **RUN, 0 of 23 readable** — the operator's ERP account lacks the grants; see `PHASE-2-PROBE-RESULT.md` |
 | 3 · document payloads | partial — corrections that need no ERP are filed; response shapes need the probe |
 | 4 · resolve business logic | **done** — no questions for the owner (see below) |
 | 5 · plan and build | scorer **done** and green; n8n flow blocked |
@@ -29,22 +29,25 @@ depend on them is done.
 Permission granted. The probe flow was created (`bnXWEJxfUsYnwhDD`, Adeeb project) and
 run (execution `110386`).
 
-### 2. The ERP token — still blocking, and now with evidence
+### 2. ERP grants — the real blocker, now diagnosed
 
-**Run 1 refused all 18 calls: HTTP 401, `UNAUTHORIZED <LOGOUT>`, five different pagecodes,
-not one success.** That is a wall, not a per-surface permission gap. Full diagnosis in
-`PHASE-2-PROBE-RESULT.md`.
+**Not a token problem.** Three runs (23 read-only calls) established it:
 
-The bearer token and device id were supplied and are fine — the token had 7.3 hours of life
-left when it ran. The missing piece is the **`authTokenProduction`** cookie value, which is
-a *separate session token*, not the bearer JWT. The probe substituted the JWT for it as a
-flagged guess, and all three auth-shape controls were refused, which is what that guess
-being wrong looks like.
+- All 18 surfaces refused across five pagecodes — a wall, not a per-surface gap.
+- The **verbatim browser cookie** was refused too, so the cookie is not the cause.
+- A **deliberately corrupted token** returned a *different* error (`500 Invalid token
+  signature`) from the real one (`401 INSUFFICIENT_PERMISSIONS`) — proving ERP validates
+  the real token, accepts the identity, and refuses it at **authorization**.
 
-Not retried, deliberately: a total refusal does not heal, and re-firing only doubles the
-load on production ERP for zero information.
+So a fresh token changes nothing. The account needs grants for `VisaProcessingPage`,
+`AddEditTransaction`, `CancellationVisaProcessingPage` and `ManageTransactions` — a request
+to whoever administers ERP permissions.
 
-#### The original ask, for reference
+This is precisely the failure the skill's Phase 1 warns about: several ERP Variables rows
+are marked `LIVE ERP READ, 2026-08-20` and `Confirmed`, but those reads were made on a
+*different login* and are refused on the account that would actually run this check.
+
+#### The auth shape, for reference
 
 Per the process, the token must belong to **the operator running this** — not a borrowed
 one. ERP logs every read under the token's identity, and this check's output accuses named
