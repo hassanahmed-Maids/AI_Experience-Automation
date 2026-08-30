@@ -85,10 +85,73 @@ attribution in bounded chunks instead of one detail call per transaction.
 - **Rewire** CC Overstay Fines' six `GET /accounting/transactions/{id}` detail nodes to one batched
   `advancesearch` per chunk. That was the point of the whole exercise and it is now unblocked.
 
+## Date and expense filters — probed 2026-08-30, both work
+
+**The population sweep can be skipped entirely.** One filtered call returns the population *and* the
+attribution, replacing both the paging sweep and the six per-transaction detail nodes:
+
+```
+POST /accounting/transactions/page/advancesearch?page=0&size=500
+[ {"property":"expense.id","operation":"=", "value":"1626"},
+  {"property":"date",      "operation":">=","value":"2026-08-01"},
+  {"property":"date",      "operation":"<=","value":"2026-08-31"} ]
+```
+
+Verified: `totalElements = 1158` for that expense-month, and **every returned row carried housemaid
+attribution**. Filter items AND together. Narrowing is real, not cosmetic — `1,934,557` unfiltered →
+`54,588` at `date >= 2026-08-01` → `27,579` for a five-day window.
+
+### Discovering the searchable fields
+
+`GET /accounting/transactions/meta/transaction_management` (same whitelist, `ManageTransactions`)
+returns **18 searchable fields** with their allowed operations. Use it rather than guessing:
+
+| Field | Type | Operations |
+|---|---|---|
+| `date`, `pnlValueDate`, `creationDate` | date / timestamp | `=` `<>` `<` `>` `<=` `>=` `IS EMPTY` `IS NOT EMPTY` |
+| `amount`, `vatAmount` | double | same six comparisons |
+| `expense.name`, `revenue.name`, `description`, `fromBucket.name`, `toBucket.name` | string | Equals / Contains / Starts With / Ends With (+ negations) |
+| `expense`, `revenue`, `fromBucket`, `toBucket`, `vatType`, `license` | entity | `=` `<>` |
+| `chequesNotClearedAmount`, `missingTaxInvoice` | boolean | `=` `<>` |
+
+### Four traps in the filter contract
+
+1. **The meta `operations` are display labels, not wire values.** Meta says `"Contains"`; sending
+   `Contains` returns `500 QuerySyntaxException: unexpected token: Contains`. The wire value is the
+   raw HQL operator — `like` with a `%…%` value. Same for `"Equals"` → `=`. Dates and numbers happen
+   to match because their labels already *are* the operators.
+2. **Entity fields must be addressed by their id column.** `{"property":"expense","value":"492"}`
+   fails with `Parameter value [492] did not match expected type [com.magnamedia.entity.Expense]`,
+   and `{"id":492}` fails identically. Use **`expense.id`**.
+3. **`expense.name` with `=` returns `total = 0` silently** on a name copied verbatim from a live
+   row, while `like` `%dummy%` returns 12,863. A flow using `=` on a string would report a clean,
+   confident, wrong zero. **Use `like`.**
+4. **`contractId` is not consistently typed** — `int` in one response, `str` in another, same field.
+   Coerce it; do not compare raw.
+
+### Page size: 500 is safe, 2000 is not
+
+`size=500` returned 500 rows of 1158 across 3 pages, promptly. **`size=2000` did not respond within
+120 seconds** and was abandoned client-side — the request may well have continued running on the
+server. This is exactly the shape of load the 2026-08-25 ban exists to prevent. **Cap page size at
+500.** Do not raise it to "save a page".
+
+### What cannot be done
+
+Filtering from the housemaid side — `housemaids.housemaid.id` — fails with
+`QueryException: illegal attempt to dereference collection`. The `housemaids` collection is
+projected but not joined, so it can be *read* per row, never *searched* on. To find one maid's
+transactions you must filter on transaction attributes and match maid-side in the flow.
+
+### ⚠ For the ERP team, not for us to act on
+
+The `operation` string is interpolated **directly into HQL** — that is how `equals` and `Contains`
+surfaced as `unexpected token` parse errors naming their own text. That is an HQL injection surface
+on an endpoint reachable with an ordinary read pageCode. **No injection was attempted**; this is
+reported from the shape of the error messages alone. It belongs to the ERP/security team.
+
 ## Still open
 
-- Only `operation: "in"` on `property: "id"` is verified. Date-range and expense-code filters — which
-  would let the flow skip the population sweep entirely — are **untested**.
 - The four other CC Overstay endpoints remain untested; the breaker never reached them.
 
 *Route contract established by live probe. The whitelist itself was read from the ERP code through
