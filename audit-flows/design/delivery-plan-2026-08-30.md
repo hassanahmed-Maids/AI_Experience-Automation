@@ -51,9 +51,18 @@ Two data gaps worth fixing while we are in there: **CC Client Paying According t
 Staging with **no `n8n Staging Link` at all**, and none of the three CC Client rows has a results
 sheet. A flow nobody can open is not really at staging.
 
-### B2 · The template is already established — copy `VPMGOV-1633`
+### B2 · The template is established by `VPMGOV-1633` — but its formatting is broken
 
-The Travel Assist ticket is the precedent and it is a good one. Its shape:
+The Travel Assist ticket set the eight sections, and those are good. **Its formatting is not**: it
+was submitted in Jira Server wiki markup (`h2.`, `||…||`), which Jira Cloud stores as unparsed plain
+text and renders literally. Corrected template and a paste-ready fixed body are in
+`audit-flows/jira/`; the rule and the ten-second ADF check are in `audit-flows/jira/README.md`.
+
+**Two access limits block the automated path and need Jira admin:** `description` is not on the edit
+screen for issue type `n8n Flow` in `VPMGOV`, and this account cannot create issues in `VPMGOV` at
+all. See B2a below.
+
+Its shape:
 
 - **Project** `VPMGOV` (Visa Gov) · **Issue type** `n8n Flow` · **Assignee** Wesam.Tanous
 - **Labels** `audit`, `n8n`, `prod-deployment`, `<check-slug>`, `visa_ba_aganda`
@@ -73,6 +82,17 @@ Eight required sections:
 7. **Credentials used** — a Credential name / Type / Used-by table, with *"No secrets in this ticket
    or in the export"*
 8. **APIs used**
+
+### B2a · The two access limits
+
+| Limit | Evidence | Who fixes it |
+|---|---|---|
+| `description` not on the `n8n Flow` edit screen in `VPMGOV` | `editJiraIssue` → *"Field 'description' cannot be set. It is not on the appropriate screen, or unknown."* | Jira admin adds the field to that screen — or the ticket is edited in the UI |
+| No create permission in `VPMGOV` | `getJiraIssueTypeMetaWithFields` → *"You cannot create issues in this project."* 27 projects creatable; `VPMGOV` absent | Jira admin grants create — or the tickets move to `NF` |
+
+Until one of these clears, `/draft-deploy` can generate ticket bodies but **cannot post them**. That
+is fine — the pipeline design already says *draft, do not post* — but it means the write-back step
+(`Jira Task Link` + `Status` → `On Jira pending production`) stays manual too.
 
 ### B3 · Most of that ticket can be generated, not written
 
@@ -211,8 +231,13 @@ Track A is mostly other people's confirmations. Run them in parallel.
 3. **Unpublish `aTmGMAlYLwsJQ7js`** (Dummy Tickets)? It is the one `active: true` flow, with a live
    production webhook and a Security Room callback allowlist, under a ruling that nothing delivers to
    the Security Room. See `records/security-room-delivery.md`.
-4. **Same Jira project and assignee for all of them?** `VPMGOV` / Wesam.Tanous is the only precedent,
-   but a CC Client payments check is not obviously Visa Gov work.
+4. **Which Jira project?** Now a blocking question, not a preference. `VPMGOV` / Wesam.Tanous is the
+   only precedent but **this account cannot create issues there**, and a CC Client payments check is
+   not obviously Visa Gov work anyway. A project called **N8N Flows** (`NF`) is creatable, but its
+   issue types are `New Workflow Request` / `Bug` / `Enhancement` — no `n8n Flow` type. Either get
+   create permission on `VPMGOV`, or adopt `NF` and accept the different issue type.
+6. **Fix `VPMGOV-1633`'s formatting?** It needs a UI paste (the API cannot write that field). The
+   corrected body is ready at `audit-flows/jira/VPMGOV-1633-corrected.md`.
 5. **Do the 5 test-case-blocked flows get chased now, or after the 6 ship?**
 
 *Counts and totals only. No per-entity detail, names, contact details, salaries or amounts.*
