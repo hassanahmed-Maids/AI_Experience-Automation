@@ -27,12 +27,16 @@ A. inventory     → read 6 Checks DBs, list everything at Status 3      [autono
 B. READINESS     → per spec: is it actually buildable? → buildable | blocked+reasons
                                                                        [autonomous — THE NEW PIECE]
    ⟨gate: ERP token, once per session⟩
+   ⟨gate: approval to run against production ERP⟩
 C. build         → Build-the-n8n-Flow prompt / erp-audit-flow-builder  [autonomous, phases 1–7]
-D. self-test     → the spec's five real cases, run against the flow    [autonomous]
-   ⟨gate: sign-off — a human reads the result before it leaves staging⟩
-E. jira draft    → deployment ticket from the company n8n template     [autonomous, DRAFT only]
+D. END-TO-END RUN → scoped run → results workbook, tab for this run    [autonomous]
+E. ACCEPTANCE     → the spec's five verified cases must appear with the
+                    verdicts the spec predicts, + the run's own guards  [autonomous, PASS/FAIL]
+   ── hand the workbook URL to the spec owner ──
+   ⟨GATE: spec owner validates the results⟩
+F. jira draft    → deployment ticket from the company n8n template     [autonomous, DRAFT only]
    ⟨gate: human posts⟩
-F. write back    → Jira Task Link + Status 3 → 5, add a Flow Versions row
+G. write back    → Jira Task Link + Status 4 → 5, add a Flow Versions row
 ```
 
 ### B is the piece worth building first
@@ -66,6 +70,71 @@ All three are machine-checkable *before* a build. The readiness agent asserts, p
 
 Output: one row per queued check, `buildable` or `blocked` with the failing assertion. That
 alone converts "39 rows and a hope" into a real queue.
+
+## D + E — the end-to-end run and what makes it pass
+
+### Scope the run. Do not sweep the population to prove a flow works.
+
+A full-population run is not a test, it is a load event. MV Monthly is ~23,000 contracts × 2
+ERP reads; a sweep of that shape took the whole `clientmgmt` module to nginx 503 on
+2026-08-19, and the flows still carry pacing and circuit breakers written in response. The
+end-to-end run is therefore **the five spec cases plus a bounded sample**, and a full run
+happens only when someone asks for one.
+
+### The acceptance test is the five cases, mechanically
+
+Question 9 requires five real cases *verified in the ERP by a human first*, and the Factory is
+blunt about why: *"a flow validated against invented data is worse than an unvalidated one,
+because it looks tested."* Today that is a rule people follow. Stage E makes it a gate:
+
+**Each of the five cases must appear in the results workbook, with the verdict the spec
+predicts.** Missing, or present and disagreeing → FAIL, and the check does not advance. No
+override that isn't written down.
+
+Alongside that, assert the run's own guards actually fired — these are the failures this
+session found in already-"finished" flows:
+
+- population reconciled (declared == collected), no circuit-breaker trip;
+- the run row persisted and reads back;
+- the verdict counts reconcile to cases written, or any shortfall is **declared** rather than
+  left for a reader to find by subtraction;
+- no case ships with an unanswered verifier;
+- the flow calls no route on the dead-end ban list.
+
+### The results workbook
+
+One workbook per check, **a tab per run** — not a new spreadsheet per run. Two reasons:
+
+1. **Permissions.** There is no Drive tool in this pipeline; n8n's Sheets node writes rows, it
+   does not grant access. A per-run spreadsheet would need a sharing step nobody can automate
+   here. A single workbook per check, shared once with the audit team and that check's owner,
+   removes the problem and gives the owner one stable link.
+2. **This session's lesson.** CC Price's case store turned out to be last-write-wins — a later
+   run silently re-stamped an earlier run's rows, so its per-case evidence no longer exists.
+   A workbook that overwrites would show the spec owner *a different run than the one they
+   were asked to validate*. The run's tab must be immutable once written.
+
+Question 8 already sets the privacy boundary and it is exactly right for this: salaries, IBANs
+and contact details **never leave the workbook**. So per-entity detail lives in the workbook and
+nowhere else — the Jira ticket, the chat summary and the Notion row carry counts, flags and
+totals only. Sending the owner a *link* is the design, not a convenience.
+
+### Closing the gate mechanically
+
+The validation currently has nowhere to live: `Status` jumps from 4 *Built on n8n — Staging* to
+5 *On Jira pending production* with no evidence in between. Add three fields to all six
+`Checks — <Category>` databases — precedented, since `Jira Task Link` was added to all six at
+once for exactly this reason:
+
+| Field | Why |
+|---|---|
+| `Results Workbook` (URL) | what the owner was sent |
+| `Results Validated By` (person) | who validated — should match question 8's reviewer |
+| `Results Validated On` (date) | when, so a stale validation against an older build is visible |
+
+**Stage F refuses to draft a Jira ticket unless all three are set**, and refuses if
+`Results Validated On` predates the build. That makes the gate a property of the pipeline
+rather than a convention people remember.
 
 ## Where it cannot be autonomous, and why not to force it
 
@@ -121,8 +190,13 @@ would fix both.
 2. **`readiness-auditor` agent** + `/audit-queue` command → the inventory and the gate (A + B).
    Read-only, no token, immediately useful on all 39 rows.
 3. **`/build-check <name>`** → wraps the existing Build-the-n8n-Flow prompt (C + D).
-4. **`deploy-task-writer` agent** + `/draft-deploy <name>` → the Jira body (E).
-5. **`/close-build <name>`** → write-back after approval (F).
+4. **`results-validator` agent** + `/validate-run <name>` → stage D + E: the scoped run, the
+   workbook tab, the five-case acceptance test, and the URL to hand the owner.
+5. **Add the three validation fields** to all six Checks databases.
+6. **`deploy-task-writer` agent** + `/draft-deploy <name>` → the Jira body (F), refusing unless
+   the three fields are set and the validation post-dates the build.
+7. **`/close-build <name>`** → write-back after approval (G).
 
-Steps 2 and 5 are new; 3 and 4 are wrappers around prompts that already exist. Start at 1 and 2 —
-they need no ERP token, so they are testable today.
+Steps 2, 4, 5 and 7 are new; 3 and 6 wrap prompts that already exist. Start at 1 and 2 — they
+need no ERP token, so they are testable today. Step 5 is a five-minute Notion change and
+unblocks 4 and 6.
