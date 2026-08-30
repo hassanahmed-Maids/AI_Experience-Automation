@@ -599,6 +599,14 @@ function byChargeId(cases, id) {
   return f;
 }
 
+// Exported so the n8n end-to-end test can drive the REAL flow with the SAME fixtures the
+// offline harness uses. One source of truth: if the two ever disagree, that is a finding
+// about the flow, not a fixture mismatch to be explained away.
+module.exports = { CASES: CASES, AS_OF: AS_OF };
+
+// Only run the suite when invoked directly, so requiring this file does not print.
+if (require.main !== module) return;
+
 console.log('Entry Visa Audit — offline scorer test run');
 console.log('Fixtures are SPEC-DERIVED, not a live ERP read. See the header of this file.');
 console.log('as-of date: ' + AS_OF);

@@ -16,8 +16,8 @@ depend on them is done.
 | 2 · probe every API | **RUN, 0 of 23 readable** — the operator's ERP account lacks the grants; see `PHASE-2-PROBE-RESULT.md` |
 | 3 · document payloads | partial — corrections that need no ERP are filed; response shapes need the probe |
 | 4 · resolve business logic | **done** — no questions for the owner (see below) |
-| 5 · plan and build | scorer **done** and green; n8n flow blocked |
-| 6 · test end to end | offline layer **done** (23/23, 82 assertions); live layers blocked |
+| 5 · plan and build | **rails + generated scorer built** in n8n (`Rr6WyZmR0ysXR1k3`); ERP parsing deliberately deferred |
+| 6 · test end to end | offline **23/23**; n8n end-to-end **exact match**; 3 fail-closed guards **proven to fire**. Live layers blocked. See `N8N-BUILD.md` |
 | 7 · validate results | blocked on 6 |
 
 ---
