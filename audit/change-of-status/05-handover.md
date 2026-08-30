@@ -1,0 +1,99 @@
+# Handover — Change of Status Audit
+
+Built 2026-08-30 by the `erp-audit-flow-builder` process.
+Operator / token identity: hassan.ahmed@maids.cc (`Hassan Bearer`).
+
+## What exists
+
+| Thing | Where |
+|---|---|
+| Flow (DRAFT, never published, never scheduled) | n8n `g87PqF93EtPnvKQ8` — *Change of Status Audit — generated v1*, Adeeb project |
+| Case store | data table `q8rNVmE91G5UKgIJ` — *Change of Status — Cases* |
+| Run log | data table `ZjPcZPOYQdp0Egeq` — *Change of Status — Runs* |
+| Scorer + tests (canonical) | `audit/change-of-status/scorer/` |
+| Surface probe evidence | `01-surface-probe.md` |
+| Diff vs golden | `02-diff-vs-golden.md` |
+| Spec corrections to file | `03-spec-corrections.md` |
+| Test results | `04-test-results.md` |
+
+Throwaway probe workflows to delete once the corrections are filed:
+`GJxubuyT27j5FVr6`, `vnsyLedHRpUcyhri`, `Puff7xnNYLN2rVPt`.
+
+## ⚠️ MUST BE DONE BEFORE THIS FLOW IS USED
+
+Test scaffolding is still in place. Three things to revert:
+
+1. **`Get Population` and `Get Trailing History` are bound to the stored
+   `Hassan Bearer` credential.** They must go back to reading
+   `params.erp_auth.bearer`: set `authentication` back to `none`, drop the
+   credential, and restore the `Authorization` header parameter
+   `={{ $("Validate Inputs").first().json.erp_bearer }}`.
+2. **`Build Manual Run Context` contains a placeholder bearer string**
+   (`'Bearer credential-bound-test-only'`). It is not a token and never was, but
+   it must come out — a manual run should be handed a real token, not fall
+   through on a placeholder.
+3. Re-read the workflow afterwards and confirm both, rather than assuming.
+
+The flow is designed to hold **no ERP credential of its own**: every read is
+logged under the identity of the person who ran it, so findings that name real
+clients are attributable to a real person.
+
+## What still needs a human
+
+1. **Sign-off before any production run, and before publishing or scheduling.**
+   Not given. The spec names an independent reviewer — Malaz, or whoever owns the
+   Visa module's escalations — and marks `Independent review required` YES. This
+   check can move a charge onto a maid's salary loan or raise a claim against a
+   client; build completion is not approval.
+2. **The permission grant.** Four ERP surfaces are refused on the operator's
+   token (see below). Until they are granted, this is the duplicate check only.
+3. **Two business rulings that are still open and that this build had to assume
+   around:**
+   - *Still open* item 4 — where the duplicate window sits. This build routes the
+     91–365 band to `pending` rather than clearing it, because the request grain
+     that would settle it is refused. A ruling changes that band's disposition.
+   - *Still open* item 1 — whether the inherited fine-recovery rules stay tagged.
+     The permission gap answers it by force for now; the ruling still matters for
+     when access is granted.
+4. **Filing the spec corrections** in `03-spec-corrections.md` back to Notion.
+   Not done — those pages belong to Jacky and Malaz.
+
+## Declared gaps — what this check does NOT do
+
+| Gap | Effect on the numbers |
+|---|---|
+| Request grain of rule ⓳ (`/visa/newRequest/{id}` refused) | Historically carries **23 of the repeat pairs (AED 16,954)**, including 4 at 591–965 days the ninety-day window cannot catch. Also makes the charge-on-the-wrong-maid's-request shape (5 of 23) undetectable. |
+| Orders 30–150 — fine sizing, recovery, waivers (`/visa/overstay-fines`, `/payroll/loans` refused) | A fine's **presence** is still detected (amount > era base) but it cannot be sized or its recovery checked. Those rows exit `pending`, capped and named — never clean, never a finding. |
+| Over-365 repeats | Cleared as expected visa cycles, and **counted** in the run summary. Historically 4 of 117 such pairs shared one visa request; those are undetectable without visa access. |
+| Trailing history is a 400-day sweep, not all-time | A repeat whose prior charge is older than the window reads as a first charge. Consistent with the over-365 band being legitimate, but it is a bound, not a proof. |
+| Live end-to-end run | Not completed — see `04-test-results.md` §3. |
+
+## Population proof
+
+July 2026, three independent reads, **delta zero**:
+
+| Read | totalElements |
+|---|---|
+| head `1677` alone | 646 |
+| head `1589` alone | 58 |
+| both heads via `operation: "in"` | **704** |
+
+646 + 58 = 704, and the spec's own warehouse table gives July = 704.
+
+## Could any clearance in here be wrong?
+
+The three ways a row reaches `clean`, and what backs each:
+
+1. **`amount == era base`, no repeat within 90 days.** Sound as far as it goes.
+   What it does not prove is that no *fine* was owed — Order 20 only says a fine
+   exists when the amount exceeds the base, which is the spec's own rule.
+2. **A repeat more than 365 days apart.** Cleared deliberately, per the variable
+   row calling that band legitimate business behaviour. This is the weakest
+   clearance in the check and it is declared and counted, not silent.
+3. **A row whose prior charge falls outside the 400-day history sweep.**
+   Reads as a first charge. Same exposure as (2).
+
+Everything else that could not be examined exits `pending` or `inconclusive`.
+No row reaches `clean` through a surface that was refused — that was the single
+governing constraint of the degraded build, and the `dedup_eligible` fix in the
+scorer exists because the first version violated it.
