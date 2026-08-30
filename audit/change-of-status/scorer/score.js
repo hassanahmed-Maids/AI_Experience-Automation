@@ -313,6 +313,28 @@ function summarise(scored, cases) {
   };
 }
 
+
+// ------------------------------------------------------------- projection ----
+// Normalises a raw ERP `advancesearch` row into the slim shape the gates use.
+// The description is reduced to a BOOLEAN and never carried forward: it holds
+// the maid's name and passport number verbatim, and no rule needs either.
+function project(r) {
+  const hm = (r.housemaids && r.housemaids.length) ? r.housemaids[0] : null;
+  const nre = r.newRequestExpense || {};
+  const d = String(r.description || '');
+  return {
+    txn_id: r.id,
+    maid_id: hm && hm.housemaid ? hm.housemaid.id : null,
+    expense_id: Number((r.expense || {}).id),
+    date: toDay(r.date),
+    amount: typeof r.amount === 'number' ? r.amount : null,
+    purpose: nre.purpose || null,
+    desc_names_cos: d ? /change of status/i.test(d) : undefined,
+    contract_id: r.contractId == null ? null : String(r.contractId),
+    vat_type: r.vatType || null
+  };
+}
+
 function run(population, history) {
   const scored = population.map(scoreRow);
   applyDuplicateRule(scored, history && history.length ? history : population);
@@ -320,5 +342,5 @@ function run(population, history) {
   return { scored, cases, summary: summarise(scored, cases) };
 }
 
-module.exports = { run, scoreRow, applyDuplicateRule, aggregateCases, resolveBase, dayDiff, purityCheck,
+module.exports = { run, project, scoreRow, applyDuplicateRule, aggregateCases, resolveBase, dayDiff, purityCheck,
                    BASE_BY_ERA, DUPLICATE_WINDOW_DAYS, LIVE_HEADS, ALL_COS_HEADS };
