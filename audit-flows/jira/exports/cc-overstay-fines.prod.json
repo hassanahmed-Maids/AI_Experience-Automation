@@ -3,12 +3,12 @@
   "name": "CC Overstay Fines — generated v1",
   "active": false,
   "isArchived": false,
-  "versionId": "ad57beb5-4c9a-4057-b0d2-fe0105b4ece8",
+  "versionId": "c12639de-7839-4750-afce-dacc34c8b790",
   "activeVersionId": null,
   "triggerCount": 0,
-  "nodeCount": 65,
+  "nodeCount": 62,
   "createdAt": "2026-08-12T14:22:03.084Z",
-  "updatedAt": "2026-08-30T14:15:38.584Z",
+  "updatedAt": "2026-08-30T23:05:51.065Z",
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": true,
@@ -589,17 +589,6 @@
         ]
       ]
     },
-    "Build Run Context": {
-      "main": [
-        [
-          {
-            "node": "Get CC Change of Status Transactions",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Write Run": {
       "main": [
         [],
@@ -811,6 +800,17 @@
         [
           {
             "node": "Build Run Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Run Context": {
+      "main": [
+        [
+          {
+            "node": "Get CC Change of Status Transactions",
             "type": "main",
             "index": 0
           }
@@ -1089,7 +1089,7 @@
           "parameters": [
             {
               "name": "pagecode",
-              "value": "VisaProcessingPage"
+              "value": "Visa_OverStayFinesMonitoring"
             },
             {
               "name": "accept",
@@ -2805,7 +2805,7 @@
     },
     {
       "parameters": {
-        "content": "## 2 · Cohort\n`POST /accounting/transactions/page/advancesearchNew`, pagecode **ManageTransactions**, operation **\"=\"**, expense **1589**, window on `date`.\n\nMEASURED 2026-08-12 across **nine months / 963 transactions**: every month `content.length == totalElements`, every row expense.id 1589. Dec 2025 10 · Jan 229 · Feb 93 · Mar 58 · Apr 53 · May 142 · Jun 274 · Jul 58 · Aug 46.\n\n⚠️ The check page says August is \"46 transactions, 4 above base\". The walk finds **6** above base — the page measured page 0 of 40 only.\n\nMay and June carried **zero** over-base rows, so the empty-case path is real and is handled by the sentinel, not by stranding the run.",
+        "content": "## 2 · Cohort\n`POST /accounting/transactions/page/advancesearch` — the **legacy** route, not `advancesearchNew`. pagecode **ManageTransactions**, filter `expense.id` **=** **1589**, window `between` on `date`.\n\n**Why the legacy route (2026-08-30).** Only this one projects the `housemaids` link, so identity arrives WITH the population. `Get Transaction Detail` — one ERP call per over-base transaction, purely to learn the maid — is deleted, and the budget gate drops from 3 calls per transaction to 2. The two routes return rows that look identical in every field this flow reads EXCEPT `housemaids`, so `Verify Cohort Pull` gate (d) aborts the run if not one row carries attribution. Do not repoint this URL.\n\n**Filter is `expense.id`, not `expense.name`.** The searchable `expense.name` and the projected one are different strings on this endpoint — a name that reads back off a live row can match zero rows. Verified equivalent before the swap: 1084 = 1084 all-time, 694 = 694 for Apr–Aug 2026.\n\nMEASURED 2026-08-12 across **nine months / 963 transactions**: every month `content.length == totalElements`, every row expense.id 1589. Dec 2025 10 · Jan 229 · Feb 93 · Mar 58 · Apr 53 · May 142 · Jun 274 · Jul 58 · Aug 46.\n\nMEASURED 2026-08-30 on 200 live cohort rows: **200 of 200 carried attribution**, 0 multi-maid, `contractId` empty on 199.\n\n⚠️ The check page says August is \"46 transactions, 4 above base\". The walk finds **6** above base — the page measured page 0 of 40 only.\n\nMay and June carried **zero** over-base rows, so the empty-case path is real and is handled by the sentinel, not by stranding the run.",
         "height": 328,
         "width": 960,
         "color": 3
