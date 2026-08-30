@@ -28,7 +28,8 @@ B. READINESS     → per spec: is it actually buildable? → buildable | blocked
                                                                        [autonomous — THE NEW PIECE]
    ⟨gate: ERP token, once per session⟩
    ⟨gate: approval to run against production ERP⟩
-C. build         → Build-the-n8n-Flow prompt / erp-audit-flow-builder  [autonomous, phases 1–7]
+C. build         → Build-the-n8n-Flow prompt / erp-audit-flow-builder  [autonomous, phases 1–8]
+                    → Tech Owner = Hassan at START; Status → 4 Staging at END
 D. END-TO-END RUN → scoped run → results workbook, tab for this run    [autonomous]
 E. ACCEPTANCE     → the spec's five verified cases must appear with the
                     verdicts the spec predicts, + the run's own guards  [autonomous, PASS/FAIL]
@@ -36,7 +37,8 @@ E. ACCEPTANCE     → the spec's five verified cases must appear with the
    ⟨GATE: spec owner validates the results⟩
 F. jira draft    → deployment ticket from the company n8n template     [autonomous, DRAFT only]
    ⟨gate: human posts⟩
-G. write back    → Jira Task Link + Status 4 → 5, add a Flow Versions row
+G. write back    → on the operator's word: Jira Task Link + Status 4 → 5,
+                    add a Flow Versions row          (see Status and ownership protocol)
 ```
 
 ### B is the piece worth building first
@@ -135,6 +137,39 @@ once for exactly this reason:
 **Stage F refuses to draft a Jira ticket unless all three are set**, and refuses if
 `Results Validated On` predates the build. That makes the gate a property of the pipeline
 rather than a convention people remember.
+
+## Status and ownership protocol (standing rule — Hassan, 2026-08-30)
+
+The Factory's `Status` is a seven-stage ladder. Three of its transitions belong to the pipeline,
+and they happen at fixed moments — not at whoever-remembers time:
+
+| Moment | Field | Value |
+|---|---|---|
+| **Build starts** (stage C begins) | `Tech Owner` | **Hassan Ahmed** (`29ad872b-594c-8199-9944-00028180ebfc`) |
+| **Build finishes** (flow exists in staging) | `Status` | `Built on n8n — Staging` |
+| | `n8n Staging Link` · `Flow Version` · `check_id` | filled in the same write |
+| **Operator says the Jira prod-deployment task exists** | `Status` | `On Jira pending production` |
+| | `Jira Task Link` | the ticket URL the operator gives |
+
+Three properties of this rule that matter:
+
+- **The Tech Owner is assigned at build start, not at build end.** A half-built flow with no owner
+  is how the three flows in staging today ended up sitting at *Spec'd — pending build* while
+  running. Ownership is what makes an in-flight build visible.
+- **`Built on n8n — Staging` is written by the pipeline, the moment the build lands.** It is a
+  statement of fact about where the code is, not a claim that it is correct — stages D and E
+  (the scoped run and the five-case acceptance test) still have to pass, and the results-validation
+  fields still gate stage F.
+- **`On Jira pending production` is never inferred.** The pipeline does not create the Jira ticket
+  and does not decide when one exists. The operator says so and supplies the link; only then does
+  the status move. This is the same posture as *Jira: draft, do not post* below — the ticket is a
+  human act, and the status follows the human, not the other way round.
+
+`Live on Production` and `Retired` are outside the pipeline entirely.
+
+**`/audit-queue` still writes nothing.** The gate reports; the build command writes. Keeping the
+read-only stage genuinely read-only is what lets it be run at any time against every row without
+a second thought.
 
 ## Where it cannot be autonomous, and why not to force it
 

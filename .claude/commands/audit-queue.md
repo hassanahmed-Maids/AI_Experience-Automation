@@ -27,6 +27,10 @@ any time against all 39 rows.
 
 Counts and totals only in the summary; per-entity detail belongs nowhere in this output.
 
-**Do not** move any `Status`, write to Notion, or start a build. This command answers "what can we
+**Do not** move any `Status`, write to Notion, or start a build. This command is strictly
+read-only, and stays that way so it can be run at any time against every row without a second
+thought. The status writes live in the build (`/build-check` → the builder skill's Phases 5 and 8):
+`Tech Owner` at build start, `Built on n8n — Staging` when the flow lands. `On Jira pending
+production` is never written by any agent — the operator reports the ticket and supplies its URL. This command answers "what can we
 build, and what is stopping the rest" — the build is `/build-check`, and it is a separate decision
 with its own gate.

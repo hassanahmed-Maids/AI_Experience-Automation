@@ -163,6 +163,12 @@ A quietly absorbed gap is worse than a loud one.
 
 Goal: a working draft flow, built on proven rails.
 
+**Before the first node exists**, set the check's `Tech Owner` in its
+`Checks — <Category>` Notion row to **Hassan Ahmed**
+(`29ad872b-594c-8199-9944-00028180ebfc`). Ownership is assigned when the build starts,
+not when it finishes — an unowned half-built flow is invisible, and three flows reached
+staging that way while their rows still read *Spec'd — pending build*.
+
 1. **Clone a golden, don't start blank.** Find the closest working sibling check and
    clone its architecture. The rails — pacing, error handling, run bookkeeping,
    delivery — are already proven; only the check-specific logic should be new.
@@ -224,9 +230,35 @@ defeats its own purpose and nobody finds out.
 
 ---
 
+## Phase 8 — Record where the flow is
+
+Goal: the Notion row states the truth about the build, the moment it becomes true.
+
+The moment the flow exists in staging, write to its `Checks — <Category>` row:
+
+| Field | Value |
+|---|---|
+| `Status` | `Built on n8n — Staging` |
+| `n8n Staging Link` | the staging workflow URL |
+| `Flow Version` | the version this build produced |
+| `check_id` | assign one if the row has none |
+
+`Built on n8n — Staging` is a statement about **where the code is**, not a claim that it is
+correct. Phases 6 and 7 still have to pass, and the results-validation gate still stands between
+this and a deployment ticket. Writing it late is what produces a queue that lies: at the
+2026-08-30 readiness run, three built-and-running flows still read *Spec'd — pending build*, and
+the gate had to report them as a status-vs-reality mismatch rather than as work done.
+
+**Never set `On Jira pending production` yourself.** That stage means a human has raised the
+production-deployment ticket. The operator says when it exists and supplies the URL; only then
+write `Jira Task Link` and move the status. Do not infer it from a ticket you drafted, and do not
+create the ticket to justify the move.
+
+`Live on Production` and `Retired` are never written by a build.
+
 ## Where humans are required
 
-Everything else is automated. These three are not:
+Everything else is automated. These four are not:
 
 1. **The ERP token** — one paste per session from the operator. See Phase 1.
 2. **Genuinely undecidable business rules** — only those passing Phase 4's four tests.
@@ -235,6 +267,9 @@ Everything else is automated. These three are not:
    Build completion is not approval, and the person who commissioned the build may
    not have read the spec. Where a spec names a maker/checker, that sign-off is
    theirs to give.
+4. **Raising the production-deployment Jira ticket.** The build writes
+   `Built on n8n — Staging` itself (Phase 8) but never `On Jira pending production` —
+   that stage asserts a human act, and the operator is the one who reports it.
 
 If asked to remove the third one, say what it protects rather than just complying.
 A check that publishes findings about named clients without a second reader is a
