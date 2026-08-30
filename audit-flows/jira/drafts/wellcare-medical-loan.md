@@ -72,15 +72,22 @@ Nothing is written back to ERP. No client-facing messages.
 
 **~0.03 per day — one scheduled execution per month (12 per year).** One execution on the 15th; none on any other day.
 
-Per-run load, measured on execution `101978` (2026-08-25):
+Per-run load, measured on execution `101978` (2026-08-25) — a run that completed end to end and
+wrote its cases:
 
-- 264 seconds wall clock
-- TODO — ERP request count for that run
+- **264 seconds** wall clock
+- **7 ERP responses**: 1 population page, 1 transaction detail, 1 file download, 2 name-resolution
+  calls (primary + fallback), 2 loan reads
 - 3 Google Sheets nodes, 2 Gmail nodes
+
+That figure scales with the number of maids on the month's clinic file, not with a fixed cost: the
+name-resolution and loan reads are one each per maid. A month with 30 maids on the file costs
+roughly 3 + 2×30 ≈ 63 ERP requests. The population sweep itself is one or two pages either way.
 
 6 executions recorded, 4 successful; the most recent is 2026-08-25.
 
-TODO — execution ceiling and throttle (concurrency, interval).
+**Pacing:** the flow's ERP nodes batch at 2 in flight with a 500 ms interval — 4 requests/second,
+the `ERP-LOAD-POLICY` ceiling. No further throttle is requested.
 
 ## Attachments
 
