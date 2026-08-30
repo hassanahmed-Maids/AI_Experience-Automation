@@ -175,6 +175,12 @@ Goal: a working draft flow, built on proven rails.
   An e-mail carries the check name, period and sheet link only.
 - **Set the workflow timezone explicitly** to `Asia/Dubai`. A monthly schedule with no timezone is
   ambiguous about which month a boundary transaction falls in.
+- **A STORED ERP CREDENTIAL, never a per-run token.** ERP tokens last 24 hours, so a flow that reads
+  its token from `$vars.ERP_BEARER` or from a request payload has no valid token on 29 days out of
+  30 — a monthly schedule and a per-run token are mutually exclusive. Travel Assist, the one audit
+  flow already scheduled and submitted for production, uses a stored credential on all 14 of its ERP
+  nodes. In staging the credential is absent by design and the deploying team creates it with a
+  production token; what must NOT happen is a scheduled flow still wired to a per-run token.
 
 A webhook trigger drags a shared secret, a respond node and an allowlist behind it, and every one of
 those has been a hygiene finding on the flows built before this ruling.

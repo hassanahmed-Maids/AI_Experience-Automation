@@ -1,7 +1,8 @@
 # Ruling: no webhooks, monthly schedule, Google Sheets output
 
 **Date:** 2026-08-30 · **Source:** operator ruling
-**Status:** recorded and reflected in the drafts. **The n8n conversions are NOT yet applied.**
+**Status:** Dummy Tickets unpublished. **Wellcare converted.** The other five are specified below
+but **NOT applied** — two findings below say why, and both are load-bearing.
 
 ## The rule
 
@@ -83,3 +84,89 @@ Two things need a decision, and one needs design:
 2. **Dummy Tickets is published.** It should be unpublished before its trigger is rewired, rather
    than edited live.
 3. **Applicant Real Ticket's Sheets output** needs its column layout agreed before it is built.
+
+
+---
+
+# Applied 2026-08-30
+
+## Done
+
+- **`aTmGMAlYLwsJQ7js` Dummy Tickets — unpublished.** No longer live; safe to rewire.
+- **`7HYpRKJQnH5C7jkj` Wellcare — converted.** Added `Run Monthly` (schedule trigger, monthly, 15th,
+  06:00) feeding the same `Manual Run Config` node the manual trigger feeds, and set the workflow
+  timezone to `Asia/Dubai`. 37 → 38 nodes. This was the safe one: **a pure addition**, nothing
+  deleted, nothing rewired. The manual trigger stays as a re-run path.
+
+## Finding 1 — the other five are not deletions, they are bridges
+
+The callback and respond nodes are **mid-chain, not leaves**. Deleting them naively severs the main
+execution path. Measured from the live graph:
+
+| Flow | Node | Feeds | Consequence of a naive delete |
+|---|---|---|---|
+| Dummy Tickets | `Respond 200` | → `Acquire ERP Lease` | **the whole run chain is severed** |
+| Dummy Tickets | `Callback — Runs Log` | → `Build Case Payload` | scoring path severed |
+| Dummy Tickets | `Callback — Results` | → `Build Sheet Rows`, `Build Summary Row` | **the Sheets writes are downstream of the callback** — deleting it removes the very delivery the ruling requires |
+| MV Overstay | `Respond 200` | → `Acquire ERP Lease` | run chain severed |
+| MV Overstay | `Respond 400` | → `Alert on rejection?` | rejection alerting severed |
+| MV Overstay | `Callback — Results` | → `Capture Failure` | failure capture severed |
+| MV Overstay | `Callback: Agent Review` | → `Format Agent Review Email` | verifier e-mail severed |
+| CC Overstay | `Callback — Results`, `Callback — Error` | → nothing | ✅ genuine leaves, safe to delete |
+
+So each removal is **`removeNode` + `addConnection(predecessor → successor)`** to bridge the gap, and
+the bridge has to be right or the flow silently loses a branch. Only CC Overstay Fines' two callbacks
+are true leaves.
+
+The `Callback — Results` case on Dummy Tickets is the one to look at twice: the Google Sheets writes
+sit *downstream of the callback node*. The delivery path the ruling mandates currently hangs off the
+delivery path the ruling forbids.
+
+## Finding 2 — a monthly schedule cannot work with a 24-hour token
+
+**This is the blocker for the whole architecture, not a per-flow detail.**
+
+ERP tokens last **24 hours** — stated in Wellcare's own run-config node, which throws rather than run
+without one. Four of the six flows take the token **per run**, from the webhook payload or from
+`$vars.ERP_BEARER`:
+
+| Flow | ERP token source |
+|---|---|
+| Wellcare | `$vars.ERP_BEARER` (workflow variable) |
+| Dummy Tickets | `$vars.ERP_BEARER` + request payload |
+| Applicant Real Ticket | request payload |
+| MV Monthly Payment Stage 1 | request payload |
+| MV Overstay Fines | **mixed** — stored credential *and* payload |
+| CC Overstay Fines | stored credential only ✅ |
+
+A monthly run has no valid token on 29 days out of 30. Removing the webhook removes the mechanism
+that was *supplying* the token, so the conversion actively makes this worse.
+
+**Travel Assist — the one audit flow already scheduled monthly and submitted to Jira — uses a stored
+credential (`ERP Hassan Prod`, HTTP Custom Auth) on all 14 of its ERP nodes.** That is the working
+pattern, and it is why the deployment ticket's *"the deploying team creates the ERP credential with a
+production token"* line is load-bearing rather than administrative.
+
+**So the skeleton rule needs a fourth element:** a **stored ERP credential**, never a per-run token.
+Written into the builder skill alongside the schedule/no-webhook/Sheets rules.
+
+## Finding 3 — two flows carry doctrine that contradicts the ruling
+
+Wellcare and Dummy Tickets both state in code: *"MANUAL TRIGGER ONLY: never scheduled, never on a
+cron. Recurring data processes go through the ERP/Data team."*
+
+That doctrine is **superseded**, and the distinction matters: the ERP/Data-team routing rule governs
+**Snowflake/warehouse** processes. These flows read the ERP API and write their own workbook. Travel
+Assist is already scheduled monthly on the same pattern. Wellcare's node has been updated to say so;
+Dummy Tickets' has not yet.
+
+## What is left, and what it needs
+
+1. **A decision on the ERP credential** — nothing scheduled runs without it. This is the first domino.
+2. **The four bridged conversions** (Dummy Tickets, MV Overstay, Applicant, MV Monthly Payment
+   Stages 1+3), each `removeNode` + a verified bridge.
+3. **CC Overstay Fines** — the easy one after Wellcare: add a trigger, delete two true-leaf callbacks.
+4. **Applicant Real Ticket's Sheets output** — still new build work, unchanged by any of the above.
+5. **An end-to-end test per flow.** The builder skill's Phase 6 requires it, and it cannot run without
+   a token — which is finding 2 again. Converting without testing is exactly what the skill's phase
+   order exists to prevent.
