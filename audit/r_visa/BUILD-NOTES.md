@@ -3,200 +3,277 @@
 Spec: **R-Visa Audit v0.6** (Notion `3c2fe1c78bf0817190fac75010bf9703`), plus the
 18 rule rows tagged `Check = R-Visa Audit` and the check's 20 ERP-variable rows.
 
-Status as of 2026-08-30: **deterministic scorer built and passing 91/91 offline.
-ERP probing (Phases 2–3) and live testing (Phases 6–7) are blocked on a working
-ERP token.** Nothing has been built in n8n beyond a throwaway read-only probe.
+Status 2026-08-30: **deterministic scorer built and passing 91/91 offline. ERP
+probed on a live operator token. The check cannot run on that account** — there is
+no readable route from a transaction to the maid it belongs to, and every red
+verdict this check has depends on one. Build stopped at that blocker rather than
+producing a flow that runs clean and reports nothing.
+
+Probe flow: `EQJKewOEsOVjDQO8` (*ZZ R-Visa probe*, Adeeb project, draft,
+read-only, throwaway). Executions `110373`, `110401`, `110434`, `110445`.
 
 ---
 
-## Phase 1 — ERP token: BLOCKED
+## Phase 1 — ERP token
 
-Both existing credential paths were tried before asking for anything. Both fail:
+Both pre-existing credential paths were tried before asking for anything:
 
 | Path | Result |
 |---|---|
-| n8n instance var `ERP_AUTH_TOKEN` (used by the shared *ERP read executor*) | **not set on this instance** |
-| Stored credential `ERP Token 12th Aug 2026` (`uDGE06IdxKx74kFz`, Adeeb project) | **expired** |
+| n8n instance var `ERP_AUTH_TOKEN` (used by the shared *ERP read executor*) | not set on this instance |
+| Stored credential `ERP Token 12th Aug 2026` (`uDGE06IdxKx74kFz`) | expired |
 
-The expired token returns **HTTP 500**, not 401:
+**An expired ERP token returns HTTP 500, not 401** — `{"status":500,"error":
+"Internal Server Error","message":"Token not valid, {Token is expired}"}`
+(execution `110373`). It reads as a server fault; it isn't one.
 
-```
-{"status":500,"error":"Internal Server Error",
- "message":"Token not valid, {Token is expired}",
- "path":"/accounting/transactions/page/advancesearchNew"}
-```
+The operator then supplied a live token, taken as a **runtime payload** on the
+probe's webhook — never written into a stored credential, never a literal in a
+Code node. It is shape-checked (`Bearer <token>`, no control characters) before
+being interpolated into any header, because a CR/LF in that value would smuggle
+extra headers into every ERP request downstream.
 
-Evidence: workflow `EQJKewOEsOVjDQO8`, execution `110373`.
+## Phase 2 — probe results
 
-Needed from the operator: **the bearer token and the numeric device id**
-(`secc-ch-ua-platform`), session-lasting. Taken as a runtime payload per run — not
-written into a stored credential, and never a literal in a Code node or header.
+### The three denial shapes, separated live
 
-**The token must be the operator's own.** ERP logs every read under the token's
-identity, so a borrowed token attributes findings about named clients to someone
-who did not produce them — and where that person also reviews the check, the
-reviewer becomes the actor in their own evidence. If the operator's account lacks
-a permission this check needs, that is a finding to report, not an obstacle to
-route around.
+The skill's warning holds exactly. All three are HTTP 401 with an identical body
+(`"UNAUTHORIZED <LOGOUT>"`); only the `developermessage` response header
+distinguishes them:
 
-## Phase 2 — probes: WRITTEN, NOT YET RUN
+| `developermessage` | Means |
+|---|---|
+| `API_NOT_FOUND_FOR_PAGE` | the pagecode is wrong for this route |
+| `PAGE_NOT_FOUND` | the pagecode does not exist at all |
+| `INSUFFICIENT_PERMISSIONS` | the pagecode is right and **the account lacks the permission** |
 
-Probe flow `EQJKewOEsOVjDQO8` (*ZZ R-Visa probe*, Adeeb project, draft, read-only,
-7 calls, serial). It emits statuses, envelope shapes and counts only — no names,
-no amounts. Archive it after use.
+Probing a plausible alternative pagecode alongside the documented one is what
+made this readable. On `GET /accounting/transactions/{id}` (execution `110434`):
 
-| # | Surface | pagecode | What it settles |
+| pagecode | Result |
+|---|---|
+| `AddEditTransaction` | 401 **`INSUFFICIENT_PERMISSIONS`** |
+| `ManageTransactions` | 401 `API_NOT_FOUND_FOR_PAGE` |
+| `VisaProcessingPage` | 401 `API_NOT_FOUND_FOR_PAGE` |
+| `TransactionReport` | 401 `PAGE_NOT_FOUND` |
+
+So `AddEditTransaction` is the only pagecode that serves the route — it is the
+one the MV Overstay Fines golden uses — and the operator's account is refused on
+it. This is a permission gap, not a wrong header.
+
+### Surface table
+
+| Surface | pagecode | Status | Check can proceed? |
 |---|---|---|---|
-| 1 | `POST /accounting/transactions/page/advancesearchNew` | `ManageTransactions` | token liveness |
-| 2 | same, wrong pagecode | `AddEditTransaction` | separates a missing permission from a wrong header — both return 401 |
-| 3 | same, dedicated R-visa head | `ManageTransactions` | **does the list payload carry a maid id?** — see the budget problem below |
-| 4 | same, generic head, 2025 | `ManageTransactions` | the pre-cutover leg |
-| 5 | same + `description like R-VISA` | `ManageTransactions` | can the server filter on text, or must the pre-cutover legs be sieved client-side over ~10× the rows |
-| 6 | `GET /accounting/transactions/1486146` | `AddEditTransaction` | detail shape; spec test case 1 |
-| 7 | `GET /visa/overstay-fines/housemaid/105870` | `VisaProcessingPage` | whether R-visa fines surface on the sibling route |
+| `POST /accounting/transactions/page/advancesearchNew` | `ManageTransactions` | **200** | yes — the population sweep works |
+| `GET /accounting/transactions/{id}` | `AddEditTransaction` | 401 `INSUFFICIENT_PERMISSIONS` | **no — blocker** |
+| `GET /visa/overstay-fines/housemaid/{id}` | `VisaProcessingPage` | 401 `INSUFFICIENT_PERMISSIONS` | no — degradation |
+| search filtered on `housemaid.id`, `housemaid.housemaidId`, `housemaidId`, `contract.id`, `client.id` | `ManageTransactions` | **500** (SecurityException family) | no — parser rejects all five |
+| visa request / task history, cancellation type, rejection status, contract term | — | **no route established** | no — already declared gaps |
 
-Four surfaces the check needs and for which **no route is established at all** —
-these need `ask_erp_code` against the visa module once the token works:
+### 🔴 The blocker: nothing links a transaction to a maid
 
-- the **visa request / task history** (⓫'s preferred discriminator, and ❿)
-- the **cancellation type** per maid (❿ — the sole clearance for a duplicate)
-- **rejection status** and **refund-request date** (⓬, verifier ❸ — never observed on a payload)
-- **contract term** and **issued visa validity** (❻ — we hold one side of the comparison only)
+Three independent routes to identity, all closed on this account:
 
-## Phase 3 — the call budget does not close, and the spec's mitigation has a hole
+1. **The list payload carries no maid id.** Its keys are `id`, `expense{code,
+   name,id}`, `description`, `amount`, `date`, `creationDate`, `paymentId`,
+   `contractId`, `clientId`, `supplier{id}`, `license`, `fromBucket`, `toBucket`,
+   `vatType`, `vatAmount`, `attachments[]`, `transactionType`, `pnlValueDate`,
+   `paymentType`, `isDescriptionSecured`, `qashioTransactionId`. A key-path scan
+   for `/housemaid|maid|employee|worker|person/i` returned **empty on every list
+   probe**. This confirms the spec's claim, which had been recorded but not
+   verified.
+2. **The detail route, which would carry it, is refused** (above).
+3. **The search cannot be filtered by maid** — all five identity properties
+   return 500, against a control query that returns 996,778, so they are being
+   rejected rather than silently ignored.
 
-The spec budgets **500 calls/run** and proposes scoping the per-transaction detail
-calls to two slices: fine-bearing rows (identifiable from the list payload by an
-amount above the base fee) and repeat-payment candidates (*"identifiable by
-grouping the list on whatever key it does carry"*).
+Rule ❷ requires the maid id and forbids the name in the description as a
+substitute (name-keyed: 56 groups, 54 resolving to more than one maid id, ~4%
+precise). **Without identity, ❷ parks every record as `identity-unresolved`, and
+❼, ❽, ❾, ❿ and ⓫ — every rule that can produce a red — never evaluate.**
 
-**The second slice cannot be built that way.** A case is one maid carrying every
-payment she has ever had, and ⓫ must key on the maid id — rule ❷ measures the
-name-keyed alternative at ~4% precision (56 groups, 54 of which resolve to more
-than one maid id). If the list payload does not carry a maid id, then identifying
-repeat-payment candidates *requires* the maid id you were trying to avoid
-fetching. The mitigation assumes its own conclusion.
+What would still run: ❶ population, ❺ base-fee resolution, ❹ date integrity, ⓭.
+That is the money counted and odd amounts flagged. **No red verdict this check
+defines can fire.** A flow shipped in that state would report zero findings for
+a reason invisible in its own output — the precise failure ⓬'s rule body names as
+the most expensive available here.
 
-So the architecture turns entirely on **probe 3**:
+### Free win: the server filters on description text
 
-- **List payload carries a maid id** → one all-time sweep, ~48,192 rows at
-  `size=200` ≈ **241 calls**, everything else client-side. Comfortably inside 500,
-  and the duplicate question is fully answerable.
-- **It does not** → a maid id costs one `GET /accounting/transactions/{id}` each.
-  All-time that is ~48,000 calls; a month is ~1,400 against a budget of 500. **A
-  flow built this way trips the breaker on its first run.**
+`{property: "description", operation: "like", value: "R-VISA"}` **binds and
+narrows** — on `NEW - Immigration - CC Maids` for September 2025 it took 1,593
+rows to 641 (execution `110401`). The pre-cutover text legs are therefore a
+server-side filter, not a client-side sieve over roughly ten times the rows. That
+removes a whole pass from the pre-cutover architecture.
 
-If probe 3 comes back negative, the option I'd recommend — and would want signed
-off rather than assumed — is to use **Snowflake to identify the candidate maid ids**
-(its `TRANSACTIONS` view carries `HOUSEMAID_ID` on the very same rows) and **ERP to
-confirm each candidate**, which is consistent with the spec's own division:
-*the warehouse measures and explores, ERP is the authority*. Note the standing
-org rule that recurring or scheduled warehouse pulls go to the ERP/Data team —
-this check is manual-trigger only, which is why it is worth raising rather than
-just building.
+### Reference data: expense ids for the checksum
 
-Also unresolved until a live walk: the spec's population figures are **warehouse
-counts, not an ERP walk**. Before the first real run, one month must be walked
-against ERP with `pulled == totalElements` asserted. A total from a paginated read
-is worthless without it, and page 0 returns the newest rows, so *not found* and
-*does not exist* are indistinguishable.
+Live from ERP, window 2025-12-01 → 2026-08-30 (execution `110445`):
+
+| Expense head | id | rows |
+|---|---|---|
+| NEW - MV Housemaids - R-visa Application 2 years | 1708 | 5,250 |
+| NEW - CC Housemaids - R-visa Application 2 years | 1620 | 2,731 |
+| RENEW - CC Housemaids - R-visa Application 2 years | 1647 | 2,460 |
+| RENEW - MV Housemaids - R-visa Modification | 1735 | 38 |
+| RENEW - CC Housemaids - R-visa Modification | 1649 | 10 |
+| NEW - CC Housemaids - R-visa Modification | 1622 | 9 |
+| *RENEW - MV Housemaids - R-visa Application 2 years* | — | **0** |
+| *NEW - MV Housemaids - R-visa Modification* | — | **0** |
+| NEW - OfficeStaff - R-visa Application 2 years (out of scope) | 1797 | 14 |
+
+**Only six of the spec's "eight dedicated heads" carry rows.** Two return zero on
+an exact-name match while the other six match exactly, so the naming convention
+is right and those two combinations appear not to exist. That matters for ❾,
+whose renewal test keys on a RENEW head: there is no
+`RENEW - MV Housemaids - R-visa Application 2 years`, so **MV renewals are either
+booked somewhere this population rule does not look, or they do not exist as a
+category.** Unresolved, and it is a population question, not a cosmetic one.
+
+The six in-scope heads total **10,498** rows in that window. The spec's warehouse
+figures for a near-identical window are ~11,924. The windows are not identical
+and the sources differ (ERP walk vs warehouse), so this is **a delta to
+reconcile, not yet a discrepancy to attribute** — but it must be reconciled
+before a run, per the spec's own instruction to walk one month against ERP with
+`pulled == totalElements` asserted.
+
+### Build constraint found: the ~60s Code-node ceiling
+
+Two probe rounds making 18 and 22 serial ERP calls **both errored at ~61s**,
+while a 10-call round finished in 17s and a 9-call round in 47s. A Code node
+making serial ERP calls dies around 60 seconds regardless of the per-call
+timeout. The build must therefore batch across nodes or sub-workflow executions,
+not inside one Code node — which is how the MV Overstay Fines and CC Below Agreed
+chains are already shaped.
+
+## Phase 3 — the call budget, restated with real numbers
+
+The spec budgets 500 calls/run and proposes scoping detail calls to fine-bearing
+rows plus "repeat-payment candidates, identifiable by grouping the list on
+whatever key it does carry". **The probe closes that option:** the list carries no
+identity key, and the only alternative — the name in the description — is the one
+rule ❷ forbids. Identifying repeat-payment candidates requires the maid id the
+scoping was meant to avoid fetching.
+
+A case is one maid carrying *every payment she has ever had* (within 2025 only 2
+maids repeat; all-time 182), so this is not solvable by narrowing the window.
+
+Three ways forward, in the order I'd recommend them:
+
+1. **Ask the ERP team to put the housemaid id on the transaction list payload.**
+   One field turns a ~48,000-call problem into a ~241-call one (48,192 rows at
+   `size=200`), and makes the check's flagship rule answerable directly. It is
+   also the only option that does not depend on a second system.
+2. **Grant the operator `AddEditTransaction`, and source candidates from
+   Snowflake.** Its `TRANSACTIONS` view carries `HOUSEMAID_ID` on the same rows,
+   so the warehouse identifies candidate maids and ERP confirms each — tens of
+   ERP calls. This matches the spec's own division of labour (*the warehouse
+   measures and explores, ERP is the authority*). Note the standing rule that
+   recurring or scheduled warehouse pulls go to the ERP/Data team; this check is
+   manual-trigger only, which is why it is worth raising explicitly rather than
+   just building.
+3. **Grant the permission and call detail per transaction.** ~1,400 calls a month
+   against a budget of 500, and an all-time backfill far worse. Not viable.
 
 ## Phase 4 — business logic: resolved, no blocking questions
 
-Every open ruling in the spec already carries either a stated `Verdict` or a
-conservative default, so none of them meets the bar for a blocking question
-(spec-silent · unprobeable · outcome-changing · no safe default). Implemented as
-written, flagged where it matters:
+Every open ruling in the spec carries either a stated `Verdict` or a conservative
+default, so none meets the bar for a blocking question (spec-silent · unprobeable
+· outcome-changing · no safe default). Implemented as written, flagged where it
+matters:
 
 - **❽ — is a day-count shortfall a finding?** The rule's own `Verdict` is
   `finding (red)`, and red is the non-clearing direction. Implemented as red.
-  This is the check's decisive ruling — it is the difference between ~18 findings
-  a year and none — and it belongs to Malaz at sign-off, not to the build.
-- **❹ which date is authoritative** — the rule already answers operationally:
-  park the disagreements rather than pick a side.
+  This is the check's decisive ruling — the difference between ~18 findings a
+  year and none — and it belongs to Malaz at sign-off, not to the build.
+- **❹ which date is authoritative** — already answered operationally: park the
+  disagreements rather than pick a side.
 - **❾ 601 days / ⓫ 30 days** — empirical boundaries, implemented as written. The
-  measurement says 30 is probably the wrong band (the 31–90 band is *more*
-  enriched for the double-payment signature than the 0–30 band that reds), but
-  widening it is a business decision with 69 pairs behind it.
+  measurement says 30 is probably the wrong band (31–90 is *more* enriched for
+  the double-payment signature than the 0–30 band that reds), but widening it is
+  a business decision with 69 pairs behind it.
 - **⓬ / verifier ❸ rejection sub-audit** — a rule the source states and never
-  defines. Scored as not-passed, routed, and declared as not-executed in the run
+  defines. Scored as not-passed, routed, and declared not-executed in the run
   summary rather than quietly absorbed.
 
 ### Spec corrections filed
 
-**1. ❺'s arithmetic justification is wrong, and implementing it literally
-produces a check that reports nothing.** The rule body says the three base fees
-*"differ by 10.81 and 100.00 — neither a multiple of 50 — so two bases can never
-both fit"*, and on that basis instructs: park if more than one qualifies.
-But `446.65 − 346.65 = 100.00 = 2 × 50` exactly. So 346.65 fits **every** amount
-that 446.65 fits, always, with two extra fine days — the park clause fires on the
-entire main-base population and every record exits `base-fee-unresolved`.
-
-The failure mode is the expensive one: the flow runs clean, reports zero findings,
-and looks like it simply found nothing.
+**1. ❺'s arithmetic justification is wrong, and a literal implementation makes
+the check report nothing.** The rule says the three base fees *"differ by 10.81
+and 100.00 — neither a multiple of 50 — so two bases can never both fit"*, and on
+that basis instructs: park if more than one qualifies. But
+`446.65 − 346.65 = 100.00 = 2 × 50` exactly, so 346.65 fits **every** amount that
+446.65 fits, with two extra fine days. The park clause then fires on the entire
+main-base population and every record exits `base-fee-unresolved` — the flow runs
+clean, finds zero, and looks fine.
 
 Implemented tie-break: **take the highest base that fits, and annotate the
 ambiguity on the record.** A fine is the rare exception (25 of 14,409 positive
-2025 rows, 0.17%), so the parse implying the fewest fine days is right. This
-reproduces every figure the spec verified independently — 92 fine days on
-`1641662`, 54 on `1526423`, 2/7/9 on the three 2026 overcharges — which the
-park-on-ambiguity reading cannot produce at all.
+2025 rows), so the parse implying the fewest fine days is right. This reproduces
+every figure the spec verified independently — 92 fine days on `1641662`, 54 on
+`1526423`, 2/7/9 on the three 2026 overcharges — which the park-on-ambiguity
+reading cannot produce at all.
 
-**2. Two test cases expect `clean` where the rules as written produce `pending`.**
-Test case 2 (maid `61273`, 819-day gap, both payments on `NEW` heads) and test
-case 3 (maid `94824`, two visa cycles) are both recorded as *clean*. But only ❾
-and verifier ❶ can produce clean, and neither reaches these pairs: ❾'s day-gap
-fallback is scoped to *"rows predating the December 2025 taxonomy"*, and ⓫
-produces no verdict for payments in different cycles. Both land on the ⓭ floor as
-`pending`.
-
-`pending` is the safe direction and the shared requirement — *not red* — holds
-either way, so this is implemented conservatively rather than forced to match the
-table. Two things need stating in the spec: **which payment of a straddling pair
-decides "predating the taxonomy"** (implemented as the earlier one, which is what
-makes test case 2 come out clean), and **whether "different visa cycles" should
-produce a clean rather than falling through**.
+**2. Two test cases expect `clean` where the rules produce `pending`.** Test case
+2 (maid `61273`, 819-day gap, both payments on `NEW` heads) and test case 3 (maid
+`94824`, two visa cycles) are recorded as *clean*, but only ❾ and verifier ❶ can
+produce clean and neither reaches these pairs: ❾'s day-gap fallback is scoped to
+*"rows predating the December 2025 taxonomy"*, and ⓫ produces no verdict for
+payments in different cycles. Both land on the ⓭ floor as `pending`. That is the
+safe direction and the shared requirement — *not red* — holds either way, so it
+is implemented conservatively. The spec needs to state **which payment of a
+straddling pair decides "predating the taxonomy"** (implemented as the earlier
+one, which is what makes test case 2 come out clean) and **whether "different
+visa cycles" should produce a clean rather than falling through**.
 
 **3. ❺ vs test case 6.** The spec says transaction `1536291` (AED 798.05) *"must
-reach ⓭ as pending"*, but ❺'s own `Verdict` property is `pending` and ❺ is where
-the amount fails. Implemented at ❺, same verdict, more precise reason
-(`base-fee-unresolved`). Cosmetic, but the run summary attributes it differently.
+reach ⓭ as pending"*, but ❺'s own `Verdict` is `pending` and ❺ is where the
+amount fails. Implemented at ❺ — same verdict, more precise reason.
+
+**4. The eight dedicated heads are six.** See the reference-data table above.
+
+**5. Two spec claims now verified rather than assumed:** the list payload really
+does lack a maid id, and the description `like` filter really does bind.
 
 ### Two consequences the run summary must state plainly
 
 - **`pending` is the majority state, by design.** Only ❾ and verifier ❶ produce
-  `clean`. Every ordinary payment that no gate reds lands on the ⓭ floor as
-  pending — that is exactly what ⓭ is for (*never let silence mean clean*), but it
-  means a reader seeing ~48,000 pending records is seeing correct behaviour, not a
-  broken run. It must never be folded into a clean count.
+  `clean`, so every ordinary payment no gate reds lands on the ⓭ floor as
+  pending. That is what ⓭ is for (*never let silence mean clean*), but a reader
+  seeing tens of thousands of pending records is seeing correct behaviour. It
+  must never be folded into a clean count.
 - **Verifier ❷ reds every fine-bearing record.** `fine_repayment_responsibility`
   has never been observed as a field, so *unassigned* is unknowable rather than
-  known-false, and the rule (rightly) refuses to default to the company bearing
-  it. That is ~25 records a year, AED 26,900 of fine days in 2025, none ever
-  assigned. Declared as an inflation, not presented as 25 discoveries.
+  known-false, and the rule rightly refuses to default to the company bearing it.
+  ~25 records a year. Declared as an inflation, not presented as 25 discoveries.
 
 ## Phase 5–7 — status
 
-- **Scorer built and tested offline: 91/91**, covering all six spec test cases,
-  the three 2026 ❼ overcharges (reproducing the stated 4 excess days / AED 200),
-  both population eras, all four deliberate exclusions, and guards for every edge
-  the rules name (three bases, non-integer remainder, suppressed date, missing
-  anchor, ambiguous anchor, blank-expense client refund, null maid id).
-  Run: `node audit/r_visa/scorer.test.js`
-- **Not started:** the n8n build. The golden to clone is **MV Overstay Fines**
-  (`LDtsstXDfF99TnYe`) — same ERP surfaces, same fine arithmetic, and its rails
-  (ERP lease, pre-flight budget gate, cohort-pull verification, runs-log-before-
-  payload, data tables, draft-only delivery) are already proven. Its execution
-  shape cannot be copied wholesale: MV Overstay is window-scoped, this check is
-  all-time per maid.
-- **Not started:** live testing. Needs the token.
+- **Scorer built, 91/91 offline** (`node audit/r_visa/scorer.test.js`): all six
+  spec test cases, the three 2026 ❼ overcharges (reproducing the stated 4 excess
+  days / AED 200), both population eras, all four deliberate exclusions, and
+  guards for every edge the rules name.
+- **Flow not built.** Deliberate: until identity is readable, the flow cannot
+  produce any of its four red shapes, and the choice between the three routes
+  above changes its execution architecture. The golden to clone when it proceeds
+  is **MV Overstay Fines** (`LDtsstXDfF99TnYe`) — same ERP surfaces, same fine
+  arithmetic, proven rails (ERP lease, pre-flight budget gate, cohort-pull
+  verification, runs-log-before-payload, draft-only delivery). Its execution shape
+  cannot be copied wholesale: MV Overstay is window-scoped, this check is all-time
+  per maid.
+- **Nothing published, scheduled or activated.**
 
 ## What needs a human
 
-1. **The ERP token + device id** — one paste, the operator's own. Blocks everything.
-2. **Sign-off before any run against production**, and before publishing or
-   scheduling. This check's findings name real clients and real money; the spec
-   names **Malaz** as reviewer and requires independent review before delivery.
-   Build completion is not approval.
-3. **Not blocking, but Malaz's to answer at sign-off:** ❽'s decisive ruling, and
-   the three spec corrections above.
+1. **A route from a transaction to its maid.** Preferably the list-payload field
+   (option 1); failing that, `AddEditTransaction` on the auditing account plus a
+   decision on Snowflake-assisted candidate sourcing. Blocks every red verdict.
+2. **`VisaProcessingPage` / overstay-fines read**, if the fine-responsibility and
+   fine-record evidence are to come from ERP rather than the transaction amount
+   alone.
+3. **Sign-off before any run against production**, and before publishing or
+   scheduling — the spec names **Malaz** as reviewer and requires independent
+   review before delivery. Build completion is not approval.
+4. **Malaz, at sign-off, not blocking:** ❽'s decisive ruling, the MV-renewal head
+   question, and the spec corrections above.
