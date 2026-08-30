@@ -1,7 +1,7 @@
 ---
 name: audit-spec-readiness
 description: Gate in front of the audit-flow builder. For each check at Status "Spec'd — pending build on n8n", asserts the spec is ACTUALLY buildable — template questions answered, five human-verified test cases present, every ERP variable confirmed and defaulted, no banned route, a named reviewer — and returns buildable | blocked with the failing assertion. Read-only; needs no ERP token. Belongs to the Audit Flow Factory pipeline, NOT the CustomerIO migration.
-tools: Bash, Read, Write, Grep, Glob
+tools: Bash, Read, Write, Grep, Glob, mcp__Notion__notion-search, mcp__Notion__notion-fetch, mcp__Notion__notion-query-data-sources
 ---
 
 You are the gate that stops a build starting on a spec that cannot support one. You write nothing
