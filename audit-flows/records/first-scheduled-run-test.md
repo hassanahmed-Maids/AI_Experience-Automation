@@ -173,3 +173,58 @@ The successful population call put per-entity detail (names, amounts, attachment
 execution payload. None of it is reproduced here or in chat. This is precisely why
 `saveDataSuccessExecution` stays `none` on a check flagged *Handles sensitive data* — a green run
 with success-data persistence on would write that detail into n8n's execution store.
+
+
+---
+
+# Classifier fixed — execution `110245`
+
+## Before / after, same failure
+
+| | Before (`110239`) | After (`110245`) |
+|---|---|---|
+| `code` | `erp_error` | **`erp_breaker_trip`** |
+| `status` | `null` | `null` (correct — a self-trip has no HTTP status) |
+| `message` | `"unknown error"` | **the breaker's full sentence** |
+
+What `Fail Loudly` now throws — and therefore what the Runs row and the failure e-mail inherit:
+
+> `CC OVERSTAY FINES FAILED at "Judge Detail Batch" [erp_breaker_trip]: a refusal that is total does
+> not heal, and a retry doubles it. Get the grant (or a live token), then re-run.
+> ERP-LOAD-POLICY.md §5.`
+
+An operator reading only the Runs row now learns the cause and the next action.
+
+## The two bugs
+
+**A Code-node throw puts its message on the error output as a plain STRING.** The reader did
+`err.message` on it, got `undefined`, and fell through to `'unknown error'` — so *every* Code-node
+throw, including every circuit-breaker trip, was recorded as unknown.
+
+**An HTTP node's error carries its status on `statusCode`** — the reader checked only `httpCode`
+and `status` — **and the ERP body as a JSON string under `error`**, so both the status and the
+message were lost. That is the shape of the expired-token failure in `110182` and `110226`.
+
+## Two things found while fixing it
+
+- **The `item_linking` branch was dead code.** It matches on message text, and string errors never
+  produced a message, so a paired-item throw could never reach it. It works now.
+- **A plain 403 was also losing its status**, so it classified as generic `erp_error` rather than
+  `erp_permission`.
+
+## Ordering detail that matters
+
+`erp_breaker_trip` is tested **above** the loose `/token/` match, because the breaker's own message
+contains the words *"live token"*. Tested the other way round, a self-protective trip would be filed
+as an auth failure and send the reader hunting for a credential problem that may not exist. An
+explicit `401` status still wins outright.
+
+## Verification
+
+Six payloads, run against the extracted source rather than a re-typed copy: the two real ones from
+`110226` and `110239`, the Error-Trigger envelope the old reader was written for (**unchanged** —
+no regression), a plain 403, a paired-item throw, and an empty payload (still the honest
+`unknown error` fallback). The node body was parse-checked with `node --check`.
+
+**The underlying ERP grant is still needed** — the run still stops at the same place, for the same
+reason. It just says so now.
