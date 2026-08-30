@@ -51,15 +51,64 @@ Do **not** request `HousemaidOverstayFines`, the other page that reaches route 1
 `POST /visa/overstay-fines/fine/update*`, so it is not read-only. For a read-only audit user
 `Visa_OverStayFinesMonitoring` is strictly the correct ask.
 
-**2. `HousemaidsPayrollLoans`** — reaches route 2. Note this one is **not** read-only: its whitelist
-carries `POST /payroll/loans/`, `POST /payroll/loans/waiveLoanAmount/`, `POST /payroll/Repayment/`
-and `Delete /payroll/*/customdelete/`. Route 2 is also the only one of the four with method-level
-security on top of the pageCode check —
-`@PreAuthorize("hasPermission('loans','getHousemaidLoans')")`, `LoansController.java:324` — so the
-grant must carry that permission too, not just the page. If a read-only payroll page exists that
-whitelists `GET /payroll/loans/getHousemaidLoans/`, it is the better ask; `HousemaidsPayrollList`,
-`HousemaidPayroll` and `ResignedMaidsToDo` also match and were not individually inspected for write
-scope. **Worth one more question to the code before requesting.**
+**2. `HousemaidPayroll` — and the grant must be the `_READONLY` policy.** Followed up (session
+45321) and inspected all four pages that whitelist route 2. **None is GET-only.** Ranked by write
+scope:
+
+| pageCode | file | non-GET entries |
+|---|---|---|
+| **`HousemaidPayroll`** | `security-staff-mgmt.json:1596-1618` | **3 POST, no Delete** |
+| `HousemaidsPayrollLoans` | `security-payroll.json:39-52` | 5 POST + 1 Delete |
+| `ResignedMaidsToDo` | `security-staff-mgmt.json:1951-1975` | 10 POST |
+| `HousemaidsPayrollList` | `security-payroll.json:2-30` | 10 POST + 3 Delete |
+
+`HousemaidPayroll` is the narrowest: `POST /payroll/HousemaidPayroll/update`,
+`POST /staffmgmt/housemaid/sendemailtowaiverapprove`, `POST /payroll/loans/waiveLoanAmount/*`. It is
+the only one of the four with no `Delete` entry at all.
+
+### The `@PreAuthorize` is a no-op — do not ask anyone to seed a permission row
+
+`@PreAuthorize("hasPermission('loans','getHousemaidLoans')")` (`LoansController.java:324`) never
+resolves a permission. `PermissionEvaluatorImpl.hasPermission` returns `true` unconditionally, with
+the comment *"all permission checks are performed in JwtAuthorizer"*
+(`magnamedia-core/.../security/PermissionEvaluatorImpl.java:66-81`). Access is decided **entirely**
+by the pageCode + policy path in `ApiAuthorizationService.checkAuthorization:166-183` — which is
+also where our `INSUFFICIENT_PERMISSIONS` comes from: the page resolved *and* the API was found
+inside it, we simply hold no `SecureResourceHolder` on it.
+
+So the provisioning instruction is one line: **assign the `<pageCode>_READONLY` SecurityPolicy to
+the user** (a `UserSecurityPolicy` row). Every page auto-gets `_FULL` and `_READONLY` policies at
+import (`SecurityPolicyCreationService.java:63-67`). Asking for an `API_PERMISSIONS` /
+`loans_gethousemaidloans` row would be wasted work — nothing reads it.
+
+### ⚠ Caveat on what `_READONLY` actually does — do not oversell this
+
+Ask-code's summary said a READONLY grant "neutralizes" the write entries. **Its own working says
+something weaker**, and the weaker reading is what the cited code shows: a READONLY holder is still
+`ApiAuthorizationResult.authorized(PermissionType.READONLY, true, apiKey)` — the request **is
+authorized** at the API layer and merely flagged, propagating as `CurrentRequest.setSpelRequest(true)`.
+In its words: *"a READONLY policy grants READONLY across the whole page including its write APIs —
+the READONLY flag is set but the request is still authorized. Write protection is a downstream
+`spelRequest` concern, not an API-level block."*
+
+READONLY is still the correct ask and is materially narrower than FULL. But it should not be
+presented to whoever approves it as a hard block on those three POSTs — that has not been verified,
+and claiming it could get a grant approved on a false premise. If a hard guarantee is needed, that
+is a question for whoever owns the security model, not something to infer from this.
+
+### Accounting-scoped alternative — reaches the same data, but not narrower
+
+`GET /accounting/loans/getHousemaidLoans/{id}` exists under an accounting-module
+`HousemaidsPayrollLoans` (`security-accounting.json:7-18`) and reaches the same loans + forgiveness
+data. Attractive because an accounting-scoped grant is easier to justify — but its whitelist carries
+`Delete /accounting/.*/delete/`, a wildcard across the **whole accounting module**, which is the
+single broadest entry in any of these pages. Taking it would also require repointing the flow's URL
+from `/payroll/loans/...` to `/accounting/loans/...`.
+
+**Probed live 2026-08-30 — we hold none of them:** `/accounting/loans/getHousemaidLoans` and
+`/accounting/forgiveness/getHousemaidForgiveness` under accounting `HousemaidsPayrollLoans`, and
+`/payroll/loans/getHousemaidLoans` under `HousemaidPayroll`, all return
+401 `INSUFFICIENT_PERMISSIONS`. There is no free path; a grant is unavoidable.
 
 ## Why there is no way around grant 1
 
@@ -90,8 +139,27 @@ Routes 3 and 4's complaints backend is not in the ask-the-code workspace (no `ma
 repo), so their controller and method-level security could not be read from source — only their
 whitelists and callers. Both were verified live at HTTP 200, which is the stronger evidence anyway.
 
+## The access request, ready to send
+
+Two policies, for the same user, both **READONLY**:
+
+| # | Policy to assign | Unblocks |
+|---|---|---|
+| 1 | **`Visa_OverStayFinesMonitoring_READONLY`** | `GET /visa/overstay-fines/housemaid/*` — gross, net, reduction, reduction reason |
+| 2 | **`HousemaidPayroll_READONLY`** | `GET /payroll/loans/getHousemaidLoans/*` — whether the cost was raised as a loan, and waived |
+
+Mechanism, in one sentence for the provisioner: *assign these two `*_READONLY` SecurityPolicies to
+the user via `UserSecurityPolicy`; no `API_PERMISSIONS` row is needed, because the `@PreAuthorize`
+on the loans endpoint is never evaluated.*
+
+Grant 1 is genuinely read-only by its whitelist (four GETs). Grant 2 is not — see the caveat above —
+but `HousemaidPayroll` is the narrowest of the four pages that can reach the endpoint, and READONLY
+is the narrowest form of it.
+
 ## Next
 
-1. Request **`Visa_OverStayFinesMonitoring`** read-only.
-2. Ask the code for the tightest read-only page reaching route 2 before requesting a payroll grant.
-3. Re-run CC Overstay once granted; the verifier band (routes 3 and 4) is already reachable.
+1. Send the two-policy request above.
+2. Re-run CC Overstay once granted; the verifier band (routes 3 and 4) is already reachable, and the
+   fines node now carries the right pageCode.
+3. Regenerate the CC Overstay deploy draft — it still names `advancesearchNew` and the deleted
+   detail node.
