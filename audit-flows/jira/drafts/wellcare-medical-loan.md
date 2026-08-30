@@ -1,4 +1,8 @@
-<!-- POSTED 2026-08-30 as https://jira-maids-cc.atlassian.net/browse/SD-67695. Notion status moved to "On Jira pending production". -->
+<!-- POSTED 2026-08-30 as SD-67695, since routed to MC-1994 (status: Pending PO).
+     Notion status: "On Jira pending production".
+     2026-08-30: recipients corrected to the spec's money@ + anthony.assaf@. The posted
+     description still lists the three earlier addresses - description is not editable on
+     MC-1994's screen via the API, so it needs a manual edit. -->
 
 # Jira fields
 
@@ -43,7 +47,7 @@ ERP production (`erpbackendpro.maids.cc`), read-only. No databases, no Snowflake
 
 - **Google Sheet** — results workbook: https://docs.google.com/spreadsheets/d/11mkXopBVZcXDCJF1uNLkmvXEjqm1Ze9xyBQE8YnT0wI/edit?gid=0#gid=0
   Written by three nodes: `Runs Log (no input)`, `Cases -> Workbook`, `Runs Log (scored)`.
-- **E-mail** — malaz.alool@maids.cc, abdullah.mahdi@maids.cc, hassan.ahmed@maids.cc
+- **E-mail** — money@maids.cc, anthony.assaf@maids.cc
   - `Email: no workbook` sends an alert when no clinic data file is found for the month.
   - `Draft: findings email` creates a pre-addressed Gmail draft of the findings; a person sends it.
 - Nothing is written back to ERP. No client-facing messages.
