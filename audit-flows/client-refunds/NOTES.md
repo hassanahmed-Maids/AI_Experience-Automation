@@ -438,3 +438,83 @@ instead of being silently scored under the wrong VAT assumption.
 - `scorer.test.js` — **38 cases**, the framing gates, the AED 0.50 basis and ⓫.
 - `groups.test.js` — **27 cases**, the partition, G-ATTACH and group routing.
 - **65 total, all green**, no regression on the original 38.
+
+---
+
+# Stage 2 — delivery, built 2026-08-30
+
+**`Client Refunds · 2-Deliver (draft)`** — n8n `OznVXTRb1hApsYRH`, Adeeb project. Draft,
+never published, never scheduled. Called by 1-Score as a sub-workflow.
+
+```
+Called by 1-Score → Validate Baton (assess) → Write Runs Row FIRST → May Deliver?
+                                                                      ├─ yes → Build Case Rows → Write Case Rows → Build Reviewer Email → Create Draft
+                                                                      └─ no  → Refuse After Logging (throws)
+```
+
+## 20. The runs log is written before the cases — and before the refusal
+
+The spec: *"Runs log — written before the cases, so a failed run still leaves a record."*
+
+The first build got this **backwards**, and the test caught it. `Validate Baton` threw on a
+short case set, which aborted the run **upstream of the runs row** — so the run that most
+deserved a record left no trace at all.
+
+Now `Validate Baton` **assesses and does not throw**; the runs row is written with
+`status = DELIVERING | REFUSED` and the reason; a `May Deliver?` gate stops the chain
+afterwards. The refusal is still loud and still blocks both the workbook and the email —
+it is simply recorded first.
+
+Verified both ways:
+- **Refused** (execution 110734) — *"1740 cases scored against a population of 1768 …
+  The runs row was written first, so this refusal is on the record. No case rows were
+  written and no email draft was created."*
+- **Delivered** (execution 110735) — 2 cases through to a draft, no regression.
+
+## 21. Three refusals, all in the false-negative direction
+
+`Validate Baton` refuses a run that is: a **page-capped smoke run**; a **short case set**
+(`scored != in_scope`); or a population whose **server-side month filter was not honoured**.
+All three share a shape — fewer rows read as fewer findings — which is the direction
+nobody notices.
+
+`Build Reviewer Email` adds a fourth: the workbook write-back must return exactly as many
+rows as there were cases, or no email is built. A report that does not match the sheet it
+cites is worse than no report.
+
+## 22. Where the sensitive data goes
+
+| Destination | Carries |
+|---|---|
+| Cases tab | per-case rows **including staff-note text** — the only place it exists |
+| Runs tab | counts, timings, status, refusal reason |
+| Email draft | **counts, flags and totals only** — no names, no amounts, no note text |
+| Run summary / logs | counts only |
+
+`handlingExtraData: 'error'` on the Cases write: an audit workbook that silently grows a
+column when the projection changes is one nobody can reconcile.
+
+**The staff-note field question is now answered by the flow itself.** `Build Case Rows`
+takes the first populated of `notes` / `managerNotes` / `description` / `rejectionNotes`,
+writes the text to the workbook, and records **which key it came from** in
+`note_source_key`. The run log reports **key names and counts only** — never values. So
+the first real run settles open item 6 without anyone reading a note.
+
+## 23. A credential auto-assignment worth flagging
+
+On creation, n8n auto-assigned **another colleague's personal Gmail** to the draft node. A
+draft is created in the **sender's** mailbox, so that would have put an audit report about
+named clients into someone else's inbox, attributed to them — the same attribution problem
+the ERP-token rule exists to prevent. Reassigned to the operator's own Gmail.
+
+**Auto-assigned credentials need reading, not accepting.** The Sheets one was correct; the
+mail one was not, and nothing in the success response flagged the difference.
+
+## 24. Two values stage 2 still needs
+
+- **The workbook.** The spec's `Google Sheet link` property is empty — no workbook exists
+  yet. `documentId` is a picker placeholder; it needs a real sheet with `Runs` and `Cases`
+  tabs. Colour-coding is set once in the sheet (conditional formatting on `verdict`); the
+  Sheets node cannot apply it per write.
+- **The reviewer's address.** Left as a `placeholder()`; the spec names Jacky as
+  maker/checker but not an address.
