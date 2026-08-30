@@ -6,7 +6,7 @@
 |---|---|
 | Project | `SD` — Service Desk |
 | Issue Type | `n8n Flow` (11166) |
-| Summary | Deploy to prod: CC Overstay Fines (n8n, TODO trigger) |
+| Summary | Deploy to prod: CC Overstay Fines (n8n, scheduled monthly) |
 | Company Department (`customfield_10822`) | **Money Control** (12011) |
 | Accountable PIL (`customfield_10825`) | Amin Aljebbeh (11099) |
 | N8N Link (`customfield_12033`) | https://sami-team.app.n8n.cloud/workflow/3465kkSf4JYjlpXk |
@@ -34,32 +34,47 @@ An AI verifier reads the complaint thread and loan history behind each red flag 
 
 No webhook, no manual trigger, no inbound endpoint of any kind.
 
-> **PRE-DEPLOYMENT CONVERSION REQUIRED.** The workflow has no trigger node today (all recorded executions ran in `manual` mode) and two outbound callback nodes. Add the schedule trigger, set the workflow timezone to `Asia/Dubai`, and delete both callbacks. See `records/webhook-to-schedule-conversion.md`.
+The conversion is **already applied**: `Run Monthly` schedule trigger present, workflow timezone set to `Asia/Dubai`, both callback nodes deleted. See `records/webhook-to-schedule-conversion.md`.
 
 ## Inputs & data sources
 
-ERP production only (`erpbackendpro.maids.cc`). **Read-only — the flow writes nothing back to ERP.** 6 endpoints across 68 nodes:
+ERP production only (`erpbackendpro.maids.cc`). **Read-only — the flow writes nothing back to ERP.** 5 endpoints across 65 nodes:
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | /accounting/transactions/page/advancesearchNew | The CC change-of-status / overstay transaction population |
-| GET | /accounting/transactions/{id} | Per-transaction detail, for maid attribution |
-| GET | /visa/overstay-fines/housemaid/{housemaidId} | The fine itself — gross, net, any reduction and its reason |
-| GET | /payroll/loans/getHousemaidLoans/{housemaidId} | Whether the cost was raised as a loan |
-| GET | /complaints/complaint/limited/housemaid/{housemaidId} | Complaints that may explain a waiver |
-| GET | /complaints/teamComplaintUpdate/historyOfComplaint/{complaintId} | The complaint thread the verifier reads |
+| Method | Endpoint | pageCode | Purpose |
+| --- | --- | --- | --- |
+| POST | /accounting/transactions/page/advancesearch | `ManageTransactions` | The CC change-of-status / overstay transaction population — **and the maid attribution**, which this route carries inline |
+| GET | /visa/overstay-fines/housemaid/{housemaidId} | `Visa_OverStayFinesMonitoring` | The fine itself — gross, net, any reduction and its reason |
+| GET | /payroll/loans/getHousemaidLoans/{housemaidId} | `HousemaidPayroll` | Whether the cost was raised as a loan |
+| GET | /complaints/complaint/limited/housemaid/{housemaidId} | `HousemaidComplaints` | Complaints that may explain a waiver |
+| GET | /complaints/teamComplaintUpdate/historyOfComplaint/{complaintId} | `HousemaidComplaints` | The complaint thread the verifier reads |
+
+A sixth endpoint, `GET /accounting/transactions/{id}`, was removed on 2026-08-30: it cost one ERP call per transaction purely to learn which maid the transaction belonged to, and the population route now carries that link inline.
 
 No databases, no files, no Snowflake.
 
 ### Known route exceptions
 
-- `/accounting/transactions/page/advancesearchNew` — on the 2026-08-25 dead-end route ban. Previously disclosed here as **Section A, no alternative**; that is **no longer true**. `POST /accounting/transactions/page/advancesearch` (the legacy route, whitelisted under the `ManageTransactions` pageCode we already hold) accepts a bounded id list — `[{"property":"id","operation":"in","value":[...]}]` — and returns exactly those rows, 120 verified in a single call on 2026-08-30. That is the id-list accessor whose absence made this a dead end. The flow should be rewired to it before production; the ERP-team dependency is withdrawn.
+- **`advancesearchNew` is no longer called.** It was on the 2026-08-25 dead-end route ban and was disclosed here as *Section A, no alternative*. That is no longer true and no longer relevant: the flow now uses the legacy `POST /accounting/transactions/page/advancesearch`, under the `ManageTransactions` pageCode we already hold. The ERP-team dependency is **withdrawn**.
+- The replacement is in the same paginated `/page/` family, so please have the ERP team confirm it is acceptable. In its favour: the flow does not sweep it open-ended. It filters `expense.id = 1589` plus a one-month `date` range, pages at size 200, and caps at 50 pages. Verified population-equivalent to the old filter before the swap (1084 = 1084 all-time, 694 = 694 for Apr–Aug 2026), and `size=2000` was measured non-responsive, so the page size is deliberately held at 200.
+
+### ⚠ Two access grants are outstanding — the flow cannot complete without them
+
+Probed live on 2026-08-30. Both return `401` with response header `developerMessage: INSUFFICIENT_PERMISSIONS`, meaning the pageCode is correct and the API *is* whitelisted under it; only the grant is missing.
+
+| Policy to assign | Unblocks |
+| --- | --- |
+| `Visa_OverStayFinesMonitoring_READONLY` | `GET /visa/overstay-fines/housemaid/*` |
+| `HousemaidPayroll_READONLY` | `GET /payroll/loans/getHousemaidLoans/*` |
+
+Provisioning is one action each: assign the `*_READONLY` SecurityPolicy to the user (a `UserSecurityPolicy` row). **Do not** create a `loans_gethousemaidloans` API-permission row — that `@PreAuthorize` is never evaluated, so it would change nothing.
+
+The two `/complaints/*` endpoints already work under `HousemaidComplaints` (HTTP 200, verified).
 
 ## Outputs & recipients
 
 - **Google Sheet** — [results workbook](https://docs.google.com/spreadsheets/d/1VIwyOPJmCesJwJY60ajke4T7ioyKRg_yBVId7Zzf7DQ/edit?gid=0#gid=0). 4 Google Sheets nodes.
   Four Google Sheets nodes write it: `Cases -> Google Sheet`, `Verdicts -> Google Sheet`, `Run -> Google Sheet`, `Run (error) -> Google Sheet`.
-- **No callbacks.** The two callback nodes present today are deleted as part of the conversion.
+- **No callbacks.** Both callback nodes have been deleted.
 - Two Gmail draft nodes exist (`Draft: cases to review`, `Draft: audit failed`). TODO — confirm the recipient, and that the mail carries the check name, period and sheet link only.
 
 Nothing is written back to ERP. No client-facing messages.
@@ -80,7 +95,7 @@ TODO — execution ceiling and throttle (concurrency, interval).
 
 ## Attachments
 
-- n8n flow export: **lease-stripped production export**, 64 nodes (staging has 67; the three ERP lease nodes are a staging construct and do not ship). Produce it with `strip-erp-lease.mjs` — do **not** attach the staging workflow.
+- n8n flow export: **lease-stripped production export** (staging has 65 nodes; the three ERP lease nodes are a staging construct and do not ship). Produce it with `strip-erp-lease.mjs` — do **not** attach the staging workflow.
 - n8n workflow link: https://sami-team.app.n8n.cloud/workflow/3465kkSf4JYjlpXk
 
 ## Credentials used
@@ -89,11 +104,12 @@ Names as they appear in the n8n credential dropdown. No secrets in this ticket o
 
 | Credential name | Type | Used by |
 | --- | --- | --- |
-| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer Auth | 6 ERP nodes |
+| **TO BE CREATED BY THE DEPLOYING TEAM** | HTTP Bearer Auth | 5 ERP nodes |
 | Malaz | Google Sheets OAuth2 | 4 nodes |
 | Anthropic account 4 | Anthropic API | 1 node |
-⚠ **A staging ERP credential is currently wired: `ERP Token 12th Aug 2026`.** It must **not** travel to production inside the export. Remove it before export, or replace it at deployment with a production token. The ask is the same as the other checks in this batch: **the deploying team creates the ERP credential with a prod token.**
+
+⚠ **A staging ERP credential is currently wired: `Hassan Bearer`.** It must **not** travel to production inside the export. Remove it before export, or replace it at deployment with a production token. The ask is the same as the other checks in this batch: **the deploying team creates the ERP credential with a prod token.**
 
 ## APIs used
 
-The 6 ERP endpoints above — pre-existing and read-only, no new API work required. Also used via their n8n nodes: Google Sheets API v4, Anthropic API.
+The 5 ERP endpoints above — pre-existing and read-only, no new API work required. Also used via their n8n nodes: Google Sheets API v4, Anthropic API.
