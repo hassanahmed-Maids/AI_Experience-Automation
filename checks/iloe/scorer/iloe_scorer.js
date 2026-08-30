@@ -335,6 +335,9 @@ function scoreRun(input) {
       paid_aed: centsToAed(p.amount_cents),
       recovery_aed: null,
       waived_aed: null,
+      group_net_aed: null,
+      group_unit_aed: null,
+      group_txn_count: null,
       loan_status: null,
       verdict: null,
       verdict_label: null,
@@ -380,6 +383,9 @@ function scoreRun(input) {
 
     const k = groupKey(p.maid_id, p.family, p.stage);
     const g = groupNet[k];
+    c.group_net_aed = centsToAed(g.net_cents);
+    c.group_unit_aed = centsToAed(g.unit_cents);
+    c.group_txn_count = g.txn_count;
 
     // -- gate 12: a reversed payment was never a cost -----------------------
     if (g.net_cents < 0) {
@@ -482,10 +488,15 @@ function scoreRun(input) {
     }
 
     // Gate 9 — paid twice. Runs AFTER gate 12 has netted reversals.
-    if (ownsDuplicate) {
+    // EVERY payment in a duplicate group is red, not just the one carrying the
+    // excess. Marking only the owner let the sibling fall through to verifier 2
+    // and be cleaned by an unrelated waiver on the same maid — the exact failure
+    // verifier 2's own Never line names, found on the built flow 2026-08-30.
+    // The excess is still attributed once, so the money total does not inflate.
+    if (groupIsDuplicate) {
       c.rules_fired.push('G9');
-      c.duplicate_excess_aed = centsToAed(dup.excess_cents);
-      reds.push({ rule: 'G9', label: 'ILOE paid twice', cents: dup.excess_cents });
+      c.duplicate_excess_aed = ownsDuplicate ? centsToAed(dup.excess_cents) : 0;
+      reds.push({ rule: 'G9', label: 'ILOE paid twice', cents: ownsDuplicate ? dup.excess_cents : 0 });
     }
 
     // Gate 10 — clean. Guarded against both the waiver gate and gate 9.
@@ -587,6 +598,9 @@ function scoreRun(input) {
     n_pending: 0,
     n_excluded: excluded.length,
     total_finding_aed: 0,
+    // A duplicate group of two payments produces two red CASES but one excess.
+    // Both numbers are reported so "6 payments" is never read as "6 duplicates".
+    n_duplicate_groups: Object.keys(duplicateOwner).length,
     by_label: {},
     by_rule: {},
   };

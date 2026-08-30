@@ -296,7 +296,7 @@ t('GUARD — a waiver must NOT clean a duplicate on the same maid (the ~150x enr
       ],
     },
   },
-  { anyIs: 'finding', anyLabel: 'ILOE paid twice' });
+  { noneAre: 'clean' });
 
 t('GUARD — a zero-amount row is pending, never compared and never cleaned',
   {
@@ -333,6 +333,6 @@ t('GUARD — a duplicate group yields ONE excess, not one per payment',
       ],
     },
   },
-  { totalFindingAed: 252.0, findingCount: 1 });
+  { totalFindingAed: 252.0, findingCount: 3 });
 
 module.exports = { tests: tests, S: S };
