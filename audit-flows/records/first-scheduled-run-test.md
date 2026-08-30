@@ -65,3 +65,48 @@ runnable — they share it.
 It is also the production answer, unchanged: a stored credential, refreshed at deployment with a
 production token. The four flows still reading `$vars` need that credential bound to their ERP nodes
 before they can be tested at all.
+
+
+---
+
+# Second attempt — execution `110226`, 2026-08-30 11:57Z
+
+**Same failure, and now the raw cause is visible.** ERP returned:
+
+```json
+{"timestamp":"2026-08-30 15:57:43","status":500,"error":"Internal Server Error",
+ "message":"Token not valid, {Token is expired}",
+ "path":"/accounting/transactions/page/advancesearchNew"}
+```
+
+**The credential still holds an expired token.** The update did not land — or landed on a different
+credential. Nothing else changed between `110182` and `110226`.
+
+This is exactly the shape Wellcare's own run-config node warned about:
+
+> *"a dead token gives a 498-inside-500 shape rather than a clean 401, which reads like a server
+> fault instead of 'get a fresh token'."*
+
+The lease behaved correctly again: acquired (`granted: true`, `state: held`), then released on the
+error rail (`state: free`, `verified: true`).
+
+## NEW DEFECT — the error classifier loses the cause
+
+`Build Error Callback` reported:
+
+```
+{"code":"erp_error","node":"Get CC Change of Status Transactions","status":null,"message":"unknown error"}
+```
+
+…while the raw error item plainly carried `statusCode: 500` and `"Token not valid, {Token is
+expired}"`. **The classifier read neither.** So the flow's own failure record says *unknown error*
+about a failure the API described precisely.
+
+That matters beyond cosmetics: the Runs row, the failure e-mail and `Fail Loudly`'s thrown message
+all inherit `unknown error`, so an operator reading any of them learns nothing and goes hunting.
+An expired token is the single most likely failure of a scheduled audit — it is the one cause the
+rail should name without being asked.
+
+The error shape it needs to read is nested: `json.error.statusCode` and `json.error.error` (the
+latter a JSON string containing `message`). Worth fixing before any of these flows is scheduled,
+because on a schedule nobody is watching the execution list — the failure record IS the diagnosis.
