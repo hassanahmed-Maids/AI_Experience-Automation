@@ -735,7 +735,7 @@ const anyCandidates = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._empty }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._empty === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }
@@ -909,7 +909,7 @@ const anyExtraPages = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._no_extra }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._no_extra === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }
@@ -1028,7 +1028,7 @@ const anyThreads = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._no_threads }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._no_threads === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }
@@ -1514,7 +1514,7 @@ const anyVerifier = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._none }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._none === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }
@@ -1692,8 +1692,15 @@ const adjudicate = node({
         + '\n' + '  }'
         + '\n' + '  const r = v._reading || {};'
         + '\n' + '  const trace = (det.trace || []).slice();'
-        + '\n' + '  const paid = det.allowed + det.paid_vs_allowed;'
-        + '\n' + '  const raisePer = det.renewals_counted > 0 ? (det.allowed - det.base_aed) / det.renewals_counted : 0;'
+        + '\n' + '  // The scorer emits allowed_aed, NOT allowed. Reading the wrong name here made paid and'
+        + '\n' + '  // raisePer NaN, every comparison below false, and a CLEAN maid fell through to pending -'
+        + '\n' + '  // silently, because NaN serialises to null and pending looks like an honest cannot-tell.'
+        + '\n' + '  // Caught only by running the flow end to end. The guard makes a future rename LOUD.'
+        + '\n' + '  const paid = det.allowed_aed + det.paid_vs_allowed;'
+        + '\n' + '  const raisePer = det.renewals_counted > 0 ? (det.allowed_aed - det.base_aed) / det.renewals_counted : 0;'
+        + '\n' + '  if (!Number.isFinite(paid) || !Number.isFinite(raisePer)) {'
+        + '\n' + '    throw new Error("CASE CONTRACT BROKEN for " + det.case_key + ": the scorer did not supply the numeric fields Adjudicate composes with (allowed_aed, base_aed, paid_vs_allowed, renewals_counted). Run stopped rather than turning composable cases into pendings.");'
+        + '\n' + '  }'
         + '\n' + ''
         + '\n' + '  function settle(order, num, name, verdict, reason, extra) {'
         + '\n' + '    trace.push({ order: order, numeral: num, name: name, detail: reason });'

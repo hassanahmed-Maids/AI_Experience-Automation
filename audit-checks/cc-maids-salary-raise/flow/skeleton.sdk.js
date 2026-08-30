@@ -342,7 +342,7 @@ const anyCandidates = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._empty }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._empty === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }
@@ -497,7 +497,7 @@ const anyExtraPages = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._no_extra }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._no_extra === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }
@@ -571,7 +571,7 @@ const anyThreads = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._no_threads }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._no_threads === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }
@@ -660,7 +660,7 @@ const anyVerifier = ifElse({
     parameters: {
       conditions: {
         options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' },
-        conditions: [{ leftValue: expr('{{ $json._none }}'), operator: { type: 'boolean', operation: 'notTrue', singleValue: true } }],
+        conditions: [{ leftValue: expr('{{ $json._none === true }}'), operator: { type: 'boolean', operation: 'false', singleValue: true } }],
         combinator: 'and'
       }
     }

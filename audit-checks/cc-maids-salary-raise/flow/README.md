@@ -41,6 +41,41 @@ node make-skeleton.mjs      # splits workflow.sdk.js -> skeleton.sdk.js + bodies
 - the crash path releases the ERP lease, reading `run_id` from the row builder rather than from
   the Data Table node, whose output is `{id, createdAt, updatedAt}` and carries no `run_id`
 
+## End-to-end run (2026-08-30) — and the two bugs it caught
+
+`node flow/contract-test.mjs` runs the DEPLOYED bodies offline through a fake n8n context
+(`harness.mjs`) and asserts the verdicts. It exists because the 115-assertion suite in `../test/`
+exercises `../lib/`, which is a **mirror** of the deployed logic — and two bugs walked straight
+through it, both invisible to any per-node unit test because both live *between* nodes:
+
+**1. Every branch gate sent the happy path down the empty branch.** All four If nodes used
+operator `notTrue`, which n8n does not implement; an unrecognised operation evaluates false. The
+first real execution scored nobody, wrote a run row reading `candidates 0 / findings 0`, and
+reported **success** — the precise failure this check family exists to prevent. Valid boolean
+operations are `exists / notExists / true / false`.
+
+**2. Adjudicate composed with `det.allowed`; the scorer emits `det.allowed_aed`.** `paid` and
+`raisePer` went `NaN`, all three comparisons fell through, and a maid whose evidence composes
+*exactly* to what she was paid was recorded **pending** instead of **clean** — silently, because
+`NaN` serialises to `null` and pending reads like an honest cannot-tell. The mirror missed it
+because `lib/scorer.js` and `lib/adjudicate.js` agree on `allowed` between *themselves*.
+
+The contract test now pins both: it asserts the three verdicts end to end, checks every `det.*`
+field Adjudicate reads is one the scorer actually emits, and rejects any If gate using an
+operation n8n does not implement. It caught a third instance immediately — `notTrue` was still in
+the repo source after being fixed live, so a redeploy would have reintroduced it.
+
+Run all three before any deploy:
+
+```
+node test/run.js            # 115 assertions over lib/ (the logic)
+node flow/contract-test.mjs # 12 assertions over the deployed bodies (the wiring contract)
+node flow/make-skeleton.mjs # regenerate skeleton.sdk.js + bodies.json from workflow.sdk.js
+```
+
+Smoke rows: executions 110642 and 110646 wrote run rows reading `candidates 0` — those are the
+pre-fix buggy runs, not real results. Every smoke row carries `check_id = SMOKE-…`.
+
 ## Still required before any real run
 
 Sign-off. This check accuses named people of being overpaid; the spec requires an independent
