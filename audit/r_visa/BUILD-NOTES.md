@@ -173,6 +173,12 @@ Three ways forward, in the order I'd recommend them:
    recurring or scheduled warehouse pulls go to the ERP/Data team; this check is
    manual-trigger only, which is why it is worth raising explicitly rather than
    just building.
+   ⛔ **Blocked as well, as of 2026-08-30.** The Snowflake connector authenticates
+   as `hassan.ahmed@maids.cc` with role `PAYROLL_AND_MONEY_CONTROL_ROLE`, but
+   `CURRENT_WAREHOUSE()` is empty and `SHOW WAREHOUSES` returns **zero rows** — the
+   role holds USAGE on no warehouse, so every query that scans data fails with
+   *"You must specify the warehouse to use"*. This option needs a warehouse grant
+   on top of the ERP permission, which is why option 1 is now the cleaner ask.
 3. **Grant the permission and call detail per transaction.** ~1,400 calls a month
    against a budget of 500, and an all-time backfill far worse. Not viable.
 
