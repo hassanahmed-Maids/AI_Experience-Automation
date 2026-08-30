@@ -167,3 +167,38 @@ own flagship red, which cleared for Jul 2026 and flags correctly for Jun 2026.
 6. **Maker/checker sign-off before any real run, and before publishing or scheduling.** Required
    by the spec: money-out payroll, and a finding alleges someone was overpaid without authority.
    Reviewer is the Police & Control officer who did **not** run the check.
+
+---
+
+## 6. Defects found in the flow build itself (2026-08-30)
+
+Three, all caught by reviewing my own draft before deploying it. Recorded because each one would
+have produced a run that *looked* successful:
+
+1. **Two "nothing to do" branches returned `[]`.** A node that emits zero items makes n8n skip
+   every node downstream — the scorer, the verifier, the case store and the run row would all
+   silently never execute, and the execution would still report success. An empty audit that
+   looks like a completed one. Both are now passthroughs.
+
+2. **Order 57 could never fire.** The rule says an MV→CC switcher is pending, never red. But no
+   per-maid route exposes the distinction — `getHousemaidInfo` does not carry `oldHousemaidType`,
+   and its `housemaidType` is a recruitment channel, not CC vs MV. The only source is the
+   *request* side of `filterHousemaids`. Without a separate MV_TO_CC sweep, a switcher above her
+   allowance would have reached the candidate route and could have been **accused** — precisely
+   what the rule exists to forbid. The cohort is now enumerated separately and intersected with
+   the candidates, with the same reconciliation discipline as the main walk.
+
+3. **The verifier was being asked to judge evidence it was never given.** The agent prompt
+   referenced `$json.evidence`, and nothing attached it. Worse, the **comment threads were never
+   fetched at all** — and verifier rule 80 is explicit that the thread is the ONLY place a
+   *denial* is recorded. A verifier reading descriptions alone can be talked into clearing a maid
+   whose raise was explicitly refused. Threads are now fetched wherever `commentCount > 0`,
+   attached per maid, and every text is HTML-stripped and phone/email scrubbed before the model
+   sees it. An unreadable thread is a **blocking** gap: absence of a refusal cannot be relied on
+   when the place refusals live could not be read.
+
+**Budget impact of (3):** the thread reads are the largest single per-candidate cost. The gate now
+budgets 13 calls per candidate (4 enrichment + 3 sweep + ~6 threads) rather than 7, which roughly
+halves how many candidates fit a 500-call run. That is a real constraint and it pushes harder
+toward cohort-scoped runs — but the threads are not optional, because they are the only thing that
+distinguishes an approval from a refusal.
