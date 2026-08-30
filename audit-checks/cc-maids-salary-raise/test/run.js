@@ -234,7 +234,22 @@ const paidDispute = S.scoreMaid(F.base({
   payroll_history: F.MONTHS.map(m => ({ formattedPayrollMonth: m, basicSalary: 2000,
     companySalary: 2400, totalAddition: 0, totalDeduction: 0, netSalary: 2400 }))
 }));
-eq('basicSalary/companySalary disagreement BLOCKS a clean', paidDispute.verdict, 'pending');
+eq('basicSalary/companySalary disagreement is RECORDED but does not block',
+   paidDispute.verdict, 'clean');
+eq('...and the divergence is on the case record', paidDispute.gaps.length, 1);
+eq('...as a non-blocking gap', paidDispute.gaps_blocking.length, 0);
+
+// The live ERP month format. `formattedPayrollMonth` is "MMM YYYY", not ISO — an earlier version
+// of monthKey assumed YYYY-MM, which matches NO month, drops every maid out of population, and
+// produces a silent empty run that looks like a clean one.
+eq('the live ERP month format keys correctly', S.monthKey('Jul 2026'), '2026-07');
+eq('a long month name keys correctly', S.monthKey('July 2026'), '2026-07');
+eq('single-digit months pad', S.monthKey('Jan 2026'), '2026-01');
+eq('ISO still keys correctly', S.monthKey('2026-07'), '2026-07');
+const liveFmt = S.scoreMaid(F.base({ maid_id: 125, payroll_month: 'Jul 2026',
+  payroll_history: [{ formattedPayrollMonth: 'Jul 2026', basicSalary: 2000, companySalary: 2000,
+                      totalAddition: 0, totalDeduction: 0, netSalary: 2000 }] }));
+eq('a maid whose history uses the ERP month format is IN population', liveFmt.verdict, 'clean');
 
 // Structural asserts.
 throws('a case with no maid id STOPS the run',
@@ -297,6 +312,52 @@ throws('adjudicating an already-settled case STOPS the run',
 eq('a case still holding candidate at delivery becomes PENDING, never clean',
    A.finalise([cand])[0].verdict, 'pending');
 eq('and it is attributed to Order 78 ⓯', A.finalise([cand])[0].settled_by, 'Order 78 ⓯');
+
+// The reduced-month guard. Maid 3978 is the live proof: +350 over her capped entitlement in 15
+// of 24 months, and BELOW it in the month this build first picked — every row marked Paid,
+// transferred, no exclusion reason. Scoring that month cleared the spec's flagship red.
+const REDUCED = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07'];
+function histVarying(map) {
+  return REDUCED.map(m => ({ formattedPayrollMonth: m, basicSalary: map[m], companySalary: map[m],
+                             totalAddition: 0, totalDeduction: 0, netSalary: map[m] }));
+}
+// allowed = 2000 + 350x min(4,2) = 2700. Prevailing 3050 (5 months) with one reduced month.
+const reducedMonth = S.scoreMaid(F.base({
+  maid_id: 200, payroll_month: '2026-07',
+  renew_requests: [F.renewal('2019-08-18'), F.renewal('2021-08-14'),
+                   F.renewal('2023-07-28'), F.renewal('2025-04-25')],
+  payroll_history: histVarying({ '2026-01':3050,'2026-02':3050,'2026-03':3050,'2026-04':3050,
+                                 '2026-05':3050,'2026-06':3050,'2026-07':2355 })
+}));
+eq('a reduced audited month does NOT clear a maid whose prevailing rate is above entitlement',
+   reducedMonth.verdict, 'pending');
+eq('...and it lands on the catch-all rather than inventing a rule number',
+   reducedMonth.settled_by, 'Order 78 ⓯');
+eq('...attributable by route_reason', reducedMonth.route_reason,
+   'audited_month_reduced_below_prevailing_rate');
+// The same maid scored in a NORMAL month must still flag properly.
+const normalMonth = S.scoreMaid(F.base({
+  maid_id: 201, payroll_month: '2026-06',
+  renew_requests: [F.renewal('2019-08-18'), F.renewal('2021-08-14'),
+                   F.renewal('2023-07-28'), F.renewal('2025-04-25')],
+  payroll_history: histVarying({ '2026-01':3050,'2026-02':3050,'2026-03':3050,'2026-04':3050,
+                                 '2026-05':3050,'2026-06':3050,'2026-07':2355 })
+}));
+eq('the same maid in a normal month is a candidate', normalMonth.verdict, 'candidate');
+eq('and she is capped out on renewal raises', normalMonth.capped_out, true);
+// The guard must NOT fire for a maid whose prevailing rate is legitimately at or below entitlement.
+const genuinelyFine = S.scoreMaid(F.base({
+  maid_id: 202, payroll_month: '2026-07',
+  renew_requests: [F.renewal('2024-01-01')],
+  payroll_history: histVarying({ '2026-01':2350,'2026-02':2350,'2026-03':2350,'2026-04':2350,
+                                 '2026-05':2350,'2026-06':2350,'2026-07':1900 })
+}));
+eq('a reduced month for a maid whose prevailing rate is compliant still clears',
+   genuinelyFine.verdict, 'clean');
+// The mode, not the max: a single arrears spike must not become "her rate".
+eq('a one-off spike does not become the prevailing rate',
+   S.prevailingTotal(histVarying({ '2026-01':2350,'2026-02':2350,'2026-03':2350,'2026-04':2350,
+                                   '2026-05':2350,'2026-06':2350,'2026-07':9000 })).total, 2350);
 
 // ── Summary ─────────────────────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(78));

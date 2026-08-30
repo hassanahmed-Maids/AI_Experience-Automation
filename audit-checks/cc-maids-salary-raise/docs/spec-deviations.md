@@ -127,6 +127,30 @@ was used.
 
 ---
 
+## 4a. Added after live probing (2026-08-30)
+
+Full detail in `api-payloads.md`. The three that change behaviour:
+
+- **The documented pagecode for payroll history does not work; another one does.** `getHistoryLog`
+  is `INSUFFICIENT_PERMISSIONS` on `HousemaidsPayrollHistory` and **200 on `HousemaidsPayrollList`**.
+  Permissions are per route × pagecode. Probing only the documented one would have reported this
+  check as blocked on access the operator already has.
+- **The population status filter silently falls through to the entire population** if the key or
+  value shape is wrong. Only `status: "<single string>"` filters; every array form returns HTTP 200
+  and all 80,621 CC maids. The run must assert the filter narrowed the result before paging.
+- **The monthly total is not a stable rate.** A maid at a rate above entitlement clears if the run
+  audits a month that happened to be reduced — and reduced months carry no exclusion flag of any
+  kind. New guard added (§1.4).
+
+### 1.4 A reduced audited month cannot produce a clean
+**Spec position:** not addressed.
+**What was built:** if the audited month reads at or below entitlement but the maid's *prevailing*
+monthly total is above it, the case is `pending`, never `clean`. Routed to the existing catch-all
+Order 78 ⓯ rather than a new numeral, since adding rules is the ACP's job, not the build's.
+**Effect:** prevents a false clearance produced purely by month selection. Verified on the spec's
+own flagship red, which cleared for Jul 2026 and flags correctly for Jun 2026.
+**To close:** a new ACP rule — Jacky and Malaz.
+
 ## 5. Still needing a human
 
 1. **The ERP token** — one paste per run, the operator's own. The flow holds no ERP credential.
@@ -135,6 +159,11 @@ was used.
    (`getMaidsSalariesOverNationalitiesTodo`, currently 401 on the auditing role, or a wrapper over
    `findLogByPayrollMonthAndTransferredTrue`). Both would collapse the fan-out entirely and the
    first would supply the change trail this check currently reconstructs.
-4. **Maker/checker sign-off before any real run, and before publishing or scheduling.** Required
+4. **A new ACP rule for the reduced-month guard** (§1.4), and an audited month named on the
+   five-case table — two of the five expected verdicts are month-dependent and the table names no
+   month. → Jacky, Malaz.
+5. **A permission request** for `GET /visa/renewRequest/housemaid/{id}` on `VisaProcessingPage`
+   (`raiseApproved`). Degrades corroboration only; the check runs without it.
+6. **Maker/checker sign-off before any real run, and before publishing or scheduling.** Required
    by the spec: money-out payroll, and a finding alleges someone was overpaid without authority.
    Reviewer is the Police & Control officer who did **not** run the check.

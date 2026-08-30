@@ -248,16 +248,67 @@ function detectRecurringAddition(history, minRun) {
   return best;
 }
 
-/** Normalises `formattedPayrollMonth` to a sortable YYYY-MM. Accepts YYYY-MM and MM-YYYY. */
+/**
+ * Normalises `formattedPayrollMonth` to a sortable YYYY-MM.
+ *
+ * ERP HANDS THIS BACK AS "MMM YYYY" — literally "Jul 2026". Confirmed live 2026-08-30 on
+ * getHistoryLog. Neither the spec nor the variable row records the format, and an earlier
+ * version of this function assumed YYYY-MM: it would have matched NO month at all, which reads
+ * as "no payroll row for the audited month" and drops every maid out of population — a silent
+ * empty run that looks like a clean one.
+ *
+ * Accepts the ERP form plus the ISO forms, so a warehouse-sourced fixture still keys correctly.
+ */
+const MONTH_ABBR = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+                     jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
 function monthKey(s) {
   const t = String(s || '').trim();
-  let m = /^(\d{4})-(\d{1,2})$/.exec(t);
+  // "Jul 2026" / "July 2026" — the live ERP form.
+  let m = /^([A-Za-z]{3,})\s+(\d{4})$/.exec(t);
+  if (m) {
+    const mm = MONTH_ABBR[m[1].slice(0, 3).toLowerCase()];
+    if (mm) return m[2] + '-' + mm;
+  }
+  m = /^(\d{4})-(\d{1,2})$/.exec(t);
   if (m) return m[1] + '-' + m[2].padStart(2, '0');
   m = /^(\d{1,2})-(\d{4})$/.exec(t);
   if (m) return m[2] + '-' + m[1].padStart(2, '0');
   m = /^(\d{4})-(\d{1,2})-\d{1,2}/.exec(t);
   if (m) return m[1] + '-' + m[2].padStart(2, '0');
   return t;
+}
+
+/**
+ * The maid's PREVAILING monthly total across the retrieved window — the modal `basicSalary`.
+ *
+ * WHY THIS EXISTS. The spec models `payroll_total_salary` as a stable contractual rate and
+ * compares the audited month against entitlement. Probed live 2026-08-30, IT IS NOT STABLE:
+ * maid 3978 reads +350 over her capped entitlement in 15 of her last 24 months and BELOW it in
+ * five, with every single row marked `Paid`, transferred, and carrying no exclusion reason at
+ * all. The dips are reduced months (unpaid days and the like), not rate changes.
+ *
+ * The consequence runs in the FALSE-CLEARANCE direction, which is the one that defeats the
+ * check: audit a maid in a month that happened to be reduced and she clears, however far above
+ * entitlement her actual rate is. Scoring maid 3978 — the spec's own flagship red — for
+ * Jul 2026 clears her. Scoring her for Jun 2026 flags her correctly. The verdict should not
+ * depend on which month the run happened to pick.
+ *
+ * The mode is used rather than the max so that a one-off spike (arrears, a correction) does not
+ * become "her rate" either. A tie takes the higher value, since this check looks upward only.
+ */
+function prevailingTotal(history) {
+  const counts = new Map();
+  for (const r of (Array.isArray(history) ? history : [])) {
+    const v = Number(r && r.basicSalary);
+    if (!Number.isFinite(v)) continue;
+    counts.set(v, (counts.get(v) || 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  let bestVal = null, bestN = -1;
+  for (const [v, n] of counts) {
+    if (n > bestN || (n === bestN && v > bestVal)) { bestVal = v; bestN = n; }
+  }
+  return { total: bestVal, months: bestN, distinct_totals: counts.size };
 }
 
 /**
@@ -397,11 +448,16 @@ function scoreMaid(maid, opts) {
   }
   const paid = paidRead.paid;
   if (paidRead.disagreement) {
-    // BLOCKS: if the two disagree, what she was actually paid is itself in doubt, and the whole
-    // comparison rests on it.
-    gap('basicSalary and companySalary disagree on the audited month; basicSalary used. These ' +
-        'are identical on every row observed to date — a divergence invalidates the reader\'s ' +
-        'assumption and must be looked at.', true);
+    // DOES NOT BLOCK. The spec's variable row DESIGNATES the field — payroll_total_salary is
+    // "[].basicSalary" — and adds "(identical to [].companySalary on every row observed)" as an
+    // OBSERVATION. That observation is FALSIFIED: probed live 2026-08-30, the two agree on only
+    // 9 of 12 months for one real maid. The instruction still stands; only the parenthetical was
+    // wrong, so basicSalary is used and the divergence is recorded rather than treated as an
+    // unknown. Blocking on it would strand a large share of the population on a field the spec
+    // never asked the check to read.
+    gap('basicSalary and companySalary disagree on the audited month; basicSalary used, per the ' +
+        'spec\'s designated field. The two are NOT always identical (falsified live 2026-08-30) ' +
+        '— the spec\'s parenthetical claim that they are should be corrected.', false);
   }
 
   // ── Order 40 ❹ — Read the standard live from ERP, never from a spreadsheet ─────────────────
@@ -595,6 +651,29 @@ function scoreMaid(maid, opts) {
         route_reason: 'at_exactly_ruled_cohort_level' });
   }
 
+  // ── Reduced-month guard — lands on Order 78 ⓯ ─────────────────────────────────────────────
+  // NOT an ACP rule: it is a build-added guard, declared in docs/spec-deviations.md, and it is
+  // deliberately routed to the existing catch-all (⓯ "anything no rule settled is pending, never
+  // clean") rather than given a numeral of its own, because inventing rule numbers is a
+  // governance act and the ACP is the only place rules live.
+  //
+  // If the audited month reads at or below entitlement but her PREVAILING total is above it, the
+  // audited month is reduced and cannot demonstrate that her rate is compliant. Pending, never
+  // clean — and never a finding either, since this guard proves nothing about authorisation.
+  const prevailing = prevailingTotal(maid.payroll_history);
+  if (prevailing && prevailing.total > allowed && paid <= allowed) {
+    return settle(78, '⓯', 'A maid no rule settled is pending, never clean', V.PENDING,
+      'the audited month reads at or below her allowance, but her PREVAILING monthly total ' +
+      '(the modal figure across ' + prevailing.months + ' of the months read) is ABOVE it. The ' +
+      'audited month is reduced, so it cannot show her rate is compliant. Scoring it as clean ' +
+      'would clear her on the accident of which month the run picked.',
+      { paid_vs_allowed: delta, allowed, base, renewals_counted: countedRenewals,
+        capped_out: cappedOut, recurring_addition: recurring,
+        prevailing_vs_allowed: prevailing.total - allowed,
+        prevailing_months: prevailing.months, distinct_totals: prevailing.distinct_totals,
+        route_reason: 'audited_month_reduced_below_prevailing_rate' });
+  }
+
   const blocking = blockingGaps();
   if (blocking.length > 0) {
     // A gap that could LOWER her allowance caps the verdict. A clean produced over a hole of
@@ -617,6 +696,7 @@ module.exports = {
   V, RULINGS, RVISA_TAGS, NOT_RVISA_TAGS,
   assertRulings, rulingsChecksum,
   readRenewalRaise, readMvAppSalaryRange, sumSalaryRuleComponents,
-  countQualifyingRenewals, detectRecurringAddition, readPaidForMonth, monthKey, cohortKey,
+  countQualifyingRenewals, detectRecurringAddition, readPaidForMonth, prevailingTotal,
+  monthKey, cohortKey,
   scoreMaid
 };
