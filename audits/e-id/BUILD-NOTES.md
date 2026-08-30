@@ -9,8 +9,8 @@ Spec: Notion "E-ID Audit" v0.5 (road-map #57, module Visa). Status of this build
 | 2 — probe every surface | **Round 1 done, live, 2026-08-30.** Surface table below. One BLOCKER found. |
 | 3 — document payloads | Done from the spec's own ERP-Variables rows, which are unusually complete and ERP-confirmed 2026-08-20. Call budget recounted below. |
 | 4 — resolve business logic | Done. 13 deterministic gates + 5 verifier rules + 1 shared rule implemented or declared. 3 genuine questions remain, all already open on the spec. |
-| 5 — build in n8n | Not started. Golden identified. |
-| 6 — test end to end | Offline leg done: `scorer.test.js`, 53/53, all six spec cases reproduced. Live legs need Phase 1. |
+| 5 — build in n8n | **Done.** `ABNaSxxRV6vzQTNi`, 9 nodes, DRAFT, Adeeb project. Holds no ERP credential. |
+| 6 — test end to end | **Offline complete: 84/84** (53 scorer + 31 deployed-node). Live legs need a fresh token. |
 | 7 — validate | Partial; population proof needs Phase 2. |
 
 ## What is built
@@ -182,3 +182,86 @@ rails — same endpoint, same header set, correct `returnFullResponse` +
 `ignoreHttpStatusErrors` shape. `CC Overstay Fines — generated v1`
 (`3465kkSf4JYjlpXk`) for the check rails: same expense-head population shape,
 same per-maid grouping, same delivery. Both in the Adeeb project.
+
+## Phase 5 — the built flow
+
+**`E-ID Audit — generated v1 (draft)`**, workflow `ABNaSxxRV6vzQTNi`, Adeeb project.
+DRAFT: never published, never scheduled, **no ERP credential attached** (confirmed
+by read-back — the trigger reports "No credentials required"). The token arrives
+per run in the request body.
+
+Nine nodes, linear:
+
+| # | Node | What it guarantees |
+|---|---|---|
+| 1 | Run Webhook | Manual only, per the spec's trigger rule |
+| 2 | Guard and Reference | Token shape, window shape, and the **reference checksum** (`afe2ba7f`) — a moved constant aborts the run rather than rescoring the population against a new yardstick |
+| 3 | Sweep Population | 8 heads × `operation "="`, `size=40`, 250 ms pacing. Asserts `pulled == totalElements` **per head**. Projects `description` away immediately |
+| 4 | Resolve Identity | **One** preflight detail call decides availability; a refusal skips enrichment entirely rather than firing ~1,700 refusals at ERP |
+| 5 | Score Cases | ACP Orders 10–130, first-match-wins |
+| 6 | Write Runs Row | Runs log written **before** the case payload, per the standing build rule |
+| 7 | Fan Out Cases | One item per case |
+| 8 | Write Cases | Per-entity amounts and identifiers land in the case store, never the summary |
+| 9 | Summarise | Counts, flags and totals only; declared gaps printed loudly |
+
+Data tables: `EID_Runs` (`0k5TZZffQ6Mp38eS`), `EID_Cases` (`9FMtncMg3RKTrTHi`).
+
+### Two design calls worth stating
+
+**The zero-population stop is per-run, not per-head.** The heads are era-bound
+(cutover December 2025), so a zero on one head is *normal* for a window on the
+other side of it. Aborting per-head would abort every 2026 run. Aborting only when
+all heads are empty is what ACP ❶'s run-stop actually means.
+
+**Identity is decided by one call, not by 1,700 failures.** The naive build fires a
+detail call per row and collects ~1,700 refusals. The preflight settles it once,
+then the run proceeds honestly degraded.
+
+## Phase 6 — test results
+
+**Offline: 84 assertions, 0 failures.**
+
+- `scorer.test.js` — 53/53. The standalone scorer: all five spec cases, the sixth
+  false-positive trap, and a guard per named edge.
+- `flow-score-node.test.js` — 31/31. The **deployed** node body, fed the shape the
+  flow actually produces.
+
+The degraded-path block is the one that matters for this build. Fed the real
+duplicate (maid 21014's two 353.91 rows on 2026-02-24) **with no identity**, the
+flow returns `pending` for both — it neither claims the finding it cannot prove nor
+clears rows it never examined. Asserted explicitly:
+
+```
+NOTHING is cleared                              clean = 0
+NOTHING is called a finding                     findings = 0
+every case fires gate 20 only                   rules_fired = ["20"]
+no maid id is invented                          maid_id = [""]
+the real duplicate is neither found nor cleared verdict = ["pending"]
+```
+
+A partial identity budget is covered too: when enrichment resolves some rows and
+runs out of budget on the rest, the unresolved rows still park — a half-finished
+enrichment never clears the remainder.
+
+**Live legs outstanding** (need a fresh token — the probe token expired 22:00 UTC):
+1. live-small: one head, one week, `smoke_heads_only` — confirms paging, the
+   completeness assert and the data-table writes against real rows;
+2. live-full: one month, all eight heads — confirms the population count against
+   the independent per-head figures already measured, and the ~50-call budget.
+
+## Phase 7 — validation status
+
+| Required | State |
+|---|---|
+| Test results vs every spec case | Done, 84/84, figures above |
+| Field-level diff vs the golden | Not produced — this is not a clone of a golden; the rails were rebuilt because no sibling shares the era-banding or the rename collapse |
+| Population proof + independent count | **Partial.** Head 1682/Feb-2026 proved at 794 against the warehouse-derived reference. Full 8-head proof needs the live-full run |
+| Declared gaps | Done — identity, window-scoped duplicate rule, unwired delivery |
+| Spec corrections filed | Done — `cc_overstay_txn_maid_id`, plus the two undocumented test-case heads |
+| What still needs a human | Identity permission; open items 2/3/4; sign-off before any real run |
+
+### Not wired, and deliberately so
+Security Room portal, the colour-coded workbook, and the draft email to Malaz. The
+runs log and case store are wired. The spec calls for all five; the other three need
+credentials and destinations nobody has given me, and inventing them would be worse
+than leaving them declared.
