@@ -1,6 +1,5 @@
-<!-- DRAFT — NOT POSTED. SD template, required items only. Rewritten 2026-08-30 after the flow was
-     made deployable: ERP auth moved to a credential slot, staging-only nodes removed, and the
-     Google Sheets delivery built (it had none).
+<!-- POSTED 2026-08-30 by API as SD-67698, immediately routed to MC-1997.
+     Notion status: "On Jira pending production".
      Production export: audit-flows/jira/exports/applicant-real-ticket.prod.json (64 nodes). -->
 
 # Jira fields
