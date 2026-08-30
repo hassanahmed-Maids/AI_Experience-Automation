@@ -61,7 +61,7 @@ All five are **unpublished drafts** (`active: false`).
 
 No webhook, no manual trigger, no inbound endpoint of any kind.
 
-> **PRE-DEPLOYMENT CONVERSION REQUIRED — two webhooks to remove.** Stage 1's entry is a webhook (`Run Check`) and must become the schedule trigger. Stage 3 additionally exposes `POST /mv-monthly-payment-rollup`, which is deleted.
+> **CONVERSION APPLIED — two webhooks removed.** Stage 1's webhook entry (`Run Check`) has been replaced by a `Run Monthly` schedule trigger, and Stage 3's `POST /mv-monthly-payment-rollup` entry (`Rollup In`) is disabled and is stripped from the shipped export. Both stages carry timezone `Asia/Dubai`. This does **not** clear the four blockers above.
 >
 > **Deleting the rollup entry has a stated cost.** It exists because a run can die mid-slice and everything already scored would otherwise be unreportable — Stage 1 is the only other way in and it always sweeps the ERP first. The replacement is a **manual execution of Stage 3** for a dead run. That is acceptable, but it must be a documented fallback rather than a capability that silently disappears.
 
