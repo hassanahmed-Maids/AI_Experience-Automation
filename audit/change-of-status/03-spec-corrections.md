@@ -134,3 +134,55 @@ The permission gap answers it by force for now: **they cannot run**. That is
 option A of the item — "leaving this purely the duplicate check" — arrived at by
 constraint rather than by ruling. The ruling is still worth making, because it
 decides what happens once the permissions are granted.
+
+---
+
+## 9. The check page's two fine-volume figures contradict each other
+
+**Currently says** (heading 9): *"add one `/visa/overstay-fines/housemaid/{id}`
+and one recovery call per fine-bearing row: **12.5% of rows**, roughly
+**130–190 a month** on top."*
+
+Those are two different claims and they do not agree:
+
+| Figure | Implies for a 704-row month |
+|---|---|
+| "12.5% of rows" | **88** rows |
+| "130–190 a month" | **18.5% – 27.0%** |
+| **Measured, July 2026 (run 110429/110690)** | **104 rows = 14.8%** |
+
+The measured value sits between them, so neither is right as stated. It matters
+because it sizes the extra call budget for the fine-recovery half once the visa
+and payroll permissions are granted: 104/month, not 88 and not 190.
+
+## 10. The base is exact, and every live fine is a clean AED 50 multiple
+
+Measured over all 704 July rows:
+
+- **All 600 clean rows sit at exactly AED 575.65.** The 2024-onward band in
+  ⓱ is confirmed dead-on for the live population — not approximately, exactly.
+- **All 104 fine-bearing rows are 575.65 + an exact multiple of AED 50**
+  (104/104). Implied days: 1–21 for 98 of them, with six outliers at 49, 55,
+  163, 255 and 267 days — the largest being AED 13,350 over base.
+- **Zero rows fall in the 52/103/155 daily-rate family.**
+
+**Why this matters for rule ❻'s binding.** The tagged rule's per-check note says
+this check has *"two daily-rate families here, so the ×50 consistency test does
+not bind identically"*, citing Khalil's two-month sample where both families
+appear. In the **live** population only the 50-family is present. The second
+family looks like a legacy-era artefact, which would let ❻'s consistency test
+bind here after all — worth confirming across more months before ruling.
+
+⚠️ **This is NOT a licence to size fines by subtraction.** Order 40 forbids that
+outright, and rule ❻ permits the ×50 arithmetic only as a *consistency check,
+never as a source*. What is recorded above is an observation about the shape of
+the live data, not a method for valuing a fine. The reason the prohibition still
+stands is visible in this very check: AED 590.54 is an unexplained second live
+price (*Still open* item 5), and any row carrying it would make the subtraction
+produce a phantom ~AED 15 fine. None appeared in July — **zero rows at 590.54** —
+but the spec reports 327 such rows across the current heads, so they exist in
+other months.
+
+**Also worth a human eye:** the six outliers above 21 implied days, and
+especially the 163/255/267-day ones, are far outside the bulk of the
+distribution.
