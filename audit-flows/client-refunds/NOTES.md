@@ -170,3 +170,81 @@ email.
   Jacky; the difference only bites a refund landing within 50 fils of its purpose's limit.
 - **The AED 1.92M question** (679 refunds over AED 1,000 with no approval) is decidable by the
   first ⓫ population run and is *not yet decided*. No split of that figure may be quoted until it runs.
+
+---
+
+# Live findings, 2026-08-30 (n8n smoke runs 110421 / 110426 / 110427)
+
+Flow: **`Client Refunds · 1-Score (draft)`** — n8n `XNAeirfksS1dIpZl`, Adeeb project.
+Draft, never published, never scheduled. Three smoke runs, one ERP request each,
+all stopped on the first (cheapest) call exactly as designed.
+
+## 7. ERP authentication needs TWO values, not one — the bearer is not the session
+
+The bearer token alone is refused. Every call returns:
+
+```
+HTTP 500  (content-type: text/html)
+<html>… type=Http Status 498, status=498 …
+Access Token is missing or malformed &lt;LOGOUT&gt;</html>
+set-cookie: authTokenProduction=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 …
+```
+
+**The `set-cookie` line is the proof.** ERP responds by *clearing* `authTokenProduction`,
+which means it reads the session from that **cookie**, not from the `Authorization` header.
+The header is necessary but not sufficient.
+
+This retro-explains the golden flows: they carry **three** run values —
+`erp_token`, `erp_device_id` and **`erp_is_auth`** — and `erp_is_auth` is the
+`authTokenProduction` cookie value. It was never optional; nothing had documented it as
+load-bearing.
+
+Ruled out, so this is not guesswork:
+
+- **Not expiry.** `Prepare Run` decoded the JWT and reported **416 minutes left**
+  (issued 10:42 UTC, expires 22:00 UTC, ERP's own clock 19:07 GST).
+- **Not a wrong pagecode or a missing grant.** Those produce 401 with a
+  `developerMessage`, not 498, and 498 arrives before any pagecode check.
+- **Not the `Bearer` prefix.** Probed both with and without; byte-identical refusal.
+- **Not ERP being down.** It answered in ~300 ms every time with a well-formed refusal.
+
+**What the operator must supply:** bearer + numeric device id + the `authTokenProduction`
+cookie value. The form now has a field for it.
+
+## 8. Three n8n traps, each found by a run that "worked"
+
+Each of these produced a *plausible-looking* failure that pointed at the wrong culprit.
+Worth adding to the shared traps file — the first two would silently mis-diagnose any
+ERP auth problem in any check in this family.
+
+1. **`neverError: true` does NOT cover a response-parse failure.** With
+   `responseFormat: 'json'` and an HTML body, the HTTP node throws
+   *"Response body is not valid JSON. Change Response Format to Text"* **before** any
+   downstream classification runs. The carefully-written 498 message was unreachable, and
+   the run died pointing at a JSON parser. **Use `responseFormat: 'autodetect'`** on any
+   node whose error path might not be JSON — which, on this ERP, is all of them.
+
+2. **With `fullResponse` + `autodetect`, the payload key depends on the content type:**
+   JSON lands under `body`, anything else under **`data`**. A classifier reading only
+   `body` gets `undefined` on exactly the responses it exists to classify, and falls
+   through to a generic branch. Read `body ?? data`.
+
+3. **ERP wraps 498 in a 500 and serves it as HTML,** so neither the HTTP status nor a
+   JSON `.status` field is reliable. The inner status has to be regex-read out of the
+   whitelabel page. A bare status-code check reads "dead session" as "server error" and
+   sends the operator to look at a server that is working perfectly.
+
+## 9. Flow status
+
+| Stage | State |
+|---|---|
+| Token shape + expiry gate | ✅ works (correctly reported 416 min left) |
+| Refusal classifier | ✅ works — names the cookie, the remedy and where to get it |
+| Config read + 68-row checksum | ⛔ blocked on the cookie value |
+| Population sweep | ⛔ never runs; the flow stops on the first call by design |
+| Scoring (rule 11) | ✅ built, 38 offline tests green; unexercised live |
+| Delivery (workbook / email draft / runs log) | not built — stage 2 |
+
+**One ERP request per failed run.** The cheap config read is deliberately first, so an
+access problem costs one call rather than a 44-page population sweep. That ordering has
+now paid for itself three times.
