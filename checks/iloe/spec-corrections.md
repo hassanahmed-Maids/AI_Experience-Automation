@@ -132,3 +132,55 @@ accepting that late reversals self-correct on re-run.
 
 Run them with `node checks/iloe/scorer/run_tests.js` and
 `node checks/iloe/scorer/reproduce_spec_figures.js`.
+
+---
+
+## G. Confirmed and corrected on live ERP, 2026-08-30
+
+Probed on the operator's own `Hassan Bearer` credential. Full detail in
+`probe-report.md`.
+
+### G1. Section B is confirmed — the maid id is NOT on the search row
+
+Read live: **0 of 40** rows carry a `housemaids` key. The verbatim key set is
+recorded in the probe report. The budget is the **~1,500-call** figure. Nothing
+in the architecture changes.
+
+### G2. `iloe_expense_name` — the recorded row key set is incomplete
+
+Five fields are returned that the row does not list: `fromBucketIsSecure`,
+`isDescriptionSecured`, `previouslyUnknown`, `qashioTransactionId`,
+`toBucketIsSecure`. None is used by the check; the list should still be corrected
+so the next reader is not surprised.
+
+### G3. New trap for `iloe_expense_name` — there is no `in` operator
+
+`{"property":"expense.id","operation":"in","value":"1693,1692,..."}` returns a
+**500** with `For input string: "1693,1692,1605,1604,1727,1639"`. The endpoint
+parses the value as a single integer. An exact-id population needs six separate
+`=` queries. `expense.name` + `=` does bind (confirmed, 208 rows on head 1693).
+
+### G4. `totalElements 489` reproduced exactly, ten days later
+
+Same window (`2026-08-01 → 2026-08-19`), same figure as the spec's 2026-08-20
+read. The population endpoint is stable.
+
+### G5. **BLOCKER — two routes recorded as `Confirmed` are refused on the auditing account**
+
+| Route | pagecode | Result |
+|---|---|---|
+| `GET /accounting/transactions/{id}` | `AddEditTransaction` | 401 `INSUFFICIENT_PERMISSIONS` |
+| `GET /payroll/loans/getHousemaidLoans/{maidId}` | `HousemaidsPayrollLoans` | 401 `INSUFFICIENT_PERMISSIONS` |
+
+A deliberately-wrong-pagecode control on the same endpoint returned a **different**
+shape (`API_NOT_FOUND_FOR_PAGE`), which proves the pagecodes are right and the
+account lacks the grant.
+
+The spec marks both `Confirmed` against live ERP on 2026-08-20 — that verification
+was made on a **different login**. The variable rows should record that the
+permission is login-dependent, so the next builder does not read `Confirmed` as
+"available to whoever runs this".
+
+These are gate 2 (identity) and gate 4 (recovery). Without them every case is
+`pending` and the check produces no verdicts at all. Access is required before any
+live run.
