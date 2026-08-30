@@ -110,3 +110,66 @@ rail should name without being asked.
 The error shape it needs to read is nested: `json.error.statusCode` and `json.error.error` (the
 latter a JSON string containing `message`). Worth fixing before any of these flows is scheduled,
 because on a schedule nobody is watching the execution list — the failure record IS the diagnosis.
+
+
+---
+
+# Third attempt — execution `110239`, after rebinding to `Hassan Bearer`
+
+## The rebind
+
+The refreshed token went into **`Hassan Bearer`**, but this flow was bound to
+**`ERP Token 12th Aug 2026`**. Both are `httpBearerAuth`, so the six ERP nodes were repointed at
+`Hassan Bearer` (`6LuYiBDo4D641TEz`, Adeeb project — note there are **two** credentials with that
+name; the other is personal). **Recorded as a TEST-TIME rebind, not a production decision** — the
+deployment ticket still asks the deploying team to create an ERP credential with a production token,
+and a personal working credential is not that.
+
+## The token works, and the flow got far past where it died before
+
+| Run | Died at | After |
+|---|---|---|
+| `110182`, `110226` | `Get CC Change of Status Transactions` — the FIRST ERP call | 8 s |
+| `110239` | `Judge Detail Batch` — the circuit breaker, several stages deeper | 13 s |
+
+The population call **succeeded and returned real July 2026 transactions** — the execution context
+carries the cohort, correctly windowed. So this is now confirmed working end to end on live ERP:
+the schedule entry, the computed previous-full-month window, the lease, and the population pull.
+
+## What stopped it — an ERP PERMISSION FINDING, not a bug
+
+`Judge Detail Batch` is the generated circuit breaker (`audit-flows/tools/erp_breaker.js`). It
+tripped on a **total refusal** of the `Get Transaction Detail` batch — every call to
+`/accounting/transactions/{id}` (pagecode `AddEditTransaction`) was refused. Its own message:
+
+> *"a refusal that is total does not heal, and a retry doubles it. Get the grant (or a live token),
+> then re-run. ERP-LOAD-POLICY.md §5."*
+
+The breaker is behaving exactly as designed: it refused to retry into a wall rather than hammering
+ERP, and the run stopped in 13 seconds instead of grinding.
+
+**This is the finding Wellcare's own doctrine anticipated:**
+
+> *"If the operator's token lacks a permission, that is a FINDING to report, never an obstacle to
+> route around with somebody else's login."*
+
+So: the token can read the transaction **search** endpoint but is refused on the transaction
+**detail** endpoint. That is an ERP access grant to request — not something to work around by
+borrowing another account.
+
+## The classifier defect bit twice more
+
+`Build Error Callback` again reported `status: null`, `message: "unknown error"` — while the
+breaker had produced a precise, actionable sentence. Diagnosing this run took two extra round-trips
+purely because the flow's own failure record discarded the reason.
+
+**This is now the highest-value fix in the flow.** On a monthly schedule nobody reads the execution
+list; the Runs row and the failure e-mail are the whole diagnosis, and today they both say
+*unknown error* about a permission problem the breaker named exactly.
+
+## A note on execution data
+
+The successful population call put per-entity detail (names, amounts, attachments) into the
+execution payload. None of it is reproduced here or in chat. This is precisely why
+`saveDataSuccessExecution` stays `none` on a check flagged *Handles sensitive data* — a green run
+with success-data persistence on would write that detail into n8n's execution store.
