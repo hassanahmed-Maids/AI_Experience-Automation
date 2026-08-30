@@ -50,21 +50,28 @@ converts it to ADF on the way in. Never `h2.`, never `||`, never `{code}` — th
 Then **read it back as ADF and confirm you got a `doc` object.** A ticket is not submitted until
 that check passes — this is the one verification that would have caught it the first time.
 
-## Two access limits found on 2026-08-30
+## Where these tickets go — resolved 2026-08-30
 
-Both are real and both need someone with Jira admin rights:
+**Project `SD` (Service Desk), issue type `n8n Flow` (id 11166).** Confirmed creatable by this
+account, and its create screen carries `description`. This is the same issue type the Travel Assist
+precedent uses.
 
-1. **`description` is not on the edit screen for issue type `n8n Flow` in `VPMGOV`.**
-   `editJiraIssue` returns *"Field 'description' cannot be set. It is not on the appropriate
-   screen, or unknown."* So `VPMGOV-1633` **cannot be reformatted through the API** — it has to be
-   fixed by pasting into the Jira UI editor, or by an admin adding the field to that screen.
-2. **This account cannot create issues in `VPMGOV`** — *"You cannot create issues in this
-   project."* 27 projects are creatable; `VPMGOV` is not one of them.
+The precedent ticket itself currently lives in `VPMGOV` (Visa Gov) — its Notion link `MC-1982`
+redirects to `VPMGOV-1633`, so it has been moved at least once. That does not change where new ones
+go, but it explains why the API reports a different project than you would expect.
 
-There **is** a project called **N8N Flows** (`NF`, id 10678) that is creatable, but its issue types
-are `New Workflow Request` / `Bug` / `Enhancement` / `Sub-task` — no `n8n Flow` type, so it is a
-different taxonomy from the VPMGOV precedent. **Which project the audit deployment tickets belong in
-is an open decision**, not something to settle by picking whichever one the API allows.
+Two limits apply to `VPMGOV` specifically, and both are why the precedent cannot be fixed by API:
+
+1. **`description` is not on the edit screen** for `n8n Flow` in `VPMGOV` — `editJiraIssue` returns
+   *"Field 'description' cannot be set. It is not on the appropriate screen, or unknown."* So
+   `VPMGOV-1633` must be reformatted by pasting into the Jira UI editor.
+2. **This account cannot create issues in `VPMGOV`** — *"You cannot create issues in this project."*
+   Irrelevant now that `SD` is the target, but worth knowing if anyone tries to add to the old
+   project.
+
+There is also a project literally called **N8N Flows** (`NF`), but its issue types are
+`New Workflow Request` / `Bug` / `Enhancement` — no `n8n Flow`. **It is not the target.** Recorded so
+nobody re-derives it from the name.
 
 ## Files here
 

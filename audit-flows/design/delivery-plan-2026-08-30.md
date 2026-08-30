@@ -83,16 +83,24 @@ Eight required sections:
    or in the export"*
 8. **APIs used**
 
-### B2a · The two access limits
+### B2a · Target confirmed, and the one limit that remains
 
-| Limit | Evidence | Who fixes it |
-|---|---|---|
-| `description` not on the `n8n Flow` edit screen in `VPMGOV` | `editJiraIssue` → *"Field 'description' cannot be set. It is not on the appropriate screen, or unknown."* | Jira admin adds the field to that screen — or the ticket is edited in the UI |
-| No create permission in `VPMGOV` | `getJiraIssueTypeMetaWithFields` → *"You cannot create issues in this project."* 27 projects creatable; `VPMGOV` absent | Jira admin grants create — or the tickets move to `NF` |
+**Project `SD` (Service Desk), issue type `n8n Flow` (11166).** Creatable, `description` on the
+create screen, same issue type as the precedent. The deploy track is no longer project-blocked.
 
-Until one of these clears, `/draft-deploy` can generate ticket bodies but **cannot post them**. That
-is fine — the pipeline design already says *draft, do not post* — but it means the write-back step
-(`Jira Task Link` + `Status` → `On Jira pending production`) stays manual too.
+The precedent `VPMGOV-1633` lives in `VPMGOV`, where `description` is *not* on the edit screen and
+this account cannot create — so that ticket needs a UI paste to fix, but it constrains nothing going
+forward.
+
+Required fields on create, both derivable or precedent-set:
+
+| Field | Source |
+|---|---|
+| `Company Department` (`customfield_10822`) | the check's Notion `Module`, mapped 1:1 |
+| `Accountable PIL` (`customfield_10825`) | precedent: Amin Aljebbeh — confirm whether it is constant |
+
+`N8N Link` (`customfield_12033`) is a first-class URL field on this issue type, so the staging link
+gets structured storage rather than living only in the description.
 
 ### B3 · Most of that ticket can be generated, not written
 
@@ -231,11 +239,12 @@ Track A is mostly other people's confirmations. Run them in parallel.
 3. **Unpublish `aTmGMAlYLwsJQ7js`** (Dummy Tickets)? It is the one `active: true` flow, with a live
    production webhook and a Security Room callback allowlist, under a ruling that nothing delivers to
    the Security Room. See `records/security-room-delivery.md`.
-4. **Which Jira project?** Now a blocking question, not a preference. `VPMGOV` / Wesam.Tanous is the
-   only precedent but **this account cannot create issues there**, and a CC Client payments check is
-   not obviously Visa Gov work anyway. A project called **N8N Flows** (`NF`) is creatable, but its
-   issue types are `New Workflow Request` / `Bug` / `Enhancement` — no `n8n Flow` type. Either get
-   create permission on `VPMGOV`, or adopt `NF` and accept the different issue type.
+4. ~~**Which Jira project?**~~ **RESOLVED 2026-08-30 — `SD` (Service Desk) → issue type
+   `n8n Flow`.** Same issue type as the Travel Assist precedent, creatable by this account, and its
+   create screen carries `description`. Field spec and the `Module → Company Department` mapping are
+   in `audit-flows/jira/deploy-ticket-template.md`. One value still needs your call:
+   **`Accountable PIL`** is required and the precedent used Amin Aljebbeh — same for all of these, or
+   per check?
 6. **Fix `VPMGOV-1633`'s formatting?** It needs a UI paste (the API cannot write that field). The
    corrected body is ready at `audit-flows/jira/VPMGOV-1633-corrected.md`.
 5. **Do the 5 test-case-blocked flows get chased now, or after the 6 ship?**

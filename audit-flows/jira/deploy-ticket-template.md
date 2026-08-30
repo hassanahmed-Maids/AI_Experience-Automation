@@ -8,12 +8,47 @@ confirm you got a `doc` object.** Not optional.
 
 ## Ticket fields
 
-| Field | Value |
-|---|---|
-| Summary | `Deploy to prod: <Check Name> (n8n, <trigger shape>)` |
-| Issue type | `n8n Flow` (VPMGOV precedent) — **open decision**, see README |
-| Labels | `audit`, `n8n`, `prod-deployment`, `<check-slug>`, `<team-agenda-label>` |
-| Assignee | the receiving dev |
+**Target confirmed 2026-08-30:** project **Service Desk (`SD`, id 10019)**, issue type
+**`n8n Flow` (id 11166)** — the same issue type the Travel Assist precedent uses, and the create
+screen here **does** carry `description`. Verified creatable by this account.
+
+| Field | Key | Req | Value |
+|---|---|:--:|---|
+| Project | `project` | ✔ | `SD` |
+| Issue Type | `issuetype` | ✔ | `n8n Flow` (11166) |
+| Summary | `summary` | ✔ | `Deploy to prod: <Check Name> (n8n, <trigger shape>)` |
+| **Company Department** | `customfield_10822` | ✔ | from the check's Notion `Module` — see mapping below |
+| **Accountable PIL** | `customfield_10825` | ✔ | precedent: `Amin Aljebbeh` (11099) |
+| Description | `description` | | the eight sections below, **as Markdown** |
+| **N8N Link** | `customfield_12033` | | the staging workflow URL — a first-class field, use it |
+| Urgency | `customfield_10043` | | precedent: `Necessary and NOT urgent` (10048) |
+| Show Demo | `customfield_11902` | | precedent: `No` (11908) — also the field default |
+| Labels | `labels` | | `audit`, `n8n`, `prod-deployment`, `<check-slug>`, `<team-agenda-label>` |
+| Assignee | `assignee` | | precedent: Wesam.Tanous (`63a9dc13347fae5346833e58`) |
+| Priority | `priority` | | precedent left it **unset** (field default is `Not Urgent`) |
+
+Left null on the precedent, so leave null unless there is a reason: `Speccer` (11769),
+`Analyst` (10033), `Pending BA` (10062), `Accountable PIL Updated` (10841), all story-point fields.
+
+### `Company Department` ← Notion `Module`
+
+The Notion `Module` select maps 1:1 onto the required Jira field, so it is derivable, not a judgement:
+
+| Notion `Module` | `Company Department` | id |
+|---|---|---|
+| Money Collection | Money Collection | 11058 |
+| Money Control | Money Control | 12011 |
+| Payroll | Payroll | 12012 |
+| Visa | Visa Gov | 11978 |
+
+Travel Assist is visa work but was filed **Money Control** — the department follows the *money
+question*, not the subject matter. `Visa → Visa Gov` is the one row without a precedent behind it;
+confirm it the first time a Visa-module check is filed.
+
+### The label to watch
+
+`visa_ba_aganda` on the precedent is a team-agenda label specific to that BA's board, not part of the
+template. Use the agenda label for whoever receives the check; the first four labels are the constant.
 
 `⚙` marks a section derivable from the workflow JSON — `/draft-deploy` fills these; a human writes
 the rest.
@@ -87,6 +122,9 @@ Then the throttle and the ceiling: concurrency, interval, execution timeout.
 
 - n8n flow export: `<Name>.json` (N nodes) — attached
 - n8n workflow link: `https://sami-team.app.n8n.cloud/workflow/<id>`
+
+Repeat the link here even though it is also in the `N8N Link` field — the field is what tooling
+reads, the line is what a reader scanning the description sees.
 
 ## Credentials used ⚙
 
