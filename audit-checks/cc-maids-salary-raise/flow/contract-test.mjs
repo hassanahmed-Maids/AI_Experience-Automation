@@ -42,14 +42,25 @@ const nodes = {
   'Get Payroll History': [R(hist(3050)), R(hist(2850)), R(hist(2700))],
   'Get Renew Documents': [R([rv('2019-08-18'), rv('2021-08-14'), rv('2023-07-28'), rv('2025-04-25')]), R([rv('2025-03-11')]), R([])],
   'Get Complaints Page 0': [comp(1000), comp(2000), comp(3000)],
-  'Get Extra Sweep Pages': [],
-  'Get Comment Threads': [],
   'Build Sweep Pages': [{ json: { _no_extra: true } }],
   'Build Thread Requests': [{ json: { _no_threads: true } }]
 };
 
+// Get Extra Sweep Pages and Get Comment Threads are ABSENT from the node map on purpose. A node
+// on an untaken branch is UNEXECUTED, and $() on it throws - the harness reproduces that. This is
+// the COMMON case (no maid over 20 complaints, no complaint with a comment), and it is invisible
+// to any pinned test, because a pinned node is readable whether or not its branch ran.
+console.log('\n── a quiet cohort: both optional branches never execute ──');
+let scored;
+try {
+  scored = runNode('Score Deterministic', { input: [{ json: {} }], nodes });
+  ok('the scorer survives both branch nodes being unexecuted');
+} catch (e) {
+  bad('the scorer CRASHES when an optional branch did not run - this is the common case', e.message);
+  scored = [];
+}
+
 console.log('\n── the deployed Score -> Adjudicate contract ──');
-const scored = runNode('Score Deterministic', { input: [{ json: {} }], nodes });
 eq('three cases scored', scored.length, 3);
 
 const cases = scored.map(i => i.json);

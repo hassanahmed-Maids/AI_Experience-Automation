@@ -65,13 +65,24 @@ field Adjudicate reads is one the scorer actually emits, and rejects any If gate
 operation n8n does not implement. It caught a third instance immediately — `notTrue` was still in
 the repo source after being fixed live, so a redeploy would have reintroduced it.
 
+**3. The scorer crashed whenever an optional branch did not run.** `Get Extra Sweep Pages` runs
+only if some maid has more than 20 complaints; `Get Comment Threads` only if some complaint has a
+comment. On a quiet cohort neither is true, those nodes are UNEXECUTED, and `$()` on an unexecuted
+node throws — so the scorer would have died on exactly the runs most likely to happen. No pinned
+test can see this, because a pinned node is readable whether or not its branch ran. `branchItems()`
+now treats absent as empty; a read that genuinely *failed* still surfaces downstream as an
+unreconciled sweep or an unreadable thread, so it never silently becomes a clean.
+
 Run all three before any deploy:
 
 ```
 node test/run.js            # 115 assertions over lib/ (the logic)
-node flow/contract-test.mjs # 12 assertions over the deployed bodies (the wiring contract)
+node flow/contract-test.mjs #  13 assertions over the deployed bodies (the wiring contract)
 node flow/make-skeleton.mjs # regenerate skeleton.sdk.js + bodies.json from workflow.sdk.js
 ```
+
+The contract suite carries a negative control: reverting any of the three fixes makes it fail with
+the exact symptom. Verified by doing so.
 
 Smoke rows: executions 110642 and 110646 wrote run rows reading `candidates 0` — those are the
 pre-fix buggy runs, not real results. Every smoke row carries `check_id = SMOKE-…`.
