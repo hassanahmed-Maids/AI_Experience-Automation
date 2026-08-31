@@ -250,6 +250,81 @@ console.log('\n=== Regression: the duplicate rule must not override an unread fi
   check('a fine-bearing row IS still caught as a duplicate', verdictOf(res, 7006), 'finding');
 }
 
+console.log('\n=== The spec verdict vocabulary ===');
+// The check page reconciles its verdict table against the policy database "cell
+// by cell", so a word that drifts here breaks that reconciliation silently.
+const SPEC_WORDS = {
+  finding:      ['Duplicate application', 'Unrecovered fine'],
+  clean:        ['Recovered', 'Waived', 'Under-threshold and paid anyway', 'One application, one price'],
+  pending:      ['Sub-threshold fine, no recovery found', 'Misfiled charge', 'Off-era', 'Raised but unsettled', 'Negative amount'],
+  inconclusive: ['Identity unresolved', 'No record anywhere']
+};
+{
+  let bad = 0;
+  for (const k of Object.keys(S.VERDICT_WORD)) {
+    const v = S.VERDICT_WORD[k];
+    if (v.word === null) continue;
+    if ((SPEC_WORDS[v.state] || []).indexOf(v.word) === -1) { bad++; console.log('    drift: ' + v.word + ' is not a spec word for ' + v.state); }
+  }
+  check('every emitted word is a real spec word for its state', bad === 0 ? 'all match' : bad + ' drifted', 'all match');
+}
+{
+  const pop = [row({ txn_id: 8001, maid_id: 41, expense_id: 1677, date: '2026-07-01', amount: 575.65 })];
+  const r = S.run(pop, pop).scored[0];
+  check('clean carries the spec word', r.verdict_word, 'One application, one price');
+}
+{
+  const pop = [row({ txn_id: 8002, maid_id: 42, expense_id: 1677, date: '2026-07-01', amount: 1054.71, purpose: 'Entry Visa' })];
+  check('misfiled carries the spec word', S.run(pop, pop).scored[0].verdict_word, 'Misfiled charge');
+}
+{
+  const pop = [row({ txn_id: 8003, maid_id: 43, expense_id: 1677, date: '2015-07-01', amount: 575.65 })];
+  check('off-era carries the spec word', S.run(pop, pop).scored[0].verdict_word, 'Off-era');
+}
+{
+  const pop = [row({ txn_id: 8004, maid_id: 44, expense_id: 1677, date: '2026-07-01', amount: -3078 })];
+  check('negative carries the spec word', S.run(pop, pop).scored[0].verdict_word, 'Negative amount');
+}
+{
+  const pop = [row({ txn_id: 8005, maid_id: null, expense_id: 1677, date: '2026-07-01', amount: 575.65 })];
+  check('identity carries the spec word', S.run(pop, pop).scored[0].verdict_word, 'Identity unresolved');
+}
+{
+  const hist = [
+    row({ txn_id: 8006, maid_id: 45, expense_id: 1677, date: '2026-04-01', amount: 575.65 }),
+    row({ txn_id: 8007, maid_id: 45, expense_id: 1677, date: '2026-06-20', amount: 575.65 })
+  ];
+  check('duplicate carries the spec word', S.run([hist[1]], hist).scored[0].verdict_word, 'Duplicate application');
+}
+// The four states the spec has NO word for must say so, not borrow one.
+{
+  const pop = [row({ txn_id: 8010, maid_id: 46, expense_id: 1677, date: '2026-07-01', amount: 1415.00 })];
+  const r = S.run(pop, pop).scored[0];
+  check('fine-present has NO borrowed word', String(r.verdict_word), 'null');
+  check('...and is flagged as needing one', String(r.needs_verdict_word), 'true');
+}
+{
+  const hist = [
+    row({ txn_id: 8011, maid_id: 47, expense_id: 1677, date: '2026-01-05', amount: 575.65 }),
+    row({ txn_id: 8012, maid_id: 47, expense_id: 1677, date: '2026-05-25', amount: 575.65 })
+  ];
+  const r = S.run([hist[1]], hist).scored[0];
+  check('out-of-window repeat has NO borrowed word', String(r.verdict_word), 'null');
+  check('...and is flagged as needing one', String(r.needs_verdict_word), 'true');
+}
+{
+  const pop = [row({ txn_id: 8013, maid_id: 48, expense_id: 1677, date: '2026-07-01', amount: null })];
+  check('unreadable field has NO borrowed word', String(S.run(pop, pop).scored[0].verdict_word), 'null');
+}
+{
+  const pop = [
+    row({ txn_id: 8020, maid_id: 49, expense_id: 1677, date: '2026-07-01', amount: 575.65 }),
+    row({ txn_id: 8021, maid_id: 49, expense_id: 1677, date: '2026-07-10', amount: 1415.00 })
+  ];
+  const res = S.run(pop, pop);
+  check('the summary counts unnamed states', String(res.summary.rows_needing_a_verdict_word >= 1), 'true');
+}
+
 console.log('\n=== Declared deviations from the spec (degraded build) ===');
 for (const d of deviations) {
   console.log('  * ' + d.case);

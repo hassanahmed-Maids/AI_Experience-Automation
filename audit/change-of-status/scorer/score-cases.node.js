@@ -1,4 +1,3 @@
-'use strict';
 // Change of Status Audit — deterministic scorer.
 //
 // Built standalone and tested offline BEFORE it went into n8n, so the spec's
@@ -392,5 +391,28 @@ function run(population, history) {
   return { scored, cases, summary: summarise(scored, cases) };
 }
 
-module.exports = { run, project, scoreRow, VERDICT_WORD, applyDuplicateRule, aggregateCases, resolveBase, dayDiff, purityCheck,
-                   BASE_BY_ERA, DUPLICATE_WINDOW_DAYS, LIVE_HEADS, ALL_COS_HEADS };
+
+// ---------------------------------------------------------------------------
+// n8n glue. Everything above is generated verbatim from
+// audit/change-of-status/scorer/score.js, which carries the offline test suite.
+// Do not hand-edit this node: change score.js, run its tests, regenerate.
+// ---------------------------------------------------------------------------
+const population = ($('Verify Population Pull').first().json.rows || []).map(project);
+
+let historyRows = [];
+for (const p of $('Get Trailing History').all()) {
+  const b = p.json || {};
+  if (Array.isArray(b.content)) for (const r of b.content) historyRows.push(project(r));
+}
+if (!historyRows.length) {
+  throw new Error('Trailing history is empty. Rule 19 compares each charge against the same maid\'s EARLIER charges, and a month compared only against itself finds 2 of the 10 known pairs. Refusing to score without history.');
+}
+
+const result = run(population, historyRows);
+const pop = $('Verify Population Pull').first().json;
+result.summary.history_rows = historyRows.length;
+result.summary.pages_fetched = pop.pages_fetched;
+result.summary.total_elements = pop.total_elements;
+result.summary.population_complete = pop.population_complete;
+
+return [{ json: { scored: result.scored, cases: result.cases, summary: result.summary } }];
