@@ -279,7 +279,7 @@ t('GUARD — an unseen waiver reason is pending, never auto-cleared (ruling R3 o
                    '126 AED were waived by A Staff Member on 26/06/2026 because Goodwill', 'Paid')],
     },
   },
-  { verdict: 'pending', reasonHas: 'unseen_waiver_reason' });
+  { verdict: 'pending', label: 'Awaiting the waiver ruling', reasonHas: 'unseen_waiver_reason' });
 
 t('GUARD — a waiver must NOT clean a duplicate on the same maid (the ~150x enrichment case)',
   {
@@ -334,5 +334,38 @@ t('GUARD — a duplicate group yields ONE excess, not one per payment',
     },
   },
   { totalFindingAed: 252.0, findingCount: 3 });
+
+t('GUARD — a weekly window scores only its own week, not the whole month',
+  {
+    audited_month: '2026-07',
+    payments: [
+      { txn_id: 9101, maid_id: 201, date: '2026-07-03', expense_name: SUB_MV_NEW, amount: 126.0, expense_id: 1693, in_scope: true },
+      { txn_id: 9102, maid_id: 202, date: '2026-07-20', expense_name: SUB_MV_NEW, amount: 126.0, expense_id: 1693, in_scope: false },
+    ],
+    loans_by_maid: { '201': [], '202': [] },
+  },
+  { multi: [{ txn: 9101, verdict: 'finding' }], caseCount: 1 });
+
+t('GUARD — a later POSITIVE payment in the lookahead is not a duplicate',
+  {
+    audited_month: '2026-06',
+    payments: [
+      { txn_id: 9103, maid_id: 203, date: '2026-06-10', expense_name: SUB_MV_NEW, amount: 126.0, expense_id: 1693, in_scope: true },
+      { txn_id: 9104, maid_id: 203, date: '2026-08-05', expense_name: SUB_MV_NEW, amount: 126.0, expense_id: 1693, in_scope: false },
+    ],
+    loans_by_maid: { '203': [loan('UNEMPLOYMENT_INSURANCE_PLAN', 126.0, '2026-06-10 10:00:00')] },
+  },
+  { multi: [{ txn: 9103, verdict: 'clean' }], caseCount: 1 });
+
+t('GUARD — a NEGATIVE row in the lookahead still nets its payment to reversed',
+  {
+    audited_month: '2026-06',
+    payments: [
+      { txn_id: 9105, maid_id: 204, date: '2026-06-10', expense_name: SUB_MV_NEW, amount: 126.0, expense_id: 1693, in_scope: true },
+      { txn_id: 9106, maid_id: 204, date: '2026-08-05', expense_name: SUB_MV_NEW, amount: -126.0, expense_id: 1693, in_scope: false },
+    ],
+    loans_by_maid: { '204': [] },
+  },
+  { multi: [{ txn: 9105, verdict: 'pending' }], caseCount: 1 });
 
 module.exports = { tests: tests, S: S };

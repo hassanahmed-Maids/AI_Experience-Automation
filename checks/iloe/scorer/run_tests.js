@@ -27,6 +27,9 @@ for (let i = 0; i < tests.length; i++) {
         'expected ' + e.excludedCount + ' excluded, got ' + out.excluded.length, errs);
     }
   } else if (e.multi) {
+    if (e.caseCount !== undefined) {
+      check(cs.length === e.caseCount, 'expected ' + e.caseCount + ' cases, got ' + cs.length, errs);
+    }
     for (let j = 0; j < e.multi.length; j++) {
       const want = e.multi[j];
       let found = null;

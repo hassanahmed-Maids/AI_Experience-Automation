@@ -264,7 +264,14 @@ function scoreRun(input) {
   for (let i = 0; i < rawPayments.length; i++) {
     const row = rawPayments[i];
     const cls = classifyPopulationRow(row);
-    const inMonth = typeof row.date === 'string' && row.date.slice(0, 7) === auditedMonth;
+    // The RUN WINDOW decides what is a case, not the calendar month. On a
+    // weekly run the sweep's 60-day lookahead reaches into the same month, so
+    // deriving scope from the month alone would score payments that fall
+    // outside the window being audited. The caller states scope explicitly;
+    // the month is only a fallback for direct/offline callers.
+    const inMonth = (row.in_scope !== undefined && row.in_scope !== null)
+      ? !!row.in_scope
+      : (typeof row.date === 'string' && row.date.slice(0, 7) === auditedMonth);
 
     if (!cls.admit) {
       if (inMonth) excluded.push({ txn_id: row.txn_id, disposition: cls.disposition, reason: cls.reason });
@@ -291,6 +298,11 @@ function scoreRun(input) {
   for (let i = 0; i < admitted.length; i++) {
     const p = admitted[i];
     if (p.maid_id === null || p.maid_id === undefined) continue;   // gate 2 parks these
+    // An out-of-window row joins the group ONLY if it is a reversal. Gate 12
+    // exists to net a payment against its refund; a later POSITIVE payment is a
+    // separate obligation, and admitting it would manufacture a duplicate that
+    // ruling R4's conservative in-window reading excludes.
+    if (!p.in_audited_month && p.amount_cents >= 0) continue;
     const k = groupKey(p.maid_id, p.family, p.stage);
     if (!groups[k]) groups[k] = [];
     groups[k].push(p);
@@ -531,7 +543,7 @@ function scoreRun(input) {
           // An unseen reason is not auto-cleared. Which reasons are acceptable
           // is ruling R3, and it is unanswered.
           verifierVerdicts.push({
-            rule: 'V4', verdict: 'pending', label: 'Awaiting the CC ruling',
+            rule: 'V4', verdict: 'pending', label: 'Awaiting the waiver ruling',
             cents: 0, reason: 'unseen_waiver_reason:' + parsed.reason,
           });
         } else {
@@ -540,7 +552,7 @@ function scoreRun(input) {
         }
       }
       if (verifierVerdicts.length === 0) {
-        verifierVerdicts.push({ rule: 'V4', verdict: 'pending', label: 'Awaiting the CC ruling', cents: 0 });
+        verifierVerdicts.push({ rule: 'V4', verdict: 'pending', label: 'Unresolved maid', cents: 0 });
       }
     }
 
@@ -565,11 +577,13 @@ function scoreRun(input) {
       for (let j = 0; j < reds.length; j++) labels.push(reds[j].label);
       if (labels.length > 1) c.reasons.push('multiple_reds:' + labels.join(' + '));
     } else if (routedToVerifier) {
-      let anyPending = false;
-      for (let j = 0; j < verifierVerdicts.length; j++) if (verifierVerdicts[j].verdict === 'pending') anyPending = true;
-      if (anyPending) {
+      let firstPending = null;
+      for (let j = 0; j < verifierVerdicts.length; j++) {
+        if (verifierVerdicts[j].verdict === 'pending' && firstPending === null) firstPending = verifierVerdicts[j];
+      }
+      if (firstPending !== null) {
         c.verdict = 'pending';
-        c.verdict_label = 'Awaiting the CC ruling';
+        c.verdict_label = firstPending.label;
       } else {
         c.verdict = 'clean';
         c.verdict_label = 'Written off with authority';

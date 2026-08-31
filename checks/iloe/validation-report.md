@@ -23,7 +23,7 @@ asserted from the spec.
 
 ## 2. Test results
 
-### Offline — 28 / 28 green
+### Offline — 31 / 31 green
 
 `node checks/iloe/scorer/run_tests.js`
 
@@ -202,3 +202,89 @@ unrecognised expense name is `pending`, and an unseen loan-type member is
 *Does it flag too much?* Yes, by design and by declaration — the CC population is
 routed wholesale to `pending` pending R1. That is review cost, not a false
 clearance, and the run row states it in `declared_gaps` on every run.
+
+---
+
+## 9. Finish-development pass (2026-08-31)
+
+A self-review of my own diff, before the final test round, found two more
+defects. Both were the same class as the first: they made the check produce
+work it shouldn't, not crash.
+
+### D-1 — the lookahead admitted positive payments
+
+Stage 0 swept `range_start → range_end + 60d` and returned **every** row.
+
+- **Budget:** a weekly run would then make an identity call for roughly two
+  extra months of payments — ~1,500 calls instead of ~190, straight back over
+  the cap the staged design exists to stay under.
+- **Correctness:** a *positive* payment six weeks later is a separate
+  obligation. Pulled into the same `maid + family + stage` group it inflates
+  `net_paid` and manufactures a duplicate that ruling R4's conservative
+  in-window reading excludes.
+
+The lookahead exists for exactly one purpose — letting gate 12 net a payment
+against its reversal. **Only negative rows survive it now.**
+
+### D-2 — a weekly window scored the whole month
+
+The scorer derived scope as `date.slice(0,7) === audited_month`. On a run of
+`2026-07-01 → 07-07` with a lookahead to `2026-09-05`, a payment dated
+`2026-07-20` is in the lookahead *and* in the same month — so it was scored as
+a case despite falling outside the window being audited.
+
+**The run window decides what is a case, never the calendar month.** Stage 0
+now sets `in_audited_month` from the window and the scorer takes it verbatim.
+
+### D-3 — the run row overstated ruling R1's population
+
+A waiver whose reason is outside `Escalation` / `Duplicate` is parked pending
+R3, but it was borrowing verifier 1's `Awaiting the CC ruling` label. On the
+fixture that reported `pending_cc_ruling: 2` when exactly **one** case was
+waiting on R1 — a 100% overstatement of the population behind the single
+decision this check most needs. It now carries its own label, and a case takes
+the label of the pending verdict that actually fired.
+
+### Also finished in this pass
+
+- **Crash path.** An Error Trigger now releases the shared ERP lease. Without
+  it a mid-run failure left the lease held and wedged *every other audit check*
+  until expiry.
+- **Measured run row.** `txns_pages`, `erp_calls_made`, `population_complete`
+  and `lookahead_to` were hardcoded zeros/true; all four are now measured.
+  `erp_calls_made` reads 15 on the fixture = 1 page + 8 identity + 6 loans.
+- **Empty-window guard.** A window with no ILOE payments now aborts rather than
+  reporting a clean run.
+- Workflow tagged `audit: ILOE Checker`, matching the sibling checks.
+
+### Regression proof
+
+Each fix has a test that **fails without it** — verified by reverting:
+
+| Revert | Suite result |
+|---|---|
+| duplicate sibling not red | 26 / 28 — 2 failures |
+| scope from month, not window | 30 / 31 — 1 failure |
+| positive lookahead rows grouped | 30 / 31 — 1 failure |
+
+---
+
+## 10. Full test matrix — final state
+
+| # | What | How | Result |
+|---|---|---|---|
+| 1 | Scorer logic | 31 offline tests | **31 / 31** |
+| 2 | Spec's verified figures | independent reproduction | **8 → 3 duplicates, AED 378, same three maids** |
+| 3 | Stage 0 projection | pinned sweep page, 7 rows | in-window kept · same-month positive **dropped** · August negative **kept** · staff excluded · retired excluded · unrecognised flagged · pages 1 |
+| 4 | Stage 0 fail-closed | pinned `totalElements 99`, 1 row | **aborts**: "pulled 1 of 99" |
+| 5 | Stage 1 identity | pinned 200 / empty-housemaids / 401 | resolved · `no_housemaid_on_transaction` · `http_401_INSUFFICIENT_PERMISSIONS` |
+| 6 | Stage 2 loan projection | pinned loans incl. `SALARY_ADVANCE` 5,000 and a medical loan | **only `UNEMPLOYMENT_*` survives**; maid ids de-duplicated |
+| 7 | Stage 2 permission abort | all calls 401 | **aborts** rather than scoring with no recovery side |
+| 8 | Parent, monthly window | 7 spec shapes | all 7 correct; total AED 255 |
+| 9 | Parent, weekly window | 8 rows incl. a reversal in the lookahead | 7 cases (reversal is **not** a case) · red 3 · green 1 · pending 3 · AED 252 · `overall complete` |
+| 10 | Run-row accuracy | same run | `pending_cc_ruling 1` · `pending_unseen_waiver_reason 1` · `erp_calls_made 15` · `lookahead_to 2026-09-05` |
+| 11 | Live ERP re-probe | 9 surfaces, 2026-08-31 | **token expired** — no new permission signal; §7 item 1 stands as last measured |
+
+**Not exercised:** the crash path. n8n fires Error Triggers on production
+executions, not manual/test runs, so it is wired and reviewable but unproven.
+It is the one path in this build with no test behind it.
