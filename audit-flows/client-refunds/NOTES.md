@@ -518,3 +518,93 @@ mail one was not, and nothing in the success response flagged the difference.
   Sheets node cannot apply it per write.
 - **The reviewer's address.** Left as a `placeholder()`; the spec names Jacky as
   maker/checker but not an address.
+
+---
+
+# Build complete, 2026-08-31 — three stages chained, plus what testing found
+
+```
+1-Score  XNAeirfksS1dIpZl   form → prepare → ERP LEASE → config+checksum → population sweep
+                            → score (⓫ + G-ATTACH + group routing) → summary → RELEASE LEASE
+2-Verify xGXVJyGkPgZYIn0X   select unsettled → needs judgement? → model → normalise → apply
+3-Deliver OznVXTRb1hApsYRH  validate → runs row FIRST → may deliver? → cases → email DRAFT
+```
+
+All three are DRAFT. Nothing is published, scheduled or activated.
+
+## 25. One source of truth for scoring, generated into the node
+
+The n8n Score node was a hand-copy of the scorer and **had already drifted before it ever
+ran** — it knew nothing about group routing or G-ATTACH. A hand-copy of scoring logic is a
+second implementation nobody tests.
+
+`score-core.js` is now the only implementation. `build-node.js` inlines it into
+`dist/score-node.js` with a thin n8n harness; `parity.test.js` executes that emitted body
+in a sandbox with mocked n8n globals and compares every verdict, group and reason against
+a direct call into the core. A drift now fails in tests rather than in production.
+
+*(A regex tree-shake of the emitted body was tried and reverted — the optional doc-comment
+group matched from an arbitrary earlier point and swallowed most of the file. The
+replacement counts braces from the `function name(` line. Boring and correct.)*
+
+## 26. Two real bugs, both found by running it rather than reading it
+
+**Findings lost their group label.** `scoreRefundWithGroups` returned early on the findings
+branch and stamped `group` only afterwards. So a FINDING — the case that matters most — came
+out unlabelled: the run's group spread counted it as `(unrouted)` and it would have reached
+the workbook with a blank group column. The unit tests missed it because they asserted the
+verdict and never looked at the label. There is now one exit and one place the label is set,
+plus a regression test on both paths. *(Executions 112408 → 112414.)*
+
+**The verifier was being handed cases with nothing to read.** Every selected case went to
+the model, including ones already settled as `NO TEXT` or `OVERSIZED` — a wasted call per
+case, and an invitation to return a confident verdict on an empty note. Caught by the
+by-index pairing guard rather than by inspection. A `Needs Judgement?` gate now sends only
+cases with usable text; the rest bypass the model and rejoin through a Merge.
+*(Execution 112415 → 112416.)*
+
+## 27. The verifier, verified
+
+Execution 112416, four cases, verdicts pinned:
+
+| Case | Verifier said | Result | Rule |
+|---|---|---|---|
+| finding + note naming the missing approval | `JUSTIFIED` | → **clean** | only JUSTIFIED downgrades a red |
+| finding + note claiming a receipt elsewhere | `PLAUSIBLE` | **stays a finding** | PLAUSIBLE cannot clear |
+| … same case, note contradicts the purpose | — | routing gap added, **verdict unchanged** | a mismatch routes, never reds |
+| pending, no note at all | `NO TEXT` | pending + **inconclusive** | unread is not absent |
+| already clean | — | **never sent to the model** | the verifier only sees what the gates could not settle |
+
+Counts recomputed after the verifier: findings 1, pending 1, clean 2. Run record carries
+`{judged: 3, vocabulary: {...}, downgraded: 1, inconclusive: 1, purpose_mismatches: 1}` —
+the gap between matched and verified, reported rather than collapsed.
+
+## 28. The ERP lease is wired, and it proved itself by refusing
+
+Stage 1 acquires the shared lease (`9gVijqvtLVEhQZXz`) with `no_wait` before the first ERP
+call and releases it **immediately after the last one** — before the verifier, so an LLM
+pass over ~1,700 notes cannot block every other audit for the duration.
+
+Execution 112412 **refused to start**: the lease was held by `change-of-status` and this run
+was queue position 3. No ERP call was made. That is the integration working — per-flow
+pacing bounds one flow to 4 req/s and says nothing about two, and bursts are what got the
+ERP account disabled in June 2026.
+
+## 29. Test inventory
+
+**Offline — 87, all green.**
+- `scorer.test.js` 38 — framing gates, the AED 0.50 basis, ⓫
+- `groups.test.js` 31 — partition, G-ATTACH, group routing, group-label regression
+- `parity.test.js` 18 — emitted node body vs core, plus output hygiene on the emitted node
+
+**In n8n — every stage exercised against pinned data:**
+- 112414 — 1-Score: 3 refunds → 2 findings, 1 pending; groups G2a/G7 stamped; `note_key_coverage` reported by key
+- 112412 — 1-Score: lease correctly refused, no ERP call
+- 112416 — 2-Verify: all five verdict behaviours above
+- 110735 — 3-Deliver: delivered, draft created
+- 110734 — 3-Deliver: refused a short case set **after** writing the runs row
+
+**Not yet exercised, and worth saying plainly:**
+- The **live ERP legs** — both endpoints are still 401 for this account. Every ERP response in every test above is pinned.
+- The **chain end to end in one execution**. Execute Workflow nodes cannot be pinned, so a full-chain test would hit the real lease, spend real model calls and attempt a real Sheets write against a placeholder document. The stages are wired and each is proven in isolation; the seam between them is verified structurally, not by execution.
+- The **real Sheets write and Gmail draft** — no workbook exists yet and the reviewer address is a placeholder.

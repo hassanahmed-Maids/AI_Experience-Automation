@@ -9,7 +9,64 @@ const fs = require('fs');
 const path = require('path');
 
 
-const core = fs.readFileSync(path.join(__dirname, 'score-core.js'), 'utf8');
+
+/**
+ * Line-based comment strip for the DEPLOYED body only.
+ *
+ * The rationale comments are the most valuable part of this code and they stay in
+ * score-core.js, which is what gets reviewed. The n8n node carries a pointer and the
+ * core's SHA-256 instead, so it can still be byte-compared against the repo - which is
+ * the actual point of the house rule about verbose generated nodes, and a checksum does
+ * it more cheaply than 30 KB of prose nobody re-reads in a node editor.
+ *
+ * Line-based on purpose: the regex attempt at this swallowed most of the file, because
+ * an optional doc-comment group will happily match from an arbitrary earlier point.
+ */
+function stripComments(code) {
+  const out = [];
+  let inBlock = false;
+  for (const line of code.split('\n')) {
+    const t = line.trim();
+    if (inBlock) { if (t.endsWith('*/')) inBlock = false; continue; }
+    if (t.startsWith('/*')) { if (!t.endsWith('*/')) inBlock = true; continue; }
+    if (t.startsWith('//')) continue;
+    out.push(line);
+  }
+  // Collapse runs of blank lines.
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+
+/**
+ * Drop functions the n8n harness never reaches, by BRACE MATCHING rather than regex.
+ *
+ * The regex attempt at this swallowed most of the file: an optional doc-comment group
+ * will happily begin matching at an arbitrary earlier point and lazily expand. Counting
+ * braces from the `function name(` line is boring and correct.
+ */
+function dropFunctions(code, names) {
+  const lines = code.split('\n');
+  const out = [];
+  let skipping = false;
+  let depth = 0;
+  for (const line of lines) {
+    if (skipping) {
+      depth += (line.split('{').length - 1) - (line.split('}').length - 1);
+      if (depth <= 0) skipping = false;
+      continue;
+    }
+    const m = line.match(/^function\s+(\w+)\s*\(/);
+    if (m && names.indexOf(m[1]) !== -1) {
+      depth = (line.split('{').length - 1) - (line.split('}').length - 1);
+      if (depth > 0) skipping = true;
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+let core = fs.readFileSync(path.join(__dirname, 'score-core.js'), 'utf8');
 
 const HARNESS = `
 // ======================= n8n HARNESS (generated - do not edit here) ==================
@@ -72,6 +129,19 @@ console.log(JSON.stringify({ stage: "score", counts: counts, by_group: byGroup, 
 return [{ json: { cases: cases, counts: counts, by_group: byGroup, note_key_coverage: byNoteKey } }];
 `;
 
-const out = core + HARNESS;
+// Offline-only helpers stay in score-core.js where the tests use them; the node body
+// carries only what its harness calls.
+core = dropFunctions(core, ['scoreRefund', 'inPopulation', 'exceeds', 'quarterlyTotal']);
+core = core.split('\n').filter(function (l) { return !/^const TOLERANCE_AED = /.test(l); }).join('\n');
+core = core.replace(/\nif \(typeof module !== 'undefined'[\s\S]*$/, '\n');
+const crypto = require('crypto');
+const coreSha = crypto.createHash('sha256').update(core).digest('hex');
+const banner =
+  '// GENERATED - do not edit here. Source: audit-flows/client-refunds/score-core.js\n' +
+  '// Regenerate: node build-node.js   |   Verify: node parity.test.js\n' +
+  '// score-core.js sha256: ' + coreSha + '\n' +
+  '// Comments are stripped here and live in the source file. Every rule this implements\n' +
+  '// is cited there by its spec numeral, with the measurement that justified it.\n\n';
+const out = banner + stripComments(core) + stripComments(HARNESS);
 fs.writeFileSync(path.join(__dirname, 'dist', 'score-node.js'), out);
 console.log('dist/score-node.js  ' + out.split('\n').length + ' lines, ' + out.length + ' chars');

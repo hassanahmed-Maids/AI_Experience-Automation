@@ -575,13 +575,21 @@ function scoreRefundWithGroups(refund, setupRows, opts) {
   for (const g of (o.unsourcedGates || [])) gaps.push(g);
 
   // A finding is never downgraded by a later gap.
-  if (findings.length) {
-    return finalize({ verdict: RED, reasons: findings, gaps: gaps, rules_fired: ['4', '5', '11', 'G-ATTACH', groupKey] }, refund);
-  }
-
   // ⓭ — nothing exits clean by silence.
-  const verdict = gaps.length ? PENDING : (a.verdict === CLEAN ? CLEAN : PENDING);
-  const out = finalize({ verdict: verdict, reasons: reasons, gaps: gaps, rules_fired: ['4', '5', '11', 'G-ATTACH', groupKey] }, refund);
+  //
+  // THE GROUP IS STAMPED ON EVERY PATH, findings included. An earlier version returned early
+  // on the findings branch and set the label only afterwards, so a FINDING - the case that
+  // matters most - came out unlabelled: the run's group spread counted it as "(unrouted)"
+  // and it would have reached the workbook with a blank group column. Caught by the first
+  // end-to-end run, not by the unit tests, because those asserted the verdict and never
+  // looked at the label. One exit, one place the label is set.
+  const verdict = findings.length ? RED : (gaps.length ? PENDING : (a.verdict === CLEAN ? CLEAN : PENDING));
+  const out = finalize({
+    verdict: verdict,
+    reasons: findings.length ? findings : reasons,
+    gaps: gaps,
+    rules_fired: ['4', '5', '11', 'G-ATTACH', groupKey]
+  }, refund);
   out.group = groupKey;
   out.group_name = group.name;
   return out;

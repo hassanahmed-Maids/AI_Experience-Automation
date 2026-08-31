@@ -132,6 +132,30 @@ t('but Removing Bad Google Review does NOT — it is not one of the two unguarde
 t('and an unsigned goodwill refund is not a finding — that purpose has no limit',
   gw.verdict, S.PENDING);
 
+
+// =====================================================================================
+// Regression: the group label must survive on EVERY path, findings included.
+// An earlier version stamped it only on the non-finding return, so a finding came out
+// unlabelled - the run's group spread counted it as "(unrouted)" and the workbook would
+// have carried a blank group. Found by the first end-to-end run; the unit tests had
+// asserted the verdict and never looked at the label.
+// =====================================================================================
+const S2 = require('./scorer');
+const finding = S2.scoreRefundWithGroups(
+  { id: 9, contract: 'C-9', amount: 5000,
+    purpose: { id: 2, name: 'Partial Refunds for Cancellation' }, managerAction: '', ceoAction: '' },
+  SETUP, {});
+t('a FINDING still carries its group',      finding.group, 'G2a');
+t('a FINDING still carries its group name', finding.group_name, 'Partial cancellation refunds');
+t('and it is still a finding',              finding.verdict, S2.RED);
+
+const clean = S2.scoreRefundWithGroups(
+  { id: 10, contract: 'C-10', amount: 100, purpose: { id: 35, name: 'Not related to number of days' },
+    managerAction: 'APPROVE' },
+  SETUP.concat([{ paymentRequestPurpose: { id: 35 }, partialRefundForCancellationPaymentMethod: '',
+    checkCeoLimit: false, limitForCeoApproval: 500, requireAttachment: false }]), {});
+t('a non-finding also carries its group', clean.group, 'G7');
+
 console.log('\n' + (fail ? failures.join('\n\n') + '\n' : ''));
-console.log(pass + ' passed, ' + fail + ' failed');
+console.log(pass + ' passed, ' + fail + ' failed (incl. group-label regression)');
 process.exit(fail ? 1 : 0);
