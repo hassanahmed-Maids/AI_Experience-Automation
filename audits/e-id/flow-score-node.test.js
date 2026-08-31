@@ -138,5 +138,53 @@ console.log('\nOUT-OF-SCOPE HEADS through the flow shape');
   check('out-of-scope heads are bucketed',    res.unclassified_heads, 2);
 }
 
-console.log('\n' + pass + ' passed, ' + fail + ' failed');
-process.exit(fail === 0 ? 0 : 1);
+// ---------------------------------------------------------------------------
+// SUMMARISE — the case store is ground truth, not the write receipts.
+// Appended after the main bench so the counters above are already populated.
+// ---------------------------------------------------------------------------
+(function () {
+  const { summarise } = require('./summarise-node.js');
+  console.log('\nSUMMARISE — case-store reconciliation');
+
+  const scored = {
+    run_id: 'eid-test', cases_total: 3, findings: 1, route_to_verifier: 1, pending: 1, clean: 0,
+    status: 'complete', declared_gaps: 'gap one || gap two'
+  };
+  const store = [
+    { json: { run_id: 'eid-test', verdict: 'finding' } },
+    { json: { run_id: 'eid-test', verdict: 'route to verifier' } },
+    { json: { run_id: 'eid-test', verdict: 'pending' } }
+  ];
+
+  const ok = summarise(scored, store);
+  check('reports when the store reconciles', ok.case_store_reconciles, true);
+  check('tally comes back from the store',   ok.verdicts, { findings: 1, route_to_verifier: 1, pending: 1, clean: 0 });
+  check('declared gaps are split out',       ok.DECLARED_GAPS, ['gap one', 'gap two']);
+
+  // A short store is the dangerous case: the missing cases are exactly the ones
+  // nobody would go looking for.
+  let threw = false;
+  try { summarise(scored, store.slice(0, 2)); } catch (e) { threw = /short|holds 2/.test(e.message) || true; }
+  check('a SHORT case set aborts before reporting', threw, true);
+
+  // Rows from another run must not be counted as this run's.
+  threw = false;
+  try {
+    summarise(scored, store.concat([{ json: { run_id: 'eid-other', verdict: 'clean' } }]).slice(1));
+  } catch (e) { threw = true; }
+  check('another run\'s rows never pad this run', threw, true);
+
+  // The store disagreeing with memory is a stop, not a footnote.
+  threw = false;
+  try {
+    summarise(scored, [
+      { json: { run_id: 'eid-test', verdict: 'clean' } },
+      { json: { run_id: 'eid-test', verdict: 'clean' } },
+      { json: { run_id: 'eid-test', verdict: 'clean' } }
+    ]);
+  } catch (e) { threw = /tally/.test(e.message); }
+  check('a store/memory tally mismatch aborts', threw, true);
+
+  console.log('\n' + pass + ' passed, ' + fail + ' failed  (including summarise)');
+  process.exit(fail === 0 ? 0 : 1);
+})();

@@ -185,7 +185,7 @@ same per-maid grouping, same delivery. Both in the Adeeb project.
 
 ## Phase 5 — the built flow
 
-**`E-ID Audit — generated v1 (draft)`**, workflow `ABNaSxxRV6vzQTNi`, Adeeb project.
+**`E-ID Audit — generated v1 (draft)`**, workflow `ABNaSxxRV6vzQTNi`, Adeeb project. **14 nodes.**
 DRAFT: never published, never scheduled, **no ERP credential attached** (confirmed
 by read-back — the trigger reports "No credentials required"). The token arrives
 per run in the request body.
@@ -219,12 +219,12 @@ then the run proceeds honestly degraded.
 
 ## Phase 6 — test results
 
-**Offline: 84 assertions, 0 failures.**
+**Offline: 90 assertions, 0 failures.**
 
 - `scorer.test.js` — 53/53. The standalone scorer: all five spec cases, the sixth
   false-positive trap, and a guard per named edge.
-- `flow-score-node.test.js` — 31/31. The **deployed** node body, fed the shape the
-  flow actually produces.
+- `flow-score-node.test.js` — 37/37. The **deployed** node bodies (scorer + summarise),
+  fed the shape the flow actually produces.
 
 The degraded-path block is the one that matters for this build. Fed the real
 duplicate (maid 21014's two 353.91 rows on 2026-02-24) **with no identity**, the
@@ -265,3 +265,48 @@ Security Room portal, the colour-coded workbook, and the draft email to Malaz. T
 runs log and case store are wired. The spec calls for all five; the other three need
 credentials and destinations nobody has given me, and inventing them would be worse
 than leaving them declared.
+
+
+## Completion pass — lease, read-back, delivery
+
+Three gaps closed after the first build.
+
+**The shared ERP lease is now wired.** `ERP Lease · one audit at a time`
+(`9gVijqvtLVEhQZXz`) is acquired before the first ERP call and released
+immediately after the last one. Per-flow pacing bounds *this* flow and says
+nothing about two audits hitting ERP together, which is what the lease exists to
+prevent — and the check was ignoring a standing workspace rule by not calling it.
+A refusal aborts rather than proceeding; a stale-lease takeover is logged, because
+the question after a bad run is always "was anything else hitting ERP at the time".
+
+The lease spans **only** the two ERP nodes. Scoring, writing and delivery happen
+after the release, so a failure in any of them cannot strand the lease. A failure
+*inside* the sweep still can; the lease's own stale-takeover is what recovers that.
+
+**The summary now reads the case store back as ground truth.** It was trusting the
+insert receipts. A receipt says the call returned, not that the row is there. It
+now re-reads the store for this run, refuses to report a short set, and re-tallies
+the verdicts **from the store** so the published numbers are the ones a reviewer
+finds when they open it themselves.
+
+**The draft email to Malaz is wired** as a Gmail *draft* (`createDraft`, never
+sent), carrying counts, totals and the declared gaps — no maid id, no per-entity
+amount. Still not wired: the Security Room portal (no API known) and the
+colour-coded workbook (needs a target Drive folder or spreadsheet id, and
+`docs/audit-sheet-standard.md` is not in this repo).
+
+### Two bugs the build-time read-back caught
+
+Neither had run yet; both were found by reading the built workflow back rather
+than trusting the create call.
+
+1. **`executeOnce: true` on Summarise.** It truncates a node's input to the first
+   item, so `$input.all()` would have seen exactly one case row. The
+   reconciliation would have read that as a short set and **every run would have
+   aborted before reporting**. `Read Case Store Back` already collapses to one
+   execution, so Summarise needs no `executeOnce`.
+2. **Literal `\n` in the Gmail body**, which n8n does not interpret as a newline
+   in template text — the draft would have arrived as one unreadable line.
+
+This is the argument for the read-back step in miniature: `appliedOperations: 19,
+validationWarnings: []` is not evidence the thing works.
