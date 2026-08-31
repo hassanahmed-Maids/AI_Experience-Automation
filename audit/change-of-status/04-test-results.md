@@ -216,3 +216,93 @@ the workflow back**: both ERP nodes are `authentication: "none"` with
 One residue: the `Hassan Bearer` credential reference still sits on both nodes,
 inert while `authentication` is `none`. It should be cleared in the n8n UI so
 nobody later flips authentication back on and silently re-binds it.
+
+---
+
+# Final development pass — 2026-08-31 / 09-01
+
+## What was added after the first live runs
+
+| Addition | Tested? |
+|---|---|
+| The spec's verdict **vocabulary** on every row | **offline, 13 assertions** |
+| `Score Cases` **generated** from `score.js` by `build-node.js` | **proven equivalent** on real payloads by `verify-generated.js` |
+| **Workbook** delivery (Google Sheets), gated on `params.workbook_id` | **NOT executed** — see below |
+| **Failure-path** draft (`Format Failure Email` → `Draft: audit failed`) | **NOT executed** — n8n's Error Trigger fires on production runs only, not manual |
+| **Monthly trigger**, left DISABLED | n/a — cannot run as built, see below |
+| **Expired-token classifier** in the budget gate | **PROVEN LIVE**, execution 112404 |
+
+## Offline: 45 assertions, 0 failures
+
+Up from 32. The 13 new ones cover the verdict vocabulary, including that every
+word emitted is a real spec word for its state — the check page reconciles its
+verdict table against the policy database cell by cell, so a paraphrase here
+would break that silently.
+
+## The four states the spec has no word for
+
+The check page holds itself to *"every promised verdict has a producing rule, and
+every rule's verdict maps to a named state"*. The degraded build breaks the
+second half. These four carry `verdict_word = null` and
+`needs_verdict_word = true` rather than borrowing a word that means something
+else:
+
+1. a fine is present but the record that sizes it is refused
+2. a repeat outside ninety days that only the visa request could settle
+3. a field required by a gate could not be read
+4. a repeat on a maid who also carries a reversal
+
+On the July run, **105 of 704 rows** land in these states. That is the same shape
+as *Still open* item 8 and it needs the same thing: a ruling on what to call them.
+
+## Generated node: drift is now impossible, not merely discouraged
+
+`Score Cases` previously carried a comment saying that if it and `score.js` ever
+disagreed, `score.js` was right. That is a warning, not a mechanism.
+`build-node.js` now generates the node body from `score.js`, and
+`verify-generated.js` runs the generated body against real ERP payloads with a
+stubbed `$` and compares all 14 summary fields to the library's own output:
+**0 mismatches**.
+
+## Live: the expired-token classifier, proven (execution 112404)
+
+`Hassan Bearer` expired overnight. Before this pass, that surfaced as
+`NodeApiError: The service was not able to process your request` — a server
+fault, which is the wrong thing to go looking for. Now:
+
+> **ERP TOKEN EXPIRED.** Preflight Count Population returned HTTP 500 carrying
+> "Token not valid, {Token is expired}". This is NOT a server fault, even though
+> ERP dresses it as a 500 rather than a 401 — it is the ordinary end of a token's
+> life. Paste a fresh token into `params.erp_auth.bearer` and run again. Nothing
+> was read and nothing was written.
+
+It fired at the gate, **before either sweep**: two preflight calls spent, zero
+wasted on a doomed walk.
+
+## Not tested, and why
+
+- **The full pipeline on the new build.** The last end-to-end pass on this code
+  could not run: the token expired first. The scoring logic is unchanged in
+  behaviour (proven equivalent to the tested library), but `Workbook Declared?`,
+  the new run-row fields and the case-row `verdict_word` column have **not** been
+  exercised live. **This needs one run with a fresh token.**
+- **The workbook write.** No workbook exists. Creating a spreadsheet in a
+  colleague's Drive is not a decision to take unilaterally, so the write path is
+  built and wired but unexecuted. Supply `params.workbook_id` to exercise it.
+- **The failure-path draft.** n8n fires the Error Trigger for production
+  executions only, so a manual run cannot reach it.
+
+## Two incidents worth recording
+
+**The lease queue.** Two manual executions parked waiting on the ERP lease and
+could not be cancelled through the MCP. The lease sub-workflow reported the state
+precisely — `queue_position: 3, waiters_ahead: 2` — and, when overridden,
+recorded its own reason: *"The reason to reach for this — a stuck lease — is
+indistinguishable from the reason not to — another audit genuinely running — so
+this is recorded on the run."* The override was used once, deliberately, for a
+single run rather than the concurrent pair that caused the earlier load problem.
+
+**Snowflake is reachable but unusable.** Role `PAYROLL_AND_MONEY_CONTROL_ROLE`
+has no warehouse grant, so no query can execute. This does not block the Phase 7
+independent count: the spec's July figure of 704 *is* a warehouse read, and the
+two live runs agree with it exactly.
