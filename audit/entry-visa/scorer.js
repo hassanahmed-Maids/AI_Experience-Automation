@@ -412,7 +412,35 @@ function score(input, opts) {
         continue;
       }
 
-      const rejTime = c.time === null ? null : rejectionForCharge(c.time, nextChargeTime, rejectionTimes);
+      // AN UNDATEABLE CHARGE MUST NOT REACH GATE 5. Found 2026-08-30 while wiring the ERP
+      // enrichment, and it is a FALSE CLEARANCE, not a crash.
+      //
+      // Gate 5's question is "does a rejection fall at or after THIS charge and before the
+      // next one" — which cannot be asked at all without the charge's date. Previously a
+      // null time made rejectionForCharge return null, and a null rejection is exactly what
+      // gate 5 treats as proof the application succeeded. So a charge we could not date was
+      // scored CLEAN: 'Application succeeded, no refund due'.
+      //
+      // It was unreachable while every fixture carried a transaction date. It stops being
+      // unreachable the moment ERP enrichment is wired, because a charge can carry a
+      // transaction id (so it is 'paid' and in the population) while the transaction lookup
+      // that would date it fails, is refused, or returns a row with no usable date.
+      //
+      // Silence is pending, never clean.
+      if (c.time === null) {
+        chargeCases.push(makeCase({
+          req: req, charge: c, gate: 15, order: 150, verdict: VERDICT.PENDING,
+          verdictName: 'Unsettled — charge could not be dated',
+          why: 'This charge has a transaction id, so it is in the population, but no usable transaction ' +
+               'date could be read for it. Every gate that could settle it — 5, 6, 9 — measures from that ' +
+               'date, so none of them can be asked. It exits pending rather than clean.',
+          recoverable: null,
+          evidence: { last_gate_passed: 3, missing: 'transactionDate' }
+        }));
+        continue;
+      }
+
+      const rejTime = rejectionForCharge(c.time, nextChargeTime, rejectionTimes);
 
       // GATE 5 — no rejection in this cycle: the application that worked.
       // Never read this as "the request is healthy". It clears ONE charge, not the

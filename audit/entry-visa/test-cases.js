@@ -554,6 +554,28 @@ CASES.push({
 });
 
 CASES.push({
+  name: 'GUARD · a charge that cannot be dated pends, and NEVER reads as clean',
+  note: 'REGRESSION. A paid charge whose transaction date is unreadable used to reach gate 5 and score ' +
+        '"Application succeeded, no refund due" — a false clearance. Gate 5 asks whether a rejection ' +
+        'falls after THIS charge, which is unanswerable without its date. Reachable as soon as ERP ' +
+        'enrichment is wired: a charge can carry a transaction id and still fail to be dated.',
+  input: { requests: [{
+    requestId: 70018, ownerId: 716, ownerType: 'HOUSEMAID',
+    stopped: true, taskName: 'x', identityAgrees: true, everRejectedKnown: true,
+    rejectionDates: ['2026-03-01 00:00:00'],
+    // Added + a transaction id, so it IS in the population — but undateable.
+    expenses: [ charge(HIGH, 1054.71, null, { id: 98, transactionId: 555 }) ],
+    cancelSideRefunds: []
+  }]},
+  expect: function (r) {
+    assertCount(r.charge_cases, 1, 'one case');
+    eq(r.charge_cases[0].gate, 15, 'gate 15, not gate 5');
+    eq(r.charge_cases[0].verdict, S.VERDICT.PENDING, 'pending, never clean');
+    eq(r.charge_cases[0].evidence.missing, 'transactionDate', 'and it says what was missing');
+  }
+});
+
+CASES.push({
   name: 'GUARD · a rejection 322 days later must NOT pair with an old charge',
   note: 'Gate 3: one measured charge of 2025-08-05 has its nearest later rejection on 2026-06-23 — ' +
         '322 days and at least one intervening cycle away.',

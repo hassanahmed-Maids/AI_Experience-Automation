@@ -18,10 +18,29 @@ const S = require('./scorer.js');
 // nothing. The spec cases are real, distinct requests.
 const specCases = CASES.filter(function (c) { return /^TC\d/.test(c.name); });
 
+// PLUS the regression case, deliberately.
+//
+// The e2e comparison is the ONLY thing that proves the n8n node still behaves like this
+// scorer. That makes it a drift detector, and a drift detector is only as good as the paths
+// it exercises: a fixture set that never produces a gate-15 case cannot notice a node whose
+// gate-15 handling is missing or stale.
+//
+// This is exactly what went wrong once already — the undateable-charge guard existed here
+// and not in n8n, and every fixture carried a date, so nothing failed. Now one does not.
+const undateable = {
+  requestId: 70018, ownerId: 716, ownerType: 'HOUSEMAID',
+  stopped: true, taskName: 'x', identityAgrees: true, everRejectedKnown: true,
+  rejectionDates: ['2026-03-01 00:00:00'],
+  expenses: [{ id: 98, purpose: 'Entry Visa > 1000 AED', status: 'Added',
+               amount: 1054.71, transactionId: 555, transactionDate: null, paymentDate: null }],
+  cancelSideRefunds: []
+};
+
 const population = [];
 specCases.forEach(function (c) {
   c.input.requests.forEach(function (r) { population.push(r); });
 });
+population.push(undateable);
 
 const expected = S.score({ requests: population }, { asOf: AS_OF });
 

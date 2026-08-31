@@ -1,121 +1,161 @@
-# The n8n build — what exists, what it proved
+# The n8n build — what exists, and what it proved
 
-**Flow:** `Entry Visa Audit · 1-Score (draft)` — `Rr6WyZmR0ysXR1k3`, Adeeb project
-**Probe:** `Entry Visa Audit · 0-Probe (throwaway)` — `bnXWEJxfUsYnwhDD` (Phase 2, blocked on grants)
-
-Draft. Never published, never scheduled, never activated. Makes **zero ERP calls**.
-
----
-
-## Why this stage takes no ERP lease
-
-The golden sibling flows acquire the shared ERP lease (`9gVijqvtLVEhQZXz`) and run a budget
-gate before their first ERP call. This one does neither, deliberately: the population is a
-warehouse read and the scoring is pure, so there is nothing to pace and nothing to budget.
-The lease belongs to the future enrichment stage, which is the only part that talks to ERP.
-
-Declared in the canvas notes rather than left implied — the 2026-08-23 audit of a sibling
-flow found it depending on a caller that held no lease and saying nothing about it, and an
-undeclared dependency is indistinguishable from an unnoticed gap.
-
-## The scorer node is generated, not hand-written
-
-`audit/entry-visa/scorer.js` is canonical. `node audit/entry-visa/build-node.js` emits
-`dist/score-node.js`, which is what the `Score Cases` node contains.
-
-Same reason the golden generates its circuit breaker from `tools/erp_breaker.js`: the
-offline scorer is the **fixed reference** the flow is checked against. If the two can drift,
-it stops being one — someone edits the node in the UI, the offline tests still pass, and the
-thing that actually runs is no longer the thing that was tested.
-
-Two hazards were removed from `scorer.js` so the generated body can be embedded verbatim:
-two backticks in a comment and three escaped apostrophes. Left in, the paste into n8n would
-have terminated a string early and produced a subtly different node. The build script now
-asserts zero backslashes, backticks and `${` before the code is used.
-
----
-
-## Test 1 — end to end against the spec's own test cases
-
-All seven ERP-verified spec test cases, combined into one population, driven through the
-**real flow** via its webhook. Execution `110786`, status `success`.
-
-The offline harness and the flow are given **the same fixtures from the same file** —
-`test-cases.js` exports them, `e2e-payload.js` builds the payload and computes the expected
-result with the offline scorer. If the two ever disagree, that is a finding about the flow,
-not a fixture mismatch to be explained away.
-
-| | expected (offline) | n8n returned |
+| Flow | ID | State |
 |---|---|---|
-| charge-grain cases | 9 | **9** |
-| findings | 3 | **3** |
-| clean | 5 | **5** |
-| routed to verifier | 1 | **1** |
-| pending | 0 | **0** |
-| by gate | 7:3, 5:3, 6:2, 12:1 | **7:3, 5:3, 6:2, 12:1** |
-| pair-grain cases | 2 (both gate 14) | **2 (both gate 14)** |
-| recoverable, AED | 2,218.50 | **2,218.50** |
-| pair-grain wasted, AED | 566.00 | **566.00** |
-| declared gaps | GATE-7…, GATE-10… | **both, with 1 and 3 affected** |
-| constants checksum | `a002fbe4` | **`a002fbe4`** |
-| completeness guard | ran, delta 0 | **ran, delta 0** |
+| `Entry Visa Audit · 1-Score (draft)` | `Rr6WyZmR0ysXR1k3` | 18 nodes, end to end |
+| `Entry Visa Audit · 0-Enrich (sub-workflow)` | `V62H8yZQYGesvYzp` | ERP enrichment, chunked |
+| `Entry Visa Audit · 0-Probe (throwaway)` | `bnXWEJxfUsYnwhDD` | Phase 2, blocked on grants |
+| `Entry Visa Audit · Cases` (Data Table) | `TBYy8qk2M84XDEha` | the case store |
+| `Entry Visa Audit · Runs` (Data Table) | `ZjHtOK6fQz1BF7j1` | the runs log |
 
-Exact match on every field.
-
-Worth noting what the AED 566.00 is: two gate-14 findings of **AED 283.00 each**. One is
-request 92147 — the SOP's own "≈283 lost" — and the other is request 115840, which arrives
-at the same figure by a different route. Neither number is copied from the spec; both fall
-out of the gate-14 valuation logic.
-
-## Test 2 — the fail-closed guards actually fire
-
-`success` means the workflow did not crash. It does not mean the guards work. Each was
-driven to fail on purpose, and each was checked for the **right** error, not merely an error.
-
-| # | Input | Execution | Fired at | Message |
-|---|---|---|---|---|
-| 1 | no population, no source | `110787` | `Load Population` | *"no population supplied and no source named … Refusing to score nothing and call it clean."* |
-| 2 | `window_from` 2024-01-01 | `110788` | `Validate Run Input` | *"…before 2025-09-05 … An earlier window returns a silently empty population — which looks like a clean month. Refusing to run rather than reporting one."* |
-| 3 | 1 row vs independent count 694 | `110789` | `Assert Population Complete` | *"population is 1 but the independent count says 694 (delta -693) … An unexplained delta is a finding about the run itself."* |
-
-Test 3 is the one that matters most. A short read does not error, does not look empty, and
-produces a perfectly plausible smaller number of findings — nothing downstream can tell it
-from a clean month. Only an independent count catches it, and now it does.
-
----
-
-## Output hygiene, verified on a real run
-
-The run summary from execution `110786` carries **counts, flags and totals only**. No maid
-id, no request id, no per-case amount, no name. Per-entity detail stays on the case objects,
-which are bound for the case store — that store *is* "behind the case".
-
-The summary also carries a **verifier-load warning** that fires above 60 routed cases. The
-spec says 205 of 223 findings conclude deterministically and the verifier gets ~18 plus
-routed exceptions, and that *"if the verifier starts receiving hundreds, a gate upstream has
-stopped working"* — so the run says so itself rather than waiting for someone to notice.
-
----
-
-## Deliberately not built
-
-**ERP enrichment parsing.** It hangs on one unanswered question: does
-`GET /visa/newRequest/{id}` expose `transactionId` on its embedded `expenses[]` rows? If not,
-there is no ERP clock, gate 1's own population filter cannot be evaluated from ERP, and the
-refund family becomes warehouse-clocked — and any parsing written now is thrown away.
-Building it before the probe answers that is exactly how a flow ends up running clean and
-being wrong.
-
-**The case store and runs log.** Wired once the population source is real. A store full of
-fixture rows would make a later real run hard to tell from a replay.
-
-**Delivery.** Portal, workbook, runs log — all gated on sign-off.
-
-## How to re-run the evidence
+All drafts. Never published, never scheduled, never activated. Manual trigger only, and
+`Validate Run Input` refuses a run flagged as scheduled.
 
 ```
-node audit/entry-visa/test-cases.js      # 23 cases, 82 assertions, offline
-node audit/entry-visa/e2e-payload.js --expected   # what the flow must return
-node audit/entry-visa/e2e-payload.js     # the payload to POST to the flow
-node audit/entry-visa/build-node.js      # regenerate the n8n node from scorer.js
+Run Trigger → Validate Run Input → Load Population → Enrich From ERP?
+                                                       ├ yes → Expand Chunks → Enrich via ERP → Merge Enrichment ─┐
+                                                       └ no  ─────────────────────────────────────────────────────┤
+                                          Assert Population Complete ←──────────────────────────────────────────────┘
+                                                       ↓
+   Score Cases → Flatten Cases → Write Cases → Read Cases Back → Verify Case Write → Write Runs Row → Build Run Summary
+```
+
+---
+
+## What each source is trusted for
+
+Not arbitrary — each side is used for what it is actually reliable for.
+
+| | supplies | why |
+|---|---|---|
+| **Warehouse** | charges, refunds, amounts, statuses, transaction ids **and dates**, owner ids | it has all of it, cheaply |
+| **ERP** | `taskHistorys`, `stopped`, `taskName`, `ownerId` | these are what the warehouse gets **wrong** |
+
+The rejection history is the whole reason ERP is in the loop. It has **measured false
+negatives**: of 14 same-request identical-amount pairs the history called not-rejected,
+**5 had an Added refund between them** — a 36% false-positive rate, and every one would have
+become a false duplicate finding against a named person.
+
+**This shrinks the call budget.** The spec's ~250 transaction-dating calls are a *fallback*,
+not a per-run cost, because the warehouse already carries the dates. The run cost is ~60
+ID-scoped calls. `clock_source` is recorded per charge so a silent switch is visible.
+
+---
+
+## Two bugs found by testing, both false clearances
+
+Phase 6 predicts this: *"expect to find bugs here, and expect them to be false clearances
+rather than crashes."* Both were.
+
+### 1. An undateable charge scored CLEAN
+
+A paid charge whose `transactionDate` could not be read had `time === null`, which made
+`rejectionForCharge` return null — and a null rejection is exactly what **gate 5 treats as
+proof the application succeeded**. So a charge nobody could date was scored
+*"Application succeeded, no refund due."*
+
+Unreachable while every fixture carried a date. It stops being unreachable the moment ERP
+enrichment is wired, because a charge can carry a transaction id — so it is "paid" and in
+the population — while the lookup that would date it fails or is refused.
+
+Now exits pending at gate 15. **In production it would have cleared every charge whose
+transaction lookup failed**, silently, at exactly the moment ERP is least reliable.
+
+### 2. The case store read back 121 rows for 11 cases
+
+`Read Cases Back` had no `executeOnce`, so it ran once per incoming case and returned the
+run's rows that many times over. `executeOnce` cannot be set through `addNode`'s node object
+— it is a node *setting*.
+
+Caught by `Verify Case Write`, which refused to report. That is the guard doing its job, but
+the node was still wrong and is now fixed.
+
+---
+
+## Test results
+
+### Offline — 24 cases, 86 assertions, all passing
+
+```
+node audit/entry-visa/test-cases.js
+```
+
+All seven ERP-verified spec test cases plus seventeen guards, one per edge the rules name.
+**Test case 7 independently reproduces the SOP's AED 283.00** from the gate-14 valuation
+logic rather than copying it.
+
+### End to end — exact match, twice
+
+Execution `112411`, the full chain including both stores. Same fixtures as the offline
+harness, from the same file, so a disagreement is a finding about the flow rather than a
+fixture mismatch to explain away.
+
+| | expected | n8n |
+|---|---|---|
+| charge cases | 10 | **10** |
+| findings / clean / pending / routed | 3 / 5 / 1 / 1 | **3 / 5 / 1 / 1** |
+| by gate | 7:3, 5:3, 6:2, 12:1, **15:1** | **identical** |
+| pair cases | 2 (gate 14) | **2 (gate 14)** |
+| recoverable AED | 2,218.50 | **2,218.50** |
+| pair wasted AED | 566.00 | **566.00** |
+| cases written / read back | 12 / 12 | **12 / 12** |
+| constants checksum | `a002fbe4` | **`a002fbe4`** |
+
+The AED 566.00 is two independent AED 283.00 figures reached by different routes.
+
+### Fail-closed guards — each driven to fail, each checked for the RIGHT error
+
+`success` only means the workflow did not crash.
+
+| Input | Execution | Fired at |
+|---|---|---|
+| no population, no source | `110787` | `Load Population` |
+| `window_from` before 2025-09-05 | `110788` | `Validate Run Input` |
+| 1 row vs independent count 694 | `110789` | `Assert Population Complete` |
+| enrichment requested, no token | `112403` | `Expand Chunks` |
+| 11 cases written, 121 read back | `112389` | `Verify Case Write` |
+
+The short-read case matters most: it does not error, does not look empty, and yields a
+plausible smaller number of findings. Only an independent count catches it.
+
+The enrichment test cost **zero ERP calls** — it proved the branch routes and its gate fires
+without spending requests at a wall we already know is there.
+
+---
+
+## On the scorer node's provenance — a correction
+
+The `Score Cases` node's header claimed it was **GENERATED** from `scorer.js` and
+byte-identical to it. That was not true: it is a hand-written **port**, and nothing in this
+pipeline can verify byte-equality through the n8n API. The claim is withdrawn, in the node,
+in the run summary's `provenance.scorer`, and here.
+
+What actually holds the two together is the **end-to-end comparison** — and a drift detector
+is only as good as the paths it exercises. That is not hypothetical: the undateable-charge
+fix existed in `scorer.js` and not in n8n, and every fixture carried a date, so nothing
+failed. The e2e fixture set now includes a gate-15 case, so a stale node **fails** the
+comparison instead of passing it quietly.
+
+`build-node.js` and `dist/score-node.js` remain, and are the right basis for making the node
+genuinely generated later.
+
+---
+
+## Not proven, and why
+
+- **The live ERP leg.** Blocked on pagecode grants. The enrichment flow is built, chunked at
+  25 (the blast radius of a wall), breaker armed, and refuses to run unenriched.
+- **The warehouse population.** Blocked on a Snowflake warehouse grant. `POPULATION-QUERY.md`
+  holds the query, marked unverified because column names could not be checked.
+- **The >500-call budget gate.** Needs a population that large.
+
+All three are in `ACCESS-REQUEST.md`.
+
+## Re-running the evidence
+
+```
+node audit/entry-visa/test-cases.js            # 24 cases, 86 assertions
+node audit/entry-visa/e2e-payload.js --expected # what the flow must return
+node audit/entry-visa/e2e-payload.js            # the payload to POST
+node audit/entry-visa/build-node.js             # regenerate dist/score-node.js
 ```
