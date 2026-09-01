@@ -142,3 +142,24 @@ Everything else that could not be examined exits `pending` or `inconclusive`.
 No row reaches `clean` through a surface that was refused — that was the single
 governing constraint of the degraded build, and the `dedup_eligible` fix in the
 scorer exists because the first version violated it.
+
+---
+
+## Filed to Jira — 2026-09-01
+
+**[MC-2005](https://jira-maids-cc.atlassian.net/browse/MC-2005)** — *Publish n8n flow: Change of Status Audit*.
+Project **MC (Accounting - Money Control)**, issue type `n8n Flow`, status **Pending PO**,
+assignee Yazan Mostafa, reporter Hassan Okasha. Raised by Moe, not by this session.
+
+Note for whoever tracks routing: Maya's mandate names **SD** as the project for n8n
+publish requests. This was filed in **MC**. The `n8n Flow` issue type is the same one,
+so it may well route correctly — worth confirming it reaches the Technical Analyst
+rather than sitting in the module board.
+
+Notion (`Change of Status Check`) updated to match: Status → *On Jira pending
+production*, `Jira Task Link` → MC-2005, and the page's build section corrected for
+the lease removal, the node count (29 → 26) and the three-not-four refused surfaces.
+
+Still outstanding on the ticket itself: the `.json` export is not attached, and the
+`Hassan Bearer` credential is still bound to the four ERP nodes — the n8n MCP has no
+remove-credential operation, so that one has to be done in the n8n UI.
