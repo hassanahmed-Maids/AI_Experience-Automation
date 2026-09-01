@@ -3,10 +3,31 @@
 Five surfaces the check needs and for which **no route is established**. Each is
 the closing action a rule row already names as blocking.
 
-**Status: submitted? No — LCP authenticates with the same ERP bearer, and every
-token available to this session is expired** (checked 2026-09-01: the `ERP Hassan
-Prod` and `Hassan Bearer` credentials both return HTTP 500
-`Token not valid, {Token is expired}` against `/lowcode/c2d/session/…`).
+**Status: submitted 2026-09-01**, all five accepted (HTTP 200), conversations
+`45423`–`45427` via n8n execution `113004`.
+
+⚠️ **PROVENANCE — read before trusting any answer below.** These were asked on a
+token issued to **`Malaz.a`, not to the operator running the build.** Two
+consequences, neither cosmetic:
+
+1. **Every route LCP names is UNVERIFIED on the auditing account.** This check has
+   already been burned by exactly this: the spec recorded test cases 1 and 3 as
+   "confirmed against live ERP", that confirmation having been made on a different
+   login, and `GET /accounting/transactions/{id}` turns out to be refused with
+   `INSUFFICIENT_PERMISSIONS` on the operator's own account. An answer here says
+   *the code has this route*; it does not say *we can call it*. Each route must be
+   probed on the operator's token before any row of the spec is marked verified.
+2. **Malaz is the spec's named independent reviewer** for this money-out check.
+   Discovery on his credentials is tolerable — these are code-documentation
+   questions, not client data, and they produce no findings. Running the CHECK on
+   them would not be: it would make the reviewer an actor in the evidence he has
+   to review independently. The audit's own ERP reads (population sweep, identity
+   resolution, live testing) stay on the operator's token.
+
+Earlier finding, kept because it explains why the token was needed at all: LCP
+authenticates with the same ERP bearer, and the `ERP Hassan Prod` and
+`Hassan Bearer` credentials both return HTTP 500
+`Token not valid, {Token is expired}` against `/lowcode/c2d/session/…`.
 
 **How to fire them:** n8n workflow `dXWzWtPZHO3CuRvx`
 (*ZZ Ask LCP — R-Visa open questions*), which holds these questions verbatim.
