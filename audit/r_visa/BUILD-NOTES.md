@@ -338,12 +338,54 @@ declared gaps and its notes that it could not have found one.
    counts only — showing "Pending: 0" beside a note explaining that pending is the
    majority state. Both grains are now reported.
 
-### Not yet tested — needs a live token
+### ⛔ STANDING INSTRUCTION: no more testing on production (2026-09-01)
 
-The two things pinning cannot exercise: the paginated sweep against real ERP
-(including the one-month walk with `pulled = totalElements` asserted, which the
-spec requires before a first run) and the identity resolver against the real
-detail route. Both are written and unit-covered; neither has met production.
+No further calls to `erpbackendpro.maids.cc` from this build — that includes the
+low-code ask-the-code API, which runs on the same host and the same bearer.
+
+State at the point the instruction was given: all five workflows `active: false`
+with `triggerCount: 0`. Nothing published, nothing scheduled, nothing reachable
+without someone deliberately firing it. The two `ZZ` throwaway probes are still
+loaded with prod-pointing calls; archiving them was declined, so they remain —
+inactive, but live if executed.
+
+**What this leaves unproven is not cosmetic.** See below.
+
+### Not tested against production, and now will not be
+
+The two things pinning cannot exercise:
+
+1. **The paginated sweep against real ERP.** Pinning supplies the sweep's *output*,
+   so the pagination loop, the `completeExpression`, the 60-request cap and the
+   `pulled == totalElements` reconciliation have never actually run against a
+   paginated response. That last one is the check's own guarantee against a short
+   walk, and the spec explicitly requires one month walked against ERP with it
+   asserted **before the first real run**. It has not been.
+2. **The identity resolver against the real detail route.** Its denial
+   classification is exercised by fixtures only; the live route is refused on the
+   operator's account anyway.
+
+**Consequence, stated plainly: this flow is not run-ready.** Everything
+downstream of the sweep is proven — 131 offline assertions and two end-to-end
+runs of the deployed nodes — but the sweep itself is the one component whose
+correctness cannot be inferred from its unit tests, because its failure mode is a
+short read that looks like a complete one. Nobody should treat a first production
+run as validated on the strength of what has been tested here.
+
+**Options that do not touch production**, none taken without a decision:
+
+- **Staging ERP.** The instance holds `erp_stag_token` and
+  `erp_staging2_n8n_token`. If staging carries comparable transaction volume, the
+  sweep and the reconciliation can be proven there. This is the cheapest route to
+  a run-ready flow and it is still an external system, so it needs an explicit
+  go-ahead rather than an inference from "not prod".
+- **A recorded-response harness.** Capture one real paginated response set once,
+  under whatever supervision is required, and replay it offline forever after.
+  Costs one supervised prod read; buys a permanent regression test.
+- **Ship as-is and accept the gap**, with the sweep marked unproven on the run
+  row and the first production run treated as the test — which is what the spec's
+  own "walk one month with `pulled == totalElements` asserted" instruction
+  effectively describes, done deliberately and watched.
 
 **Test rows left behind:** run ids `r-visa-PINNED-TEST-2026-08-31`,
 `r-visa-PINNED-A-happy` and `r-visa-PINNED-B-blocked` in both data tables. They
