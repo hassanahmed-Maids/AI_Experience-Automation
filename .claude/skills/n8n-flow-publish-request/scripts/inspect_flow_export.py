@@ -6,6 +6,10 @@ credential names and an executions-per-day estimate. All of that is already in
 the export the ticket has to attach anyway, so read it from there rather than
 asking someone to recite it from memory.
 
+Flags shared sub-workflow dependencies, which block filing: NF deploys the
+workflow on its own, so a call into another project's flow does not travel with
+the export.
+
 Prints credential NAMES only. If anything token-shaped is embedded in the export
 it is reported by location, never by value - a secret belongs in a credential,
 and certainly not in a Jira ticket.
@@ -187,11 +191,27 @@ def main():
         interesting[t] += 1
     for t, count in interesting.most_common():
         print(f'  {t}  x{count}')
-    subs = [n.get('name') for n in nodes if 'executeworkflow' in short_type(n).lower()]
-    if subs:
-        print(f'  sub-workflow calls: {", ".join(subs)}')
-    if not interesting and not subs:
+    if not interesting:
         print('  (none beyond logic nodes)')
+    print()
+
+    # --- Shared dependencies: a blocker, not a footnote ---
+    subs = []
+    for n in nodes:
+        if 'executeworkflow' in short_type(n).lower():
+            wid = ((n.get('parameters') or {}).get('workflowId') or {})
+            wid = wid.get('value') if isinstance(wid, dict) else wid
+            subs.append((n.get('name'), wid))
+    print('== Shared sub-workflow dependencies ==')
+    if subs:
+        print('  BLOCKER. NF deploys this workflow alone - a sub-workflow in another')
+        print('  project does not travel with the export. Rewire around these and')
+        print('  delete them before filing:')
+        for name, wid in subs:
+            note = '  <- the shared ERP lease' if wid == '9gVijqvtLVEhQZXz' else ''
+            print(f'    {name}  -> workflow {wid}{note}')
+    else:
+        print('  none - the flow is self-contained')
     print()
 
     # --- Secrets ---

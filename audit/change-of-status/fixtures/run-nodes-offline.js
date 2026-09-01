@@ -126,8 +126,16 @@ const goesTo = (from, to) => ((conn[from] || {}).main || []).some(o => (o || [])
 check('Write Cases -> Workbook Declared?', goesTo('Write Cases', 'Workbook Declared?'), true);
 check('Workbook Declared? true -> Cases -> Workbook',
   (((conn['Workbook Declared?'] || {}).main || [])[0] || []).some(c => c.node === 'Cases -> Workbook'), true);
-check('Workbook Declared? false -> Release ERP Lease',
-  (((conn['Workbook Declared?'] || {}).main || [])[1] || []).some(c => c.node === 'Release ERP Lease'), true);
+check('Workbook Declared? false -> Format Run Summary',
+  (((conn['Workbook Declared?'] || {}).main || [])[1] || []).some(c => c.node === 'Format Run Summary'), true);
+// The shared ERP lease was removed so the flow is self-contained for the SD
+// publish request: NF deploys one workflow, not a workflow plus a dependency in
+// someone else's project. Assert no sub-workflow call has crept back in.
+check('no shared-lease dependency remains',
+  wf.nodes.filter(n => /executeWorkflow/i.test(n.type)).length, 0);
+check('nothing still routes to a lease node',
+  Object.values(conn).flatMap(s => (s.main || []).flat())
+    .filter(c => c && /Lease/i.test(c.node)).length, 0);
 check('crash trigger -> failure draft', goesTo('On Workflow Crash', 'Format Failure Email'), true);
 check('Format Failure Email -> Draft: audit failed', goesTo('Format Failure Email', 'Draft: audit failed'), true);
 

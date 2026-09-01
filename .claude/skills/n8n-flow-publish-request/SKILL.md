@@ -64,6 +64,28 @@ What the script cannot know, and you must ask for:
 - **API Requests Tasks** — if the flow calls APIs that have their own Jira tasks, link
   them; otherwise list the endpoints.
 
+## Step 1b — The flow must stand on its own
+
+NF deploys *a workflow*, not a workflow plus dependencies living in someone else's
+project. A shared sub-workflow — an ERP lease, a common gate, a helper another team
+owns — cannot travel with the export, so it either fails on the NF side or silently
+couples production to a flow nobody reviewed. **Strip shared sub-workflow calls out
+before drafting**, and rewire around them.
+
+The ERP lease (`9gVijqvtLVEhQZXz`, *ERP Lease · one audit at a time*) is the usual
+one. Removing it is three edits: connect the node that fed *Acquire* straight to the
+node *Acquire* fed, do the same at each *Release*, drop the crash-path release, then
+delete the three nodes.
+
+Be honest with the user about what that costs. The lease exists because two audits
+hitting ERP at once caused a load incident; without it, concurrency is bounded only
+by the flow's own pacing and its budget gate, and nothing stops a second flow running
+alongside. That is a real trade and worth one sentence — but it is the user's call,
+and a self-contained flow is what the process requires.
+
+After stripping, re-run the flow's offline tests. A rewire that silently drops a
+delivery branch is the kind of thing that only shows up in production.
+
 ## Step 2 — Draft in the mandated template
 
 The authority for this template is Maya Ali's email, reproduced verbatim in
@@ -123,6 +145,25 @@ Guidance per section — the point of each, so you can judge what belongs:
 - **APIs Used** — link the API Requests Tasks where they exist; otherwise list
   method + path per endpoint, and the read/write character of each. Reviewers weigh
   a write far more heavily than a read.
+
+### Keep run details out of the ticket
+
+The ticket describes **what the flow is and does** — the template's fields, nothing
+more. It is not a test report. Leave out execution IDs, run counts, findings tallies,
+per-run figures, sample records, entity identifiers and money amounts observed in
+actual runs. Three reasons, and they compound:
+
+- SD tickets are widely readable, and real run output can carry personal or financial
+  data about real people. That is a disclosure, not a detail.
+- Live figures date immediately. A reviewer reading last month's counts learns
+  nothing about the flow they are being asked to deploy.
+- It buries the mandated fields under narrative, and a reviewer scanning for
+  artifacts is likelier to call one missing.
+
+State capability and design, not results: *"flags duplicate government fees for the
+same maid"*, not *"found 1 finding and 105 pending across 704 charges in run 110690"*.
+Evidence of testing belongs on disk and in the review conversation; if a reviewer
+asks for it, send it to them directly.
 
 ### Secrets
 

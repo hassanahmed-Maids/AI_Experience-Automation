@@ -118,3 +118,27 @@ one of the Change of Status check's four "refused" surfaces
 at all. Permission requests must name `<pageCode>_FULL`, and a refused surface
 must be re-probed with the registry's own pageCode before it is reported as
 missing access.
+
+## 2026-09-01 — A flow filed to SD must be self-contained; no shared sub-workflows
+
+NF deploys the workflow on its own, so a call into a sub-workflow living in another
+project does not travel with the export — it either fails on the NF side or couples
+production to a flow nobody in that review saw. The shared ERP lease
+(`9gVijqvtLVEhQZXz`) therefore comes out of any flow going to Jira, and the flow is
+rewired around it.
+
+The cost is real and should be stated rather than glossed: the lease exists because
+two audits hitting ERP at once caused a load incident. Without it, concurrency is
+bounded only by each flow's own pacing and its ERP budget gate, and nothing prevents
+two flows running alongside each other. If serialisation is needed in production it
+has to be solved inside the flow, or by scheduling, not by a shared dependency.
+
+## 2026-09-01 — Jira tickets carry the flow's design, never its run output
+
+SD tickets are widely readable, and real run output can carry personal or financial
+data about real people — surfacing it in a ticket is a disclosure, not a detail. Live
+figures also date immediately and bury the mandated template fields, making a
+reviewer likelier to call an artifact missing. So a publish request states capability
+and design ("flags duplicate government fees for the same maid"), never results
+("1 finding across 704 charges in run 110690"). Test evidence stays on disk and goes
+to a reviewer directly if they ask.
