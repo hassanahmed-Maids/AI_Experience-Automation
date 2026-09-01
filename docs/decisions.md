@@ -83,3 +83,38 @@ Format: `YYYY-MM-DD — decision — why`. Newest at top. Log every judgment cal
 - 2026-07-08 — Scope rule: the CURRENT MV-Clients JourneyAI export is the authority — migrate ONLY templates in it. Reconciled all completed clusters + candidates against the fresh `templates_targets_MV clients_2026-07-08.xlsx` (246 templates). Removals (live in 2026 but NOT in the new export): 1749 Payroll_Maid_Salary_Transferred (Cluster 13 Campaign A — highest-volume template ~6,976/45d, but absent from the MV export → reclassified to a payroll/other target; Cluster 13 now single-campaign Ansari-only; board Campaign-A flowchart deleted), CM_SMS_3_3_2_1 (Cluster 14 candidate — dropped), APPROVE_REDUCE_FINE_REMINDER_1 (excluded). KEPT (validated present in the new export): the Cluster-3 pulled-ins (PAY_INSIDE 12177, REJECT_REDUCE_FINE 12179, REJECT_R1 12180), Cluster-7 52649, and APPROVE_REDUCE_FINE 12182 + R2 12184 (now an eligible candidate). Two 6-day-apart exports differed (1749 out, 3_3_2_1 absent, APPROVE in) → the export moves; reconcile against the latest before each pass. Recorded in MV_TEMPLATES_REMOVED.md + MV_MIGRATE_CANDIDATES.md.
 - 2026-07-08 — System 2 revamp (per Moe, before moving to System 3). (1) The `data-task` stage + `golive-data-team-task-writer` agent are REMOVED — merged into `data-structure`. (2) `golive-data-structure-designer` now consumes System 1's `attribute-map.md` (System 1's attribute-mapper prepares/finalizes the data-attribute steps — added a "data-structure hand-off" to its output), VERIFIES every sync-add attribute / relationship / deletion condition against the ERP code (ask-code) + mmdb, and outputs a code-accurate SPEC of the exact additions to the CIO sync/group queries + the deletion queries. Moe hands that spec to a SEPARATE query-editing session (not a data-team Jira task). (3) `golive-final-checker` gains a second mode: when a CustomerIO MCP is provided (PENDING — not yet available) it inspects the built campaign directly in CIO instead of a pasted description; until then, manual feed. Stages are now dev-task | data-structure | api-spec | final-check. CLAUDE.md System-2 diagram + prepare-golive command + attribute-mapper updated. System 2 is considered done — next is System 3 (live-send monitoring).
 - 2026-07-08 — System 3 (shadow-mode reconciliation / go-live parity) BUILT, designed against a PENDING CustomerIO connector (enhance to its real API when Moe confirms it). Cluster goes live in shadow (CIO journeys run, sends suppressed; ERP keeps sending); System 3 compares CIO would-sends vs ERP actual sends (Snowflake broadcasts_final_layer) and adjudicates disagreements + a sample of agreements against DB ground truth (mmdb + low-code). Decisions locked with Moe: accuracy = CIO-correctness vs DB ground truth (ERP fallible → ERP mistakes logged separately, EXCLUDED from CIO's score); per-template rolled to cluster; ~80% ⇒ CUTOVER (CIO sending on, ERP off for that cluster); Step 1 = the connector-upgraded golive-final-checker (entry gate to shadow mode); match = same person + same template + same Dubai calendar day; ground-truth depth = all CIO≠ERP disagreements + a sample of agreements; run on-demand per cluster, trailing ~14d window, ≥~20 would-sends/template to score; honor Snowflake ~1-2h ingestion lag (exclude last ~2h from miss calls, sent_date trusted). Built: docs/system3.md, agent system3-reconciler, command /system3 <target> <cluster> <step> (validate|reconcile), golive-final-checker doubles as Step 1, CLAUDE.md System-3 section. Fix→re-run loop until 80%.
+
+## 2026-09-01 — Environment selection is an allowlist, not a URL parameter
+
+Asked to work out how to test the Change of Status Audit on staging. Making the
+flow tier-switchable needs the ERP base URL to come from the run payload — but the
+operator's bearer is interpolated into the `Authorization` header of every ERP
+node, so a free-form host field would let a run payload exfiltrate a live ERP
+token to any server. Resolved `params.erp_env` through a closed allowlist of
+named tiers instead, mirroring the existing `callback_url` origin allowlist. A
+non-production run is additionally tagged in its `run_id` and defaults delivery
+off, so a rehearsal cannot be mistaken for a real audit of the month.
+
+Generalises: any environment/host that a payload can influence gets an allowlist,
+never a string.
+
+## 2026-09-01 — "Staging" is ambiguous at maids.cc; STG1 is not the usable one
+
+Five tiers exist (`DEV → TZ → STG1 → STG2 → PROD`), each with its own backend, per
+`cc-erp-services/.../default-enviroments.ts`. The frontend everyone calls
+"staging" (`staging.maids.cc`) points at STG1, whose load balancer returns 503 on
+every ERP route — the app is not running, and nothing in the repos starts it (CI
+is `when: manual` and only drops a `.war`). STG2 is alive. Rehearsals go to STG2.
+
+## 2026-09-01 — An ERP 401 INSUFFICIENT_PERMISSIONS does not prove a missing grant
+
+The enforced gate is `pageCode → Api row → user grant`; the `@PreAuthorize`
+authority strings are dead code (`PermissionEvaluatorImpl.hasPermission` returns
+`true` unconditionally). A request matching no `Api` row on the sent page denies
+identically to one the user lacks a grant for. Consequence: a wrong path or a
+wrong pageCode is indistinguishable from a permission denial from outside — and
+one of the Change of Status check's four "refused" surfaces
+(`/visa/visaRequestExpenses/newRequest/{id}`) turns out not to exist in the code
+at all. Permission requests must name `<pageCode>_FULL`, and a refused surface
+must be re-probed with the registry's own pageCode before it is reported as
+missing access.

@@ -131,5 +131,63 @@ check('Workbook Declared? false -> Release ERP Lease',
 check('crash trigger -> failure draft', goesTo('On Workflow Crash', 'Format Failure Email'), true);
 check('Format Failure Email -> Draft: audit failed', goesTo('Format Failure Email', 'Draft: audit failed'), true);
 
+
+// === Which ERP the run talks to ===============================================
+// The run bearer is interpolated into the Authorization header of every ERP
+// node, so params.erp_env decides who receives the operator's credential. It is
+// resolved through a closed allowlist; these assert the allowlist actually
+// closes, and that a non-production run cannot quietly pose as a real audit.
+console.log('\n=== Environment switch (Validate Inputs) ===');
+
+const PROD_BASE = 'https://erpbackendpro.maids.cc';
+const STAGING_BASE = 'https://backstaging.maids.cc:9443';
+const viCode = codeOf('Validate Inputs');
+
+// Re-run the validator standalone so the pipeline's own output is not clobbered.
+const validateWith = params => {
+  const base = outputs['Build Manual Run Context'][0].json;
+  const item = { json: JSON.parse(JSON.stringify(base)) };
+  item.json.body.params = Object.assign({}, base.body.params, params);
+  const $ = ref => ({ first: () => outputs[ref][0], all: () => outputs[ref] });
+  const $input = { first: () => item, all: () => [item] };
+  return new Function('$', '$input', '$json', viCode)($, $input, item.json)[0].json;
+};
+const refusalFrom = params => {
+  try { validateWith(params); return '(accepted)'; }
+  catch (e) { return /erp_env must be one of/.test(e.message) ? 'refused' : 'wrong error: ' + e.message; }
+};
+
+const prod = validateWith({});
+check('omitted erp_env means production', prod.erp_base, PROD_BASE);
+check('production run id is not tagged', /^staging-/.test(prod.run_id), 'false');
+check('production keeps the real workbook', (prod.workbook_id || '').slice(0, 10), '1jBz1WkAtp');
+
+const stg = validateWith({ erp_env: 'staging' });
+check('erp_env staging resolves the staging base', stg.erp_base, STAGING_BASE);
+check('staging run id is tagged', /^staging-/.test(stg.run_id), 'true');
+check('staging defaults away from the real workbook', stg.workbook_id, '');
+check('staging still carries the bearer', stg.erp_bearer, 'Bearer offline-pinned-fixture');
+
+check('an explicit workbook still wins on staging',
+  validateWith({ erp_env: 'staging', workbook_id: 'sheet-for-rehearsals' }).workbook_id, 'sheet-for-rehearsals');
+
+// The allowlist is the point: a hostname must never reach it as data.
+check('a raw host is refused', refusalFrom({ erp_env: 'https://attacker.example.com' }), 'refused');
+check('an unknown tier is refused', refusalFrom({ erp_env: 'dev' }), 'refused');
+check('erp_env staging2 resolves the live STG2 tier',
+  validateWith({ erp_env: 'staging2' }).erp_base, 'https://stagingiibackerp.maids.cc');
+check('staging2 run id is tagged', /^staging2-/.test(validateWith({ erp_env: 'staging2' }).run_id), 'true');
+check('staging2 defaults away from the real workbook',
+  validateWith({ erp_env: 'staging2' }).workbook_id, '');
+check('an empty erp_env is refused', refusalFrom({ erp_env: '' }), 'refused');
+
+// Every ERP node must read the resolved base - a leftover hard-coded host would
+// send a staging run's traffic, and its token, to production.
+const erpNodes = ['Get Population', 'Get Trailing History', 'Preflight Count Population', 'Preflight Count History'];
+for (const name of erpNodes) {
+  const url = wf.nodes.find(n => n.name === name).parameters.url;
+  check(name + ' reads erp_base', /erp_base/.test(url) && !/erpbackendpro/.test(url), 'true');
+}
+
 console.log('\n%d passed, %d failed', pass, fail);
 process.exit(fail ? 1 : 0);

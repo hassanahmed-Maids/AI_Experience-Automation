@@ -386,3 +386,35 @@ since are the two preflight nodes, the budget gate and the workbook branch.
 `Acquire ERP Lease`, `Release ERP Lease`, `Write Run`, `Write Cases`, `Webhook`.
 Pinning does not cover them (no credentials), so they would have taken a real
 lease and written real rows. **Re-enabled and verified after testing.**
+
+---
+
+## Offline suite after the environment switch — 2026-09-01
+
+`fixtures/run-nodes-offline.js`, real Code-node bodies against the pinned
+fixture, **zero ERP contact**: **51 passed, 0 failed** (was 33).
+
+The 18 added assertions cover `params.erp_env`:
+
+- omitted → production base, untagged run id, real workbook preserved
+- `staging` / `staging2` → correct tier base, run id tagged with the tier,
+  delivery defaulted off
+- an explicit `workbook_id` still wins on a non-production tier
+- a raw hostname (`https://attacker.example.com`), an unknown tier (`dev`) and an
+  empty string are each **refused** — the allowlist closes
+- all four ERP nodes read `erp_base`; none still carries `erpbackendpro`
+
+## Live tier reachability — 2026-09-01, no production ERP calls
+
+Unauthenticated probes (container) plus one authenticated probe of STG2 through
+n8n with the stored staging2 credential (execution 113532).
+
+| Tier | Result |
+|---|---|
+| STG1 `backstaging.maids.cc:9443` | `awselb/2.0` 503 on every ERP route — application not running |
+| STG2 `stagingiibackerp.maids.cc` | ERP auth envelope on all six probed surfaces — **alive**; stored token **expired** |
+| TZ `testbackerp.teljoy.io` | ERP auth envelope (401) — alive |
+| DEV `devbackerp.teljoy.io` | ERP auth envelope (498) — alive |
+
+The STG2 probe reported statuses and denial reasons only; no response body was
+emitted. Full analysis in `07-staging-test-plan.md`.

@@ -186,3 +186,42 @@ other months.
 **Also worth a human eye:** the six outliers above 21 implied days, and
 especially the 163/255/267-day ones, are far outside the bulk of the
 distribution.
+
+---
+
+## Corrections 11–12 — filed 2026-09-01, from ask-the-code (conversations 45461, 45462, 45465)
+
+### 11. `GET /visa/visaRequestExpenses/newRequest/{newRequestId}` does not exist
+
+Ask-the-code searched every repo case-insensitively, plus the `security-*.json`
+registries: **no controller maps this path.** The nearest real route is
+`magnamedia-accounting`'s `VisaRequestExpenseController`, base `/visarequestexpense`
+(all lowercase, mounted under `/accounting/...`), whose search endpoints carry
+`hasPermission('visarequestexpense','search')`.
+
+`01-surface-probe.md` records this surface as `401 INSUFFICIENT_PERMISSIONS` and
+counts it among the four refused permissions. That reading is **probably wrong**:
+a request whose `METHOD + url` matches no `Api` row on the sent page denies with
+the same code, so a wrong path is indistinguishable from a missing grant from
+outside. Re-probe the real path before anyone requests a grant for it.
+
+Impact: one of the four "refused" surfaces may need no permission work at all.
+
+### 12. The permission model is pageCode-driven; the `@PreAuthorize` strings are not enforced
+
+`PermissionEvaluatorImpl.hasPermission` returns `true` unconditionally — the real
+check is commented out ("all permission checks are performed in JwtAuthorizer") —
+and `CurrentRequest.checkPermission` short-circuits once `AuthorizeFilter` has
+called `authorize()`. The effective gate is
+`AuthorizeFilter → ApiAuthorizationService.checkAuthorization`:
+
+    pageCode header → active `FrontendPage` row → `Api` row matching METHOD+url
+                    → the user's FULL/READONLY grant on that Api's securityCode
+
+So a grant request must name **`<pageCode>_FULL`**, not an authority string like
+`loans.getHousemaidLoans`. The pageCode catalog itself is a DB table (`PAGES.CODE`),
+populated from the per-frontend `security-*.json` files — the *names* are
+environment-independent, but their presence in any given environment's DB is not.
+
+Impact: rewrites what we ask for in the permission request. See
+`07-staging-test-plan.md` §2 for the exact pageCode → grant table.
