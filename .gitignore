@@ -11,3 +11,6 @@ __pycache__/
 
 # Work state (on-disk pipeline state)
 work/
+
+# Generated fixture data — rebuild with: node make-fixtures.js > happy.json
+audit/change-of-status/fixtures/happy.json
