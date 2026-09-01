@@ -328,3 +328,61 @@ Delivery is now **on by default** — `Validate Inputs` resolves `workbook_id` i
 one place, and `workbook_id: ""` switches it off deliberately.
 
 **Still not exercised:** a real run appending rows. That needs a live token.
+
+---
+
+# Offline testing — 2026-09-01, no production ERP contact
+
+Run entirely with pinned data and offline harnesses. **Zero ERP calls.**
+
+## Guards, tested through n8n with pinned data
+
+Each fixture is built to trip one guard. All six fired with the intended message:
+
+| # | Fixture | Guard that fired |
+|---|---|---|
+| 113074 | preflight returns a 500 carrying an expiry message | **ERP TOKEN EXPIRED** — named as a token, not a server fault, before either sweep |
+| 113075 | population page has 2 rows, `totalElements` 300 | *collected 2 rows but totalElements is 300 … refusing to score a partial cohort* |
+| 113090 | population empty | *Population is EMPTY … a broken query, not a clean month* |
+| 113092 | population 3 rows, reconciling | *below the declared floor of 250 … do NOT lower this floor to match the run* |
+| 113093 | population returns a 401 body | *refusing to score an empty cohort. A 401 here is a wrong pagecode or an expired token, never "no data"* |
+| 113094 | `erp_call_budget: 10` | *would make about 18 ERP calls against a budget of 10* |
+| 113095 | 400-day history, 40,000 rows | *History needs 1000 pages but … capped at 420 … a truncated history silently reads as "first charge" and clears duplicates* |
+
+## The success path — real node bodies, offline
+
+`fixtures/run-nodes-offline.js` extracts the **actual jsCode from the deployed
+workflow** and executes it against the fixture with stubbed n8n accessors — the
+same technique that proved the generated scorer. **33 assertions, 0 failures.**
+
+Covered: Validate Inputs (workbook default, bearer, window), ERP Budget Gate
+(page projection), Verify Population Pull, Verify History Pull, Score Cases,
+Build Run Row, Build Case Rows, Format Run Summary — plus the wiring read from
+the workflow graph, including both branches of the workbook gate and the
+crash → failure-draft path.
+
+Two assertions are there specifically to catch a hygiene regression:
+
+- **no field whose name matches `/name/i` is ever written to a case row** — the
+  maid's name must not reach the case store;
+- **the run summary contains no maid id** — it is read by a human in passing, so
+  it carries counts only.
+
+### Why not a pinned n8n run of the success path
+
+It needs 260 population rows to clear the cohort floor — about 45 KB of payload
+inlined into the test call by hand, with the transcription risk that carries.
+The floor is **not** lowered to make the fixture fit; that is the thing the guard
+exists to prevent. Running the real node bodies offline tests the same code for
+none of the cost.
+
+**What this does not cover, plainly:** n8n executing the graph itself — node A
+actually handing its output to node B at runtime. That was exercised by the two
+live runs (110429, 110690) on the previous build, and the only structural changes
+since are the two preflight nodes, the budget gate and the workbook branch.
+
+## Nodes disabled during offline testing — all restored
+
+`Acquire ERP Lease`, `Release ERP Lease`, `Write Run`, `Write Cases`, `Webhook`.
+Pinning does not cover them (no credentials), so they would have taken a real
+lease and written real rows. **Re-enabled and verified after testing.**

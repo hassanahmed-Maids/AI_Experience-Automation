@@ -14,3 +14,6 @@ work/
 
 # Generated fixture data — rebuild with: node make-fixtures.js > happy.json
 audit/change-of-status/fixtures/happy.json
+audit/change-of-status/fixtures/pin.json
+audit/change-of-status/fixtures/pin-slim.json
+audit/change-of-status/fixtures/_workflow.json

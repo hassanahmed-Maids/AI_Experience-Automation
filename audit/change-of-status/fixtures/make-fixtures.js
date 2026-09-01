@@ -67,6 +67,22 @@ const history = population.slice();
 history.push(P(DUP_PRIOR, DUP_MAID, '2026-05-01', 575.65));   // 80 days before 2026-07-20
 history.push(P(OOW_PRIOR, OOW_MAID, '2026-02-25', 575.65));   // 140 days before 2026-07-15
 
+// A SLIM-HISTORY variant, for feeding the n8n pinned test without an 87 KB
+// payload. It drops the 250 filler rows from history and keeps only the rows a
+// verdict actually depends on, plus the two priors.
+//
+// WHAT THIS CHANGES AND WHAT IT DOES NOT. Verdicts are identical - a filler row
+// absent from history gets duplicate_band 'not found in history' instead of
+// 'first charge on this maid', and stays clean either way. The realistic shape,
+// where history contains the whole population, IS exercised - by the local
+// scorer against the full fixture above. This variant exists to test the n8n
+// WIRING, and the wiring cannot tell the two apart.
+const interesting = population.slice(250);
+const slimHistory = interesting.concat([
+  P(DUP_PRIOR, DUP_MAID, '2026-05-01', 575.65),
+  P(OOW_PRIOR, OOW_MAID, '2026-02-25', 575.65)
+]);
+
 const page = (rows, total) => ({ content: rows, totalElements: total, size: 40, numberOfElements: rows.length });
 const full = (body) => ({ statusCode: 200, headers: {}, body: body });
 
@@ -92,4 +108,8 @@ const out = {
     'Draft: audit failed': [{ json: { id: 'draft-pinned-fail', message: { id: 'm', threadId: 't', labelIds: ['DRAFT'] } } }]
   }
 };
+out.pinDataSlimHistory = Object.assign({}, out.pinData, {
+  'Get Trailing History': [{ json: page(slimHistory, slimHistory.length) }]
+});
+out.expected.slim_history_rows = slimHistory.length;
 process.stdout.write(JSON.stringify(out));
