@@ -254,21 +254,103 @@ does lack a maid id, and the description `like` filter really does bind.
   known-false, and the rule rightly refuses to default to the company bearing it.
   ~25 records a year. Declared as an inflation, not presented as 25 discoveries.
 
-## Phase 5–7 — status
+## Phase 5 — the flow, built
 
-- **Scorer built, 91/91 offline** (`node audit/r_visa/scorer.test.js`): all six
-  spec test cases, the three 2026 ❼ overcharges (reproducing the stated 4 excess
-  days / AED 200), both population eras, all four deliberate exclusions, and
-  guards for every edge the rules name.
-- **Flow not built.** Deliberate: until identity is readable, the flow cannot
-  produce any of its four red shapes, and the choice between the three routes
-  above changes its execution architecture. The golden to clone when it proceeds
-  is **MV Overstay Fines** (`LDtsstXDfF99TnYe`) — same ERP surfaces, same fine
-  arithmetic, proven rails (ERP lease, pre-flight budget gate, cohort-pull
-  verification, runs-log-before-payload, draft-only delivery). Its execution shape
-  cannot be copied wholesale: MV Overstay is window-scoped, this check is all-time
-  per maid.
-- **Nothing published, scheduled or activated.**
+Built on the MV Overstay Fines rails (ERP lease, pre-flight budget gate,
+population reconciliation, runs-log-before-payload, draft-only delivery), but
+not its execution shape: MV Overstay is window-scoped and this check is all-time
+per maid.
+
+| Artefact | id |
+|---|---|
+| `R-Visa Audit · 1-Run` (25 nodes, draft) | `2yJCYs1YUZz7BVDG` |
+| `R-Visa Audit · 0-Sweep Head` (sub-workflow) | `4Fn3xvQDPMVucq0I` |
+| `R-Visa Audit · 0-Resolve Identity` (sub-workflow) | `j3jHiOtkAOOLTe3o` |
+| `R-Visa Audit — Cases` (data table) | `850KgI3ms4Zw9T7L` |
+| `R-Visa Audit — Runs` (data table) | `AYSssg596CcIXtpp` |
+
+Three design decisions worth knowing:
+
+**The sweep is all-time, the window only scopes reporting.** A case is every
+payment a maid has ever had; within 2025 only 2 maids repeat, all-time 182. A
+window-scoped duplicate test misses roughly nine in ten cases.
+
+**The population is 14 paginated sweeps, not one.** Six dedicated heads with no
+text test, plus four generic heads × two server-side text legs (`R-VISA` and
+`Renew Residence`). The `like` operator was proved to bind, which keeps the
+generic legs to R-visa rows instead of pulling ~10× the volume and sieving.
+
+**Identity is scoped by `contractId`.** With no maid id on the list payload, the
+only rows that can reach a red are fine-bearing rows and rows sharing a contract
+with another row. Those get a detail call; the rest are scored as single-payment
+cases so ❹ and ❺ still run and they land on the ⓭ floor. This is what makes the
+budget close — the pinned run projected **17 calls against a budget of 500**.
+Its cost is a declared recall gap: a maid whose two payments sit on *different*
+contracts is not examined for a duplicate until the list payload carries a maid
+id. Nothing is falsely cleared; the run says so on every row.
+
+The scoring node is **generated**, not hand-written: `build-node.js` concatenates
+`scorer.js` + `driver.js` into `dist/score-node.js`, and `--check` fails if the
+deployed body and the tested source diverge. Parity was verified byte-for-byte
+against the deployed node.
+
+## Phase 6–7 — testing
+
+**131 offline assertions, all passing.**
+
+- `node audit/r_visa/scorer.test.js` — **91**. The rules: all six spec test cases,
+  the three 2026 ❼ overcharges (reproducing the stated 4 excess days / AED 200
+  independently), both population eras, all four deliberate exclusions, and a
+  guard for every edge the rules name.
+- `node audit/r_visa/pipeline.test.js` — **40**. The glue: executes the exact
+  deployed node body against fixtures shaped like the real upstream nodes.
+
+**Two end-to-end runs of the real deployed flow**, with pinned fixtures instead
+of ERP (executions `112775` and `112777`):
+
+| | happy path | identity blocked |
+|---|---|---|
+| status | `completed` | `completed-blocked` |
+| population | 14/14 heads reconciled, checksum verified | same |
+| projected ERP calls | 17 vs budget 500 | 17 |
+| case verdicts | 1 red | 0 red, 2 pending |
+| record verdicts | 1 red, 2 pending | 0 red, 2 pending |
+| review email | drafted | **not drafted** — Any Reds? routed false |
+| run row + case rows | written | written, flagged `identity_blocked` |
+
+The blocked run is the one that matters: the same two payments that red on the
+happy path produce **no red at all**, and the run says in its status, its
+declared gaps and its notes that it could not have found one.
+
+### Four defects found by testing, all fixed
+
+1. **Verifier ❸ relabelled every case.** Its `inconclusive` — true for every case,
+   because the rejection fields have never been observed — outranked `pending` in
+   the rollup, so every non-red case would have reported as inconclusive. It is
+   now counted at run level and excluded from the case verdict.
+2. **A missing sweep result passed silently.** The reconciliation only inspected
+   results it received, so a leg that never came back looked like a head with no
+   rows. It now asserts one result per planned head.
+3. **An ordinary payment's pending reason named a resolved base-fee ambiguity**,
+   which reads as a data problem it does not have. Only ❹'s date-integrity
+   suppression is a reason now; the rest stays in `annotations`.
+4. **The case store lost the expense id**, and the summary reported case-grain
+   counts only — showing "Pending: 0" beside a note explaining that pending is the
+   majority state. Both grains are now reported.
+
+### Not yet tested — needs a live token
+
+The two things pinning cannot exercise: the paginated sweep against real ERP
+(including the one-month walk with `pulled = totalElements` asserted, which the
+spec requires before a first run) and the identity resolver against the real
+detail route. Both are written and unit-covered; neither has met production.
+
+**Test rows left behind:** run ids `r-visa-PINNED-TEST-2026-08-31`,
+`r-visa-PINNED-A-happy` and `r-visa-PINNED-B-blocked` in both data tables. They
+are obviously labelled and can be dropped before a real run.
+
+**Nothing published, scheduled or activated.** No email was sent — the delivery
+node creates a Gmail *draft*, and it was pinned in both test runs.
 
 ## What needs a human
 
