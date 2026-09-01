@@ -11,6 +11,7 @@ Multi-agent pipeline that migrates ~500 ERP broadcast templates (WhatsApp/SMS) i
 5. Channel is passthrough (mostly WhatsApp, sometimes SMS) — never a design axis.
 6. Migration proceeds **target by target** (CC-Clients, MV-Clients, CC-Housemaids, MV-Housemaids), and within a target **cluster by cluster**. Each export = one target, stated by Moe.
 7. We never use CustomerIO "Broadcasts" — campaigns only.
+8. **Jira tickets are drafted in chat, never written to a `.md` file.** Supporting evidence (gate checks, probe results) belongs on disk; the ticket body itself is given in the conversation so Moe can edit and paste it.
 
 ## Knowledge base (read before acting; these are living documents)
 
