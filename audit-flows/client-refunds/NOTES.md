@@ -664,3 +664,84 @@ when auto-assignment reached for another colleague's Gmail.
 Colour-coding is conditional formatting on the `Cases!verdict` column, set once in the
 sheet — the Sheets node cannot apply formatting per write. Suggested: red on `finding`,
 amber on `pending`, green on `clean`, grey where `inconclusive` is `YES`.
+
+---
+
+# Production-readiness pass, 2026-09-01
+
+## 33. The ERP lease was removed, on request
+
+Stage 1 no longer takes the shared lease. Removed: `Acquire ERP Lease`, `Lease Granted?`,
+`Stop - Another Audit Holds ERP`, `Release ERP Lease`, and `Resume Baton` (which existed
+only to pick the payload back up after the release replaced it).
+
+**What still protects ERP:** this flow's own pacing — one request in flight, 500 ms apart,
+2 req/s against the ERP-LOAD-POLICY §1 ceiling of 4 — on a run of roughly 45 calls, against
+the thousands the lease was designed for.
+
+**What is given up, stated plainly:** two audits can now hit ERP at the same time. Per-flow
+pacing bounds this flow and says nothing about a second one. The lease had already proved
+itself once on this build by refusing a run while `change-of-status` held it.
+
+## 34. Production settings on all three
+
+`executionTimeout` 2400s, `timezone` Asia/Dubai, error **and** success run data retained,
+`callerPolicy` restricted to same-owner workflows on the two sub-flows.
+
+## 35. The verifier was failing every second case, and it was not the model
+
+Two live runs both failed the item at **index 1** with `{"error":"Bad request - please check
+your parameters"}` while index 0 succeeded — the same position each time, regardless of note
+content. Positional, not evidential. With `batchSize: 5` the calls fire concurrently against
+a shared parser subnode, and the second concurrent call was rejected.
+
+The fallback behaved correctly throughout — an unparseable verdict became `READ FAILED` and
+`inconclusive`, never a clearance — but a verifier that turns half its cases into human work
+for a formatting reason is quietly doubling the review queue.
+
+**Fixed by running serially:** `batchSize: 1`, 200 ms apart. `autoFix` is also on the parser
+now, so a badly-shaped response gets one repair attempt before the fallback.
+
+⚠️ **This fix is UNVERIFIED.** Confirming it needs a live model call, and the standing
+instruction is now pinned-data testing only. The pinned tests cannot exercise it: pinning
+`Judge Note` replaces exactly the node under test. **First real run should check the
+`verifier.vocabulary` counts — a `READ FAILED` rate near 50% means the fix did not take.**
+
+## 36. What the verifier actually did on live notes
+
+Worth recording, because it is the only evidence of judgement quality so far:
+
+- Note: *"COO signed this off verbally on 3 July, approval ticket 8891 raised after the fact"*
+  against a missing-approval gap → **UNRESOLVED**, reasoning that a verbal approval is not a
+  recorded one and a retroactive ticket is not a pre-approval. It refused to clear it.
+- Note: *"client cancelled mid-month"* against the same gap → **NOT RELATED**, reasoning that
+  the note explains the cancellation timing and says nothing about approval.
+
+Both are the right call, and both are the *hard* direction — declining to clear on a
+plausible-sounding note is exactly what ❷ warns is the most common trap in this data.
+
+## 37. ⚠️ Test runs touched production artifacts
+
+Executions 113040 and 113050 were run as pinned tests, but **Execute Workflow nodes cannot be
+pinned**, so the chain ran for real: roughly four live Anthropic calls, and 3-Deliver wrote
+**two rows into the Runs tab** of the real workbook with `status = REFUSED`. No case rows and
+no email draft — the smoke-run guard blocked both.
+
+The rows are honest records of runs that happened, but they are test artifacts and should be
+cleared before the first real run so the Runs tab starts clean.
+
+**From here: pinned-data testing only, and the chain is not to be executed again until the
+grants land and a real run is authorised.** A pinned test of stage 1 with the sub-workflow
+calls disabled (execution 113058) is the safe shape and confirms stage 1 after the lease
+removal.
+
+## 38. Notion is updated
+
+`Status` → **Built on n8n — Staging**. `n8n Staging Link` → 1-Score. `Google Sheet link` →
+the workbook. `Flow Version` → v1.0 (staging, draft). `Skeleton Version` → records that this
+was not cloned from a golden but built on the golden rails by hand. `Last Reviewed` → today.
+
+A **"Built on n8n — staging"** section was added to the page body carrying all three flow
+links, the workbook, what the two live gates are, the five blockers, and the lease removal
+with its trade-off. The url property holds one link only, which is why the full set lives in
+the body.
