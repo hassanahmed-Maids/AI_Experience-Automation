@@ -306,3 +306,25 @@ single run rather than the concurrent pair that caused the earlier load problem.
 has no warehouse grant, so no query can execute. This does not block the Phase 7
 independent count: the spec's July figure of 704 *is* a warehouse read, and the
 two live runs agree with it exactly.
+
+## The workbook — created 2026-09-01
+
+| Step | Result |
+|---|---|
+| Locate the folder | one match, **Audits** (`1DyG9PHws8…`), already shared — searched by name rather than assumed, so the workbook lands where the team already keeps audit output |
+| Create the spreadsheet | *Change of Status Audit — Findings*, tabs `Cases` and `Runs` |
+| Move it into Audits | confirmed |
+| Write header rows | HTTP 200, `Cases!A1:U1` (21 columns) and `Runs!A1:AB1` (28) |
+| **Cross-account access** | **verified** — `reachable_by_malaz_credential: true` |
+
+That last row was the one worth checking. The workbook was created under Hassan's
+account, but the audit flow appends with the **Malaz** credential — a different
+account. Had it lacked access, the delivery step would have failed on the first
+real run rather than here. Headers matter for the same reason: the flow appends
+with `autoMapInputData`, which maps each field onto the column whose row-1 header
+matches its name, so an empty sheet would have scattered the columns or failed.
+
+Delivery is now **on by default** — `Validate Inputs` resolves `workbook_id` in
+one place, and `workbook_id: ""` switches it off deliberately.
+
+**Still not exercised:** a real run appending rows. That needs a live token.

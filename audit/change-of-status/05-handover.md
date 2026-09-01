@@ -9,6 +9,7 @@ Operator / token identity: hassan.ahmed@maids.cc (`Hassan Bearer`).
 |---|---|
 | Flow (DRAFT, never published, never scheduled) | n8n `g87PqF93EtPnvKQ8` — *Change of Status Audit — generated v1*, Adeeb project |
 | Case store | data table `q8rNVmE91G5UKgIJ` — *Change of Status — Cases* |
+| **Workbook** (the spec's ticked delivery) | Google Sheet `1jBz1WkAtpbQ7RnyTs9nfCqD_pCmmthEEPZen2LwzQwM` — *Change of Status Audit — Findings*, in the shared **Audits** folder (`1DyG9PHws8-52t_vNN96ZAh-T0Ewpoh1w`), tabs `Cases` and `Runs` |
 | Run log | data table `ZjPcZPOYQdp0Egeq` — *Change of Status — Runs* |
 | Scorer + tests (canonical) | `audit/change-of-status/scorer/` |
 | Surface probe evidence | `01-surface-probe.md` |
@@ -66,6 +67,10 @@ and `params.erp_auth.bearer`.
 Do **not** pass `ignore_erp_lease: true` — that bypasses the lease that stops two
 audits hitting ERP at once.
 
+**Workbook delivery is ON by default.** `Validate Inputs` resolves `workbook_id`
+in one place: omit it and the run writes to the workbook above; pass
+`workbook_id: ""` to switch delivery off deliberately.
+
 ## What still needs a human
 
 1. **Sign-off before any production run, and before publishing or scheduling.**
@@ -90,6 +95,7 @@ audits hitting ERP at once.
 
 | Gap | Effect on the numbers |
 |---|---|
+| The workbook APPEND path has still not run end to end | The sheet, its folder, its headers and cross-account read access are all verified; what has not happened is a real run appending rows to it, because that needs a live token. |
 | Request grain of rule ⓳ (`/visa/newRequest/{id}` refused) | Historically carries **23 of the repeat pairs (AED 16,954)**, including 4 at 591–965 days the ninety-day window cannot catch. Also makes the charge-on-the-wrong-maid's-request shape (5 of 23) undetectable. |
 | Orders 30–150 — fine sizing, recovery, waivers (`/visa/overstay-fines`, `/payroll/loans` refused) | A fine's **presence** is still detected (amount > era base) but it cannot be sized or its recovery checked. Those rows exit `pending`, capped and named — never clean, never a finding. |
 | Over-365 repeats | Cleared as expected visa cycles, and **counted** in the run summary. Historically 4 of 117 such pairs shared one visa request; those are undetectable without visa access. |
