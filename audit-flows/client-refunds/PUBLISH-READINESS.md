@@ -1,8 +1,16 @@
-# Deploy: Client Refunds audit check to production (n8n, 3 flows) — manual trigger only
+# Publish readiness — Client Refunds audit check (n8n, 3 flows)
 
-**Raise as:** Task · **Component:** n8n / Audit Flow Factory · **Priority:** Medium
+**Supporting evidence for the SD publish request. Not the ticket body.**
+
+Per `n8n-flow-publish-request`, the ticket body is drafted in conversation in Maya Ali's
+mandated template and lives in Jira once filed — a copy here only goes stale and gets pasted
+in place of the edited one. What belongs on disk is what a reviewer may ask for: the
+prerequisite list and who owns each, the scope correction, the test evidence, and the notes
+for whoever deploys. That is this file.
+
 **Requester:** Hassan Ahmed · **Business owner / reviewer:** Jacky (maker–checker)
 **Spec:** [Client Refunds](https://app.notion.com/p/3c8fe1c78bf0810894a2fb0a55ca521a) (v0.8) · **Status:** Built on n8n — Staging
+**Route:** SD → Technical Analyst → PM → NF (Ali Hachem) — NF deploys, not us.
 
 ---
 
@@ -18,7 +26,7 @@ production**. It does **not** ask for a schedule — the check is manual-only by
 
 ---
 
-## What is being requested
+## What the ticket asks for
 
 1. **Publish three draft workflows** in the n8n **Adeeb** project:
 

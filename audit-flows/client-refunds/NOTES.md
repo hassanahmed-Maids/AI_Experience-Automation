@@ -745,3 +745,59 @@ A **"Built on n8n — staging"** section was added to the page body carrying all
 links, the workbook, what the two live gates are, the five blockers, and the lease removal
 with its trade-off. The url property holds one link only, which is why the full set lives in
 the body.
+
+---
+
+## 39. The publish route is SD, not a free-form Jira task
+
+Every n8n non-chatbot flow reaches production through **one** route, set by Maya Ali's
+standardisation email: an **SD (Service Desk)** ticket, issue type **n8n Flow**, in her
+template, routed SD → Technical Analyst (business logic, conflicts) → PM → **NF / Ali
+Hachem** (stress test, infinite-loop check, security validation, deploy). NF then adds a
+read-only production mirror link to its own ticket. **We do not deploy, and filing is not
+going live.**
+
+Two required Jira fields have fixed dropdowns and reject anything off-list:
+
+| Field | Key | Value for this check |
+|---|---|---|
+| Company Department | `customfield_10822` | `Money Control` (id 12011) |
+| Accountable PIL | `customfield_10825` | **ask** — it decides who is answerable in production, so it is never inferred from whoever ran the session |
+
+**Tickets missing artifacts are rejected**, and a rejection costs a full routing cycle. The
+required artifacts are the flow export `.json`, the workflow link, and the credential
+**names** (never values). The Atlassian MCP cannot upload files, so the three `.json`
+exports have to be attached by hand after the issue exists — nobody should assume that
+happened because the ticket got created.
+
+### What must not go in the ticket
+
+- **No secrets.** Credential names exactly as the n8n dropdown shows them, nothing else.
+  Our three: `Hassan LangCC` (Anthropic), `Hassan Maids Account` (Google Sheets),
+  `Hassan Maids Gmail` (Gmail). The ERP token is not a credential at all — it is a per-run
+  form field, which is the point.
+- **No run details.** No execution ids, run counts, findings tallies, sample records or
+  amounts observed. SD is widely readable and this check reads notes carrying IBANs; live
+  figures also date immediately, and narrative buries the mandated fields so a reviewer
+  scanning for artifacts calls one missing. State capability, not results.
+
+### Blocking the export itself
+
+3-Deliver's Gmail draft node still carries a `__PLACEHOLDER_VALUE__` in `sendTo`. An export
+taken today attaches that placeholder to the ticket. Fill the reviewer address (blocker 3)
+**before** exporting.
+
+### Self-containment
+
+Step 1b of the publish skill requires the flow to stand on its own — NF deploys a workflow,
+not a workflow plus somebody else's. The shared ERP lease is already gone (§38). What
+remains is our own chain: 1-Score holds Execute Workflow nodes referencing
+`xGXVJyGkPgZYIn0X` and `OznVXTRb1hApsYRH` by **id**. Those ids are ours and travel in the
+same submission, but they are ids — if NF re-imports the three flows anywhere the ids
+change, and 1-Score must be re-pointed. That belongs in the ticket as a deployment note, not
+discovered at run time.
+
+### Enhancements and bugs later
+
+Same template, same route, a **new** SD ticket linked to the original with `Relates`. The
+deployed flow's ticket is never reopened or edited — including for API failures.
