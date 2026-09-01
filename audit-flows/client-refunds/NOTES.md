@@ -608,3 +608,59 @@ ERP account disabled in June 2026.
 - The **live ERP legs** — both endpoints are still 401 for this account. Every ERP response in every test above is pinned.
 - The **chain end to end in one execution**. Execute Workflow nodes cannot be pinned, so a full-chain test would hit the real lease, spend real model calls and attempt a real Sheets write against a placeholder document. The stages are wired and each is proven in isolation; the seam between them is verified structurally, not by execution.
 - The **real Sheets write and Gmail draft** — no workbook exists yet and the reviewer address is a placeholder.
+
+---
+
+# The workbook exists, 2026-09-01
+
+**`Client Refunds audit workbook`** — `1kuLvDBjXvxfiOWZh-ds0P0hlNV331_hjQorwnKVaNtQ`
+in Drive → **Audits** (`1DyG9PHws8-52t_vNN96ZAh-T0Ewpoh1w`). Two tabs, both header rows
+written. Both Sheets nodes in 3-Deliver now point at it by id.
+
+Created by a one-off flow that **refused to create anything until exactly one folder named
+`audits` was found** — zero matches or several would both have stopped the run and named
+what they found. An audit workbook in the wrong folder is the kind of mistake discovered
+months later by whoever goes looking for it. It found exactly one, "Audits". Both throwaway
+copies are archived so nobody re-runs one into a duplicate workbook.
+
+Headers were written through the Sheets API rather than the Sheets node, because `append`
+maps onto an existing header row and a brand-new tab has none.
+
+| Tab | Columns |
+|---|---|
+| `Runs` | 14 — run_id, audit_month, started_at, mode, population_declared, rows_pulled, in_scope, scored, findings, pending, clean, coverage_gaps, status, refusal |
+| `Cases` | 18 — the 12 deterministic fields plus inconclusive, verifier_verdict, verifier_quote, verifier_reasoning, purpose_mismatch, evidence_link |
+
+## 30. An integration gap the workbook exposed
+
+`Build Case Rows` emitted only the deterministic fields. So everything 2-Verify produces —
+its verdict, the sentence it relied on, the inconclusive flag, the purpose mismatch, the
+evidence link — was being computed and then **silently dropped on the way to the sheet**.
+The projection and the schema now match the 18-column header exactly, which matters
+because that write runs with `handlingExtraData: 'error'`. Verified: execution 112994 puts
+all 18 columns in header order with the verifier fields populated.
+
+## 31. ⚠️ Credentials are not shared with the Adeeb project — 3-Deliver will fail on this
+
+The first attempt at the workbook flow died with:
+
+> Node "Find Audits Folder" does not have access to the credential.
+> Please make sure that the credential is shared with the project "Adeeb".
+
+**Hassan's Google credentials live in his personal project; the audit flows live in Adeeb.**
+The one-off was moved to the personal project to get the workbook made, but **3-Deliver
+sits in Adeeb and uses the same two personal credentials** — `Hassan Maids Account`
+(Sheets) and `Hassan Maids Gmail` — so it will hit exactly this error on its first real
+delivery. Every test so far pinned those nodes, which is why it has not surfaced yet.
+
+**The fix is to share those two credentials with the Adeeb project** — one setting each, and
+it keeps attribution correct. The alternative, switching to the Adeeb-project Google
+credentials, means the workbook writes and the draft email land under a colleague's account:
+the same attribution problem as the ERP token, and it was already caught once on this build
+when auto-assignment reached for another colleague's Gmail.
+
+## 32. Still to do by hand, once
+
+Colour-coding is conditional formatting on the `Cases!verdict` column, set once in the
+sheet — the Sheets node cannot apply formatting per write. Suggested: red on `finding`,
+amber on `pending`, green on `clean`, grey where `inconclusive` is `YES`.
