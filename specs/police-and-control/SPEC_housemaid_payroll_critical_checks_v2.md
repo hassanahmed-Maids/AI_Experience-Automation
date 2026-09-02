@@ -674,8 +674,49 @@ lets P&C work a case.
      `HOUSEMAID_PAYROLL_HISTORY.ANSARI_PAYMENT_METHOD` (D1.8) **can disagree for the same maid**,
      and only D1.8 may be used here. **O29.**
 
-  **Still required before go-live:** an acceptance test — a known historical diversion the build
-  must re-detect.
+- **Acceptance test — there is no labelled ground truth, and that is itself a finding
+  (Ask the Code, 2026-09-02).** The intended test was "a known historical diversion the build must
+  re-detect". It cannot be built that way, for two independent reasons:
+
+  1. **The ERP records no fraud, diversion or investigation case of any kind.** There is no case,
+     investigation or dispute-flag entity in the payroll or complaints modules. The nearest
+     things are all something else: `EMPLOYEELOANS.LOAN_TYPE = 'SALARY_DISPUTE'` is a *recoverable
+     loan bucket* (created by migration, an approved `EXPENSES` request, or a manual
+     `createHousemaidLoan` POST), not an investigation record; a `PAYROLLMANAGERNOTES` addition
+     with reason `salary_dispute` is a *salary correction* ("salary received was wrong");
+     `PAYROLLAUDITHOUSEMAIDEXCEPTIONS` covers arithmetic exceptions
+     (`HOUSEMAID_NEGATIVE_SALARY`, `HOUSEMAID_DEDUCTION_OVER_CAP`, …), never account changes;
+     `COMPLAINTS` has a "Money Disputes" type with no payroll linkage in code.
+  2. **The payment account has no audit trail.** `NEWREQUESTS` *is* Hibernate Envers–audited —
+     `NEWREQUESTS_REVISIONS` exists, with `REVISION`, `REVISION_TYPE` (0 insert / 1 update /
+     2 delete), a `{COLUMN}_MODIFIED` flag per field, and `HISTORY_REVISIONS` carrying `TIMESTAMP`
+     and `CREATOR`. But **`EMPLOYEE_ACCOUNT_WITH_AGENT` is not in the audited field set**
+     (`@NotAudited` fields are excluded; the audited list runs `WORKER_TYPE_ID`,
+     `LABOR_CARD_EXPIRY_DATE`, `EMPLOYEE_UNIQUE_ID`, the visa/medical dates, `MEDICAL_STATUS`,
+     `BIO_STATUS` …). The Snowflake `HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION` view
+     (5,510,443 rows) carries 126 columns and **none of them is the payment account** either.
+     No approval step or permission check on the field was found; it is an unconstrained
+     `@Column String` with no `@Pattern`, `@Size` or length limit, and payroll only checks
+     non-empty.
+
+  **So: the field most attractive to a fraudster is the one field with no audit trail, no
+  approval step and no validation.** That is a control gap in the ERP, independent of this
+  dashboard, and it belongs to whoever owns payroll integrity — **O30**.
+
+- **The acceptance test that can be built instead — back-test, then label.** D1.7 retains
+  `EMPLOYEE_ACCOUNT_WITH_AGENT` **per maid per payroll month back to 2020-07-01**. The monthly
+  snapshots imply the change events the ERP never recorded, so:
+  1. Replay M9 over several historical month pairs and produce the transitions it would have
+     flagged. This is a reconstruction of ground truth, not a substitute for it — say so.
+  2. P&C reviews the flagged set for a month they know well and marks each genuine or benign.
+     **That review creates the labelled set that does not exist today**, and it is the acceptance
+     test from then on.
+  3. Treat the same run as **threshold calibration**. It yields the base rate of red-flag
+     transitions per month — which decides whether `Red at ≥ 1` is workable or will bury P&C in
+     benign account changes. A detector nobody can keep up with fails the same way as one that
+     never fires.
+  Needs a warehouse (O1) to run. **O24 now covers this**, and it is a first-month task rather
+  than a go-live blocker: the check can ship reporting counts while the labelled set is built.
 - **Red-flag transition set** (prior → current), carried verbatim:
   1. Normal bank IBAN → du Pay
   2. Normal bank IBAN → Ansari
@@ -970,7 +1011,7 @@ displayed separately from the contract count for exactly this reason.
 | O15 | **Deletion-flag polarity.** `IS_DELETED` and `EXCLUDED_FROM_PAYROLL` are `VARCHAR` `'00'/'01'` with no documented polarity; `WPS_RECORDS.TRASHED` has no profiled values. A guess the wrong way empties the population — which G1/G2 abort on above 100 rows, or which passes silently below | Data team |
 | O17 | **No payroll-lock signal.** G5 requires one and `LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values". N4's figures move at lock, so a pre-lock run silently reports different numbers | Data team + Payroll Mgmt |
 | O18 | **`FREEDOM_OPERATOR` and `WALKIN`.** D3's rule classifies both as CC on `LIVE_OUT` alone. Whether they belong in the CC wage bill (M3's threshold), M2 and M10 has never been asked | Police & Control |
-| O24 | **Narrowed 2026-09-02 — no longer the original concern.** The ERP classifier is fully resolved (M9); Ansari accounts *are* reachable via a separate non-`AE` branch. What remains: the Snowflake column is a **dbt re-implementation** of the Java getter and its profiled values omit `PAYROLL_CARD` and `OVER_THE_COUNTER`. If the dbt CASE drops those branches, such accounts collapse to `''` and are invisible to Check 9. One `COUNT(*) GROUP BY ANSARI_PAYMENT_METHOD` settles it — needs O1. **Plus: the acceptance test (a known historical diversion the build must re-detect) is still required before go-live** | Data team + P&C |
+| O24 | **Narrowed 2026-09-02 — no longer the original concern.** The ERP classifier is fully resolved (M9); Ansari accounts *are* reachable via a separate non-`AE` branch. What remains: the Snowflake column is a **dbt re-implementation** of the Java getter and its profiled values omit `PAYROLL_CARD` and `OVER_THE_COUNTER`. If the dbt CASE drops those branches, such accounts collapse to `''` and are invisible to Check 9. One `COUNT(*) GROUP BY ANSARI_PAYMENT_METHOD` settles it — needs O1. **The acceptance test is redefined** — no labelled diversion exists in the ERP, so it becomes a back-test over historical month pairs that P&C then labels, plus threshold calibration from the base rate (M9). Needs O1; a first-month task, not a go-live blocker | Data team + P&C |
 
 **Non-blocking.**
 
@@ -991,6 +1032,7 @@ displayed separately from the contract count for exactly this reason.
 | O25 | M10 threshold re-calibration — the n8n 5% was measured against `not_received` only; `M10_uncollected` is the wider bucket | Police & Control |
 | O26 | Tie-out 3 — WPS row-selection rule, which date defines the month, and key normalisation / `MAID_ID` vs `EMPLOYEE_UNIQUE_ID` | Data team + P&C |
 | O27 | Tie-out 3 materiality tolerance. Proposed AED 5,000 or 0.05% | Police & Control |
+| O30 | **Control gap, independent of this dashboard.** A housemaid's payment account (`NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT`) has **no audit trail** — `NEWREQUESTS` is Envers-audited but this field is not in the audited set, and no Snowflake revision view carries it — **no approval step or permission check**, and **no validation** (unconstrained `@Column String`; payroll only checks non-empty). Nobody can say who changed a maid's payment account, when, or from what. Detecting diversion after the fact is a poor substitute for preventing it | Payroll Management + whoever owns payroll integrity |
 | O29 | **Three columns hold "employee account with agent" and they differ.** The ERP getter reads `NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT` via `HOUSEMAIDS.VISA_NEW_REQUEST_ID`; `HOUSEMAIDS.EMPLOYEE_ACCOUNT_WITH_AGENT` is unused by it; D1.7 is `HOUSEMAIDPAYROLLLOGS.EMPLOYEE_ACCOUNT_WITH_AGENT`. Check 9 must use D1.7 (per-month, what was actually paid), so `HOUSEMAIDS_INFO.ANSARI_PAYMENT_METHOD` and `HOUSEMAID_PAYROLL_HISTORY.ANSARI_PAYMENT_METHOD` can disagree for one maid. Confirm no metric mixes them | Data team |
 | O28 | ~~Republish the mockup to match v2~~ **CLOSED** — MOHRE ID column replaced by a case reference; "Amount at risk" split to "Uncollected receivable" (M10 only) | — |
 | O5 | ~~M5 population~~ **CLOSED** — grp5/grp6 are the live-out remapping of grp1/grp2; the CC-only filter is correct | — |
@@ -1090,6 +1132,29 @@ returned, including the ERP's own misspelling of `EXCULDED_FROM_PAYROLL`. These 
   `"AE123456751"`. There is **no IBAN length check** in this path.
 
 Full comparison against the n8n patterns, and the two residual issues, are in **M9**.
+
+**Answer 5 — is there a historical diversion to test against?** (`erp/magnamedia-payroll-management`,
+`erp/magnamedia-complaints`, `erp/magnamedia-housemaid-management`)
+
+- **No salary-fraud, salary-diversion or payroll-investigation entity exists** in the accessible
+  payroll or complaints code. `EMPLOYEELOANS.LOAN_TYPE = 'SALARY_DISPUTE'` is a recoverable loan
+  bucket, not an investigation; a `PAYROLLMANAGERNOTES` addition with reason `salary_dispute` is a
+  salary correction; `PAYROLLAUDITHOUSEMAIDEXCEPTIONS` covers arithmetic exceptions only;
+  `COMPLAINTS` has a "Money Disputes" type with no payroll linkage in code.
+- `NEWREQUESTS` **is** Envers-audited → `NEWREQUESTS_REVISIONS`, with `REVISION`, `REVISION_TYPE`
+  (0/1/2), per-field `{COLUMN}_MODIFIED` flags, and `HISTORY_REVISIONS` (`TIMESTAMP`, `CREATOR`).
+  Sibling tables follow the same pattern (`HOUSEMAIDS_REVISIONS`, `CONTRACTS_REVISIONS`).
+- **`EMPLOYEE_ACCOUNT_WITH_AGENT` is not in the audited field set** — the audited list is
+  `WORKER_TYPE_ID`, `LABOR_CARD_EXPIRY_DATE`, `ILOE_INSURANCE_START_DATE`, `RENEW_REQUEST_ID`,
+  the entry-visa / work-permit / passport expiry dates, `EMPLOYEE_UNIQUE_ID`,
+  `ENTRY_VISA_PERMIT_NUMBER`, the sample/result dates, `LOCATION_ID`, `MEDICAL_STATUS`,
+  `BIO_STATUS`, plus the `BaseEntity` / `WorkflowEntity` / `VisaRequest` fields. → **O30**.
+- Verified independently in Snowflake: `SHOW TERSE VIEWS LIKE '%REVISION%' IN DATABASE BA_VIEWS`
+  returns three views, of which one is maid-related —
+  `HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION`, `COUNT(*) = 5,510,443`, 126 columns,
+  **none of them the payment account**. (Its profiled metadata reports "no non-null values" for
+  every column, which conflicts with the row count and is most likely stale profiling — row
+  contents could not be checked without a warehouse, O1.)
 
 **Not resolved.** The picklist label for `TYPE_OF_PAYMENT_ID = 1` — the question timed out twice.
 Not blocking: the filter is the integer, and the CC/MV split now comes from D7.3's ready-made
