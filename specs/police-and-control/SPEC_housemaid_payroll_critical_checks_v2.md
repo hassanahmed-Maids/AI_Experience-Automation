@@ -617,25 +617,65 @@ lets P&C work a case.
   `PAYROLL_MONTH IN (audit_month, audit_month − 1 month)`; §1 exclusions; **all maids, CC and MV**
   — a diversion control that silently covered only CC would miss ~19,600 MV maids with nothing on
   the report to say so. State the compared population on the report.
-- **Account classification.** Use `ANSARI_PAYMENT_METHOD` (D1.8) rather than re-implementing the
-  n8n regexes. **⚠ The mapping is not established, and the evidence suggests it does not hold.**
+- **Account classification — resolved via Ask the Code, 2026-09-02 (O24 largely closed).** Use
+  `ANSARI_PAYMENT_METHOD` (D1.8) rather than re-implementing the n8n regexes. The authoritative
+  rule is `Housemaid.getAnsariPaymentMethod()`, enum `com.magnamedia.extra.AnsariPaymentMethod`.
+  It is **computed at read time, never stored**. Decision order, on the trimmed account value:
 
-  | n8n category | n8n pattern | Nearest `ANSARI_PAYMENT_METHOD` |
+  | # | Test | Value |
   | --- | --- | --- |
-  | du Pay | `^AE\d{2}026075123000\d{7}$` | `DU_PAY_CARD` |
-  | Ansari | `^00000000001\d+$` | `ANSARI_VISA_CARD` — **doubtful, see below** |
-  | Normal IBAN | `^AE\d{21}$` | `BANK_TRANSFER` |
-  | *(none)* | — | `FAB_MASTER_CARD` — unmapped, **O8** |
-  | empty | blank | `''` |
+  | 1 | null / empty | `''` |
+  | 2 | starts `AE`, digits after `AE` length ≥ 14, **and `digits.substring(6,14) = '75123000'`** | `DU_PAY_CARD` |
+  | 3 | starts `AE`, fails the du Pay marker — **no length check at all** | `BANK_TRANSFER` |
+  | 4 | starts `9` | `PAYROLL_CARD` |
+  | 5 | strip `^0+`, then starts `5` | `FAB_MASTER_CARD` |
+  | 6 | strip `^0+`, then starts `10` | `ANSARI_VISA_CARD` |
+  | 7 | strip `^0+`, then starts `19` | `OVER_THE_COUNTER` |
+  | 8 | no match | `''` |
 
-  The model's derivation branches first on empty, then on `UPPER(LEFT(TRIM(...),2)) = 'AE'`. The
-  n8n "Ansari" pattern has **no `AE` prefix**, so it cannot reach that branch; where it actually
-  lands depends on the tail of the CASE, which the stored metadata truncates and `GET_DDL` does
-  not expand. **If Ansari accounts classify as `''` or `BANK_TRANSFER`, red-flag rules 2, 4 and 5
-  never fire and this check reports zero findings forever while looking healthy.**
-  **Before go-live:** obtain the full view SQL, publish the transition matrix over the five real
-  `ANSARI_PAYMENT_METHOD` values (not the n8n categories), and **pass an acceptance test — a
-  known historical diversion the build must re-detect.** **O24, blocking.**
+  **The auditor's concern does not hold, and the reason matters.** The worry was that the n8n
+  Ansari pattern has no `AE` prefix and so could never reach the classifier's `AE` branch, leaving
+  red-flag rules 2, 4 and 5 permanently silent. There is a **separate non-`AE` branch** (rows
+  4–7) and `ANSARI_VISA_CARD` is reachable through it. The truncated view metadata showed only the
+  `AE` half, which is what made the inference look sound.
+
+  **Three corrections to the n8n patterns — the ERP rule is authoritative and should replace them:**
+
+  | n8n pattern | ERP rule | Difference |
+  | --- | --- | --- |
+  | du Pay `^AE\d{2}026075123000\d{7}$` | marker at fixed offset only | n8n is **narrower** — it also pins `0260` before the marker and exactly 7 trailing digits. A du Pay account issued on a different BIC would be missed |
+  | Ansari `^00000000001\d+$` | strip all leading zeros, then `10` | n8n **over-matches** (`11…`, `12…` also pass) and **under-matches** (a different count of leading zeros is missed). The two agree only on genuine `…10…` accounts |
+  | Normal IBAN `^AE\d{21}$` | any `AE…` that is not du Pay, **no length check** | n8n leaves a short `AE…` value unclassified and skips it; the ERP calls it `BANK_TRANSFER`. Verified against the ERP's own test value `"AE123456751"` |
+
+  **Two account types the n8n check never knew existed:** `PAYROLL_CARD` (`9…`) and
+  `OVER_THE_COUNTER` (strip zeros → `19`), alongside `FAB_MASTER_CARD`. All three are
+  prepaid or cash instruments — the same risk shape as du Pay — so transitions into them
+  almost certainly belong in the red-flag set. **O8, widened.**
+
+  **⚠ Two residual issues, both narrower than O24 was.**
+  1. **The Snowflake column is a dbt re-implementation of the Java getter, not the same code.**
+     `BA_VIEWS…HOUSEMAID_PAYROLL_HISTORY` is a passthrough
+     (`SELECT * FROM SILVER.HOUSEMAID_MANAGEMENT.HOUSEMAID_PAYROLL_HISTORY`), and that SILVER
+     schema is not readable under this role, so the CASE could not be compared line by line
+     against the getter. Its profiled `allowed_values` lists only `FAB_MASTER_CARD`,
+     `ANSARI_VISA_CARD`, `''`, `DU_PAY_CARD`, `BANK_TRANSFER` — **`PAYROLL_CARD` and
+     `OVER_THE_COUNTER` are absent.** Either they do not occur in payroll-log data, or the dbt
+     CASE omits those branches and such accounts collapse into `''`, invisible to this check.
+     A single `COUNT(*) GROUP BY ANSARI_PAYMENT_METHOD` settles it once a warehouse exists (O1).
+     **O24 — reduced to this.**
+  2. **Three different columns hold "employee account with agent", and they are not the same
+     value.** The ERP getter reads **`NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT`** via
+     `HOUSEMAIDS.VISA_NEW_REQUEST_ID`; `HOUSEMAIDS.EMPLOYEE_ACCOUNT_WITH_AGENT` exists but the
+     getter does **not** use it; and D1.7 is
+     `HOUSEMAIDPAYROLLLOGS.EMPLOYEE_ACCOUNT_WITH_AGENT`. **For this check D1.7 is the correct
+     one** — it is per-month and records the account the salary was actually paid to, which is
+     exactly what a month-over-month comparison needs; the other two are current-state. But it
+     means `HOUSEMAIDS_INFO.ANSARI_PAYMENT_METHOD` (D2) and
+     `HOUSEMAID_PAYROLL_HISTORY.ANSARI_PAYMENT_METHOD` (D1.8) **can disagree for the same maid**,
+     and only D1.8 may be used here. **O29.**
+
+  **Still required before go-live:** an acceptance test — a known historical diversion the build
+  must re-detect.
 - **Red-flag transition set** (prior → current), carried verbatim:
   1. Normal bank IBAN → du Pay
   2. Normal bank IBAN → Ansari
@@ -919,7 +959,7 @@ displayed separately from the contract count for exactly this reason.
 
 ## 6. Open Items
 
-**Blocking (7).**
+**Blocking (6).**
 
 | # | Item | Owner |
 | --- | --- | --- |
@@ -930,7 +970,7 @@ displayed separately from the contract count for exactly this reason.
 | O15 | **Deletion-flag polarity.** `IS_DELETED` and `EXCLUDED_FROM_PAYROLL` are `VARCHAR` `'00'/'01'` with no documented polarity; `WPS_RECORDS.TRASHED` has no profiled values. A guess the wrong way empties the population — which G1/G2 abort on above 100 rows, or which passes silently below | Data team |
 | O17 | **No payroll-lock signal.** G5 requires one and `LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values". N4's figures move at lock, so a pre-lock run silently reports different numbers | Data team + Payroll Mgmt |
 | O18 | **`FREEDOM_OPERATOR` and `WALKIN`.** D3's rule classifies both as CC on `LIVE_OUT` alone. Whether they belong in the CC wage bill (M3's threshold), M2 and M10 has never been asked | Police & Control |
-| O24 | **Check 9's classifier mapping is unproven.** The n8n Ansari pattern has no `AE` prefix and cannot reach the model's `AE` branch; if Ansari accounts land as `''` or `BANK_TRANSFER`, red-flag rules 2, 4 and 5 never fire and the diversion check reports zero forever while looking healthy. Needs the full view SQL, a transition matrix over the five real values, and an acceptance test against a known historical diversion | Data team + P&C |
+| O24 | **Narrowed 2026-09-02 — no longer the original concern.** The ERP classifier is fully resolved (M9); Ansari accounts *are* reachable via a separate non-`AE` branch. What remains: the Snowflake column is a **dbt re-implementation** of the Java getter and its profiled values omit `PAYROLL_CARD` and `OVER_THE_COUNTER`. If the dbt CASE drops those branches, such accounts collapse to `''` and are invisible to Check 9. One `COUNT(*) GROUP BY ANSARI_PAYMENT_METHOD` settles it — needs O1. **Plus: the acceptance test (a known historical diversion the build must re-detect) is still required before go-live** | Data team + P&C |
 
 **Non-blocking.**
 
@@ -939,7 +979,7 @@ displayed separately from the contract count for exactly this reason.
 | O4 | M2 denominator — do `ON_VACATION`, `SICK_WITHOUT_CLIENT`, `PENDING_VACATION`, `ASSIGNED_OFFICE_WORK` count as "without client"? The n8n rule says yes; it materially moves the ratio | Police & Control |
 | O6 | M6 date asymmetry — the n8n MV query pins `dateOfPayment` to one date, the CC query uses a range. Likely a bug; not changed silently | P&C + Accounting |
 | O7 | Worked examples are synthetic. Supply two real cases already verified by hand | Police & Control |
-| O8 | `FAB_MASTER_CARD` has no counterpart in the n8n red-flag matrix. Decide how transitions in and out of it are treated | Police & Control |
+| O8 | **Widened 2026-09-02.** The ERP classifier has **seven** outcomes, not the n8n matrix's four: `FAB_MASTER_CARD`, `PAYROLL_CARD` and `OVER_THE_COUNTER` were never in it. All three are prepaid or cash instruments — the same risk shape as du Pay — so transitions into them very likely belong in the red-flag set. Decide, and restate the matrix over the ERP's own values | Police & Control |
 | O13 | **Contract as-at resolution.** D7.5 provides the dates; the exact predicate (month overlap vs start/termination bounds) and whether `CONTRACTS_HISTORY` is the better source are undecided | P&C + Client Mgmt |
 | O14 | Loan month boundary — v2 ERP code uses `< payrollEnd`, legacy uses `payrollEnd + 1 day`. Pick one | Payroll Management |
 | O16 | **Timezone of `TIMESTAMP_NTZ`.** Confirm which zone mmdb writes and apply an explicit conversion; affects M6's `RECEIVED_DATE` bound | Data team |
@@ -951,6 +991,7 @@ displayed separately from the contract count for exactly this reason.
 | O25 | M10 threshold re-calibration — the n8n 5% was measured against `not_received` only; `M10_uncollected` is the wider bucket | Police & Control |
 | O26 | Tie-out 3 — WPS row-selection rule, which date defines the month, and key normalisation / `MAID_ID` vs `EMPLOYEE_UNIQUE_ID` | Data team + P&C |
 | O27 | Tie-out 3 materiality tolerance. Proposed AED 5,000 or 0.05% | Police & Control |
+| O29 | **Three columns hold "employee account with agent" and they differ.** The ERP getter reads `NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT` via `HOUSEMAIDS.VISA_NEW_REQUEST_ID`; `HOUSEMAIDS.EMPLOYEE_ACCOUNT_WITH_AGENT` is unused by it; D1.7 is `HOUSEMAIDPAYROLLLOGS.EMPLOYEE_ACCOUNT_WITH_AGENT`. Check 9 must use D1.7 (per-month, what was actually paid), so `HOUSEMAIDS_INFO.ANSARI_PAYMENT_METHOD` and `HOUSEMAID_PAYROLL_HISTORY.ANSARI_PAYMENT_METHOD` can disagree for one maid. Confirm no metric mixes them | Data team |
 | O28 | ~~Republish the mockup to match v2~~ **CLOSED** — MOHRE ID column replaced by a case reference; "Amount at risk" split to "Uncollected receivable" (M10 only) | — |
 | O5 | ~~M5 population~~ **CLOSED** — grp5/grp6 are the live-out remapping of grp1/grp2; the CC-only filter is correct | — |
 | O9 | ~~grp3 / grp4~~ **LIKELY CLOSED** — the enum carries only `GROUP_1/2/5/6`. One-line confirmation still wanted | Payroll |
@@ -1028,6 +1069,27 @@ returned, including the ERP's own misspelling of `EXCULDED_FROM_PAYROLL`. These 
 | `dateOfPayment` | `PAYMENTS` | `DATE_OF_PAYMENT` |
 | `dateChangedToReceived` | `PAYMENTS` | `DATE_CHANGED_TO_RECEIVED` |
 | `status` | `PAYMENTS` | `STATUS` |
+
+**Answer 4 — the Ansari account classifier** (`erp/magnamedia-payroll-management`, two questions)
+
+- `ANSARI_PAYMENT_METHOD` is **computed at read time by `Housemaid.getAnsariPaymentMethod()`**,
+  enum `com.magnamedia.extra.AnsariPaymentMethod`. **Nothing writes it to the database.**
+- It reads **`NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT`** via `HOUSEMAIDS.VISA_NEW_REQUEST_ID`
+  (`visaNewRequest`). `HOUSEMAIDS.EMPLOYEE_ACCOUNT_WITH_AGENT` exists but **is not used by this
+  getter** → O29.
+- Decision order on the trimmed value: `AE` → du Pay marker? → else `BANK_TRANSFER` · else `9` →
+  `PAYROLL_CARD` · else strip `^0+` → `5` = `FAB_MASTER_CARD`, `10` = `ANSARI_VISA_CARD`,
+  `19` = `OVER_THE_COUNTER` · else `''`.
+- du Pay test: starts `AE`, digits after `AE` of length ≥ 14, and `digits.substring(6,14)` equals
+  the constant **`"75123000"`**. Worked ERP example: `AE220260751230000682808`.
+- The field itself is an unconstrained `@Column String` on `NewRequest` — **no `@Pattern`,
+  `@Size` or length limit**, and payroll only checks non-empty (`Strings.isNullOrEmpty`). There is
+  no regex validating it anywhere. `OcrHelper.OCR_IBAN_PATTERN = "AE[\d\s]+"` exists but is for
+  OCR extraction only and is not applied to this field.
+- A short `AE…` value still classifies as `BANK_TRANSFER` — the ERP's own test value is
+  `"AE123456751"`. There is **no IBAN length check** in this path.
+
+Full comparison against the n8n patterns, and the two residual issues, are in **M9**.
 
 **Not resolved.** The picklist label for `TYPE_OF_PAYMENT_ID = 1` — the question timed out twice.
 Not blocking: the filter is the integer, and the CC/MV split now comes from D7.3's ready-made
