@@ -16,6 +16,29 @@ outside.
 
 ---
 
+## 0. The ten checks, by name
+
+These names are fixed — they are what Police & Control already reads in handovers and prior
+months' reports, so anything you build or label uses them exactly as written.
+
+| # | Name |
+| --- | --- |
+| 1 | `Ansari Duplicate MOHRE IDs` |
+| 2 | `CC Without Client Ratio` |
+| 3 | `CC Total Paid Amount vs Previous Month` |
+| 4 | `Loan Repayments Check` |
+| 5 | `Accommodation Days Earnings` |
+| 6 | `MV Total Salaries vs Client Payments` |
+| 7 | `Previously Unpaid Salaries Ratio` |
+| 8 | `Ansari Pay Start Date Check` |
+| 9 | `IBAN Red-Flag Transitions vs Previous Month` |
+| 10 | `CC Monthly Payments Reconciliation` |
+
+Note that checks 1 and 8 say *Ansari* but will read from the payroll tables rather than an Ansari
+file. The names are kept for continuity with what P&C already uses — do not "correct" them.
+
+---
+
 ## 1. The two files
 
 Both are produced by the payroll run and retrievable from
@@ -91,9 +114,9 @@ first included log's `payrollMonth`, EDR Count from `PayrollAccountantTodo.total
 Total Salary as the sum of the EDR fixed components, currency `"AED"`.
 
 > **One question we cannot answer and you may be able to: how often is `PAY_START_DATE` non-null?**
-> The file writes it when populated and falls back to the 1st of the payroll month when not. One of
-> the ten checks tests that this date equals the 1st. If the column is nearly always null, that
-> check has been passing on a value the file itself generated — testing nothing. A single
+> The file writes it when populated and falls back to the 1st of the payroll month when not. Check 8,
+> `Ansari Pay Start Date Check`, tests that this date equals the 1st. If the column is nearly always
+> null, that check has been passing on a value the file itself generated — testing nothing. A single
 > `GROUP BY` settles whether it is a real control.
 
 ---
@@ -143,9 +166,10 @@ ones the checks read.**
 **Three things this settles that were open:**
 
 - **`Earnings of days in grp3` does not exist** — grp3 has a day count only. **grp4 does have
-  earnings**, and it is *vacation* salary. So the check that uses grp1/2/5/6 skips nothing by
-  accident: grp1/grp5 are full-salary days (live-in / live-out), grp2/grp6 the accommodation
-  equivalents, and grp4 is vacation, which does not belong in an accommodation ratio.
+  earnings**, and it is *vacation* salary. So check 5 `Accommodation Days Earnings`, which uses
+  grp1/2/5/6, skips nothing by accident: grp1/grp5 are full-salary days (live-in / live-out),
+  grp2/grp6 the accommodation equivalents, and grp4 is vacation, which does not belong in an
+  accommodation ratio.
   *(This supersedes an earlier, thinner answer of ours that said the enum had no groups 3 and 4.)*
 - **`Ansari (AED)` is `Math.round(HousemaidPayrollBean.totalBalance)`**, whereas the Ansari file's
   Income Fixed Component is `HousemaidPayrollLog.totalSalary`. Two different fields that may not
@@ -210,13 +234,13 @@ Only relevant under Option B.
 
 1. **A warehouse grant** so we can verify our own claims — filed as **DNA-9437**. Compute only, no
    new object access.
-2. **How often `PAY_START_DATE` is non-null** (§3). Decides whether one of the ten checks is real.
+2. **How often `PAY_START_DATE` is non-null** (§3). Decides whether check 8 `Ansari Pay Start Date Check` is a real control.
 3. **The `ANSARI_PAYMENT_METHOD` CASE expression** from the
    `SILVER.HOUSEMAID_MANAGEMENT.HOUSEMAID_PAYROLL_HISTORY` dbt model — `BA_VIEWS` is only a
    passthrough and that schema is not readable to us. The ERP classifier has **seven** outcomes
    where the model's profiled values show five; if the model drops the `PAYROLL_CARD` and
-   `OVER_THE_COUNTER` branches, those accounts fall into `''` and the bank-account diversion check
-   cannot see them.
+   `OVER_THE_COUNTER` branches, those accounts fall into `''` and check 9
+   `IBAN Red-Flag Transitions vs Previous Month` cannot see them.
 4. **Polarity of `IS_DELETED` / `EXCLUDED_FROM_PAYROLL`** (`VARCHAR '00'/'01'`). Guessing wrong
    empties the population.
 

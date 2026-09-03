@@ -90,7 +90,7 @@ for a closed month is invisible to everything else.**
 
 ### Four questions we cannot answer without warehouse access
 
-1. **How often is `PAY_START_DATE` non-null?** One of the ten checks tests that it equals the 1st of
+1. **How often is `PAY_START_DATE` non-null?** Check 8 `Ansari Pay Start Date Check` tests that it equals the 1st of
    the payroll month. The file falls back to the 1st when the column is null — so if it is nearly
    always null, that check has been passing on a value the file itself generated. A single
    `GROUP BY` settles whether it is a real control.
@@ -98,8 +98,8 @@ for a closed month is invisible to everything else.**
    `SILVER.HOUSEMAID_MANAGEMENT.HOUSEMAID_PAYROLL_HISTORY` dbt model — `BA_VIEWS` is only a
    passthrough and that schema is not readable to us. The ERP classifier has **seven** outcomes where
    the model's profiled values show five. If the model drops the `PAYROLL_CARD` and
-   `OVER_THE_COUNTER` branches, those accounts fall into `''` and the bank-account diversion check
-   cannot see them.
+   `OVER_THE_COUNTER` branches, those accounts fall into `''` and check 9
+   `IBAN Red-Flag Transitions vs Previous Month` cannot see them.
 3. **Polarity of `IS_DELETED` / `EXCLUDED_FROM_PAYROLL`** (`VARCHAR '00'/'01'`). Guessing wrong
    empties the population.
 4. **`CLIENT_MANAGEMENT_PAYMENTS` admits six payment types and not `TYPE_OF_PAYMENT_ID = 1`**, the

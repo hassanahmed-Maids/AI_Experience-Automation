@@ -91,7 +91,7 @@ passthrough so the expression isn't visible to us.
 
 ---
 
-## Q4 — Check 9 back-test and base rate *(O24 — the acceptance test)*
+## Q4 — Check 9 `IBAN Red-Flag Transitions vs Previous Month` back-test and base rate *(O24 — the acceptance test)*
 
 The ERP records no fraud or diversion case anywhere, so there is no labelled example to test the
 diversion check against. The monthly snapshots imply the change events instead. This replays the
@@ -183,7 +183,7 @@ WHERE p.PAYROLL_MONTH = '2026-07-01';        -- ← set to a recent closed month
 ```
 
 **Tells us:** the CC/MV split, and what share of maids on payroll can be tied to a contract at all.
-A poor match rate means check 10's denominator is wrong before any threshold is applied.
+A poor match rate means check 10 `CC Monthly Payments Reconciliation` has the wrong denominator before any threshold is applied.
 
 ---
 
@@ -253,7 +253,7 @@ column to define a WPS month.
 
 ## Q10 — Are CC arrears measured at all? *(O12, blocking)*
 
-The ERP computes `PREVIOUSLY_UNPAID_SALARIES` for maid-visa maids only. If that holds, check 7's
+The ERP computes `PREVIOUSLY_UNPAID_SALARIES` for maid-visa maids only. If that holds, check 7 `Previously Unpaid Salaries Ratio`'s
 CC arm has always summed to zero and always passed. This is a proxy: does the approved
 unpaid-salary model show CC exclusions at all?
 

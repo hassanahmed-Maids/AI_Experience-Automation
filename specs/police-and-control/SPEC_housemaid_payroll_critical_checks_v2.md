@@ -23,6 +23,11 @@ audience is an auditor, so the exception rows now show the maid's name, the full
 both sides of an M9 transition, the MOHRE ID and per-maid amounts as figures. The control moves to
 a named-role grant plus access logging. O21 closes; O31 opens.
 
+**Also in v3:** **check names are now the predecessor's verbatim** — see the naming table in §3.
+Every displayed name, in the dashboard and in every document, matches what P&C already reads in
+handovers and prior months' reports. This surfaced one real problem: M8's name (`Ansari Pay Start
+Date Check`) no longer describes what M8 tests. O32 opens.
+
 ---
 
 ## 0. Why this spec exists
@@ -60,9 +65,9 @@ collapsed into one "payroll looks wrong" signal:
 | Failure mode | Caught by |
 | --- | --- |
 | **Payroll fraud / diversion** — a maid's salary redirected to an account controlled by someone else | Check 9 (bank-account transitions), Check 1 (duplicate MOHRE ID = two payments for one person) |
-| **Overpayment / wage-bill leakage** | Check 3 (CC month-over-month jump), Check 6 (MV wages vs MV receipts) |
+| **Overpayment / wage-bill leakage** | Check 3 `CC Total Paid Amount vs Previous Month`, Check 6 `MV Total Salaries vs Client Payments` |
 | **Under-recovery** — money owed to the company not collected back | Check 4 (loan repayments), Check 10 (CC contracts with no client payment) |
-| **Under-payment / arrears to workers** — a compliance and welfare exposure, not just a financial one | Check 7 (previously unpaid salaries), Check 5 (accommodation-day earnings not applied) |
+| **Under-payment / arrears to workers** — a compliance and welfare exposure, not just a financial one | Check 7 `Previously Unpaid Salaries Ratio`, Check 5 `Accommodation Days Earnings` |
 | **Process / data integrity** — the payroll run itself is malformed | Check 2 (CC without client), Check 8 (wrong pay period), Check 10's data-quality flags |
 
 **Reader and action.** Police & Control opens this monthly, after the payroll month closes and
@@ -553,7 +558,42 @@ else                          → Pass
 
 ---
 
-### M1 — Duplicate MOHRE IDs (Check 1)
+### Check names — binding, verbatim from the predecessor
+
+P&C reads these names in handovers, meeting notes and prior months' reports. **The dashboard,
+every export and every document use these strings exactly** — same words, same capitalisation, no
+rewording for house style. `M1`–`M10` remain the spec's internal reference; the *displayed* name is
+the right-hand column.
+
+| ID | Displayed name (exact) |
+| --- | --- |
+| M1 | `Ansari Duplicate MOHRE IDs` |
+| M2 | `CC Without Client Ratio` |
+| M3 | `CC Total Paid Amount vs Previous Month` |
+| M4 | `Loan Repayments Check` |
+| M5 | `Accommodation Days Earnings` |
+| M6 | `MV Total Salaries vs Client Payments` |
+| M7 | `Previously Unpaid Salaries Ratio` |
+| M8 | `Ansari Pay Start Date Check` |
+| M9 | `IBAN Red-Flag Transitions vs Previous Month` |
+| M10 | `CC Monthly Payments Reconciliation` |
+
+Sub-checks, likewise verbatim:
+
+| Parent | Sub-check names (exact) |
+| --- | --- |
+| M5 | `A — Grp2 / Grp1` · `B — Grp6 / Grp5` · `C — (Grp2+Grp6) / (Grp1+Grp5)` |
+| M7 | `CC maids — Unpaid / Paid` · `MV maids — Unpaid / Paid` |
+
+**Two names now describe the metric imperfectly, and that is accepted.** `Ansari Duplicate MOHRE
+IDs` and `Ansari Pay Start Date Check` both say *Ansari*, but in Snowflake the data no longer comes
+from an Ansari file — it comes from the payroll tables. The names stay because continuity for the
+reader beats accuracy about plumbing. M8 has the sharper version of this problem — see the warning
+at M8 and **O32**.
+
+---
+
+### M1 — Ansari Duplicate MOHRE IDs (Check 1)
 
 - **Business definition.** No two payroll rows in the audit month may share an
   `EMPLOYEE_UNIQUE_ID`. A duplicate positions one person to be paid twice.
@@ -575,7 +615,7 @@ else                          → Pass
 - **Nulls.** Blank or non-numeric ID → excluded and raised as its own data-quality exception.
 - **Threshold.** Green 0; Red ≥ 1. No amber — a duplicate is never tolerable.
 
-### M2 — CC maids without a client (Check 2)
+### M2 — CC Without Client Ratio (Check 2)
 
 - **Business definition.** The share of CC maids not placed with a client. CC maids are on the
   company's visa and cost money whether or not deployed.
@@ -588,7 +628,7 @@ else                          → Pass
   including `ON_VACATION`, `SICK_WITHOUT_CLIENT`, `PENDING_VACATION`, `ASSIGNED_OFFICE_WORK`.
   Those are arguably legitimately unplaced. Confirm the denominator.
 
-### M3 — CC wage-bill month-over-month movement (Check 3)
+### M3 — CC Total Paid Amount vs Previous Month (Check 3)
 
 - **Business definition.** Total CC payroll must not jump by more than AED 300,000 against the
   previous month. A fall is normal attrition and never a finding.
@@ -609,7 +649,7 @@ else                          → Pass
   at its first clean run** and display any later movement as a separate restatement line rather
   than overwriting.
 
-### M4 — Loan recovery (Check 4)
+### M4 — Loan Repayments Check (Check 4)
 
 **M4a — approved, reused verbatim.** From `BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS`
 where `SUBJECT_MONTH = audit_month` **and `METRIC_NAME = 'Total Deducted Loans'`**: read the
@@ -640,15 +680,16 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
 - **Interim.** Until N4 lands, M4b renders `BLOCKED — awaiting the REPAYMENTS ledger (N4)`, which does not fail the month. M4a
   still renders, so the month is not without a loan-recovery signal.
 
-### M5 — Accommodation-day earnings (Check 5)
+### M5 — Accommodation Days Earnings (Check 5)
 
 - **Business definition.** Accommodation-salary-day earnings must be at least 1% of
   full-salary-day earnings. If the accommodation share collapses, either the lower rate has
   stopped being applied or day classification has broken — either way maids are paid wrongly.
-- **Formula.** Three sub-ratios, **all** of which must pass:
-  `M5a = SUM(grp2) / SUM(grp1)` — live-in accommodation share
-  `M5b = SUM(grp6) / SUM(grp5)` — live-out accommodation share
-  `M5c = (SUM(grp2)+SUM(grp6)) / (SUM(grp1)+SUM(grp5))` — combined
+- **Formula.** Three sub-ratios, **all** of which must pass. Sub-check names are the predecessor's
+  verbatim — display them exactly as written here:
+  `M5a` — **`A — Grp2 / Grp1`** = `SUM(grp2) / SUM(grp1)` — live-in accommodation share
+  `M5b` — **`B — Grp6 / Grp5`** = `SUM(grp6) / SUM(grp5)` — live-out accommodation share
+  `M5c` — **`C — (Grp2+Grp6) / (Grp1+Grp5)`** = `(SUM(grp2)+SUM(grp6)) / (SUM(grp1)+SUM(grp5))`
 - **Inputs.** N1; D3 and D2.1 for the CC filter.
 - **Filters — the ERP answer settles an old disagreement.** The legacy comment claimed
   "Grp1/Grp2: CC only. Grp5/Grp6: all maid types", while the code applied a CC-only filter to all
@@ -662,7 +703,7 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
 - **Division by zero.** Any zero denominator → that sub-check `SKIPPED`, parent `SKIPPED`.
 - **Threshold.** Green ≥ 1.00% on all three. *(legacy constant `GRP_RATIO_MIN = 0.01`.)*
 
-### M6 — MV wages vs MV client receipts (Check 6)
+### M6 — MV Total Salaries vs Client Payments (Check 6)
 
 > **Orientation, stated once and explicitly** (v2 — v1's worked example computed this upside
 > down): **wages are the numerator, receipts the denominator.** A *higher* percentage is *worse*.
@@ -692,7 +733,7 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
   An MV payment dated the 2nd is invisible under the legacy behaviour. Probably a bug in the running
   flow; not changed silently.
 
-### M7 — Previously unpaid salaries (Check 7)
+### M7 — Previously Unpaid Salaries Ratio (Check 7)
 
 **M7a — approved, reused verbatim.** From `BI_PAYROLL_UNPAID_SALARY_MONITORING` where
 `PAYROLL_MONTH = audit_month`, all model filters retained. Headline from `ROW_TYPE = 'Summary'`;
@@ -707,6 +748,8 @@ lets P&C work a case.
   denominator, which the D1.3/D1.4 name inversion makes easy to do by accident):
   `M7b = SUM(prior-month unpaid amount, NET basis) / SUM(NET_SALARY)`, for each of CC and MV.
   **Both sides are net.** If P&C prefers gross, change both sides together — never one.
+  Sub-check names are the predecessor's verbatim — display them exactly:
+  **`CC maids — Unpaid / Paid`** and **`MV maids — Unpaid / Paid`**.
 - **Inputs.** D1.3, D1.10, D1.5 (for the gross↔net reconciliation), D3, plus N6 for CC.
 - **MV numerator — native source confirmed (§7).** `HOUSEMAIDPAYROLLBEANS.PREVIOUSLY_UNPAID_SALARIES`,
   computed at export as the sum of `TOTAL_SALARY` over prior unpaid `HOUSEMAIDPAYROLLLOGS` rows.
@@ -726,7 +769,17 @@ lets P&C work a case.
 - **Division by zero.** `NET_SALARY` includes zero rows; a type whose denominator sums to zero →
   that side `SKIPPED`, parent `SKIPPED`.
 
-### M8 — Pay period correctness (Check 8)
+### M8 — Ansari Pay Start Date Check (Check 8)
+
+> **⚠ Name vs behaviour — read this before building.** The name is the predecessor's verbatim, as
+> required. But it no longer describes what the metric does. The original tested one thing: that
+> the file's **Pay Start Date** equalled the 1st of the payroll month. This version tests whether
+> the **paid date** falls inside the expected payment window — a different column answering a
+> different question (see the correction below). Two consequences: a reader who trusts the name
+> will look for a `PAY_START_DATE` comparison and not find one, and the original test is now
+> *unrepresented* — which matters, because the open question in the DNA ticket is whether
+> `PAY_START_DATE` is ever non-null. **O32:** decide whether M8 keeps the original Pay-Start-Date
+> test as a third reason alongside the two below, or the name moves with the metric.
 
 - **Business definition.** Money must move for the period it claims to be for. A row paid against
   the wrong month hits the wrong budget and breaks every other month-scoped metric.
@@ -784,7 +837,7 @@ lets P&C work a case.
   count of unparseable values as a data-quality figure.
 - **Threshold.** Green 0 rows; Red ≥ 1.
 
-### M9 — Bank-account diversion (Check 9)
+### M9 — IBAN Red-Flag Transitions vs Previous Month (Check 9)
 
 - **Business definition.** Compare each maid's payment account between the audit month and the
   prior month. Most changes are benign; five transitions are the signature of salary diversion.
@@ -910,7 +963,7 @@ lets P&C work a case.
 - **Prior month unavailable:** `SKIPPED`, amber, worded *"No account comparison was performed this
   month — treat as UNVERIFIED, not clear."* Never green.
 
-### M10 — CC contract payment reconciliation (Check 10)
+### M10 — CC Monthly Payments Reconciliation (Check 10)
 
 - **Business definition.** Every CC contract with a maid on payroll this month should have a
   received monthly client payment. Contracts with none, or with payment stuck in a non-received
@@ -1037,7 +1090,7 @@ A **two-sided reconciliation** panel carries the tie-out.
 | Exceptions to work | count | Exception-grain rows across M1, M7, M8, M9, M10 |
 | **Uncollected receivable — M10** | AED | **v2: split.** v1 had one "Amount at risk" tile summing M10 (money owed *to* the company) with M7b arrears (money owed *by* the company to workers). Those move in opposite directions and netting them is not interpretable — and since §2.4 now shows arrears as a figure, the temptation to net them is greater, not smaller. This tile is `SUM(not_received + no_payment payment amounts)`, renders `—` when M10 is `SKIPPED` or `BLOCKED`, and is defined here rather than appearing only in the UI |
 
-**Check register.** Ten rows: ID · name · status badge · headline metric · **numerator /
+**Check register.** Ten rows: ID · name (verbatim, per the naming table in §3) · status badge · headline metric · **numerator /
 denominator** · threshold · **13-month sparkline** · **vs. last month** · exception count. Each
 expands to metric detail, the full monthly series as a table, and its exception table.
 
@@ -1113,7 +1166,7 @@ checked. No figure is a real person's. *(Note: the headcounts below are of a rea
 magnitude for this population; they are not drawn from a query result.)* Validating these against
 two real cases P&C has worked by hand is **O7**.
 
-### Example A — clean case (M3, CC wage-bill movement)
+### Example A — clean case (M3, `CC Total Paid Amount vs Previous Month`)
 
 | Input | Value |
 | --- | --- |
@@ -1129,7 +1182,7 @@ Exceptions 0.
 **Expected flag:** Green. The rise tracks a 250-maid headcount increase, which the denominator
 column makes visible — wage bill per maid actually fell.
 
-### Example B — the exception this report exists to catch (M9, diversion)
+### Example B — the exception this report exists to catch (M9, `IBAN Red-Flag Transitions vs Previous Month`)
 
 Population: **all maids, CC and MV** (per M9's filters).
 
@@ -1163,7 +1216,7 @@ not the account, is the signal.
 > O24 that is unconfirmed** — if they classify as `''` or `BANK_TRANSFER`, these two rows never
 > appear and the check reports 2, not 4, while looking healthy.
 
-### Example C — edge case (M6 + G3, the implausible-denominator trap)
+### Example C — edge case (M6 `MV Total Salaries vs Client Payments` + G3, the implausible-denominator trap)
 
 > **v2 — v1 computed this example upside down** and built its whole narrative on the inversion.
 > Corrected below. A builder who implemented v1's orientation would have inverted the check
@@ -1194,7 +1247,7 @@ not a threshold result. Check 6 was not evaluated."*
 For contrast, a healthy month returns roughly AED 33.4M of receipts against AED 28.0M of salaries
 — **83.89%**, a genuine pass, with the floor sitting about **11.9×** below that denominator.
 
-### Example D — edge case (M10, mixed payments on one contract)
+### Example D — edge case (M10 `CC Monthly Payments Reconciliation`, mixed payments on one contract)
 
 | Input | Value |
 | --- | --- |
@@ -1246,6 +1299,7 @@ displayed separately from the contract count for exactly this reason.
 | O17 | ~~No payroll-lock signal~~ **RESOLVED 2026-09-03 — the signal exists, it just is not in Snowflake.** `MONTHLYPAYMENTRULES` carries `PAYROLL_MONTH`, `PAYMENT_DATE`, `LOCK_DATE` (`= PAYMENT_DATE − DAYS_BEFORE_LOCK`, the end of the editable window; audit to-dos generate on it), `AUDITING_FINISHED` and `FINISHED`. G5 should read `AUDITING_FINISHED`. Note a payroll month can have **several rules**, each with its own `PAYMENT_DATE`. Now an ingestion item (C2 in `erp-source-tables-for-dna.md`), not an unknown | Data team |
 | O18 | ~~`FREEDOM_OPERATOR` and `WALKIN`~~ **CLOSED 2026-09-03.** Both get monthly payroll rows and the ERP **treats both as CC** — only `MAID_VISA` follows a distinct payroll path, and payroll exclusion is driven by `excludedFromPayroll`, not by maid type. D3's rule is correct as written; no P&C decision needed | — |
 | O21 | ~~Displaying the MOHRE ID needs a named pre-approval~~ **CLOSED 2026-09-03 — masking removed.** P&C instructed that the auditor sees everything; §2.4 now displays the MOHRE ID, the name, both full accounts and per-maid figures, and the control moved to a named-role grant plus access logging | — |
+| O32 | **M8's name no longer matches its test.** The displayed name is `Ansari Pay Start Date Check` (verbatim, per the naming rule), but the metric now tests whether the **paid date** falls in the expected payment window — the original Pay-Start-Date test is unrepresented. Decide: keep the original test as a third reason under M8, or let the name follow the metric. Tied to the `PAY_START_DATE` null-rate question in DNA-9446 — if that column is nearly always null, the original test was never a real control and the answer is easy | Police & Control |
 | O31 | **Opened 2026-09-03 by the same decision.** §2.4's replacement controls are a Snowflake role granted to named P&C auditors and a readable access log. Two things need an owner before go-live: **who holds and reviews the role membership**, and **whether Compliance wants sign-off on that list**. The dashboard should not be shared before the role exists — it is the only thing standing where masking used to | Police & Control + Compliance |
 | O22 | ~~M1's company-MOL-number exclusion~~ **CLOSED 2026-09-03.** The WPS SCR summary row carries **two** hardcoded literals: **MOL Company Number `"0000000836318"`** (column 3) and **Routing Bank Code `"720610101"`** (column 4). M1 excludes `0000000836318`, which is exactly what the legacy code already guarded against. **Correcting our own earlier reading** — a first, less detailed answer conflated the two literals and reported the routing code as the MOL number; there is no discrepancy to raise. Both are hardcoded rather than configured, which is a maintenance note for Payroll, not a blocker | — |
 | O23 | M3 restatement — freeze each month at first clean run and show later movement separately. Confirm | Police & Control |
