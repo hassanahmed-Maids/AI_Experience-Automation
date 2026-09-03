@@ -640,7 +640,26 @@ lets P&C work a case.
 
 - **Business definition.** Money must move for the period it claims to be for. A row paid against
   the wrong month hits the wrong budget and breaks every other month-scoped metric.
-- **Formula.** `M8 = COUNT(maid-months where the paid date falls outside the payroll month)`
+- **Formula.** `M8 = COUNT(maid-months whose paid date falls outside the expected payment window
+  for that payroll month)`, where the window for payroll month `M` is
+  `[first day of M, <cutoff>]`, cutoff defaulting to **the last day of M+1**.
+
+  > **Correction, 2026-09-03.** This previously read *"the paid date falls outside the payroll
+  > month"*, which is wrong and would have failed essentially every row: salaries for month `M`
+  > are paid **after** `M` closes — the n8n flow ran on the 7th and the matching client payment is
+  > dated the 1st of `M+1`. A payment on 2 August for July payroll is normal, not an exception.
+  > The check needs a window, not a containment test.
+
+- **Two reasons, reported separately — they are different findings with different owners.**
+
+  | Reason | Test | What it means |
+  | --- | --- | --- |
+  | `paid before period start` | paid date `<` first day of `M` | Money moved for a period that had not begun. Rare and serious |
+  | `paid after cutoff` | paid date `>` cutoff | Late payment — overlaps M7's arrears territory but is a pay-period finding in its own right |
+
+- **The cutoff is P&C's to set** and is the substantive decision inside O2. Default proposed:
+  the last day of `M+1`. A tighter cutoff (say the 10th of `M+1`) turns M8 into a payment-
+  timeliness control; a looser one makes it purely a gross-error check.
 - **Inputs.** D1.2, D1.9, D4 (`PAYROLL_DATE`), D2.4.
 - **Mapping note — this check's meaning changes, and the change is an improvement.** In the
   spreadsheet this was `Pay Start Date`. In Snowflake `PAYROLL_MONTH` is the first day of the
@@ -1059,7 +1078,7 @@ displayed separately from the contract count for exactly this reason.
 | # | Item | Owner |
 | --- | --- | --- |
 | O1 | **No warehouse grant — the single access blocker.** See §9 for the exact request. `PAYROLL_AND_MONEY_CONTROL_ROLE` has no USAGE on any warehouse (`SHOW WAREHOUSES` returns 0 rows; `CURRENT_WAREHOUSE()` is empty), so only metadata-served statements run. Columns, types, profiled ranges and row counts are verified; **freshness, grain and period coverage are asserted, not measured**. Also blocks O19 (approved-KPI register search) and O24 (the `ANSARI_PAYMENT_METHOD` distribution) | Data team / Snowflake admin |
-| O2 | **M8 changes meaning.** `PAYROLL_MONTH` is the first of the month by construction, so a literal port always passes and tests nothing. Proposed: compare `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` against `PAYROLL_MONTH` | Police & Control |
+| O2 | **M8 changes meaning, and needs a payment window.** Two decisions in one. (a) `PAYROLL_MONTH` is the first of the month by construction, so a literal port of the old Pay-Start-Date check always passes and tests nothing — accept retiring it and replacing it with "was the money moved for the period it claims", comparing `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` against `PAYROLL_MONTH`. (b) **Set the cutoff.** Salaries for month M are paid after M closes, so the test is a window `[1st of M, cutoff]`, not containment. Default proposed: last day of M+1. A tighter cutoff makes M8 a payment-timeliness control; a looser one a gross-error check. Expect findings on day one where the old check reported none — the baseline resets | Police & Control |
 | O12 | **`PREVIOUSLY_UNPAID_SALARIES` is MV-only.** If confirmed, Check 7's CC arm has always summed to zero and always passed, and CC arrears are unmeasured. Confirm, then extend the ERP computation or approve the D1-derived CC definition (N6) | Payroll Mgmt + P&C |
 | O15 | **Deletion-flag polarity.** `IS_DELETED` and `EXCLUDED_FROM_PAYROLL` are `VARCHAR` `'00'/'01'` with no documented polarity; `WPS_RECORDS.TRASHED` has no profiled values. A guess the wrong way empties the population — which G1/G2 abort on above 100 rows, or which passes silently below | Data team |
 | O17 | **No payroll-lock signal.** G5 requires one and `LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values". N4's figures move at lock, so a pre-lock run silently reports different numbers | Data team + Payroll Mgmt |
