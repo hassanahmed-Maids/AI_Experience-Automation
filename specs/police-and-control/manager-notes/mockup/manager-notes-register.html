@@ -183,7 +183,7 @@ tbody tr:last-child td{border-bottom:none}
       </div>
       <div class="verdict">
         <div class="word">FAIL</div>
-        <div class="sub">9 findings · 3 of 7 group rules evaluated</div>
+        <div class="sub">9 findings · 4 of 7 group rules · 3 arms blocked</div>
       </div>
     </div>
   </header>
@@ -216,17 +216,17 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="kpi">
       <div class="k-lbl">Pending <span class="mid">MN5</span></div>
-      <div class="k-val c-warn">405</div>
-      <div class="k-sub">cases · AED 334,042 · never clean</div>
+      <div class="k-val c-warn">449</div>
+      <div class="k-sub">cases · AED 348,142 · never clean</div>
     </div>
     <div class="kpi">
       <div class="k-lbl">Coverage <span class="mid">MN7</span></div>
-      <div class="k-val c-fail">69.69%</div>
-      <div class="k-sub">931 of 1,336 judged</div>
+      <div class="k-val c-warn">66.39%</div>
+      <div class="k-sub">887 of 1,336 judged</div>
     </div>
     <div class="kpi">
       <div class="k-lbl">Unevaluable <span class="mid">MN8</span></div>
-      <div class="k-val">334,030</div>
+      <div class="k-val">348,130</div>
       <div class="k-sub">AED · within pending, not extra</div>
     </div>
   </div>
@@ -237,23 +237,25 @@ tbody tr:last-child td{border-bottom:none}
       <span class="hint">By money, not by case count — AED 526,592 across 1,336 notes</span>
     </div>
     <div class="cov-bar">
-      <div class="cov-seg seg-clean" style="width:32.90%">clean · 173,270</div>
+      <div class="cov-seg seg-clean" style="width:30.23%">clean · 159,170</div>
       <div class="cov-seg seg-find"  style="width:3.66%" title="findings — AED 19,280"></div>
-      <div class="cov-seg seg-none"  style="width:63.43%">cannot be judged · 334,030</div>
-      <div class="cov-seg seg-pend"  style="width:0.01%; min-width:4px" title="pending — other, AED 12"></div>
+      <div class="cov-seg seg-none"  style="width:66.11%">cannot be judged · 348,130</div>
+      <div class="cov-seg seg-pend"  style="width:0.00%; min-width:4px" title="pending — no payment type, AED 12"></div>
     </div>
     <div class="cov-key">
-      <span><i class="sw clean"></i> Clean — a rule ran and cleared it · AED 173,270 · 922 cases</span>
+      <span><i class="sw clean"></i> Clean — a rule ran and cleared it · AED 159,170 · 878 cases</span>
       <span><i class="sw find"></i> Finding — flagged notes' own amounts · AED 19,280 · 9 cases</span>
-      <span><i class="sw none"></i> Cannot be judged — G1 entitlement, G2, G4, G6 · AED 334,030 · 404 cases</span>
+      <span><i class="sw none"></i> Cannot be judged — G1 entitlement, G2, G4 mv-prorated, G6 · AED 348,130 · 448 cases</span>
       <span><i class="sw pend"></i> Pending — no payment type · AED 12 · 1 case</span>
     </div>
-    <p class="note" style="margin:2px 0 0"><b>Nearly two thirds of the money cannot be judged, and
-    that is the honest headline.</b> The loyalty payment (G2) alone is AED 135,072 paying 307
-    different amounts between zero and 900, with nothing written down saying what a maid should
-    receive. G1 can check the price but not the entitlement, G4 has no recalculation inputs, and
-    G6's winners list is not in the warehouse. None of it is clean and none of it is a finding — it
-    is <b>untested</b>, and the terminal catch-all is what stops it reading as a pass.</p>
+    <p class="note" style="margin:2px 0 0"><b>Two thirds of the money cannot be judged, and that is
+    the honest headline.</b> The loyalty payment (G2) alone is AED 135,072 paying 307 different
+    amounts between zero and 900, with nothing written down saying what a maid should receive. G1
+    can check the price but not the entitlement, G4's mv-prorated arm has no known formula, and G6's
+    winners list is not in the warehouse. <b>Blocking is per arm, not per group</b> — G4's other
+    three types are recalculated and cleared normally, so a group can be partly judged. None of the
+    rest is clean and none of it is a finding — it is <b>untested</b>, and the terminal catch-all is
+    what stops it reading as a pass.</p>
   </section>
 
   <section class="panel">
@@ -278,7 +280,7 @@ tbody tr:last-child td{border-bottom:none}
   <section class="panel">
     <div class="panel-head">
       <h2>Cases to work</h2>
-      <span class="hint">One row per note · sorted by above expected · 405 pending · 9 findings · 7 shown ·
+      <span class="hint">One row per note · sorted by above expected · 449 pending · 9 findings · 7 shown ·
         full detail, restricted to the P&amp;C auditor role, views logged</span>
     </div>
     <div class="scroll">
@@ -425,10 +427,10 @@ tbody tr:last-child td{border-bottom:none}
      notes:97, aed:70410, finds:2, pend:0, above:8500, src:"Each scheme's own price and conditions",
      state:"fail", series:[0,1500,0,3500,1458,0,2500,1458,0,4200,1458,2500,8500]},
     {k:"G4", name:"Part-month and final salary", types:"MV Prorated Salary, Prorated salary, Last Day CC Switch Adjustment, MV Extra Salary",
-     notes:212, aed:67917, finds:null, above:null, pend:212,
-     src:"Recalculation — but the notes view has one date, no salary, no divisor (MN-O18)",
-     state:"block", note:"inputs not named — v1 wrongly marked this evaluable",
-     series:[null,null,null,null,null,null,null,null,null,null,null,null,null], gapNote:"inputs not named"},
+     notes:212, aed:67917, finds:1, above:3260, pend:44,
+     src:"Recalculated per type: basicSalary ÷ calendar days in the PREVIOUS payroll month; lastCcSalary ÷ days in THIS one",
+     state:"fail", note:"mv_prorated arm blocked — its formula is not yet known",
+     series:[820,1240,640,2100,980,1560,720,3100,1180,940,2240,1620,3260]},
     {k:"G5", name:"Salary corrections", types:"Salary Dispute, Forgive Deduction, MOHRE requirement additions, Medical Assistance, Lost Luggage Compensation",
      notes:341, aed:39919, finds:0, pend:0, above:0, src:"The expense record; what it cannot settle routes to a person",
      state:"ok", series:[0,0,450,0,0,0,0,320,0,0,0,0,0]},

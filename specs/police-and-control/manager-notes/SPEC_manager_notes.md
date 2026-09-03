@@ -4,7 +4,7 @@
 | --- | --- |
 | **Requested by** | Hassan Ahmed, Police & Control |
 | **Business owner / reviewer** | Jacky (maker–checker; money-out payroll check) |
-| **Spec version** | **v2** — draft, post-audit |
+| **Spec version** | **v3** — draft, after a second audit gate and a second Ask the Code round |
 | **Date** | 2026-09-03 |
 | **Delivered on** | **MaidsInsights**, over **Snowflake**. The two are not interchangeable: MaidsInsights is the dashboard the auditor opens; Snowflake is the warehouse, role and SQL underneath |
 | **Replaces** | Nothing running. The Notion page *Manager Notes* (Audit Flow Factory / Both Maids) specified this as a flow; it was never built. This spec re-expresses it as a dashboard |
@@ -125,7 +125,7 @@ maid-name column with **no data point behind any of them**. All three are here:
 | ID | Column | Type | Use |
 | --- | --- | --- | --- |
 | D4.1 | `NAME` (also `FIRST_NAME`, `MIDDLE_NAME`, `LAST_NAME`) | `VARCHAR` | The case subject |
-| D4.2 | **`HOUSEMAID_TYPE`** | `VARCHAR` | **CC / MV — the input gate ❽ had none.** Values to be profiled (needs compute) |
+| D4.2 | **`HOUSEMAID_TYPE`** | `VARCHAR` | **The input gate ❽ had none.** ⚠ **Four values, not two: `Normal`, `MAID_VISA`, `FREEDOM_OPERATOR`, `WALKIN`** *(from column metadata — no compute needed)*. The payroll-checks spec settled the mapping: **only `MAID_VISA` is MV; `Normal`, `FREEDOM_OPERATOR` and `WALKIN` are all treated as CC by the ERP.** A two-way CC/MV mapping over four values would manufacture ❽ findings against real people |
 | D4.3 | **`NATIONALITY`**, `NATIONALITY_CATEGORY` | `VARCHAR` | G1's price split |
 | D4.4 | `STATUS`, `DATE_OF_TERMINATION`, `MODE_OF_TERMINATION` | | G4's final-salary context |
 | D4.5 | `LIVE_OUT` | `NUMBER 0/1` | Separates the transport allowance from genuine taxi trips (G7) |
@@ -202,6 +202,14 @@ dead column should be dropped from the view rather than carried.
 'INSIGHTS_DASHBOARD_CONTAINER' IN DATABASE BA_VIEWS`)*. **Its contents could not be read** — listing
 rows needs compute, and the role has no warehouse (DNA-9437).
 
+⛔ **And one already exists.** `BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_MAID_SALARY_ADDITIONS_BY_CATEGORY`
+carries `SUBJECT_MONTH`, `MAID_TYPE`, `ADDITION_CATEGORY`, `ADDITION_COUNT`, `ADDITION_AMOUNT`,
+`TOTAL_ADDITION_COUNT`, `TOTAL_ADDITION_AMOUNT` — **MN1 and MN2, by month and by category, already
+modelled in GOLD**, plus a sibling `…_AS_LOAN_IMPACT_BY_CATEGORY`. Rebuilding them by hand is exactly
+what the KPI rule forbids. ⚠ Every column profiles as *"no non-null values"*, so the view may be
+empty or simply unprofiled — **establish that with compute before relying on it**, and reconcile
+MN1, MN2 and the nine-group split against it or record why they diverge.
+
 MN1 and MN2 ("notes in scope", "money added") are exactly the shape of metric that may already have
 an approved definition. **Before building, the Snowflake team must check the container for MN1 and
 MN2 and reuse any approved definition verbatim with all its filters (including `FAKE = false`).** If
@@ -226,11 +234,14 @@ Every field below is a confirmed column on the table that already feeds the view
 | **N9** | `PAYROLL_ACCOUNTANT_TODO_ID` | `BIGINT` **— UNVERIFIED** | Links the note to the payroll run that paid it — **the same `PayrollAccountantTodo` the payroll-checks spec is built on**, so the two checks can be reconciled | The two P&C payroll dashboards cannot be tied together |
 | **N10** | `CONFIRMED_AMOUNT_BY_AUDITOR`, `CONFIRMED_REPEATED_BY_AUDITOR` | `TINYINT(1)` | ⚠ See MN-O7 — the ERP **already has auditor-confirmation flags on the note** | Unknown whether this check duplicates an existing control |
 | **N11** | The winners list for G6, and the price/entitlement lists for G1 and G3 | — | The **expected** side for three groups. Source not yet identified; `EXPENSES_CONFIGURATION` is the first place to look | G1, G3, G6 have no expected value to compare against |
-| **N12** | **The expense-request pivot** — ERP `EXPENSEREQUESTTODOS` (`ID`, `EXPENSE_ID`, `EXPENSE_PAYMENT_ID`, `RELATED_TO_ID`, `RELATED_TO_TYPE`, `AMOUNT`, `DESCRIPTION`, `REFERRED_MAID_ID`, `PURPOSE_ADDITIONAL_DESCRIPTION_ID`) and `EXPENSES.SALARY_ADDITION_TYPE_ID` | — | ⛔ **Without this, N2 unblocks nothing.** The match chain is note → `EXPENSEREQUESTTODOS` → `EXPENSE_PAYMENT_ID` → `EXPENSEPAYMENTS`, and **`EXPENSEREQUESTTODOS` is not in `BA_VIEWS`** (`SHOW TERSE VIEWS LIKE '%EXPENSE%'` returns 15 views; none is it, and there is no plain `EXPENSES` view). `EXPENSES_PAYMENTS` carries **no addition-reason column** at all, so ingesting `ADDITION_REASON_ID` onto the note gives a key with nothing on the other side | The match cannot run at all. **Blocking** |
+| **N12** | **Three columns on the existing pivot view** — add `SALARY_ADDITION_TYPE_ID`, `REFERRED_MAID_ID` and `PURPOSE_ADDITIONAL_DESCRIPTION_ID` to `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` | — | **v3 correction: the pivot already exists and v2 mispriced this as the largest ask in the spec.** `EXPENSES_REQUESTS` **is** the `EXPENSEREQUESTTODOS` projection (`ID` = `ert.id`) and already carries `EXPENSE_PAYMENT_ID`, `RELATED_TO_TYPE`/`RELATED_TO_ID`, `AMOUNT`, `DESCRIPTION`, **`EXPENSE_TYPE`** (the expense head ❼ needs), `CURRENCY_ID` **and `CURRENCY_NAME`**. Only the three columns named are genuinely missing | The match runs but without its structured half. **Blocking for MN3/MG2, not for the chain** |
 
-> **Assess before ingesting.** `MONEY_CONTROL_SILVER.EXPENSE_REQ_TRANSACTIONS_LINKING` and
-> `EXPENSES_REQUESTS` both exist and may already serve the pivot's role. Check them before asking
-> for a new ingest — this is the data team's call, not ours.
+⚠ **`EXPENSES_REQUESTS` excludes secure expense categories entirely** (`is_secure = 1`, per the
+view's own documentation). If any salary-addition expense head is secure, those notes are
+permanently unmatchable and would read as `❻b pending` — indistinguishable from a match failure, and
+they would drag MG2's rate down for a reason that is not a data-quality problem. **MN-O24: confirm
+no salary-addition head is secure; if one is, exclude those notes from MG2's denominator and label
+them separately.**
 
 ### 2.4 Sensitive-data handling
 
@@ -267,9 +278,16 @@ open question as the payroll spec (O31).
 
 ## 3. Metric calculations
 
-Currency **AED**, single-currency, no FX. Money rounded to 2dp for display, full precision in
-comparisons. Percentages to 2dp. Audit month = the `PAID_ON_PAYROLL_MONTH` month, default previous
-calendar month.
+Currency **AED**. ⚠ **The expected side is not single-currency, and every comparison must use the
+right column.** `EXPENSES_PAYMENTS.AMOUNT` and `AMOUNT_TO_PAY` follow `CURRENCY_ID` (ten values);
+**`LOCAL_CURRENCY_AMOUNT` is always AED** — equal to `AMOUNT` when the currency is AED, FX-converted
+otherwise, and it is what the ERP itself uses for transactions and reporting. **Every comparison
+against an expense payment reads `LOCAL_CURRENCY_AMOUNT`, never `AMOUNT`.** No FX table, no as-of
+date, no currency filter. *(Ask the Code, round 2 — MN-O13 closed.)*
+
+Money rounded to 2dp for display; comparisons cast to `NUMBER(12,2)` first. Percentages to 2dp.
+Audit month = the `PAID_ON_PAYROLL_MONTH` month — **the most recent closed payroll month, per §4**,
+not simply the previous calendar month.
 
 ### The verdict ladder — one note, one verdict
 
@@ -306,25 +324,34 @@ identifies that subset today, which is also why MG2's denominator is undefined. 
 no metric consumed, so under v1's remainder rule those notes became clean. They are the notes most
 likely to be wrong: ❼ is the mechanism that catches the two mislabelled payment types. The verifier
 returns one of **`justified` → clean**, **`unjustified` → finding**, or **`cannot tell` → pending**,
-and the note stays `pending` until it does. MG3 covers only its unavailability.
+and the note stays `pending` until it does. **The verifier sets `cleared_by_rule` on `justified`** —
+without that, MN6's definition ("a *group rule* concluded") would leave verifier-cleared notes
+pending forever and MG3 would never lift. MG3 covers only its unavailability.
 
 ### Headline metrics
 
 | ID | Metric | Formula | Notes |
 | --- | --- | --- | --- |
 | **MN1** | Notes in scope | `COUNT(D1.1)` where `NOTE_TYPE = 'ADDITION'` **and** `PAID_ON_PAYROLL_MONTH` in the audit month **and `APPLIED = 1` and `PAID = 1` and `IS_REFUND = 0`**, with superseded notes (`OLD_NOTE_ID` chain) and refunded notes (`REFUNDED_NOTE_ID` chain) collapsed to their surviving row | **v2 — the lifecycle filter was missing.** v1 counted unapplied notes as money out and would have read a refund as a duplicate, which is exactly what N3–N5 were requested to prevent; they were requested and then used by nothing |
-| **MN2** | Money added | `SUM(D1.4)` over MN1 | ~AED 529,000/month expected |
+| **MN2** | Money added | `SUM(GREATEST(AMOUNT, 0))` over MN1, with **negative additions reported separately** as a count and an amount | ~AED 529,000/month expected. **v3:** a plain `SUM` nets the negatives (`AMOUNT` reaches −3,032) against the positives, so "money added" understates money added — and T1 still closes, because both sides are netted, so no tie-out can see it |
 | **MN3** | **Findings — AED above expected** | `SUM(GREATEST(actual − expected, 0))` over notes whose verdict is *finding* | **The headline.** Where no rule was met, `expected = 0` and the whole amount is the finding |
 | **MN4** | Findings — count | `COUNT` of notes with verdict *finding* | |
 | **MN5** | Pending — count and AED | `COUNT` and `SUM(D1.4)` where verdict is *pending* | **Amber, never folded into clean.** Includes every ❾ note |
-| **MN6** | Clean — count and AED | **Defined positively: a group rule ran, reached a conclusion, and the payment satisfied it.** Never a remainder | **v2 — this was the worst defect in v1.** As a remainder, every unevaluable note fell into clean: a blocked group, a failed match, an unreturned verifier. See the note below |
-| **MN7** | **Coverage** | `(MN4 + MN6) / MN1`, with MN6 as defined above | **v2 — v1's version could not measure coverage.** With MN6 a remainder, `MN7 ≡ 1 − MN5/MN1`: a restatement of the pending share that no blocked group and no failed match could move. It was the metric carrying the argument *"a dashboard reporting few findings on low coverage is reporting nothing"*, and it could not detect the conditions it existed to expose |
+| **MN6** | Clean — count and AED | `COUNT` of notes carrying a non-null **`cleared_by_rule`** — the id of the rule that concluded and was satisfied. A rule sets it; nothing else does. **Never a remainder, and never computed by subtraction** | **v2 — this was the worst defect in v1.** As a remainder, every unevaluable note fell into clean: a blocked group, a failed match, an unreturned verifier. See the note below |
+| **MN7** | **Coverage** | `(MN4 + MN6) / MN1`, with MN6 as defined above | **v3 correction to v2's own explanation.** The identity `MN7 ≡ 1 − MN5/MN1` is unavoidable given T1 and always was — v2 wrongly described that algebra as the bug. **The bug was MN5's population**: with MN6 a remainder, blocked and unmatched notes never reached MN5, so the ratio could not move. MG4 and ❻b fix it by changing what lands in MN5, not by changing the algebra. A builder who "fixes the algebra" instead will reintroduce the defect |
 | **MN8** | Unevaluable money | `SUM(D1.4)` over every note in a `BLOCKED` group **and** every note whose group rule could not conclude | **v2 — widened.** v1 said "G2 alone" while the same section marked G1's service-months arm and G6 blocked too. A subset of MN5, not a separate bucket — labelled as such on screen so the two tiles are not added together |
 
-**The rule that makes the rest safe — v2.** *A note may only be clean if a rule ran and cleared it.*
-Everything else is `pending`, with its reason. Concretely:
+**The rule that makes the rest safe.** *A note may only be clean if a rule ran and set
+`cleared_by_rule`.* Everything else is `pending`, with its reason. Concretely:
 
-- a note in a **`BLOCKED` group** → `pending`, and into MN8 — never clean, **whatever else is true**;
+- **Blocking is per ARM, not per group — v3.** A group rule usually has several arms (G1: amount ·
+  entitlement · once-only; G4: one formula per payment type; G3: scheme price · referral). A note is
+  judged by **the arm that applies to it**. So: *a note whose applicable arm is blocked is `pending`
+  and into MN8, even inside an otherwise evaluable group; a note whose arm concluded may still be a
+  finding, even inside an otherwise blocked group.* v2 said "a note in a BLOCKED group → pending
+  whatever else is true", which read literally converts G1's amount-arm findings into pending — and
+  the register did the opposite of what it said. **Each group carries an arm table; a group's status
+  is the worst of its arms.**
 - a note routed to the **verifier** → `pending` until the verifier returns (see ❼ below);
 - a note whose **expected value is NULL** → `pending`. `GREATEST(actual − expected, 0)` returns NULL
   in Snowflake when either argument is NULL, so an unknown expected value silently contributes
@@ -348,10 +375,10 @@ One row per group, each carrying count · AED · findings · AED above expected 
 
 | Group | Payment types | AED/yr *(requestor)* | Expected comes from | Evaluable today? |
 | --- | --- | --- | --- | --- |
-| **G1** Flight home | Airfare Ticket | 2,219,500 | Price list **AED 2,000 / 1,500 split by nationality** (D4.3) — ⚠ *the Filipina/other attribution is the requestor's; the discovery log records only the two amounts*. Service threshold **22 or 24 accumulated CC months — unreconciled, see MN-O11** | **Amount arm only.** The service-months arm renders `BLOCKED` on MN-O11 and N11 — **v2 will not pick a number on an open item worth two months of entitlement across AED 2.2M/yr** |
+| **G1** Flight home | Airfare Ticket | 2,219,500 | ⛔ **v3: the rule in the source material is wrong twice, and the ERP settles both.** The limits are module parameters — `PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` = **2,000** and `PARAMETER_HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET_LIMIT` = **1,350** — and they are **caps, not fixed prices**, so paying *less* is not an exception. **1,500 does not appear in housemaid airfare code at all.** Eligibility is `numOfMnths % 24 == 22` with `numOfMnths >= 6`: **22 months, periodic — not 24, and not once-only.** Nationality from D4.3 (`philippines`) | **Amount arm only, and it must be rewritten first.** Every G1 count in the source rests on "only 2,000 and 1,500 exist" — a payment at 1,350 was counted as a failure and is correct. **MN-O21, blocking** |
 | **G2** Loyalty | Anti-attrition Incentive | 1,620,868 | 🔴 **Nothing. No payment scale exists anywhere** — 307 distinct amounts, 0–900 | **No.** Declared gap → MN8 |
 | **G3** Referral / signing | Bonus, VIP Bonus | 844,916 | Each scheme's own price and conditions | Partly — 21 duplicates, AED 17,500 found. Referral arm needs N6 |
-| **G4** Part-month / final salary | MV Prorated Salary, Prorated salary, Last Day CC Switch Adjustment, MV Extra Salary | 815,001 | **Recalculation** — ⚠ *v1 said "from the dates in the note itself" and marked this evaluable. The notes view has **one** date (`NOTE_DATE`): no salary, no contract start/end, no last working day, no divisor.* Needs D4.4 plus a salary and a stated pro-ration basis (calendar days vs 30-day month) | **No — `BLOCKED` until its inputs are named. MN-O18** |
+| **G4** Part-month / final salary | MV Prorated Salary, Prorated salary, Last Day CC Switch Adjustment, MV Extra Salary | 815,001 | **One formula per type, from the ERP (round 2).** `prorated_salary`: `round(basicSalary ÷ calendar days in the **previous** payroll month × days from startDate to the 1st)`, and it fires only when `startDate` is on/after the **27th of the previous month**. `last_day_cc_switch_adjustment`: `round(lastCcSalary ÷ days in **this** payroll month)`, only when `switchDate` is the month's last day. `mv_extra_salary`: a config literal, `BaseAdditionalInfo.infoValue` where `infoKey = 'mvExtraAmount'` | **Three arms yes, one no.** ⚠ **Two different divisors, and they are different months** — using one for both inverts the group. The `mv_prorated_salary` arm is `BLOCKED`: its formula is not yet known. A note outside its type's trigger window is itself a finding |
 | **G5** Salary corrections | Salary Dispute, Forgive Deduction, MOHRE requirement additions, Medical Assistance, Lost Luggage Compensation | 479,025 | The expense record (D2, **AED rows only until MN-O13**); what it cannot settle **routes to the verifier** | Yes, once the pivot (N12) lands |
 | **G6** Raffle | Raffle Prize | 180,000 | The draw's winners list | **Identity only** — see below. Needs N11 |
 | **G7** Reimbursements | Taxi Reimbursement, Maids.at other expenses, Accommodation Relocation, Passport Assistance, Flight ticket, Sim card, Cash advance, Transport fare | 159,652 | The expense record that authorised it (D2, **AED rows only**) — amount, beneficiary and approver must all agree. Receipt test reads `INVOICE_ATTACHED` as **`VARCHAR '00'/'01'`**, never as a boolean | Yes, once the pivot (N12) lands |
@@ -367,10 +394,15 @@ One row per group, each carrying count · AED · findings · AED above expected 
   each fire **zero times in six years and 3,408 payments**. G6 tests **identity only** — was this maid
   on that draw's winners list. A gate that cannot fire makes a check look thorough while testing
   nothing.
-- **The duplicate test's key, which v1 never stated.** Default key:
-  `HOUSEMAID_ID` + `ADDITION_REASON_ID` (N2) + `PURPOSE_ID` (N7) + `PAID_ON_PAYROLL_MONTH` — **never
-  amount**. A group may override it; each override is recorded against that group. The match (§2.2a)
-  runs **after** grouping, so it cannot collide with this test. **MN-O19: confirm per group.**
+- **The duplicate test's key — v3 takes the ERP's own, because the ERP already runs this test.**
+  `HOUSEMAID_REPETITIVE_ADDED_PAYMENTS` fires on **more than one addition in a configurable month
+  window** (`PARAMETER_HOUSEMAID_REPETITIVE_ADDITION_LIMIT`), **excluding `cover_deduction_limit`
+  and `cover_negative_salary`**. Adopt that window and those exclusions, or state why P&C's differ.
+  ⚠ **And v2's proposed default key was wrong**: `HOUSEMAID_ID` + `ADDITION_REASON_ID` +
+  `PURPOSE_ID` + `PAID_ON_PAYROLL_MONTH` makes worked example D's six deduction-cancellations
+  **identical**, so it would flag all six — the 694 false alarms the example exists to prevent. The
+  discriminating axis is the **day**, not the amount: add `NOTE_DATE::date`. The match (§2.2a) runs
+  **after** grouping, so it cannot collide with this test. **MN-O19: confirm per group.**
 - **The duplicate test is per group or it is wrong.** Cancelling a deduction writes one note per day
   forgiven, so a maid correctly receives several identical-looking notes in a month. One shared
   duplicate rule raises **694 false alarms** on that group alone.
@@ -392,6 +424,7 @@ row:
 | **T1** | `MN1 = MN4 + MN5 + MN6` and `MN2 = Σ group AED` | A note that reached no bucket, or a group total that drifted from the population |
 | **T2** | `MN2` for the month **=** the manager-note additions on the payroll run reached through **N9 `PAYROLL_ACCOUNTANT_TODO_ID`** | The window column failing. N9 was requested precisely so the two P&C payroll dashboards reconcile; v1 requested it and then used it nowhere |
 | **T3** | Notes carrying a `PAYROLL_ACCOUNTANT_TODO_ID` but a **null `PAID_ON_PAYROLL_MONTH`** = 0 | ⚠ §2.2b treats a null window as "not yet paid, leaves the population by construction". **That is also exactly what a broken sync looks like.** T3 is what tells them apart |
+| **T4** | **`MN8` ≥ Σ AED of every note whose arm is blocked** | ⛔ **The identity that matters most, and v2 did not have it.** T1 closes automatically whenever MN6 is computed as a remainder, so it cannot detect a blocked note swept into clean — which is exactly what happened to G4 in v2's own register (212 notes, AED 67,917). T4 cannot be satisfied by subtraction |
 
 **Lookback — v1 defined a one-month population and then wrote rules that reach outside it.** G1's
 *"once only"* and *"24 accumulated CC months"*, and G3's second-bonus test, all need history. The
@@ -422,6 +455,7 @@ neither is a group rule; the ladder itself says *"exactly one group rule: G1 …
 
 ```
 any group has findings        → Fail
+else G9 count > 0             → Fail   ← v3: a blank payment type had no consequence
 else any SKIPPED              → Fail (incomplete)
 else any BLOCKED              → Partial — <n> of 7 group rules evaluated
 else                          → Pass
@@ -501,7 +535,9 @@ investigate rather than as an AED 0 overpayment.
 
 **D — clean, and the case that must not trip the duplicate rule.** Six identical
 deduction-cancellation additions for one maid in one month. Each forgives a separate day. The
-duplicate test runs **inside the group**, keyed on the group's own key — not on amount.
+duplicate test runs **inside the group**, and its key includes **`NOTE_DATE::date`** — the six notes
+are identical on maid, reason, purpose and paid month, so the day is the only axis that separates
+them. (v2 said the point was "not on amount"; amount was never the problem.)
 → **six clean cases.** A shared duplicate rule keyed on amount would raise 694 false alarms a year
 on this group alone.
 
@@ -545,7 +581,17 @@ The terminal catch-all ❾ is what stops this reading as a pass.
 | **MN-O19** | **Confirm the duplicate key per group** (default proposed in §3) | P&C |
 | **MN-O20** | **Map the 20 Notion rules to the 9 gates and 7 group rules**, carrying each rule's status. A builder cannot currently reconcile *"only 3 Live"* with three groups marked evaluable | P&C |
 
-**Blocking the build:** N1, N2, **N12**, N11, MN-O9, MN-O11, MN-O12, MN-O13, MN-O16, MN-O17.
+| **MN-O21** | ⛔ **G1's rule is wrong in the source material.** Limits are **2,000 / 1,350 as caps**, not 2,000 / 1,500 as prices; eligibility is **periodic (`% 24 == 22`)**, not once-only. Every G1 count in the Notion page needs re-deriving | Police & Control |
+| **MN-O22** | **An expense request that never became a note is invisible.** A check starting from notes cannot see an authorised payment that took a non-SALARY route, or `amountAlreadyPaid = true` | P&C |
+| **MN-O23** | ⛔ **Scope against the ERP's own payroll audit.** The ERP already detects **airfare over the nationality limit** and **repetitive additions**, routes them to a `payroll_auditor` on a monthly `PayrollAuditTodo` generated at lock date, and records sign-off in `CONFIRMED_AMOUNT_BY_AUDITOR` / `CONFIRMED_REPEATED_BY_AUDITOR`. **G1's amount arm and the duplicate rule are not new.** Is this dashboard independence, wider coverage (22 payment types the ERP checks nothing about), or both? **And the ladder needs a gate: a note already signed off must not be re-raised** — N10 moves from optional to required | Police & Control |
+| **MN-O24** | **`EXPENSES_REQUESTS` excludes secure expense categories.** Confirm no salary-addition head is `is_secure` | Data team |
+
+**Blocking the build:** N1, N2, **N3–N5** *(MN1's own filter cannot be computed without them)*,
+N9 *(T2 and T3 rest on it)*, N11, N12, MN-O9, MN-O12, MN-O16, **MN-O21**.
+
+**No longer blocking:** MN-O13 (the AED basis is `LOCAL_CURRENCY_AMOUNT` — round 2), MN-O11
+(the code says 22 months — but it reopens as **MN-O21**, because the entitlement figures behind it
+are wrong), MN-O17 and MN-O18 (round 2).
 
 ---
 
@@ -584,7 +630,7 @@ is the right default for an audit and is now stated in §4.
 2. **Feedback loop (Step 4)** — the audit gate did the first pass' work. The 20 open items are the
    question bank; MN-O9, O11, O17, O18 and O20 need the requestor, and until they are answered the
    loop is not closed.
-3. **`spec-auditor` gate** — run against v1, 10 critical / 15 major, accounted for in §8. **Re-run
+3. **`spec-auditor` gate** — run against v1, 10 critical / 15 major, accounted for in §7. **Re-run
    against v2 before delivery.**
 4. **The dashboard cannot be built yet**, and the reason is not this spec: 11 of the 20 rules are
    still `Pending Business` or `Pending Technical` (MN-O12), and four data items are blocking.
