@@ -408,10 +408,58 @@ classification (maid type unresolved) **excludes the row from ratio denominators
 data-quality exception** — never silently CC or MV. Division by zero renders `—` and sets the
 check **SKIPPED**, never PASS.
 
-**The three-state rule.** Every check is `PASS`, `FAIL` or `SKIPPED`. `SKIPPED` means it could
-not be evaluated. **A skipped check drives the month to FAIL** — carried from the n8n code, which
-learned it the hard way: a fraud check that could not run once rendered green, indistinguishable
-from "we compared both months and found nothing".
+**The four-state rule** *(P&C decision, 2026-09-03 — closes O3)*. Every check is `PASS`, `FAIL`,
+`SKIPPED` or `BLOCKED`.
+
+| State | Meaning | Fails the month? |
+| --- | --- | --- |
+| `PASS` | Evaluated, within threshold | No |
+| `FAIL` | Evaluated, outside threshold, or a data-quality rule fired | **Yes** |
+| `SKIPPED` | **Should have run this month and did not** — absent prior month, empty population, a fetch that came back implausible, a column unexpectedly missing | **Yes** |
+| `BLOCKED` | **Structurally cannot run yet**, because a named ingestion item on the allow-list below is outstanding | No |
+
+`SKIPPED` keeps the meaning and the consequence it had in the n8n code, which learned it the hard
+way: a fraud check that could not run once rendered green, indistinguishable from "we compared
+both months and found nothing". That rule stands unchanged.
+
+`BLOCKED` exists because the migration introduces a situation the n8n rule never faced. On day one
+five check-slots cannot run — not because of anything about this month, but because their data has
+never been ingested. Under the old rule the report would read FAIL every month, identically, for a
+reason nobody can act on in any given month. A FAIL that fires unconditionally teaches its readers
+to override it, and the real FAIL is then overridden too because it looks the same. That is the
+green-tick failure arriving from the other direction.
+
+**The allow-list is fixed and exhaustive. A check may render `BLOCKED` only in these five cases:**
+
+| Outstanding item | Renders `BLOCKED` |
+| --- | --- |
+| N1 — day-group earnings | M5 |
+| N2 — monthly client payments | M6, M10 |
+| N4 — the `REPAYMENTS` ledger | M4b |
+| N6 — CC arrears definition | M7b, CC arm only |
+
+**A check that becomes unevaluable for any other reason is `SKIPPED` and fails the month.**
+`BLOCKED` is never inferred from absent data — if it were, "cannot run" would silently become
+"fine", which is precisely the defect this whole rule exists to prevent. When an item on the list
+lands, its entry is deleted and the check can never render `BLOCKED` again.
+
+**Two safeguards, both binding.**
+
+1. **The month never renders a bare `Pass` while anything is blocked.** With no failures and no
+   skips it reads **`Partial — <n> of 10 evaluated`**, and the blocked count is displayed beside
+   the failed count, never folded into "passed". `Pass` requires all ten evaluated.
+2. **Each allow-list entry carries an expected-by date.** A `BLOCKED` check past that date
+   escalates to `FAIL`, so "blocked" cannot quietly become permanent. P&C sets the dates when the
+   ingestion items are scheduled.
+
+Month result, in full:
+
+```
+any FAIL                      → Fail
+else any SKIPPED              → Fail (incomplete)
+else any BLOCKED              → Partial — <n> of 10 evaluated
+else                          → Pass
+```
 
 ---
 
@@ -499,7 +547,7 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
   `SKIPPED — denominator not positive`, **not** a threshold failure. v1's guard only covered
   exactly zero.
 - **Threshold.** Green ≥ 25.00%; Red < 25.00%. *(n8n `LOAN_RATIO_MIN = 0.25`.)*
-- **Interim.** Until N4 lands, M4b renders `SKIPPED — awaiting the REPAYMENTS ledger (N4)`. M4a
+- **Interim.** Until N4 lands, M4b renders `BLOCKED — awaiting the REPAYMENTS ledger (N4)`, which does not fail the month. M4a
   still renders, so the month is not without a loan-recovery signal.
 
 ### M5 — Accommodation-day earnings (Check 5)
@@ -535,7 +583,8 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
   funds the wage; if wages approach receipts, the company is subsidising the placement.
 - **Formula.** `M6 = SUM(NET_SALARY WHERE maid type = MV) / SUM(monthly client payments received on MV contracts)`
 - **Inputs.** D1.3, D3 (numerator — available); N2 with D7.3/D7.4 (denominator — **blocked on N2
-  only**, the contract side is D7).
+  only**, the contract side is D7). Until N2 lands M6 renders
+  `BLOCKED — awaiting monthly client payments (N2)`, which does not fail the month.
 - **Filters — denominator.** `CONTRACT_TYPE = 'MV'` (D7.3, equivalently
   `CONTRACT_PROSPECT_TYPE_ID = 1726`); payment type `1`; `STATUS = 'RECEIVED'`;
   `DATE_OF_PAYMENT` in the month after the audit month; `RECEIVED_DATE` between the first day of
@@ -581,7 +630,7 @@ lets P&C work a case.
      prior `PAYROLL_MONTH` rows for the same `HOUSEMAID_ID` carrying an exclusion reason (D1.10)
      and no `PAID_ON_DATE_FORMATTED`, **summing `NET_SALARY` (D1.3)** — naming the column matters,
      or CC and MV are not the same metric.
-  2. Until confirmed, M7b's CC arm renders `SKIPPED — CC arrears source unconfirmed`, never PASS.
+  2. Until confirmed, M7b's CC arm renders `BLOCKED — CC arrears source unconfirmed (N6)`, never PASS.
   **O12, blocking.**
 - **Threshold.** Green ≤ 1.00% for **both** CC and MV. *(n8n `UNPAID_RATIO_MAX = 0.01`.)*
 - **Division by zero.** `NET_SALARY` includes zero rows; a type whose denominator sums to zero →
@@ -748,7 +797,8 @@ lets P&C work a case.
   `M10_uncollected = (not_received + no_payment) / total CC contracts on payroll`  ← **the threshold metric**
   `M10_notreceived = not_received / total CC contracts on payroll`  ← displayed, the n8n-comparable figure
 - **Inputs.** D1.3, D3, D7 (contract, type, validity — available); N2 (payment rows — **the only
-  blocker**).
+  blocker**). Until N2 lands M10 renders `BLOCKED — awaiting monthly client payments (N2)`, which
+  does not fail the month.
 - **Filters.** `CONTRACT_TYPE = 'CC'` (D7.3, equivalently `CONTRACT_PROSPECT_TYPE_ID = 1650`);
   payment type `1`; payment `DATE_OF_PAYMENT` between the first and last day of the month after
   the audit month; `FAKE = false`; `IGNORE_IN_REPORTING = 0`; payment `STATUS = 'DELETED'` rows
@@ -783,7 +833,7 @@ lets P&C work a case.
 | **G1 — classification collapse** | > 100 payroll rows and `COUNT(CC) = 0` or `COUNT(MV) = 0` | **Abort.** M2, M3, M5, M6, M7, M10 partition on maid type; on an empty partition they report PASS on a zero population |
 | **G2 — partial classification** | > 100 payroll rows and `COUNT(CC) + COUNT(MV) < 50%` of rows | **Abort.** The classification columns changed shape |
 | **G3 — implausible MV receipts** | MV receipts < 10% of MV salaries | M6 `SKIPPED`, reason stated |
-| **G4 — skipped drives fail** | Any check `SKIPPED` | Month = **FAIL**. An incomplete audit is not a clean audit |
+| **G4 — skipped drives fail** | Any check `SKIPPED` | Month = **FAIL (incomplete)**. An incomplete audit is not a clean audit. **`BLOCKED` does not trigger G4** — see the four-state rule |
 | **G5 — payroll not locked** *(v2, new)* | The audit month's payroll is not finalised | **Whole run `SKIPPED`, not FAIL** — figures move after lock (N4 trap b), so a pre-lock run is not a finding about the business. Needs a lock signal the warehouse actually carries: **`LAST_PAYROLL_LOCK_DATE` is empty and cannot serve. O17, blocking.** Show the lock timestamp on the provenance line |
 
 ### Tie-out rule
@@ -830,15 +880,16 @@ reconciliation** panel for the tie-out and a **trend** strip for the month-over-
 
 **Layout.** One screen: KPI strip → check register → exception table → tie-out → one chart.
 
-**KPI tiles (5).**
+**KPI tiles (6).**
 
 | Tile | Source | Notes |
 | --- | --- | --- |
-| Month result | Pass / Fail / Fail (incomplete) | Amber wording when the failure is caused only by skipped checks |
+| Month result | Pass / Partial / Fail / Fail (incomplete) | Resolved by the four-state ladder in §3. `Partial` is amber and names the count evaluated |
 | Checks failed | count | Of 10 |
 | Checks skipped | count | Amber — never folded into "passed" |
+| Checks blocked | count | Grey, distinct from skipped. Each row names the ingestion item it waits on and its expected-by date |
 | Exceptions to work | count | Exception-grain rows across M1, M7, M8, M9, M10 |
-| **Uncollected receivable — M10** | AED | **v2: split.** v1 had one "Amount at risk" tile summing M10 (money owed *to* the company) with M7b arrears (money owed *by* the company to workers). Those move in opposite directions and netting them is not interpretable — and per §2.4 arrears are no longer displayed as a figure at all. This tile is `SUM(not_received + no_payment payment amounts)`, renders `—` when M10 is `SKIPPED`, and is defined here rather than appearing only in the UI |
+| **Uncollected receivable — M10** | AED | **v2: split.** v1 had one "Amount at risk" tile summing M10 (money owed *to* the company) with M7b arrears (money owed *by* the company to workers). Those move in opposite directions and netting them is not interpretable — and per §2.4 arrears are no longer displayed as a figure at all. This tile is `SUM(not_received + no_payment payment amounts)`, renders `—` when M10 is `SKIPPED` or `BLOCKED`, and is defined here rather than appearing only in the UI |
 
 **Check register.** Ten rows: ID · name · status badge · headline metric · threshold · exception
 count. Each expands to metric detail and its exception table.
@@ -881,9 +932,12 @@ shows, not a privileged wider extract.
 
 **Mockup.** https://claude.ai/code/artifact/5ffa76cd-ac5c-4517-a6ed-c3dfdd0e9924 — synthetic
 throughout. It renders the expected day-one state (several checks `SKIPPED` pending N1/N2/N4/N6)
-rather than an all-green month. Republished against v2: the MOHRE ID column is replaced by an
-opaque case reference, and the combined "Amount at risk" tile is now "Uncollected receivable"
-(M10 only).
+Republished 2026-09-03 for the four-state decision: it now shows a realistic mid-transition month
+— N2 landed (M6 and M10 run), N1/N4/N6 outstanding (M4, M5 and M7 render `BLOCKED` in grey, which
+does not fail the month). The month is FAIL because three checks genuinely failed; with no
+failures and no skips it would read `Partial — 7 of 10 evaluated`. The KPI strip carries skipped
+and blocked as separate tiles. Earlier v2 fixes stand: the MOHRE ID column is an opaque case
+reference, and "Amount at risk" is split to "Uncollected receivable" (M10 only).
 
 ---
 
@@ -1000,13 +1054,12 @@ displayed separately from the contract count for exactly this reason.
 
 ## 6. Open Items
 
-**Blocking (7).**
+**Blocking (6).**
 
 | # | Item | Owner |
 | --- | --- | --- |
 | O1 | **No warehouse grant — the single access blocker.** See §9 for the exact request. `PAYROLL_AND_MONEY_CONTROL_ROLE` has no USAGE on any warehouse (`SHOW WAREHOUSES` returns 0 rows; `CURRENT_WAREHOUSE()` is empty), so only metadata-served statements run. Columns, types, profiled ranges and row counts are verified; **freshness, grain and period coverage are asserted, not measured**. Also blocks O19 (approved-KPI register search) and O24 (the `ANSARI_PAYMENT_METHOD` distribution) | Data team / Snowflake admin |
 | O2 | **M8 changes meaning.** `PAYROLL_MONTH` is the first of the month by construction, so a literal port always passes and tests nothing. Proposed: compare `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` against `PAYROLL_MONTH` | Police & Control |
-| O3 | **Skipped-drives-fail with a known gap.** M4b, M5, M6, M7b(CC) and M10 are `SKIPPED` until N1/N2/N4/N6 land, so G4 fails every month meanwhile. Confirm that is wanted, or add a fourth state (`BLOCKED`) that does not fail the month | Police & Control |
 | O12 | **`PREVIOUSLY_UNPAID_SALARIES` is MV-only.** If confirmed, Check 7's CC arm has always summed to zero and always passed, and CC arrears are unmeasured. Confirm, then extend the ERP computation or approve the D1-derived CC definition (N6) | Payroll Mgmt + P&C |
 | O15 | **Deletion-flag polarity.** `IS_DELETED` and `EXCLUDED_FROM_PAYROLL` are `VARCHAR` `'00'/'01'` with no documented polarity; `WPS_RECORDS.TRASHED` has no profiled values. A guess the wrong way empties the population — which G1/G2 abort on above 100 rows, or which passes silently below | Data team |
 | O17 | **No payroll-lock signal.** G5 requires one and `LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values". N4's figures move at lock, so a pre-lock run silently reports different numbers | Data team + Payroll Mgmt |
@@ -1035,6 +1088,7 @@ displayed separately from the contract count for exactly this reason.
 | O30 | **Control gap, independent of this dashboard.** A housemaid's payment account (`NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT`) has **no audit trail** — `NEWREQUESTS` is Envers-audited but this field is not in the audited set, and no Snowflake revision view carries it — **no approval step or permission check**, and **no validation** (unconstrained `@Column String`; payroll only checks non-empty). Nobody can say who changed a maid's payment account, when, or from what. Detecting diversion after the fact is a poor substitute for preventing it | Payroll Management + whoever owns payroll integrity |
 | O29 | **Three columns hold "employee account with agent" and they differ.** The ERP getter reads `NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT` via `HOUSEMAIDS.VISA_NEW_REQUEST_ID`; `HOUSEMAIDS.EMPLOYEE_ACCOUNT_WITH_AGENT` is unused by it; D1.7 is `HOUSEMAIDPAYROLLLOGS.EMPLOYEE_ACCOUNT_WITH_AGENT`. Check 9 must use D1.7 (per-month, what was actually paid), so `HOUSEMAIDS_INFO.ANSARI_PAYMENT_METHOD` and `HOUSEMAID_PAYROLL_HISTORY.ANSARI_PAYMENT_METHOD` can disagree for one maid. Confirm no metric mixes them | Data team |
 | O28 | ~~Republish the mockup to match v2~~ **CLOSED** — MOHRE ID column replaced by a case reference; "Amount at risk" split to "Uncollected receivable" (M10 only) | — |
+| O3 | ~~Skipped-drives-fail with a known gap~~ **CLOSED 2026-09-03 — P&C chose option B.** A fourth state `BLOCKED` was added: a check waiting on a named allow-listed ingestion item (N1→M5, N2→M6/M10, N4→M4b, N6→M7b-CC) does not fail the month; anything unevaluable for any other reason is still `SKIPPED` and still does. Two safeguards bind: the month never renders a bare `Pass` while anything is blocked (it reads `Partial — n of 10 evaluated`), and each entry carries an expected-by date past which `BLOCKED` escalates to `FAIL`. See §3 | — |
 | O5 | ~~M5 population~~ **CLOSED** — grp5/grp6 are the live-out remapping of grp1/grp2; the CC-only filter is correct | — |
 | O9 | ~~grp3 / grp4~~ **LIKELY CLOSED** — the enum carries only `GROUP_1/2/5/6`. One-line confirmation still wanted | Payroll |
 | O10 | ~~ERP native names for N1–N4~~ **CLOSED** — resolved via Ask the Code, §7 | — |
