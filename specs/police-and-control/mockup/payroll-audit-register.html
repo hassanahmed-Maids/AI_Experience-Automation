@@ -145,6 +145,7 @@ tbody tr:last-child td{border-bottom:none}
 .exc{max-height:390px; overflow:auto}
 .exc thead th{position:sticky; top:0; z-index:2}
 .subj{font-family:"IBM Plex Mono",monospace; font-weight:500; white-space:nowrap}
+.nm{font-family:"Public Sans",system-ui,sans-serif; font-weight:600; color:var(--ink)}
 .rule{font-size:12px; color:var(--ink-2); max-width:30ch}
 .detail{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-2); white-space:nowrap}
 .arrow{color:var(--fail); font-weight:600}
@@ -305,13 +306,13 @@ tbody tr:last-child td{border-bottom:none}
     <div class="panel-head">
       <h2>Exceptions to work</h2>
       <span class="hint">Sorted by amount involved, then detected date · 94 rows, 8 shown ·
-        accounts masked · no MOHRE ID, no individual salary</span>
+        full detail, nothing masked · restricted to the P&amp;C auditor role, views logged</span>
     </div>
     <div class="scroll exc">
       <table>
         <thead>
           <tr>
-            <th>Check</th><th>Rule breached</th><th>Subject</th><th>Case ref</th>
+            <th>Check</th><th>Rule breached</th><th>Subject</th><th>MOHRE ID</th><th>Case ref</th>
             <th>Type</th><th>Detail</th><th class="r">Amount (AED)</th><th>Detected</th><th>Status</th>
           </tr>
         </thead>
@@ -319,7 +320,7 @@ tbody tr:last-child td{border-bottom:none}
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M10</span></td>
             <td class="rule">CC contract on payroll with no client payment received</td>
-            <td class="subj">Contr-118432</td><td class="mono">PC-2607-0101</td>
+            <td class="subj">Contr-118432</td><td class="mono dash">—</td><td class="mono">PC-2607-0101</td>
             <td><span class="type-chip">CC</span></td>
             <td class="detail">no payment · Aug window closed</td>
             <td class="r amt">2,300</td><td class="mono">2026-08-07</td>
@@ -328,7 +329,7 @@ tbody tr:last-child td{border-bottom:none}
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M10</span></td>
             <td class="rule">CC contract on payroll with no client payment received</td>
-            <td class="subj">Contr-121077</td><td class="mono">PC-2607-0102</td>
+            <td class="subj">Contr-121077</td><td class="mono dash">—</td><td class="mono">PC-2607-0102</td>
             <td><span class="type-chip">CC</span></td>
             <td class="detail">no payment · Aug window closed</td>
             <td class="r amt">2,300</td><td class="mono">2026-08-07</td>
@@ -337,7 +338,7 @@ tbody tr:last-child td{border-bottom:none}
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M10</span></td>
             <td class="rule">CC contract payment bounced and not re-presented</td>
-            <td class="subj">Contr-119904</td><td class="mono">PC-2607-0103</td>
+            <td class="subj">Contr-119904</td><td class="mono dash">—</td><td class="mono">PC-2607-0103</td>
             <td><span class="type-chip">CC</span></td>
             <td class="detail">status BOUNCED · 2026-08-15</td>
             <td class="r amt">2,100</td><td class="mono">2026-08-07</td>
@@ -346,43 +347,48 @@ tbody tr:last-child td{border-bottom:none}
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
             <td class="rule">Normal bank IBAN changed to du Pay</td>
-            <td class="subj">Maid #4471</td><td class="mono">PC-2607-0441</td>
+            <td class="subj">Maid 4471 · <span class="nm">R. Dela Cruz</span></td>
+            <td class="mono">784000000004471</td><td class="mono">PC-2607-0441</td>
             <td><span class="type-chip">CC</span></td>
-            <td class="detail">BANK_TRANSFER ••••4417 <span class="arrow">→</span> DU_PAY_CARD ••••9902</td>
+            <td class="detail"><span class="mono">AE070331234567890004417</span> BANK_TRANSFER <span class="arrow">→</span> <span class="mono">AE330260751230000009902</span> DU_PAY_CARD</td>
             <td class="r dash">—</td><td class="mono">2026-08-07</td>
             <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
           </tr>
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
             <td class="rule">du Pay changed to a different du Pay account</td>
-            <td class="subj">Maid #5188</td><td class="mono">PC-2607-0442</td>
+            <td class="subj">Maid 5188 · <span class="nm">A. Wanjiru</span></td>
+            <td class="mono">784000000005188</td><td class="mono">PC-2607-0442</td>
             <td><span class="type-chip">MV</span></td>
-            <td class="detail">DU_PAY_CARD ••••1120 <span class="arrow">→</span> DU_PAY_CARD ••••7734</td>
+            <td class="detail"><span class="mono">AE120260751230000001120</span> DU_PAY_CARD <span class="arrow">→</span> <span class="mono">AE480260751230000007734</span> DU_PAY_CARD</td>
             <td class="r dash">—</td><td class="mono">2026-08-07</td>
             <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
           </tr>
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
             <td class="rule">Ansari changed to a different Ansari account</td>
-            <td class="subj">Maid #2903</td><td class="mono">PC-2607-0443</td>
+            <td class="subj">Maid 2903 · <span class="nm">S. Kumari</span></td>
+            <td class="mono">784000000002903</td><td class="mono">PC-2607-0443</td>
             <td><span class="type-chip">CC</span></td>
-            <td class="detail">ANSARI_VISA_CARD ••••0031 <span class="arrow">→</span> ANSARI_VISA_CARD ••••0088</td>
+            <td class="detail"><span class="mono">00000000001000031</span> ANSARI_VISA_CARD <span class="arrow">→</span> <span class="mono">00000000001000088</span> ANSARI_VISA_CARD</td>
             <td class="r dash">—</td><td class="mono">2026-08-07</td>
             <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
           </tr>
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
             <td class="rule">Normal bank IBAN changed to Ansari</td>
-            <td class="subj">Maid #6742</td><td class="mono">PC-2607-0444</td>
+            <td class="subj">Maid 6742 · <span class="nm">T. Abebe</span></td>
+            <td class="mono">784000000006742</td><td class="mono">PC-2607-0444</td>
             <td><span class="type-chip">MV</span></td>
-            <td class="detail">BANK_TRANSFER ••••2210 <span class="arrow">→</span> ANSARI_VISA_CARD ••••0177</td>
+            <td class="detail"><span class="mono">AE900331234567890002210</span> BANK_TRANSFER <span class="arrow">→</span> <span class="mono">00000000001000177</span> ANSARI_VISA_CARD</td>
             <td class="r dash">—</td><td class="mono">2026-08-07</td>
             <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
           </tr>
           <tr>
             <td><span class="badge b-fail"><i class="sq"></i>M8</span></td>
             <td class="rule">Paid date outside the payroll month it is booked to</td>
-            <td class="subj">Maid #3310</td><td class="mono">PC-2607-0518</td>
+            <td class="subj">Maid 3310 · <span class="nm">L. Nurhayati</span></td>
+            <td class="mono">784000000003310</td><td class="mono">PC-2607-0518</td>
             <td><span class="type-chip">CC</span></td>
             <td class="detail">paid 2026-06-28 · booked 2026-07</td>
             <td class="r dash">—</td><td class="mono">2026-08-07</td>
@@ -464,8 +470,9 @@ tbody tr:last-child td{border-bottom:none}
     BI_PAYROLL_* (approved definitions) · ATTACHMENTS + MONTHLYPAYROLLDOCUMENTS (file assurance)
     <br><b>Audit month:</b> 2026-07 &nbsp;·&nbsp; <b>Payroll locked:</b> 2026-08-05 18:20 Gulf &nbsp;·&nbsp; <b>Data as of:</b> 2026-08-07 06:00 Gulf
     &nbsp;·&nbsp; <b>Spec:</b> SPEC_housemaid_payroll_critical_checks_v2
-    <br><span class="mockup">Illustrative mockup — synthetic values throughout. Delivered as a link;
-    the report body is never emailed.</span>
+    <br><span class="mockup">Illustrative mockup — synthetic values throughout. Nothing is masked:
+    the audience is a P&amp;C auditor, so the control is the named auditor role plus a readable
+    access log, not the display (§2.4). Delivered as a link; the report body is never emailed.</span>
   </p>
 </div>
 

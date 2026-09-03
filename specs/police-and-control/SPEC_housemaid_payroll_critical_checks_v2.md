@@ -18,6 +18,11 @@ quantities; the §1 `RECEIVED_DATE` bound silently deleted M10's not-received bu
 de-duplication rule, month column or tolerance; the recurring schedule now names an owner;
 §2.4 contradicted itself on displaying per-maid amounts. Details at each site.
 
+**Change in v3** (2026-09-03, requestor's instruction): **§2.4 masking is removed entirely.** The
+audience is an auditor, so the exception rows now show the maid's name, the full bank account on
+both sides of an M9 transition, the MOHRE ID and per-maid amounts as figures. The control moves to
+a named-role grant plus access logging. O21 closes; O31 opens.
+
 ---
 
 ## 0. Why this spec exists
@@ -157,14 +162,14 @@ measured.** See O1.
 | D1.6 | Maid status on the payroll row | ↑ | `STATUS` | — | 20 values incl. `WITH_CLIENT`, `AVAILABLE`, `ON_VACATION`, `SURPLUS`, `SICK_WITHOUT_CLIENT`, `EMPLOYEMENT_TERMINATED` *(ERP spelling)*. **Confirmed snapshotted at payroll time** (`housemaid.getRealStatus()` at log creation, refreshed on transfer; falls back to live `HOUSEMAIDS` only when null) — so M2 must read this column, **not** `HOUSEMAIDS_INFO.STATUS`, which is current state |
 | D1.12 | Was the salary actually paid | ↑ | ERP `TRANSFERRED` → `IS_TRANSFERRED` | — | `false` while pending; set `true` when the Ansari/WPS payment is confirmed. **The clean test for "paid", better than checking whether `PAID_ON_DATE` is null.** Promoted from context to an input of M7 and M8 |
 | D1.13 | Exclusion reason at payroll time | ↑ | ERP `HOUSEMAID_UNPAID_STATUS` | — | The per-row reason a salary was excluded. **Not currently projected into the Snowflake model.** M7 |
-| D1.7 | Bank / agent account | ↑ | `EMPLOYEE_ACCOUNT_WITH_AGENT` | — | Free text. **Sensitive — §2.4.** M9 |
+| D1.7 | Bank / agent account | ↑ | `EMPLOYEE_ACCOUNT_WITH_AGENT` | — | Free text. **Displayed in full — §2.4.** M9 |
 | D1.8 | Account type, pre-classified | ↑ | `ANSARI_PAYMENT_METHOD` | — | `FAB_MASTER_CARD`, `ANSARI_VISA_CARD`, `DU_PAY_CARD`, `BANK_TRANSFER`, `''`. Derived in-model. M9 |
 | D1.9 | Date the salary was paid | ↑ | `PAID_ON_DATE_FORMATTED` | — | `DATE`, min `2020-08-04`. `COALESCE(TRY_TO_DATE(…'YYYY-MM-DD'), …'DD MONTH, YYYY', …'DD MON, YYYY')` over free-text `PAID_ON_DATE`. M8 |
 | D1.10 | Why a salary was not paid | ↑ | `AUTOMATIC_EXCLUSION_REASONS`, `MANUAL_EXCLUSION_REASON` | — | M7 |
 | D1.11 | Transferred flag | ↑ | `IS_TRANSFERRED` | — | `'YES'`/`'NO'`. **Context only** — no metric uses it |
 | D2 | Maid master | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO` | 136 columns | one row per maid | Join `HOUSEMAIDS_INFO.ID = HOUSEMAID_PAYROLL_HISTORY.HOUSEMAID_ID`, both `NUMBER(38,0)` — **types match, no cast** |
 | D2.1 | CC vs MV inputs | ↑ | `HOUSEMAID_TYPE`, `LIVE_OUT` | — | `HOUSEMAID_TYPE ∈ {Normal, MAID_VISA, FREEDOM_OPERATOR, WALKIN}`; `LIVE_OUT` `NUMBER`, `0`/`1`. See D3 |
-| D2.2 | Nationality, name | ↑ | `NATIONALITY`, `NAME` | — | Name masked in output (§2.4). `NATIONALITY` is **context only** |
+| D2.2 | Nationality, name | ↑ | `NATIONALITY`, `NAME` | — | Name displayed in full (§2.4). `NATIONALITY` is **context only** |
 | D2.3 | Loan master fields | ↑ | `OUTSTANDING_BALANCE` (−2,500–26,900), `MONTHLY_LOAN`, `DEDUCTION_CAP` | — | Point-in-time, not as-at a past month. **Context** — M4b uses D5, which is per-loan and reconstructable |
 | D2.4 | Payroll eligibility flags | ↑ | `IS_DELETED`, `EXCLUDED_FROM_PAYROLL`, `WITH_MOL_NUMBER`, `LAST_PAYROLL_LOCK_DATE` | — | First two are `VARCHAR` `'00'/'01'` — see §1. `WITH_MOL_NUMBER` is `NUMBER` `0/1`. ⚠ **`LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values" — it is empty and cannot serve as the payroll-lock signal.** O17 |
 | D2.5 | Salary rates | ↑ | `BASIC_SALARY`, `PRIMARY_SALARY`, `ACCOMMODATION_SALARY` (0–1,500) | — | **Context** — rates, not per-month day-group earnings. M5 uses N1 |
@@ -404,26 +409,54 @@ Four items. **v2 removed the fifth (the contract link) — it exists, as D7.**
   bean-only, never copied to the payroll log.
 - **Owner.** Payroll Management (semantics) + Police & Control (definition).
 
-### 2.4 Sensitive-data handling — binding on the build
+### 2.4 Sensitive-data handling — access control, not masking
 
-> **v2 — v1 contradicted itself here.** It stated that per-maid salary figures are not displayed,
-> then permitted exception rows to show the amount "where the amount is the finding itself
-> (Checks 7 and 10)". A Check 7 exception row **is** a per-maid salary figure. v1 also displayed
-> the full **MOHRE ID** beside a masked name, which re-identifies the maid and defeats the
-> masking. Resolved below.
+> **v3 — masking removed on the requestor's instruction (2026-09-03).** v1 and v2 both masked the
+> maid's name, truncated the bank account and replaced per-maid arrears with a band. That was the
+> wrong control for this audience. **The person using this dashboard is an auditor**, and each
+> finding is an allegation about a specific worker's pay reaching a specific account. An auditor
+> shown `Maid #4471` and `••••9902` cannot work the case on the screen — they re-open every row in
+> the ERP, which is slower, leaves no record of what was reviewed, and masks nothing in practice
+> since they hold ERP access anyway. **The control belongs on who can open the dashboard, not on
+> what it shows once opened.**
+
+**What the exception rows and drill-downs display, in full.**
 
 | Field | Rule |
 | --- | --- |
-| `EMPLOYEE_ACCOUNT_WITH_AGENT` | Used **inside** the M9 comparison. Never displayed in full. The row shows the **classification transition** (`Normal IBAN → du Pay`) and a masked account, last 4 only |
-| **Per-maid salary and arrears amounts** | **Not displayed and not exported.** M7's exception rows show an **arrears band** (`< 1k` / `1–5k` / `> 5k`), not the figure. The figure is read in the ERP via the drill-down link, under the ERP's own access control. M10 is a **contract-level** receivable, not a worker's pay, and its amount **is** displayed |
-| **MOHRE ID** | **Not displayed by default.** A government worker identifier next to a masked name defeats the mask. The exception row carries an opaque case reference and a deep link; the investigator resolves identity in the ERP. Displaying it requires a named pre-approval recorded here — **O21** |
-| `PHONE_NUMBER`, `NORMALIZED_PHONE_NUMBER`, `NORMALIZED_WHATS_APP_PHONE_NUMBER`, `EID`, `PASSPORT_NUMBER` | **Never selected.** Not in the model, the export, or the mockup |
-| `HOUSEMAIDS_INFO.NAME` | Masked (`Maid #4471`). Unmasked only in the ERP |
-| `SALES_SILVER.CONTRACTS` client fields — `CLIENT_HASHED_PHONE_NUMBER`, `CLIENT_HASHED_WA_PHONE_NUMBER`, `SPOUSE_HASHED_*`, `THIERED_PHONE_NUMBER`, `CLIENT_EMAIL_ADDRESS`, `CLIENT_ADDRESS` | **Never selected.** D7 is joined for contract identity and type only |
+| `HOUSEMAIDS_INFO.NAME` | **Displayed in full.** The subject of a finding is a person; the auditor needs to know which |
+| `EMPLOYEE_ACCOUNT_WITH_AGENT` | **Displayed in full — both sides of the M9 transition** (`AE07…4417 → AE33…9902`), alongside the classification change. A truncated account cannot be compared against the ERP or an exchange-house record, which is the entire M9 investigation |
+| **MOHRE ID / `EMPLOYEE_UNIQUE_ID`** | **Displayed.** It is the join key of the whole payroll and the identifier M1 tests for duplication. **O21 closes** — it existed only to gate this |
+| **Per-maid salary, arrears and repayment amounts** | **Displayed as figures**, not bands, and exported as figures. A band cannot be reconciled against the ERP |
+| Case ref, ERP deep link | Retained — convenience, no longer a substitute for the detail |
 
-The predecessor system mailed the full report body, 25k payroll rows included, to an inbox.
-**This dashboard is not emailed.** Notification is a link; the data stays behind Snowflake's
-access controls. That is a requirement, not a preference.
+**What is still not selected — scope, not masking.** No check reads these, so they are not in the
+model, the export or the screen. If a future check needs one, add it here alongside that check:
+`PHONE_NUMBER`, `NORMALIZED_PHONE_NUMBER`, `NORMALIZED_WHATS_APP_PHONE_NUMBER`, `EID`,
+`PASSPORT_NUMBER`; and on `SALES_SILVER.CONTRACTS` the client fields `CLIENT_HASHED_PHONE_NUMBER`,
+`CLIENT_HASHED_WA_PHONE_NUMBER`, `SPOUSE_HASHED_*`, `THIERED_PHONE_NUMBER`,
+`CLIENT_EMAIL_ADDRESS`, `CLIENT_ADDRESS` — D7 is joined for contract identity and type only.
+
+**The four controls that carry the load instead. Binding on the build.**
+
+1. **A dedicated Snowflake role**, granted to named Police & Control auditors and no one else.
+   The dashboard reads through that role; membership is a list someone owns and reviews, not an
+   inherited group. This is what replaces masking, so it has to exist before the dashboard is
+   shared — not after.
+2. **Access is logged, and the log is readable.** Who opened the dashboard, for which audit month,
+   and what they exported. An auditing tool that cannot itself be audited is a gap — and §8's
+   first row is precisely that the predecessor had no such boundary.
+3. **No emailed report body.** Notification is a link. The predecessor mailed 25k payroll rows to
+   an inbox, which put the data outside every access control that governs it. A requirement, not
+   a preference.
+4. **Export inherits the role, not the screen.** CSV is the same grain and the same columns the
+   auditor is looking at — no privileged wider extract, and no export path that skips the log.
+
+**One thing to be explicit about.** This is a *broader* internal disclosure of payroll detail than
+the masked design was, and it is a deliberate, recorded decision by the requesting business owner
+(Police & Control) on the grounds that the audience is an auditor performing a payroll audit. It
+is not a claim that the data stopped being sensitive. If Compliance wants sign-off on the role
+membership before go-live, that is a reasonable gate and it belongs here — **O31**.
 
 ---
 
@@ -977,9 +1010,9 @@ reason. Tie-outs 1–3 all reconcile figures the ERP holds against each other; t
 the artefact that actually reached the exchange house matches the payroll the ERP still holds. A
 regenerated file for a closed month is invisible to every other check in this spec.
 
-**Metadata only.** The file bodies stay where they are — ingesting them would put roughly 25,000
-unredacted salary rows per month into the warehouse, which is precisely the exposure this migration
-exists to remove (§0).
+**Metadata is sufficient for this tie-out** — existence, creation time and `FILE_HASH` answer the
+question without the bodies. Whether the bodies are ingested as well is a separate decision for the
+data team (the Option A / Option B choice in the handover doc); this control needs neither.
 
 ---
 
@@ -1002,7 +1035,7 @@ A **two-sided reconciliation** panel carries the tie-out.
 | Checks skipped | count | Amber — never folded into "passed" |
 | Checks blocked | count | Grey, distinct from skipped. Each row names the ingestion item it waits on and its expected-by date |
 | Exceptions to work | count | Exception-grain rows across M1, M7, M8, M9, M10 |
-| **Uncollected receivable — M10** | AED | **v2: split.** v1 had one "Amount at risk" tile summing M10 (money owed *to* the company) with M7b arrears (money owed *by* the company to workers). Those move in opposite directions and netting them is not interpretable — and per §2.4 arrears are no longer displayed as a figure at all. This tile is `SUM(not_received + no_payment payment amounts)`, renders `—` when M10 is `SKIPPED` or `BLOCKED`, and is defined here rather than appearing only in the UI |
+| **Uncollected receivable — M10** | AED | **v2: split.** v1 had one "Amount at risk" tile summing M10 (money owed *to* the company) with M7b arrears (money owed *by* the company to workers). Those move in opposite directions and netting them is not interpretable — and since §2.4 now shows arrears as a figure, the temptation to net them is greater, not smaller. This tile is `SUM(not_received + no_payment payment amounts)`, renders `—` when M10 is `SKIPPED` or `BLOCKED`, and is defined here rather than appearing only in the UI |
 
 **Check register.** Ten rows: ID · name · status badge · headline metric · **numerator /
 denominator** · threshold · **13-month sparkline** · **vs. last month** · exception count. Each
@@ -1027,23 +1060,23 @@ restatement gets compared against.
 | --- | --- | --- | --- |
 | Check | M1–M10 | `M9` | — |
 | Rule breached | metric definition, in the rule's own words | text | — |
-| Subject | masked maid (`Maid #4471`) or contract (`Contr-118432`) | text | — |
-| Case ref | opaque per-row reference | text | — |
+| Subject | maid name in full, with `HOUSEMAID_ID`; or contract (`Contr-118432`) | text | — |
+| MOHRE ID | `EMPLOYEE_UNIQUE_ID`, in full | mono | — |
+| Case ref | per-row reference | text | — |
 | Maid type | D3 | `CC` / `MV` | — |
-| Detail | e.g. `Normal IBAN ••••4417 → du Pay ••••9902` | text | — |
-| Amount / band | **M10 only:** AED. **M7:** an arrears **band**, never the figure. Others blank | `#,##0` right-aligned | **desc — default sort** |
+| Detail | e.g. `BANK_TRANSFER AE070331234567890004417 → DU_PAY_CARD AE33…9902` — **both accounts in full**, with the classification change | text | — |
+| Amount | AED as a figure wherever the check produces one — M7 arrears and M10 receivable alike. Others blank | `#,##0` right-aligned | **desc — default sort** |
 | Detected | run date | date | secondary sort |
 | Status | reviewed / open | badge | — |
 
-**No MOHRE ID column** — §2.4. Default sort is amount descending, then detected date.
+Default sort is amount descending, then detected date.
 
 **Filters.** Audit month (default: previous calendar month) · check ID (all) · maid type (all) ·
 status (open only) · severity (red + amber).
 
 **Drill-down.** Opens the per-maid or per-contract detail: metric inputs for that row, the
-arithmetic, the prior-month comparison where used, and a deep link to the ERP record. **It does
-not reveal the full bank account, the MOHRE ID, or the individual salary** — those are read in
-the ERP under its own access control.
+arithmetic, the prior-month comparison where used, both accounts in full on an M9 transition, and
+a deep link to the ERP record. **Nothing is withheld from an auditor holding the role** — §2.4.
 
 **Conditional formatting.** Row colour follows check status, never colour alone — every row
 carries a text badge (`RED` / `AMBER` / `SKIPPED` / `OK`) so it survives printing, screenshotting
@@ -1052,8 +1085,8 @@ into an audit note, and colour-vision deficiency. Grey/`SKIPPED` is as prominent
 **Provenance line.** Always visible:
 `Sources: HOUSEMAID_PAYROLL_HISTORY · HOUSEMAIDS_INFO · WPS_RECORDS · HOUSEMAID_OUTSTANDING_BALANCE_DETAILS · SALES_SILVER.CONTRACTS · CLIENT_MANAGEMENT_PAYMENTS · BI_PAYROLL_* (approved) — audit month YYYY-MM — payroll locked <timestamp> — data as of <timestamp> Gulf`
 
-**Export.** CSV of the exception grain, honouring §2.4 masking — the same columns the screen
-shows, not a privileged wider extract.
+**Export.** CSV of the exception grain — the same columns the screen shows, not a privileged wider
+extract, and logged like a view (§2.4).
 
 **Delivery.** A link. **No emailed report body.** See §2.4.
 
@@ -1109,14 +1142,15 @@ Population: **all maids, CC and MV** (per M9's filters).
 | Of which red-flag transitions | 4 |
 | New employees (no prior month), skipped | 1,233 |
 
-**The four rows.**
+**The four rows, as the auditor sees them** — names, MOHRE IDs and both accounts in full, per §2.4.
+*(Values below are invented for this example; no real record is reproduced in this spec.)*
 
-| Subject | Prior → current | Transition | Red flag |
-| --- | --- | --- | --- |
-| Maid #4471 | `BANK_TRANSFER ••••4417` → `DU_PAY_CARD ••••9902` | Normal IBAN → du Pay | Yes (rule 1) |
-| Maid #5188 | `DU_PAY_CARD ••••1120` → `DU_PAY_CARD ••••7734` | du Pay → different du Pay | Yes (rule 3) |
-| Maid #2903 | `ANSARI_VISA_CARD ••••0031` → `ANSARI_VISA_CARD ••••0088` | Ansari → different Ansari | Yes (rule 5) |
-| Maid #6742 | `BANK_TRANSFER ••••2210` → `ANSARI_VISA_CARD ••••0177` | Normal IBAN → Ansari | Yes (rule 2) |
+| Maid | MOHRE ID | Prior account → current account | Transition | Red flag |
+| --- | --- | --- | --- | --- |
+| 4471 · *(name)* | `784000000004471` | `AE070331234567890004417` → `AE330260751230000009902` | `BANK_TRANSFER` → `DU_PAY_CARD` | Yes (rule 1) |
+| 5188 · *(name)* | `784000000005188` | `AE120260751230000001120` → `AE480260751230000007734` | `DU_PAY_CARD` → different `DU_PAY_CARD` | Yes (rule 3) |
+| 2903 · *(name)* | `784000000002903` | `00000000001000031` → `00000000001000088` | `ANSARI_VISA_CARD` → different `ANSARI_VISA_CARD` | Yes (rule 5) |
+| 6742 · *(name)* | `784000000006742` | `AE900331234567890002210` → `00000000001000177` | `BANK_TRANSFER` → `ANSARI_VISA_CARD` | Yes (rule 2) |
 
 The other 25 changes were normal-IBAN → different-normal-IBAN and are **not** reported.
 
@@ -1211,7 +1245,8 @@ displayed separately from the contract count for exactly this reason.
 | O20 | ~~Pro-ration divisor~~ **CLOSED 2026-09-03.** **Calendar days in the payroll month** (28–31), not a fixed 30 and not working days. `TOTAL_PRO_RATED_SALARY = round(basicSalary × group1Days / monthDays)`; `MOHRE_PRO_RATED_SALARY = round(accommodationSalary × group2Days / monthDays)`. **Exception: `MAID_VISA` uses divisor 30.4 for group 1 and its `MOHRE_PRO_RATED_SALARY` is 0 by construction** — independent confirmation that M5 must be CC-only | — |
 | O17 | ~~No payroll-lock signal~~ **RESOLVED 2026-09-03 — the signal exists, it just is not in Snowflake.** `MONTHLYPAYMENTRULES` carries `PAYROLL_MONTH`, `PAYMENT_DATE`, `LOCK_DATE` (`= PAYMENT_DATE − DAYS_BEFORE_LOCK`, the end of the editable window; audit to-dos generate on it), `AUDITING_FINISHED` and `FINISHED`. G5 should read `AUDITING_FINISHED`. Note a payroll month can have **several rules**, each with its own `PAYMENT_DATE`. Now an ingestion item (C2 in `erp-source-tables-for-dna.md`), not an unknown | Data team |
 | O18 | ~~`FREEDOM_OPERATOR` and `WALKIN`~~ **CLOSED 2026-09-03.** Both get monthly payroll rows and the ERP **treats both as CC** — only `MAID_VISA` follows a distinct payroll path, and payroll exclusion is driven by `excludedFromPayroll`, not by maid type. D3's rule is correct as written; no P&C decision needed | — |
-| O21 | Displaying the MOHRE ID needs a named pre-approval, or the case-reference scheme stands | Police & Control |
+| O21 | ~~Displaying the MOHRE ID needs a named pre-approval~~ **CLOSED 2026-09-03 — masking removed.** P&C instructed that the auditor sees everything; §2.4 now displays the MOHRE ID, the name, both full accounts and per-maid figures, and the control moved to a named-role grant plus access logging | — |
+| O31 | **Opened 2026-09-03 by the same decision.** §2.4's replacement controls are a Snowflake role granted to named P&C auditors and a readable access log. Two things need an owner before go-live: **who holds and reviews the role membership**, and **whether Compliance wants sign-off on that list**. The dashboard should not be shared before the role exists — it is the only thing standing where masking used to | Police & Control + Compliance |
 | O22 | ~~M1's company-MOL-number exclusion~~ **CLOSED 2026-09-03.** The WPS SCR summary row carries **two** hardcoded literals: **MOL Company Number `"0000000836318"`** (column 3) and **Routing Bank Code `"720610101"`** (column 4). M1 excludes `0000000836318`, which is exactly what the legacy code already guarded against. **Correcting our own earlier reading** — a first, less detailed answer conflated the two literals and reported the routing code as the MOL number; there is no discrepancy to raise. Both are hardcoded rather than configured, which is a maintenance note for Payroll, not a blocker | — |
 | O23 | M3 restatement — freeze each month at first clean run and show later movement separately. Confirm | Police & Control |
 | O25 | M10 threshold re-calibration — the legacy 5% was measured against `not_received` only; `M10_uncollected` is the wider bucket | Police & Control |

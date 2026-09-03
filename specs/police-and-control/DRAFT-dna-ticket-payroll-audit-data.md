@@ -115,9 +115,17 @@ histories holding 25,290 unredacted rows alongside live ERP session tokens, with
 boundary. A governed warehouse table under existing RBAC is a different thing, and this ticket
 retires the ungoverned copy.
 
-The dashboard built on top masks names and account numbers and never displays an individual salary
-(§2.4 of the spec). Happy to take a compliance sign-off step if you want one on the record — please
-say so rather than cancelling.
+**The dashboard built on top does not mask, and that is deliberate.** Its audience is a Police &
+Control auditor working payroll findings — an allegation that a specific worker's pay reached a
+specific account cannot be investigated against `Maid #4471` and `••••9902`. So the control sits on
+**access rather than display**: a dedicated Snowflake role granted to named P&C auditors only,
+access and exports logged and readable, no emailed report body (link only), and no export path
+wider than the screen. Fields no check reads — phone, EID, passport, client contact details — are
+never selected at all.
+
+We would rather have this on the record than discover it at review: if Compliance wants sign-off on
+the role membership before go-live, say so and we will build that gate in. Please raise it with us
+rather than cancelling the ticket.
 
 ### Attachments / references
 
