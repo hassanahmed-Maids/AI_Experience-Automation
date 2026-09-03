@@ -369,12 +369,36 @@ Four items. **v2 removed the fifth (the contract link) — it exists, as D7.**
 
 #### N6 — CC arrears
 
-- **Definition.** Salary owed to a **CC** maid for a prior payroll month, still unpaid at the
-  audit date. The MV equivalent exists in the ERP as `PREVIOUSLY_UNPAID_SALARIES`; the CC
-  equivalent appears not to. See the M7b finding.
-- **Requested.** Either (a) extend the ERP computation to CC maids, or (b) approve the
-  D1-derived CC definition in M7b — **which requires naming the amount column**; M7b does.
-- **Note.** Option (b) needs no ingestion, only a definition decision.
+- **Definition.** Salary owed to a **CC** maid for a prior payroll month, still unpaid at the audit
+  date. The MV equivalent is `PREVIOUSLY_UNPAID_SALARIES`, and it is **confirmed MV-only** (O12).
+- **The candidate mechanism, and why it is not yet adopted.** The ERP does carry a CC-applicable
+  unpaid ledger — confirmed to have **no maid-type filter**, so CC maids use it exactly as MV maids
+  do (the deduction cap is nationality-based, not type-based):
+
+  | Object | Columns |
+  | --- | --- |
+  | `UNPAIDDEDUCTIONS` | `AMOUNT`, `UNPAID_DEDUCTION_DATE`, `NOTES`, `NOT_FINAL`, `HOUSEMAID_ID` |
+  | `UNPAIDDEDUCTIONREPAYMENTS` | `AMOUNT`, `REPAYMENT_DATE`, `PAID_REPAYMENT`, `DESCRIPTION`, `HOUSEMAID_ID` |
+  | `HOUSEMAIDPAYROLLBEANS` | `UNPAID_DEDUCTION`, `UNPAID_DEDUCTION_REPAYMENT`, `REMAINING_UNPAID_DEDUCTION_BALANCE` |
+  | `HOUSEMAIDPAYROLLLOGS` | `UNPAID_DEDUCTION`, `UNPAID_DEDUCTION_REPAYMENT` |
+
+- **⚠ It may point the wrong way, and this must be settled before it is used.** Asked once, the
+  ERP described these as how prior unpaid salary is handled for CC. Asked again about the
+  mechanics, it said `UNPAIDDEDUCTIONS` rows are inserted **when net salary is negative or
+  deductions exceed the cap**, with `AMOUNT = TOTAL_DEDUCTION` and `NOTES = "Net Salary
+  Calculation"`. Those are different things:
+
+  - *Arrears* = money the company owes the **maid**.
+  - *An unpaid deduction* = money the maid owes the **company**, carried forward because it could
+    not be taken this month without pushing net pay negative.
+
+  The second reading is closer to a loan than to arrears, and it is the one the mechanics support.
+  **Adopting it as the CC numerator for a "previously unpaid salaries ≤ 1%" check would invert the
+  control's meaning.** Confirm the direction with Payroll before building — recorded in O12.
+- **Hygiene, if adopted.** `REMAINING_UNPAID_DEDUCTION_BALANCE` is **stored as a string and
+  defaults to the literal `"N/A"`** — it needs casting and a plain `SUM` over it fails. It is also
+  bean-only, never copied to the payroll log.
+- **Owner.** Payroll Management (semantics) + Police & Control (definition).
 
 ### 2.4 Sensitive-data handling — binding on the build
 
@@ -657,9 +681,16 @@ lets P&C work a case.
   | `paid before period start` | paid date `<` first day of `M` | Money moved for a period that had not begun. Rare and serious |
   | `paid after cutoff` | paid date `>` cutoff | Late payment — overlaps M7's arrears territory but is a pay-period finding in its own right |
 
-- **The cutoff is P&C's to set** and is the substantive decision inside O2. Default proposed:
-  the last day of `M+1`. A tighter cutoff (say the 10th of `M+1`) turns M8 into a payment-
-  timeliness control; a looser one makes it purely a gross-error check.
+- **The cutoff should come from the ERP, not from a guess** *(2026-09-03)*. `MONTHLYPAYMENTRULES`
+  carries **`PAYMENT_DATE`** — the scheduled salary payment date for that payroll month, set from a
+  configured day-of-month and then adjusted for Sundays and public holidays. Use
+  `PAYMENT_DATE + <grace>` as the cutoff rather than a fixed "last day of M+1", so the check tracks
+  the payroll calendar instead of a calendar assumption. **P&C sets only the grace period**, which
+  is the remaining decision in O2: zero days makes M8 a strict payment-timeliness control, a few
+  days absorbs normal banking lag.
+- **Caveat.** A payroll month can have **several rules** (primary/secondary, by payment method and
+  employee type), each with its own `PAYMENT_DATE`. The comparison must pick the rule that applies
+  to the maid's row, not an arbitrary one. Needs `MONTHLYPAYMENTRULES` ingested (C2).
 - **Inputs.** D1.2, D1.9, D4 (`PAYROLL_DATE`), D2.4.
 - **Mapping note — this check's meaning changes, and the change is an improvement.** In the
   spreadsheet this was `Pay Start Date`. In Snowflake `PAYROLL_MONTH` is the first day of the
@@ -1073,16 +1104,14 @@ displayed separately from the contract count for exactly this reason.
 
 ## 6. Open Items
 
-**Blocking (6).**
+**Blocking (4).**
 
 | # | Item | Owner |
 | --- | --- | --- |
 | O1 | **No warehouse grant — the single access blocker.** See §9 for the exact request. `PAYROLL_AND_MONEY_CONTROL_ROLE` has no USAGE on any warehouse (`SHOW WAREHOUSES` returns 0 rows; `CURRENT_WAREHOUSE()` is empty), so only metadata-served statements run. Columns, types, profiled ranges and row counts are verified; **freshness, grain and period coverage are asserted, not measured**. Also blocks O19 (approved-KPI register search) and O24 (the `ANSARI_PAYMENT_METHOD` distribution) | Data team / Snowflake admin |
-| O2 | **M8 changes meaning, and needs a payment window.** Two decisions in one. (a) `PAYROLL_MONTH` is the first of the month by construction, so a literal port of the old Pay-Start-Date check always passes and tests nothing — accept retiring it and replacing it with "was the money moved for the period it claims", comparing `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` against `PAYROLL_MONTH`. (b) **Set the cutoff.** Salaries for month M are paid after M closes, so the test is a window `[1st of M, cutoff]`, not containment. Default proposed: last day of M+1. A tighter cutoff makes M8 a payment-timeliness control; a looser one a gross-error check. Expect findings on day one where the old check reported none — the baseline resets | Police & Control |
-| O12 | **`PREVIOUSLY_UNPAID_SALARIES` is MV-only.** If confirmed, Check 7's CC arm has always summed to zero and always passed, and CC arrears are unmeasured. Confirm, then extend the ERP computation or approve the D1-derived CC definition (N6) | Payroll Mgmt + P&C |
+| O2 | **M8 changes meaning, and needs a grace period.** (a) `PAYROLL_MONTH` is the first of the month by construction, so a literal port of the old Pay-Start-Date check always passes and tests nothing — accept retiring it and replacing it with "was the money moved for the period it claims", comparing `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` against `PAYROLL_MONTH`. (b) **Set the grace period.** *Narrowed 2026-09-03:* the cutoff no longer needs guessing — `MONTHLYPAYMENTRULES.PAYMENT_DATE` is the ERP's own scheduled payment date per payroll month, so the window is `[1st of M, PAYMENT_DATE + grace]` and P&C sets only the grace. Expect findings on day one where the old check reported none — the baseline resets | Police & Control |
+| O12 | **CONFIRMED 2026-09-03 — `PREVIOUSLY_UNPAID_SALARIES` is MV-only, so Check 7's CC arm has always summed to zero and always passed.** The field is documented on `HousemaidPayrollBean` as "previous salaries for Maid Visa", populated only at final-file generation, from prior-month logs where `transferred = false`, `willBeIncluded = true`, `payrollMonth < current` and `housemaidUnpaidStatus = UNPAID_VISA_PAYMENT`. **CC maids never enter that branch; the value stays null/0.** What remains open is which CC mechanism replaces it — see N6, where the obvious candidate does **not** obviously mean the same thing | Payroll Mgmt + P&C |
 | O15 | **Deletion-flag polarity.** `IS_DELETED` and `EXCLUDED_FROM_PAYROLL` are `VARCHAR` `'00'/'01'` with no documented polarity; `WPS_RECORDS.TRASHED` has no profiled values. A guess the wrong way empties the population — which G1/G2 abort on above 100 rows, or which passes silently below | Data team |
-| O17 | **No payroll-lock signal.** G5 requires one and `LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values". N4's figures move at lock, so a pre-lock run silently reports different numbers | Data team + Payroll Mgmt |
-| O18 | **`FREEDOM_OPERATOR` and `WALKIN`.** D3's rule classifies both as CC on `LIVE_OUT` alone. Whether they belong in the CC wage bill (M3's threshold), M2 and M10 has never been asked | Police & Control |
 
 **Non-blocking.**
 
@@ -1097,12 +1126,14 @@ displayed separately from the contract count for exactly this reason.
 | O14 | Loan month boundary — v2 ERP code uses `< payrollEnd`, legacy uses `payrollEnd + 1 day`. Pick one | Payroll Management |
 | O16 | **Timezone of `TIMESTAMP_NTZ`.** Confirm which zone mmdb writes and apply an explicit conversion; affects M6's `RECEIVED_DATE` bound | Data team |
 | O19 | **Approved-KPI register not searched.** `INSIGHTS_DASHBOARD_CONTAINER` exists but its `TOOLTIP_INFO` contents need a warehouse (O1). Until searched, "no approved definition exists" for M2/M5/M6/M9/M10 is an assumption | Data team |
-| O20 | **Pro-ration divisor.** N1's columns are named `*_PRO_RATED_*` and nothing states the divisor — calendar days, 30-day month, or working days. Also governs mid-month joiners and leavers in M2 and M3 | Payroll Management |
+| O20 | ~~Pro-ration divisor~~ **CLOSED 2026-09-03.** **Calendar days in the payroll month** (28–31), not a fixed 30 and not working days. `TOTAL_PRO_RATED_SALARY = round(basicSalary × group1Days / monthDays)`; `MOHRE_PRO_RATED_SALARY = round(accommodationSalary × group2Days / monthDays)`. **Exception: `MAID_VISA` uses divisor 30.4 for group 1 and its `MOHRE_PRO_RATED_SALARY` is 0 by construction** — independent confirmation that M5 must be CC-only | — |
+| O17 | ~~No payroll-lock signal~~ **RESOLVED 2026-09-03 — the signal exists, it just is not in Snowflake.** `MONTHLYPAYMENTRULES` carries `PAYROLL_MONTH`, `PAYMENT_DATE`, `LOCK_DATE` (`= PAYMENT_DATE − DAYS_BEFORE_LOCK`, the end of the editable window; audit to-dos generate on it), `AUDITING_FINISHED` and `FINISHED`. G5 should read `AUDITING_FINISHED`. Note a payroll month can have **several rules**, each with its own `PAYMENT_DATE`. Now an ingestion item (C2 in `erp-source-tables-for-dna.md`), not an unknown | Data team |
+| O18 | ~~`FREEDOM_OPERATOR` and `WALKIN`~~ **CLOSED 2026-09-03.** Both get monthly payroll rows and the ERP **treats both as CC** — only `MAID_VISA` follows a distinct payroll path, and payroll exclusion is driven by `excludedFromPayroll`, not by maid type. D3's rule is correct as written; no P&C decision needed | — |
 | O21 | Displaying the MOHRE ID needs a named pre-approval, or the case-reference scheme stands | Police & Control |
-| O22 | M1's company-MOL-number exclusion — hard-coded, or read from a source? | Data team |
+| O22 | ~~M1's company-MOL-number exclusion~~ **ANSWERED 2026-09-03 — and it is a finding.** The number is a **hardcoded literal `"720610101"`** in `TransferFilesService.generateWPSTransferFile()`, **duplicated** in `PaymentWorkOrderController`. Not a table, not a config constant. Note it differs from the `0000000836318` the n8n code guarded against, so M1 should exclude both literals and the discrepancy should be raised with Payroll | Payroll Management |
 | O23 | M3 restatement — freeze each month at first clean run and show later movement separately. Confirm | Police & Control |
 | O25 | M10 threshold re-calibration — the n8n 5% was measured against `not_received` only; `M10_uncollected` is the wider bucket | Police & Control |
-| O26 | Tie-out 3 — WPS row-selection rule, which date defines the month, and key normalisation / `MAID_ID` vs `EMPLOYEE_UNIQUE_ID` | Data team + P&C |
+| O26 | Tie-out 3 — **partially closed 2026-09-03.** The ERP table is `WPSRECORDS`; **`PAYROLL_DATE` is the column that identifies the payroll month**, and `TRASHED` is a soft-delete for unmatched "unknown" WPS employees (`true` hides them; a later matching upload flips it back to `false`) — so `TRASHED = true` rows are excluded. Still open: the row-selection rule when a maid has several reports in a month, and key normalisation / `MAID_ID` vs `EMPLOYEE_UNIQUE_ID` | Data team + P&C |
 | O27 | Tie-out 3 materiality tolerance. Proposed AED 5,000 or 0.05% | Police & Control |
 | O30 | **Control gap, independent of this dashboard.** A housemaid's payment account (`NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT`) has **no audit trail** — `NEWREQUESTS` is Envers-audited but this field is not in the audited set, and no Snowflake revision view carries it — **no approval step or permission check**, and **no validation** (unconstrained `@Column String`; payroll only checks non-empty). Nobody can say who changed a maid's payment account, when, or from what. Detecting diversion after the fact is a poor substitute for preventing it | Payroll Management + whoever owns payroll integrity |
 | O29 | **Three columns hold "employee account with agent" and they differ.** The ERP getter reads `NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT` via `HOUSEMAIDS.VISA_NEW_REQUEST_ID`; `HOUSEMAIDS.EMPLOYEE_ACCOUNT_WITH_AGENT` is unused by it; D1.7 is `HOUSEMAIDPAYROLLLOGS.EMPLOYEE_ACCOUNT_WITH_AGENT`. Check 9 must use D1.7 (per-month, what was actually paid), so `HOUSEMAIDS_INFO.ANSARI_PAYMENT_METHOD` and `HOUSEMAID_PAYROLL_HISTORY.ANSARI_PAYMENT_METHOD` can disagree for one maid. Confirm no metric mixes them | Data team |
