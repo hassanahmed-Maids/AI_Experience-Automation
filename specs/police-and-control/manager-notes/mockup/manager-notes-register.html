@@ -183,7 +183,7 @@ tbody tr:last-child td{border-bottom:none}
       </div>
       <div class="verdict">
         <div class="word">FAIL</div>
-        <div class="sub">6 findings · 2 of 7 group rules · 8 arms blocked</div>
+        <div class="sub">6 findings · 1 of 7 group rules · 13 arms blocked</div>
       </div>
     </div>
   </header>
@@ -191,8 +191,8 @@ tbody tr:last-child td{border-bottom:none}
   <p class="note"><b>Mockup, not live data.</b> Every figure is synthetic and illustrative — no value
   belongs to a real person. Monthly shapes are scaled from the requestor's own twelve-month
   measurement (16,159 payments, AED 6,348,968, Sep 2025 – Aug 2026). The month is <b>FAIL</b>
-  because two group rules produced findings (G1's cap arm, G7). It is also mostly <b>unjudged</b>: five of the seven
-  group rules cannot run — G2 has no payment scale written down anywhere, G6's winners list is not
+  because two group rules produced findings (G1's cap arm, G7). It is also mostly <b>unjudged</b>: six of the seven
+  group rules cannot fully run — G2 has no payment scale written down anywhere, G6's winners list is not
   in the warehouse, G4's recalculation has no inputs named, and G1 can test the amount but not the
   entitlement. <b>Their notes are pending, never clean</b> — v1 of this mockup counted them as clean
   and overstated coverage. Per-maid detail shown here is the design proposed in spec §2.4 and is
@@ -216,17 +216,17 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="kpi">
       <div class="k-lbl">Pending <span class="mid">MN5</span></div>
-      <div class="k-val c-warn">714</div>
-      <div class="k-sub">cases · AED 470,869 · never clean</div>
+      <div class="k-val c-warn">851</div>
+      <div class="k-sub">cases · AED 486,907 · never clean</div>
     </div>
     <div class="kpi">
       <div class="k-lbl">Coverage <span class="mid">MN7</span></div>
-      <div class="k-val c-fail">46.56%</div>
-      <div class="k-sub">622 of 1,336 judged</div>
+      <div class="k-val c-fail">36.30%</div>
+      <div class="k-sub">485 of 1,336 judged</div>
     </div>
     <div class="kpi">
       <div class="k-lbl">Unevaluable <span class="mid">MN8</span></div>
-      <div class="k-val">470,857</div>
+      <div class="k-val">486,895</div>
       <div class="k-sub">AED · within pending, not extra</div>
     </div>
   </div>
@@ -237,15 +237,15 @@ tbody tr:last-child td{border-bottom:none}
       <span class="hint">By money, not by case count — AED 526,592 across 1,336 notes</span>
     </div>
     <div class="cov-bar">
-      <div class="cov-seg seg-clean" style="width:9.50%">clean · 50,043</div>
+      <div class="cov-seg seg-clean" style="width:6.46%">clean · 34,005</div>
       <div class="cov-seg seg-find"  style="width:1.08%" title="findings — AED 5,680"></div>
-      <div class="cov-seg seg-none"  style="width:89.42%">cannot be judged · 470,857</div>
+      <div class="cov-seg seg-none"  style="width:92.46%">cannot be judged · 486,895</div>
       <div class="cov-seg seg-pend"  style="width:0%; min-width:3px" title="pending — no payment type, AED 12"></div>
     </div>
     <div class="cov-key">
-      <span><i class="sw clean"></i> Clean — every applicable arm ran and cleared it · AED 50,043 · 616 cases</span>
+      <span><i class="sw clean"></i> Clean — every applicable arm ran and cleared it · AED 34,005 · 479 cases</span>
       <span><i class="sw find"></i> Finding — flagged notes' own amounts · AED 5,680 · 6 cases</span>
-      <span><i class="sw none"></i> Cannot be judged — G1 entitlement, G2, G3, G4, G6 · AED 470,857 · 713 cases</span>
+      <span><i class="sw none"></i> Cannot be judged — G1 entitlement, G2, G3, G4, G5 (3 of 5 types), G6 · AED 486,895 · 850 cases</span>
       <span><i class="sw pend"></i> Pending — no payment type · AED 12 · 1 case</span>
     </div>
     <p class="note" style="margin:2px 0 0"><b>Two thirds of the money cannot be judged, and that is
@@ -280,7 +280,7 @@ tbody tr:last-child td{border-bottom:none}
   <section class="panel">
     <div class="panel-head">
       <h2>Cases to work</h2>
-      <span class="hint">One row per note · sorted by above expected · 714 pending · 6 findings · 7 shown ·
+      <span class="hint">One row per note · sorted by above expected · 851 pending · 6 findings · 7 shown ·
         full detail, restricted to the P&amp;C auditor role, views logged</span>
     </div>
     <div class="scroll">
@@ -406,7 +406,7 @@ tbody tr:last-child td{border-bottom:none}
     N1–N10, N12 assumed landed · N11 outstanding · tie-outs T1–T4 not yet computable
     <br><b>Audit month:</b> 2026-07 (PAID_ON_PAYROLL_MONTH) &nbsp;·&nbsp;
     <b>Data as of:</b> 2026-08-07 06:00 Gulf &nbsp;·&nbsp;
-    <b>Spec:</b> SPEC_manager_notes v5 &nbsp;·&nbsp; <b>Refresh:</b> manual, never scheduled
+    <b>Spec:</b> SPEC_manager_notes v7 &nbsp;·&nbsp; <b>Refresh:</b> manual, never scheduled
     <br><span class="mockup">Illustrative mockup — synthetic values throughout. Delivered as a link;
     the report body is never emailed.</span>
   </p>
@@ -436,8 +436,10 @@ tbody tr:last-child td{border-bottom:none}
      state:"block", note:"all four arms blocked — knowing a formula is not having its inputs",
      series:[null,null,null,null,null,null,null,null,null,null,null,null,null], gapNote:"inputs not ingested"},
     {k:"G5", name:"Salary corrections", types:"Salary Dispute, Forgive Deduction, MOHRE requirement additions, Medical Assistance, Lost Luggage Compensation",
-     notes:341, aed:39919, finds:0, pend:0, above:0, src:"The expense record; what it cannot settle routes to a person",
-     state:"ok", series:[0,0,450,0,0,0,0,320,0,0,0,0,0]},
+     notes:341, aed:39919, finds:0, pend:137, above:0,
+     src:"Expense record for 2 of 5 types. MOHRE additions, Medical Assistance and Lost Luggage are in neither list in §2.2c — no expected side",
+     state:"block", note:"3 of 5 arms blocked — logged as MN-O28 in v6 and not applied until v7",
+     series:[0,0,450,0,0,0,0,320,0,0,0,0,0]},
     {k:"G6", name:"Raffle prizes", types:"Raffle Prize",
      notes:24, aed:15000, finds:null, above:null, pend:24,
      src:"The draw's winners list — identity only",
