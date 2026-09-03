@@ -1,6 +1,6 @@
 # DRAFT — DNA ticket: payroll audit data in Snowflake
 
-**Not filed.** Awaiting Hassan's confirmation. Two fields still need a decision (marked ❓).
+**Not filed.** Awaiting Hassan's confirmation. One field still needs a decision (marked ❓).
 
 ---
 
@@ -11,7 +11,7 @@
 | Project | **DNA** — Data & Analytics (id `10282`) |
 | Issue type | **Data Engineering Task** (id `10770`) — stated scope: *"SnowFlake administration, **ingestion**, security, APIs, access, and infrastructure"* |
 | Summary | **Payroll audit — ingest the two monthly payroll archived files (WPS transfer + detailed payroll) into Snowflake** |
-| Domain/Department (`customfield_11606`) | ❓ **Money Control** (`12180`) — matches DNA-9437. Alternative: **Payroll** (`12183`), which matches the subject matter better |
+| Domain/Department (`customfield_11606`) | **Money Control** (`12180`) — confirmed by Hassan 2026-09-03; matches DNA-9437 |
 | OKR (`customfield_11605`) | ❓ required labels field, no value chosen yet |
 | Reporter | hassan.ahmed@maids.cc |
 | Links | relates to **DNA-9437** (warehouse grant, already filed) |
