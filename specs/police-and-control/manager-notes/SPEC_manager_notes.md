@@ -8,6 +8,7 @@
 | **Date** | 2026-09-03 |
 | **Delivered on** | **MaidsInsights**, over **Snowflake**. The two are not interchangeable: MaidsInsights is the dashboard the auditor opens; Snowflake is the warehouse, role and SQL underneath |
 | **Replaces** | Nothing running. The Notion page *Manager Notes* (Audit Flow Factory / Both Maids) specified this as a flow; it was never built. This spec re-expresses it as a dashboard |
+| **UI mockup** | https://claude.ai/code/artifact/a08a0bea-96cf-4ea3-af21-ccced5c94a5d |
 | **Status** | Draft — Step 1 playback and the feedback loop are still open |
 
 **Source of the business logic.** The Notion page and its 20 linked rule rows are the requestor's
@@ -318,6 +319,8 @@ the rule that fired with its condition, and the arithmetic. Nothing withheld —
 **Trend rules** (carried from the payroll-checks spec so the two dashboards behave alike): the
 denominator travels with every ratio; a `BLOCKED` or `SKIPPED` month is a **gap in the line, not a
 zero**; restatements show both values; 13-month rolling window.
+
+**Mockup.** https://claude.ai/code/artifact/a08a0bea-96cf-4ea3-af21-ccced5c94a5d — synthetic values throughout.
 
 **Delivery.** A link. No emailed report body. Manual refresh — **this dashboard is not scheduled**,
 consistent with the Notion page and with the standing rule that recurring data processes go through

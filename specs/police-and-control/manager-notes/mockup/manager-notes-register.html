@@ -1,0 +1,514 @@
+<title>Manager Notes Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F2F3F6; --surface:#FFFFFF; --surface-2:#F8F9FB; --sunk:#EAECF1;
+  --line:#D8DCE5; --line-soft:#E6E9EF;
+  --ink:#12161F; --ink-2:#3D465A; --ink-3:#69738A;
+  --accent:#33478F; --accent-soft:#E7EAF6;
+  --ok:#1E7A4E; --warn:#A8820C; --fail:#C0342A; --neutral:#4A5A78;
+  --ok-bg:#E4F2EA; --warn-bg:#F6EFDC; --fail-bg:#F9E6E4; --neutral-bg:#E9ECF3;
+  --shadow:0 1px 2px rgba(18,22,31,.06), 0 6px 16px -10px rgba(18,22,31,.22);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1116; --surface:#161A22; --surface-2:#1B202A; --sunk:#12161D;
+    --line:#2A313E; --line-soft:#222833;
+    --ink:#EAEDF4; --ink-2:#AFB8CA; --ink-3:#7D8799;
+    --accent:#8FA5E8; --accent-soft:#1D2436;
+    --ok:#5FD09B; --warn:#E6C24E; --fail:#FF9080; --neutral:#A6B3CC;
+    --ok-bg:#14271F; --warn-bg:#2A2415; --fail-bg:#2E1B19; --neutral-bg:#1C2130;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1116; --surface:#161A22; --surface-2:#1B202A; --sunk:#12161D;
+  --line:#2A313E; --line-soft:#222833;
+  --ink:#EAEDF4; --ink-2:#AFB8CA; --ink-3:#7D8799;
+  --accent:#8FA5E8; --accent-soft:#1D2436;
+  --ok:#5FD09B; --warn:#E6C24E; --fail:#FF9080; --neutral:#A6B3CC;
+  --ok-bg:#14271F; --warn-bg:#2A2415; --fail-bg:#2E1B19; --neutral-bg:#1C2130;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -12px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{background:var(--paper); color:var(--ink);
+  font-family:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.5; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px; margin:0 auto; padding:22px 20px 60px; display:flex; flex-direction:column; gap:18px}
+h1,h2,h3{font-family:"Archivo",sans-serif; margin:0; text-wrap:balance; letter-spacing:-.01em}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+
+.mast{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;
+      padding-bottom:16px; border-bottom:2px solid var(--ink)}
+.mast h1{font-size:26px; font-weight:700; line-height:1.15}
+.eyebrow{font-family:"Archivo",sans-serif; font-size:11px; font-weight:600; letter-spacing:.14em;
+         text-transform:uppercase; color:var(--ink-3); margin-bottom:6px}
+.mast-right{display:flex; align-items:center; gap:14px}
+.period{text-align:right}
+.period .lbl{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
+.period .val{font-family:"Archivo",sans-serif; font-size:19px; font-weight:600}
+.verdict{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+         padding:9px 18px; border-radius:3px; background:var(--warn-bg);
+         border:1px solid var(--warn); border-left-width:5px}
+.verdict .word{font-family:"Archivo",sans-serif; font-size:18px; font-weight:700; color:var(--warn); line-height:1}
+.verdict .sub{font-size:10.5px; color:var(--ink-2); letter-spacing:.04em}
+
+.note{font-size:12.5px; color:var(--ink-2); background:var(--accent-soft);
+      border-left:3px solid var(--accent); padding:9px 13px; border-radius:0 3px 3px 0}
+.note b{color:var(--ink)}
+
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px}
+.kpi{background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:13px 15px;
+     display:flex; flex-direction:column; gap:5px}
+.kpi .k-lbl{font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3);
+            display:flex; align-items:center; gap:6px}
+.kpi .k-lbl .mid{font-family:"IBM Plex Mono",monospace; font-size:9.5px; color:var(--ink-3);
+                 border:1px solid var(--line); border-radius:2px; padding:0 3px}
+.kpi .k-val{font-family:"Archivo",sans-serif; font-size:26px; font-weight:700; line-height:1.05;
+            font-variant-numeric:tabular-nums}
+.kpi .k-sub{font-size:11.5px; color:var(--ink-3)}
+.kpi .k-val.c-fail{color:var(--fail)} .kpi .k-val.c-warn{color:var(--warn)}
+.kpi.money{background:var(--ink); border-color:var(--ink)}
+.kpi.money .k-lbl,.kpi.money .k-sub{color:#A6B3CC}
+.kpi.money .k-lbl .mid{border-color:#3D465A; color:#A6B3CC}
+.kpi.money .k-val{color:#FFFFFF}
+:root[data-theme="dark"] .kpi.money{background:var(--surface-2); border-color:var(--accent)}
+:root[data-theme="dark"] .kpi.money .k-val{color:var(--ink)}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .kpi.money{background:var(--surface-2); border-color:var(--accent)}
+  :root:not([data-theme="light"]) .kpi.money .k-val{color:var(--ink)}
+}
+
+/* ── coverage: the thesis of this page ───────────── */
+.cov{background:var(--surface); border:1px solid var(--line); border-radius:5px;
+     box-shadow:var(--shadow); padding:16px 18px 18px; display:flex; flex-direction:column; gap:12px}
+.cov-head{display:flex; align-items:baseline; justify-content:space-between; gap:14px; flex-wrap:wrap}
+.cov-head h2{font-size:15px; font-weight:600}
+.cov-head .hint{font-size:11.5px; color:var(--ink-3)}
+.cov-bar{display:flex; height:38px; border-radius:3px; overflow:hidden; border:1px solid var(--line)}
+.cov-seg{display:flex; align-items:center; justify-content:center; font-family:"IBM Plex Mono",monospace;
+         font-size:11px; font-weight:600; color:#fff; min-width:0; overflow:hidden; white-space:nowrap}
+.seg-clean{background:var(--ok)} .seg-find{background:var(--fail)}
+.seg-pend{background:var(--warn); color:#2A2415}
+.seg-none{background:var(--neutral);
+  background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(255,255,255,.22) 5px 10px)}
+.cov-key{display:flex; flex-wrap:wrap; gap:16px; font-size:12px; color:var(--ink-2)}
+.cov-key span{display:inline-flex; align-items:center; gap:7px}
+.sw{width:11px; height:11px; border-radius:2px; flex:none}
+.sw.clean{background:var(--ok)} .sw.find{background:var(--fail)} .sw.pend{background:var(--warn)}
+.sw.none{background:var(--neutral);
+  background-image:repeating-linear-gradient(135deg,transparent 0 3px,rgba(255,255,255,.3) 3px 6px)}
+
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:5px; box-shadow:var(--shadow)}
+.panel-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+            padding:13px 16px; border-bottom:1px solid var(--line)}
+.panel-head h2{font-size:15px; font-weight:600}
+.panel-head .hint{font-size:11.5px; color:var(--ink-3)}
+.scroll{overflow-x:auto}
+
+table{border-collapse:collapse; width:100%; font-size:13px}
+th{font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600; letter-spacing:.08em;
+   text-transform:uppercase; color:var(--ink-3); text-align:left; padding:9px 12px;
+   background:var(--surface-2); border-bottom:1px solid var(--line); white-space:nowrap}
+td{padding:9px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+.r{text-align:right}
+.reg td:first-child{padding-left:0}
+.stripe{width:5px; padding:0!important; border-bottom:1px solid var(--line-soft)}
+.s-fail{background:var(--fail)} .s-warn{background:var(--warn)} .s-ok{background:var(--ok)}
+.s-block{background:var(--neutral)}
+.gid{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-3); font-weight:500}
+.gname{font-weight:600; color:var(--ink)}
+.gtypes{font-size:11.5px; color:var(--ink-3); margin-top:2px; max-width:44ch}
+.badge{display:inline-flex; align-items:center; gap:5px; font-family:"Archivo",sans-serif;
+       font-size:10px; font-weight:700; letter-spacing:.08em; padding:2px 7px; border-radius:2px;
+       border:1px solid; white-space:nowrap}
+.b-ok{color:var(--ok); background:var(--ok-bg); border-color:var(--ok)}
+.b-fail{color:var(--fail); background:var(--fail-bg); border-color:var(--fail)}
+.b-warn{color:var(--warn); background:var(--warn-bg); border-color:var(--warn)}
+.b-block{color:var(--neutral); background:var(--neutral-bg); border-color:var(--neutral)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.sq{width:6px;height:6px;background:currentColor;flex:none}
+.tri{width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;
+     border-bottom:6px solid currentColor;flex:none}
+.bar{width:7px;height:2px;background:currentColor;box-shadow:0 3px 0 currentColor;flex:none}
+.amt{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.dash{color:var(--ink-3)}
+.src{font-size:11.5px; color:var(--ink-2); max-width:30ch}
+.sparkwrap{display:block; line-height:0}
+.nospark{font-size:11px; color:var(--ink-3); font-style:italic}
+.delta{font-family:"IBM Plex Mono",monospace; font-size:11.5px; white-space:nowrap}
+.d-up{color:var(--fail)} .d-dn{color:var(--ok)} .d-flat{color:var(--ink-3)}
+
+.nm{font-family:"Public Sans",system-ui,sans-serif; font-weight:600; color:var(--ink)}
+.subj{font-family:"IBM Plex Mono",monospace; font-weight:500; white-space:nowrap}
+.rule{font-size:12px; color:var(--ink-2); max-width:34ch}
+.chip{font-family:"IBM Plex Mono",monospace; font-size:10.5px; border:1px solid var(--line);
+      border-radius:2px; padding:1px 5px; color:var(--ink-2); white-space:nowrap}
+
+/* ── verdict ladder ─────────────────────────────── */
+.duo{display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start}
+@media (max-width:900px){.duo{grid-template-columns:1fr}}
+.ladder{display:flex; flex-direction:column; padding:6px 0}
+.rung{display:grid; grid-template-columns:26px 1fr auto; gap:11px; align-items:center;
+      padding:7px 16px; border-bottom:1px solid var(--line-soft)}
+.rung:last-child{border-bottom:none}
+.rung.grp{background:var(--surface-2)}
+.rn{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3); text-align:right}
+.rtxt{font-size:12.5px}
+.rtxt b{font-weight:600}
+.rout{font-family:"Archivo",sans-serif; font-size:9.5px; font-weight:700; letter-spacing:.07em;
+      text-transform:uppercase; white-space:nowrap}
+.o-find{color:var(--fail)} .o-pend{color:var(--warn)} .o-ver{color:var(--accent)} .o-none{color:var(--ink-3)}
+
+.foot{font-size:11.5px; color:var(--ink-3); border-top:1px solid var(--line); padding-top:12px; line-height:1.7}
+.foot b{color:var(--ink-2)}
+.mockup{display:inline-block; margin-top:5px; padding:2px 7px; border:1px dashed var(--line);
+        border-radius:2px; color:var(--ink-3)}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <div class="eyebrow">MaidsInsights · Police &amp; Control · Money out · Payroll</div>
+      <h1>Manager Notes</h1>
+    </div>
+    <div class="mast-right">
+      <div class="period">
+        <div class="lbl">Paid on payroll month</div>
+        <div class="val mono">2026-07</div>
+      </div>
+      <div class="verdict">
+        <div class="word">PARTIAL</div>
+        <div class="sub">6 of 9 groups evaluated</div>
+      </div>
+    </div>
+  </header>
+
+  <p class="note"><b>Mockup, not live data.</b> Every figure is synthetic and illustrative — no value
+  belongs to a real person. Monthly shapes are scaled from the requestor's own twelve-month
+  measurement (16,159 payments, AED 6,348,968, Sep 2025 – Aug 2026). The month is <b>PARTIAL</b>
+  because three groups cannot be evaluated at all: G2 has no payment scale written down anywhere,
+  and G1's service-months arm and G6 both wait on an entitlement source. Nothing is masked — the
+  reader is an auditor working a money-out case, so the control is the named-auditor role and the
+  access log, not the display.</p>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="k-lbl">Notes in scope <span class="mid">MN1</span></div>
+      <div class="k-val">1,347</div>
+      <div class="k-sub">additions · one case per note</div>
+    </div>
+    <div class="kpi money">
+      <div class="k-lbl">Money added <span class="mid">MN2</span></div>
+      <div class="k-val">528,780</div>
+      <div class="k-sub">AED · this payroll month</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Above expected <span class="mid">MN3</span></div>
+      <div class="k-val c-fail">14,280</div>
+      <div class="k-sub">AED · across 9 findings</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Pending <span class="mid">MN5</span></div>
+      <div class="k-val c-warn">282</div>
+      <div class="k-sub">cases · never counted clean</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Coverage <span class="mid">MN7</span></div>
+      <div class="k-val c-warn">79.06%</div>
+      <div class="k-sub">1,065 of 1,347 judged</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Unevaluable <span class="mid">MN8</span></div>
+      <div class="k-val">135,072</div>
+      <div class="k-sub">AED · no rule exists</div>
+    </div>
+  </div>
+
+  <section class="cov">
+    <div class="cov-head">
+      <h2>What the month could actually judge</h2>
+      <span class="hint">By money, not by case count — AED 528,780 across 1,347 notes</span>
+    </div>
+    <div class="cov-bar">
+      <div class="cov-seg seg-clean" style="width:70.96%">clean · 375,228</div>
+      <div class="cov-seg seg-find"  style="width:3.08%" title="findings — AED 16,280"></div>
+      <div class="cov-seg seg-none"  style="width:25.54%">no rule exists · 135,072</div>
+      <div class="cov-seg seg-pend"  style="width:0.42%" title="pending — other, AED 2,200"></div>
+    </div>
+    <div class="cov-key">
+      <span><i class="sw clean"></i> Clean — a rule was met · AED 375,228 · 1,056 cases</span>
+      <span><i class="sw find"></i> Finding — above what the rule allowed · AED 16,280 · 9 cases</span>
+      <span><i class="sw none"></i> No rule exists — G2 · AED 135,072 · 268 cases</span>
+      <span><i class="sw pend"></i> Pending — other · AED 2,200 · 14 cases</span>
+    </div>
+    <p class="note" style="margin:2px 0 0"><b>A quarter of the money cannot be judged, and that is the
+    honest headline.</b> The loyalty payment (G2) pays 307 different amounts between zero and 900 and
+    nobody has written down what a maid is supposed to receive. It is not clean and it is not a
+    finding — it is untested, and the terminal catch-all is what stops it reading as a pass.</p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Groups</h2>
+      <span class="hint">Every payment runs the base gates, then exactly one group rule · 13-month trend of AED above expected</span>
+    </div>
+    <div class="scroll">
+      <table class="reg">
+        <thead>
+          <tr>
+            <th></th><th>Group</th><th class="r">Notes</th><th class="r">AED</th>
+            <th class="r">Findings</th><th class="r">Above expected</th>
+            <th>Expected comes from</th><th>Status</th><th>Trend</th><th class="r">vs. last</th>
+          </tr>
+        </thead>
+        <tbody id="groups"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Cases to work</h2>
+      <span class="hint">One row per note · sorted by above expected · 291 open, 6 shown ·
+        full detail, restricted to the P&amp;C auditor role, views logged</span>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Note</th><th>Maid</th><th>Payment type</th><th>Group</th>
+            <th class="r">Amount</th><th class="r">Expected</th><th class="r">Above</th>
+            <th>Rule that fired</th><th>Verdict</th><th>Matched expense</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="subj">#181402</td>
+            <td>6742 · <span class="nm">T. Abebe</span></td>
+            <td>Bonus</td><td><span class="chip">G3</span></td>
+            <td class="r amt">7,500</td><td class="r amt">2,500</td><td class="r amt">5,000</td>
+            <td class="rule">Each referral scheme has its own price and conditions</td>
+            <td><span class="badge b-fail"><i class="sq"></i>FINDING</span></td>
+            <td><span class="chip">EP-94117</span></td>
+          </tr>
+          <tr>
+            <td class="subj">#181288</td>
+            <td>4471 · <span class="nm">R. Dela Cruz</span></td>
+            <td>VIP Bonus</td><td><span class="chip">G3</span></td>
+            <td class="r amt">3,500</td><td class="r amt">0</td><td class="r amt">3,500</td>
+            <td class="rule">Second identical bonus in one month, no second referral named</td>
+            <td><span class="badge b-fail"><i class="sq"></i>FINDING</span></td>
+            <td class="dash">unmatched</td>
+          </tr>
+          <tr>
+            <td class="subj">#181355</td>
+            <td>2903 · <span class="nm">S. Kumari</span></td>
+            <td>Airfare Ticket</td><td><span class="chip">G1</span></td>
+            <td class="r amt">1,000</td><td class="r amt">0</td><td class="r amt">1,000</td>
+            <td class="rule">Amount matches no entitlement — price list holds only 1,500 and 2,000</td>
+            <td><span class="badge b-fail"><i class="sq"></i>FINDING</span></td>
+            <td><span class="chip">EP-93880</span></td>
+          </tr>
+          <tr>
+            <td class="subj">#181501</td>
+            <td>5188 · <span class="nm">A. Wanjiru</span></td>
+            <td>Taxi Reimbursement</td><td><span class="chip">G7</span></td>
+            <td class="r amt">640</td><td class="r amt">120</td><td class="r amt">520</td>
+            <td class="rule">Amount disagrees with the expense record that authorised it</td>
+            <td><span class="badge b-fail"><i class="sq"></i>FINDING</span></td>
+            <td><span class="chip">EP-94203</span></td>
+          </tr>
+          <tr>
+            <td class="subj">#181190</td>
+            <td>3310 · <span class="nm">L. Nurhayati</span></td>
+            <td>Airfare Ticket</td><td><span class="chip">G1</span></td>
+            <td class="r amt">0</td><td class="r dash">—</td><td class="r dash">—</td>
+            <td class="rule">Gate ❺ — a payment of zero dirhams is an exception, whatever its type</td>
+            <td><span class="badge b-warn"><i class="tri"></i>PENDING</span></td>
+            <td><span class="chip">EP-93901</span></td>
+          </tr>
+          <tr>
+            <td class="subj">#181077</td>
+            <td>1194 · <span class="nm">M. Bekele</span></td>
+            <td>Anti-attrition Incentive</td><td><span class="chip">G2</span></td>
+            <td class="r amt">700</td><td class="r dash">—</td><td class="r dash">—</td>
+            <td class="rule">No rule exists for this payment type — 307 distinct amounts, none written down</td>
+            <td><span class="badge b-warn"><i class="tri"></i>PENDING</span></td>
+            <td class="dash">n/a</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="duo">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Verdict ladder</h2>
+        <span class="hint">First rule that fires wins</span>
+      </div>
+      <div class="ladder">
+        <div class="rung"><div class="rn">❶</div><div class="rtxt">Join by ERP maid id, never by name or MOL</div><div class="rout o-none">binding</div></div>
+        <div class="rung"><div class="rn">❷</div><div class="rtxt"><b>Window</b> — paid on payroll month ≠ audit month</div><div class="rout o-none">out of scope</div></div>
+        <div class="rung"><div class="rn">❸</div><div class="rtxt">Housemaid profile unreachable</div><div class="rout o-pend">pending</div></div>
+        <div class="rung"><div class="rn">❹</div><div class="rtxt">No payment type recorded</div><div class="rout o-pend">pending</div></div>
+        <div class="rung"><div class="rn">❺</div><div class="rtxt">Amount is zero</div><div class="rout o-pend">pending</div></div>
+        <div class="rung"><div class="rn">❻</div><div class="rtxt">Named expense record missing, or amount disagrees</div><div class="rout o-find">finding</div></div>
+        <div class="rung"><div class="rn">❼</div><div class="rtxt">Expense head does not map to the payment type</div><div class="rout o-ver">verifier</div></div>
+        <div class="rung"><div class="rn">❽</div><div class="rtxt">Her contract type cannot receive this payment</div><div class="rout o-find">finding</div></div>
+        <div class="rung grp"><div class="rn">·</div><div class="rtxt"><b>Exactly one group rule</b> — G1…G7. Duplicates are tested <b>inside</b> the group, never once across all payments</div><div class="rout o-none">G1–G7</div></div>
+        <div class="rung"><div class="rn">❾</div><div class="rtxt"><b>Nothing settled it</b> — pending, with its reason</div><div class="rout o-pend">pending</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Guards</h2>
+        <span class="hint">When a number must not be trusted</span>
+      </div>
+      <div class="ladder">
+        <div class="rung"><div class="rn mono">MG1</div><div class="rtxt">Paid-on-payroll-month not yet ingested — no correct month filter exists</div><div class="rout o-none">blocks all</div></div>
+        <div class="rung"><div class="rn mono">MG2</div><div class="rtxt"><b>Expense match rate below floor.</b> The note→payment link is a heuristic, not a key — a low match rate means unevaluated, not clean</div><div class="rout o-none">blocks MN3</div></div>
+        <div class="rung"><div class="rn mono">MG3</div><div class="rtxt">Text verifier unavailable — routed notes stay pending</div><div class="rout o-pend">pending</div></div>
+        <div class="rung"><div class="rn mono">MG4</div><div class="rtxt">A group's expected source missing — that group blocks, with an expected-by date</div><div class="rout o-none">blocks group</div></div>
+        <div class="rung"><div class="rn mono">MG5</div><div class="rtxt"><b>Zero notes in the month.</b> ~1,347 is the norm, so zero means the feed broke — a finding about the run, not a clean month</div><div class="rout o-pend">skipped</div></div>
+      </div>
+    </section>
+  </div>
+
+  <p class="foot">
+    <b>Sources:</b> HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES ·
+    MONEY_CONTROL_SILVER.EXPENSES_PAYMENTS · pending ingestion N1–N11 (see spec §2.3)
+    <br><b>Audit month:</b> 2026-07 (PAID_ON_PAYROLL_MONTH) &nbsp;·&nbsp;
+    <b>Data as of:</b> 2026-08-07 06:00 Gulf &nbsp;·&nbsp;
+    <b>Spec:</b> SPEC_manager_notes v1 &nbsp;·&nbsp; <b>Refresh:</b> manual, never scheduled
+    <br><span class="mockup">Illustrative mockup — synthetic values throughout. Delivered as a link;
+    the report body is never emailed.</span>
+  </p>
+</div>
+
+<script>
+(function(){
+  var GROUPS = [
+    {k:"G1", name:"Flight home money", types:"Airfare Ticket",
+     notes:113, aed:184958, finds:1, above:1000, src:"Price list: AED 2,000 Filipina / 1,500 other; 24 accumulated CC months; once only",
+     state:"block", note:"service-months arm awaits the entitlement source (N11)",
+     series:[1500,0,1000,2500,0,1000,0,1500,1000,0,2000,1000,1000]},
+    {k:"G2", name:"Loyalty payment", types:"Anti-attrition Incentive",
+     notes:268, aed:135072, finds:null, above:null, src:"Nothing. No payment scale exists anywhere — 307 distinct amounts, 0–900",
+     state:"block", note:"no rule can be written",
+     series:[null,null,null,null,null,null,null,null,null,null,null,null,null], gapNote:"no rule exists"},
+    {k:"G3", name:"Referral and signing bonuses", types:"Bonus, VIP Bonus",
+     notes:97, aed:70410, finds:2, above:8500, src:"Each scheme's own price and conditions",
+     state:"fail", series:[0,1500,0,3500,1458,0,2500,1458,0,4200,1458,2500,8500]},
+    {k:"G4", name:"Part-month and final salary", types:"MV Prorated Salary, Prorated salary, Last Day CC Switch Adjustment, MV Extra Salary",
+     notes:212, aed:67917, finds:1, above:3260, src:"Recalculated from the dates in the note itself",
+     state:"fail", series:[820,1240,640,2100,980,1560,720,3100,1180,940,2240,1620,3260]},
+    {k:"G5", name:"Salary corrections", types:"Salary Dispute, Forgive Deduction, MOHRE requirement additions, Medical Assistance, Lost Luggage Compensation",
+     notes:341, aed:39919, finds:0, above:0, src:"The expense record; what it cannot settle routes to a person",
+     state:"ok", series:[0,0,450,0,0,0,0,320,0,0,0,0,0]},
+    {k:"G6", name:"Raffle prizes", types:"Raffle Prize",
+     notes:24, aed:15000, finds:null, above:null, src:"The draw's winners list — identity only",
+     state:"block", note:"winners list not in the warehouse (N11)",
+     series:[null,null,null,null,null,null,null,null,null,null,null,null,null], gapNote:"never run"},
+    {k:"G7", name:"Money she spent that we repay", types:"Taxi Reimbursement, Maids.at other expenses, Accommodation Relocation, Passport Assistance, Flight ticket, Sim card, Cash advance, Transport fare",
+     notes:280, aed:13304, finds:5, above:1520, src:"The expense record — amount, beneficiary and approver must all agree",
+     state:"fail", series:[240,0,610,180,0,420,300,0,760,190,540,280,1520]},
+    {k:"G8", name:"Office work", types:"Office Work Addition",
+     notes:null, aed:null, finds:null, above:null, src:"Excluded from the population — a separate check owns it",
+     state:"ok", excluded:true,
+     series:[null,null,null,null,null,null,null,null,null,null,null,null,null], gapNote:"out of scope"},
+    {k:"G9", name:"No payment type recorded", types:"the one blank",
+     notes:12, aed:2200, finds:0, above:0, src:"Gate ❹ catches it — this count must be zero",
+     state:"warn", series:[0,1,0,0,2,0,0,1,0,0,0,1,12]}
+  ];
+
+  var STATE = {
+    ok:    {badge:"b-ok",    stripe:"s-ok",    icon:"dot", label:"OK",      col:"var(--ok)"},
+    fail:  {badge:"b-fail",  stripe:"s-fail",  icon:"sq",  label:"FINDINGS",col:"var(--fail)"},
+    warn:  {badge:"b-warn",  stripe:"s-warn",  icon:"tri", label:"WATCH",   col:"var(--warn)"},
+    block: {badge:"b-block", stripe:"s-block", icon:"bar", label:"BLOCKED", col:"var(--neutral)"}
+  };
+
+  function esc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+  function fmt(n){ return n === null || n === undefined ? "—" : n.toLocaleString("en-US"); }
+
+  function spark(g){
+    var W=112, H=30, pad=4, s=g.series, n=s.length;
+    var real = s.filter(function(v){ return v !== null; });
+    if(!real.length){
+      return '<span class="nospark">no data · ' + esc(g.gapNote || "not run") + '</span>';
+    }
+    var col = STATE[g.state].col;
+    var max = Math.max.apply(null, real), min = 0;
+    var span = (max - min) || 1;
+    var x = function(i){ return pad + (i * (W - 2*pad)) / (n - 1); };
+    var y = function(v){ return H - pad - ((v - min) / span) * (H - 2*pad); };
+
+    var d = "", pen = false, gaps = "";
+    for(var i=0;i<n;i++){
+      if(s[i] === null){ pen = false; continue; }
+      d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(s[i]).toFixed(1) + " ";
+      pen = true;
+    }
+    // gap runs drawn on the baseline, dashed, so a hole never reads as a zero
+    var runStart = null;
+    for(var j=0;j<=n;j++){
+      var isGap = j < n && s[j] === null;
+      if(isGap && runStart === null) runStart = j;
+      if(!isGap && runStart !== null){
+        gaps += '<path d="M' + x(runStart).toFixed(1) + ' ' + (H-pad) + ' L' + x(j-1).toFixed(1) + ' ' + (H-pad) +
+                '" stroke="' + col + '" stroke-width="1.4" stroke-dasharray="1 3" fill="none" opacity=".55"/>';
+        runStart = null;
+      }
+    }
+    var last = null;
+    for(var k=n-1;k>=0;k--){ if(s[k] !== null){ last = k; break; } }
+    var endpt = last === null ? "" :
+      '<circle cx="' + x(last).toFixed(1) + '" cy="' + y(s[last]).toFixed(1) +
+      '" r="3.6" fill="' + col + '" stroke="var(--surface)" stroke-width="2"/>';
+    var zero = '<path d="M' + pad + ' ' + (H-pad) + ' L' + (W-pad) + ' ' + (H-pad) +
+               '" stroke="var(--line)" stroke-width="1" fill="none"/>';
+
+    return '<span class="sparkwrap"><svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H +
+           '" role="img" aria-label="13-month trend">' + zero + gaps +
+           '<path d="' + d.trim() + '" fill="none" stroke="' + col + '" stroke-width="1.6" ' +
+           'stroke-linejoin="round" stroke-linecap="round"/>' + endpt + '</svg></span>';
+  }
+
+  function delta(g){
+    var s = g.series, n = s.length;
+    if(s[n-1] === null || s[n-2] === null || s[n-2] === undefined)
+      return '<span class="delta d-flat">—</span>';
+    var d = s[n-1] - s[n-2];
+    if(d === 0) return '<span class="delta d-flat">no change</span>';
+    var cls = d > 0 ? "d-up" : "d-dn";
+    return '<span class="delta ' + cls + '">' + (d > 0 ? "+" : "−") +
+           Math.abs(d).toLocaleString("en-US") + '</span>';
+  }
+
+  document.getElementById("groups").innerHTML = GROUPS.map(function(g){
+    var st = STATE[g.state];
+    var label = g.excluded ? "EXCLUDED" : st.label;
+    return '<tr>' +
+      '<td class="stripe ' + st.stripe + '"></td>' +
+      '<td><div class="gid">' + g.k + '</div><div class="gname">' + esc(g.name) + '</div>' +
+        '<div class="gtypes">' + esc(g.types) + '</div></td>' +
+      '<td class="r amt">' + fmt(g.notes) + '</td>' +
+      '<td class="r amt">' + fmt(g.aed) + '</td>' +
+      '<td class="r amt' + (g.finds ? '' : ' dash') + '">' + fmt(g.finds) + '</td>' +
+      '<td class="r amt' + (g.above ? '' : ' dash') + '">' + fmt(g.above) + '</td>' +
+      '<td class="src">' + esc(g.src) + '</td>' +
+      '<td><span class="badge ' + st.badge + '"><i class="' + st.icon + '"></i>' + label + '</span>' +
+        (g.note ? '<div class="gtypes" style="margin-top:4px">' + esc(g.note) + '</div>' : '') + '</td>' +
+      '<td>' + spark(g) + '</td>' +
+      '<td class="r">' + delta(g) + '</td>' +
+      '</tr>';
+  }).join("");
+})();
+</script>
