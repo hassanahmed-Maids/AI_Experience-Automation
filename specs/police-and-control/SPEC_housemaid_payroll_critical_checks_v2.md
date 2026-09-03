@@ -1000,7 +1000,7 @@ displayed separately from the contract count for exactly this reason.
 
 ## 6. Open Items
 
-**Blocking (6).**
+**Blocking (7).**
 
 | # | Item | Owner |
 | --- | --- | --- |
@@ -1011,7 +1011,6 @@ displayed separately from the contract count for exactly this reason.
 | O15 | **Deletion-flag polarity.** `IS_DELETED` and `EXCLUDED_FROM_PAYROLL` are `VARCHAR` `'00'/'01'` with no documented polarity; `WPS_RECORDS.TRASHED` has no profiled values. A guess the wrong way empties the population — which G1/G2 abort on above 100 rows, or which passes silently below | Data team |
 | O17 | **No payroll-lock signal.** G5 requires one and `LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values". N4's figures move at lock, so a pre-lock run silently reports different numbers | Data team + Payroll Mgmt |
 | O18 | **`FREEDOM_OPERATOR` and `WALKIN`.** D3's rule classifies both as CC on `LIVE_OUT` alone. Whether they belong in the CC wage bill (M3's threshold), M2 and M10 has never been asked | Police & Control |
-| O24 | **Narrowed 2026-09-02 — no longer the original concern.** The ERP classifier is fully resolved (M9); Ansari accounts *are* reachable via a separate non-`AE` branch. What remains: the Snowflake column is a **dbt re-implementation** of the Java getter and its profiled values omit `PAYROLL_CARD` and `OVER_THE_COUNTER`. If the dbt CASE drops those branches, such accounts collapse to `''` and are invisible to Check 9. One `COUNT(*) GROUP BY ANSARI_PAYMENT_METHOD` settles it — needs O1. **The acceptance test is redefined** — no labelled diversion exists in the ERP, so it becomes a back-test over historical month pairs that P&C then labels, plus threshold calibration from the base rate (M9). Needs O1; a first-month task, not a go-live blocker | Data team + P&C |
 
 **Non-blocking.**
 
@@ -1021,6 +1020,7 @@ displayed separately from the contract count for exactly this reason.
 | O6 | M6 date asymmetry — the n8n MV query pins `dateOfPayment` to one date, the CC query uses a range. Likely a bug; not changed silently | P&C + Accounting |
 | O7 | Worked examples are synthetic. Supply two real cases already verified by hand | Police & Control |
 | O8 | **Widened 2026-09-02.** The ERP classifier has **seven** outcomes, not the n8n matrix's four: `FAB_MASTER_CARD`, `PAYROLL_CARD` and `OVER_THE_COUNTER` were never in it. All three are prepaid or cash instruments — the same risk shape as du Pay — so transitions into them very likely belong in the red-flag set. Decide, and restate the matrix over the ERP's own values | Police & Control |
+| O24 | **Narrowed 2026-09-02 — no longer the original concern.** The ERP classifier is fully resolved (M9); Ansari accounts *are* reachable via a separate non-`AE` branch. What remains: the Snowflake column is a **dbt re-implementation** of the Java getter and its profiled values omit `PAYROLL_CARD` and `OVER_THE_COUNTER`. If the dbt CASE drops those branches, such accounts collapse to `''` and are invisible to Check 9. One `COUNT(*) GROUP BY ANSARI_PAYMENT_METHOD` settles it — needs O1. **The acceptance test is redefined** — no labelled diversion exists in the ERP, so it becomes a back-test over historical month pairs that P&C then labels, plus threshold calibration from the base rate (M9). Needs O1; a first-month task, not a go-live blocker | Data team + P&C |
 | O13 | **Contract as-at resolution.** D7.5 provides the dates; the exact predicate (month overlap vs start/termination bounds) and whether `CONTRACTS_HISTORY` is the better source are undecided | P&C + Client Mgmt |
 | O14 | Loan month boundary — v2 ERP code uses `< payrollEnd`, legacy uses `payrollEnd + 1 day`. Pick one | Payroll Management |
 | O16 | **Timezone of `TIMESTAMP_NTZ`.** Confirm which zone mmdb writes and apply an explicit conversion; affects M6's `RECEIVED_DATE` bound | Data team |
