@@ -1,6 +1,8 @@
-# DRAFT — DNA ticket: payroll audit data in Snowflake
+# DNA-9446 — payroll audit data in Snowflake
 
-**Not filed.** Awaiting Hassan's confirmation. One field still needs a decision (marked ❓).
+**Filed 2026-09-03:** https://jira-maids-cc.atlassian.net/browse/DNA-9446 — Data Engineering Task,
+Domain *Money Control*, OKR `4-1`, related to DNA-9437. Kept here as the source of the description
+text; edit the ticket in Jira, not this file.
 
 ---
 
@@ -12,7 +14,7 @@
 | Issue type | **Data Engineering Task** (id `10770`) — stated scope: *"SnowFlake administration, **ingestion**, security, APIs, access, and infrastructure"* |
 | Summary | **Payroll audit — ingest the two monthly payroll archived files (WPS transfer + detailed payroll) into Snowflake** |
 | Domain/Department (`customfield_11606`) | **Money Control** (`12180`) — confirmed by Hassan 2026-09-03; matches DNA-9437 |
-| OKR (`customfield_11605`) | ❓ required labels field, no value chosen yet |
+| OKR (`customfield_11605`) | `4-1` — mandatory field; picked as the most-used value on recent DNA work (15 of the last 60 days' tickets, across Core / Risk / Visa / PRO / Marketing). No Money Control ticket in that window carried an OKR at all, so there was no local precedent. The ticket says so and asks DNA to re-tag |
 | Reporter | hassan.ahmed@maids.cc |
 | Links | relates to **DNA-9437** (warehouse grant, already filed) |
 
