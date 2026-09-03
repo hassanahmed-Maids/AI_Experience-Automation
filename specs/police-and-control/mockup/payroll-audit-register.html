@@ -1,0 +1,612 @@
+<title>Payroll Critical Checks Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F2F3F6; --surface:#FFFFFF; --surface-2:#F8F9FB; --sunk:#EAECF1;
+  --line:#D8DCE5; --line-soft:#E6E9EF;
+  --ink:#12161F; --ink-2:#3D465A; --ink-3:#69738A;
+  --accent:#33478F; --accent-soft:#E7EAF6;
+  --ok:#1E7A4E; --warn:#A8820C; --fail:#C0342A; --neutral:#4A5A78;
+  --ok-bg:#E4F2EA; --warn-bg:#F6EFDC; --fail-bg:#F9E6E4; --neutral-bg:#E9ECF3;
+  --shadow:0 1px 2px rgba(18,22,31,.06), 0 6px 16px -10px rgba(18,22,31,.22);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1116; --surface:#161A22; --surface-2:#1B202A; --sunk:#12161D;
+    --line:#2A313E; --line-soft:#222833;
+    --ink:#EAEDF4; --ink-2:#AFB8CA; --ink-3:#7D8799;
+    --accent:#8FA5E8; --accent-soft:#1D2436;
+    --ok:#5FD09B; --warn:#E6C24E; --fail:#FF9080; --neutral:#A6B3CC;
+    --ok-bg:#14271F; --warn-bg:#2A2415; --fail-bg:#2E1B19; --neutral-bg:#1C2130;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1116; --surface:#161A22; --surface-2:#1B202A; --sunk:#12161D;
+  --line:#2A313E; --line-soft:#222833;
+  --ink:#EAEDF4; --ink-2:#AFB8CA; --ink-3:#7D8799;
+  --accent:#8FA5E8; --accent-soft:#1D2436;
+  --ok:#5FD09B; --warn:#E6C24E; --fail:#FF9080; --neutral:#A6B3CC;
+  --ok-bg:#14271F; --warn-bg:#2A2415; --fail-bg:#2E1B19; --neutral-bg:#1C2130;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -12px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.5; margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:22px 20px 60px; display:flex; flex-direction:column; gap:18px}
+h1,h2,h3{font-family:"Archivo",sans-serif; margin:0; text-wrap:balance; letter-spacing:-.01em}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+
+/* ── masthead ─────────────────────────────────── */
+.mast{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px;
+      padding-bottom:16px; border-bottom:2px solid var(--ink)}
+.mast h1{font-size:26px; font-weight:700; line-height:1.15}
+.eyebrow{font-family:"Archivo",sans-serif; font-size:11px; font-weight:600; letter-spacing:.14em;
+         text-transform:uppercase; color:var(--ink-3); margin-bottom:6px}
+.mast-right{display:flex; align-items:center; gap:14px}
+.period{text-align:right}
+.period .lbl{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
+.period .val{font-family:"Archivo",sans-serif; font-size:19px; font-weight:600}
+.verdict{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+         padding:9px 18px; border-radius:3px; background:var(--fail-bg);
+         border:1px solid var(--fail); border-left-width:5px}
+.verdict .word{font-family:"Archivo",sans-serif; font-size:20px; font-weight:700; color:var(--fail); line-height:1}
+.verdict .sub{font-size:10.5px; color:var(--ink-2); letter-spacing:.04em}
+
+.note{font-size:12.5px; color:var(--ink-2); background:var(--accent-soft);
+      border-left:3px solid var(--accent); padding:9px 13px; border-radius:0 3px 3px 0}
+.note b{color:var(--ink)}
+
+/* ── KPI strip ────────────────────────────────── */
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:10px}
+.kpi{background:var(--surface); border:1px solid var(--line); border-radius:4px; padding:13px 15px;
+     display:flex; flex-direction:column; gap:5px}
+.kpi .k-lbl{font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3);
+            display:flex; align-items:center; gap:6px}
+.kpi .k-lbl .mid{font-family:"IBM Plex Mono",monospace; font-size:9.5px; color:var(--ink-3);
+                 border:1px solid var(--line); border-radius:2px; padding:0 3px}
+.kpi .k-val{font-family:"Archivo",sans-serif; font-size:27px; font-weight:700; line-height:1.05;
+            font-variant-numeric:tabular-nums}
+.kpi .k-sub{font-size:11.5px; color:var(--ink-3)}
+.kpi.money{background:var(--ink); border-color:var(--ink)}
+.kpi.money .k-lbl,.kpi.money .k-sub{color:#A6B3CC}
+.kpi.money .k-lbl .mid{border-color:#3D465A; color:#A6B3CC}
+.kpi.money .k-val{color:#FFFFFF}
+:root[data-theme="dark"] .kpi.money,
+:root:not([data-theme="light"]) .kpi.money{background:var(--surface-2); border-color:var(--accent)}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .kpi.money .k-val{color:var(--ink)}
+}
+:root[data-theme="dark"] .kpi.money .k-val{color:var(--ink)}
+.kpi .k-val.c-fail{color:var(--fail)} .kpi .k-val.c-warn{color:var(--warn)}
+
+/* ── panels ───────────────────────────────────── */
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:5px; box-shadow:var(--shadow)}
+.panel-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+            padding:13px 16px; border-bottom:1px solid var(--line)}
+.panel-head h2{font-size:15px; font-weight:600}
+.panel-head .hint{font-size:11.5px; color:var(--ink-3)}
+.scroll{overflow-x:auto}
+
+table{border-collapse:collapse; width:100%; font-size:13px}
+th{font-family:"Archivo",sans-serif; font-size:10.5px; font-weight:600; letter-spacing:.08em;
+   text-transform:uppercase; color:var(--ink-3); text-align:left; padding:9px 12px;
+   background:var(--surface-2); border-bottom:1px solid var(--line); white-space:nowrap}
+td{padding:9px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+.r{text-align:right}
+
+/* ── check register ───────────────────────────── */
+.reg td:first-child{padding-left:0}
+.stripe{width:5px; padding:0!important; border-bottom:1px solid var(--line-soft)}
+.s-fail{background:var(--fail)} .s-warn{background:var(--warn)} .s-ok{background:var(--ok)}
+.s-block{background:var(--neutral)}
+.cid{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-3); font-weight:500}
+.cname{font-weight:600; color:var(--ink)}
+.cwhy{font-size:11.5px; color:var(--ink-3); margin-top:2px; max-width:46ch}
+.badge{display:inline-flex; align-items:center; gap:5px; font-family:"Archivo",sans-serif;
+       font-size:10px; font-weight:700; letter-spacing:.08em; padding:2px 7px; border-radius:2px;
+       border:1px solid; white-space:nowrap}
+.b-ok{color:var(--ok); background:var(--ok-bg); border-color:var(--ok)}
+.b-fail{color:var(--fail); background:var(--fail-bg); border-color:var(--fail)}
+.b-warn{color:var(--warn); background:var(--warn-bg); border-color:var(--warn)}
+.b-block{color:var(--neutral); background:var(--neutral-bg); border-color:var(--neutral)}
+.bar{width:7px;height:2px;background:currentColor;box-shadow:0 3px 0 currentColor;flex:none}
+.dot{width:6px; height:6px; border-radius:50%; background:currentColor; flex:none}
+.tri{width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;
+     border-bottom:6px solid currentColor; flex:none}
+.sq{width:6px;height:6px;background:currentColor;flex:none}
+.metric{font-family:"IBM Plex Mono",monospace; font-size:12.5px; font-variant-numeric:tabular-nums}
+.thresh{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-3)}
+
+/* ── sparkline ────────────────────────────────── */
+.sparkwrap{display:block; line-height:0}
+.sparkwrap svg{display:block}
+.nospark{font-size:10.5px; color:var(--ink-3); font-style:italic; white-space:nowrap}
+.delta{font-family:"IBM Plex Mono",monospace; font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap}
+.d-good{color:var(--ok)} .d-bad{color:var(--fail)} .d-flat{color:var(--ink-3)}
+.numden{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-2); white-space:nowrap}
+.numden .sep{color:var(--ink-3)}
+.sparkkey{display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:10px 16px;
+          border-top:1px solid var(--line); font-size:11.5px; color:var(--ink-3)}
+.sparkkey span{display:inline-flex; align-items:center; gap:5px}
+.kline{width:16px;height:2px;background:var(--accent)}
+.kthr{width:16px;height:0;border-top:1.5px dashed var(--ink-3)}
+.kgap{width:16px;height:0;border-top:2px dotted var(--neutral)}
+
+/* ── exceptions ───────────────────────────────── */
+.exc{max-height:390px; overflow:auto}
+.exc thead th{position:sticky; top:0; z-index:2}
+.subj{font-family:"IBM Plex Mono",monospace; font-weight:500; white-space:nowrap}
+.rule{font-size:12px; color:var(--ink-2); max-width:30ch}
+.detail{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-2); white-space:nowrap}
+.arrow{color:var(--fail); font-weight:600}
+.type-chip{font-size:10px; font-family:"Archivo",sans-serif; font-weight:600; letter-spacing:.06em;
+           padding:1px 5px; border:1px solid var(--line); border-radius:2px; color:var(--ink-3)}
+.amt{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap}
+.dash{color:var(--ink-3)}
+
+/* ── bottom row ───────────────────────────────── */
+.duo{display:grid; grid-template-columns:1.05fr .95fr; gap:18px; align-items:start}
+@media (max-width:880px){.duo{grid-template-columns:1fr}}
+.tie{padding:14px 16px; display:flex; flex-direction:column; gap:12px}
+.tie-row{display:flex; flex-direction:column; gap:4px; padding-bottom:11px; border-bottom:1px dashed var(--line)}
+.tie-row:last-child{border-bottom:none; padding-bottom:0}
+.tie-name{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+.tie-eq{font-family:"IBM Plex Mono",monospace; font-size:12.5px; font-variant-numeric:tabular-nums;
+        display:flex; flex-wrap:wrap; gap:5px; align-items:center}
+.tie-eq .op{color:var(--ink-3)}
+.tie-ok{color:var(--ok); font-weight:600} .tie-bad{color:var(--warn); font-weight:600}
+
+.chart{padding:14px 16px 10px}
+.bars{display:flex; flex-direction:column; gap:7px}
+.bar-row{display:grid; grid-template-columns:120px 1fr 34px; align-items:center; gap:9px}
+.bar-lbl{font-size:11.5px; color:var(--ink-2); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.bar-track{height:13px; background:var(--sunk); border-radius:2px; position:relative}
+.bar-fill{height:100%; border-radius:2px 4px 4px 2px; min-width:2px}
+.bar-fill.zero{background:var(--line); width:3px!important; border-radius:2px}
+.bar-val{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-variant-numeric:tabular-nums; color:var(--ink-2)}
+.axis{display:grid; grid-template-columns:120px 1fr 34px; gap:9px; margin-top:9px;
+      padding-top:7px; border-top:1px solid var(--line)}
+.ticks{display:flex; justify-content:space-between; font-family:"IBM Plex Mono",monospace;
+       font-size:10px; color:var(--ink-3); grid-column:2}
+
+/* ── controls & footer ────────────────────────── */
+.bar-controls{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+.ctl{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2);
+     background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:5px 10px}
+.ctl .cap{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+.ctl.act{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
+.spacer{flex:1}
+.btn{font-family:"Archivo",sans-serif; font-size:11.5px; font-weight:600; letter-spacing:.04em;
+     color:var(--surface); background:var(--ink); border:1px solid var(--ink);
+     border-radius:3px; padding:6px 13px; cursor:pointer}
+:root[data-theme="dark"] .btn,
+:root:not([data-theme="light"]) .btn{color:var(--paper)}
+.btn:focus-visible,.ctl:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.prov{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3); line-height:1.7;
+      border-top:1px solid var(--line); padding-top:12px; word-break:break-word}
+.prov b{color:var(--ink-2); font-weight:500}
+.mockup{font-size:11.5px; color:var(--ink-3); font-style:italic}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <div class="eyebrow">Police &amp; Control · Monthly payroll release gate</div>
+      <h1>Housemaid Payroll Critical Checks</h1>
+    </div>
+    <div class="mast-right">
+      <div class="period">
+        <div class="lbl">Audit month</div>
+        <div class="val mono">2026-07</div>
+      </div>
+      <div class="verdict">
+        <div class="word">FAIL</div>
+        <div class="sub">3 failed · 3 blocked · 7 of 10 evaluated</div>
+      </div>
+    </div>
+  </header>
+
+  <p class="note"><b>Mockup, not live data.</b> Every figure below is synthetic and illustrative —
+  no value belongs to a real person. It shows a realistic mid-transition month: <b>N2 has landed</b>
+  (so M6 and M10 run), while N1, N4 and N6 are still outstanding — those three checks render
+  <b>BLOCKED</b>, which by the four-state rule does <i>not</i> fail the month. The month is FAIL
+  here because three checks genuinely failed. With no failures and no skips it would read
+  <b>Partial — 7 of 10 evaluated</b>, never a bare Pass. Each check carries a 13-month trend; M4's starts in 2026-01 because the approved model does, and M5 has none at all. Metric IDs
+  (<span class="mono">M1</span>–<span class="mono">M10</span>) match the spec.</p>
+
+  <section class="kpis">
+    <div class="kpi">
+      <div class="k-lbl">Month result</div>
+      <div class="k-val c-fail">FAIL</div>
+      <div class="k-sub">3 failed · 7 of 10 evaluated</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Checks failed</div>
+      <div class="k-val c-fail">3</div>
+      <div class="k-sub">of 10 · M8, M9, M10</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Could not run</div>
+      <div class="k-val c-warn">0</div>
+      <div class="k-sub">Skipped — none this month</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Blocked</div>
+      <div class="k-val" style="color:var(--neutral)">3</div>
+      <div class="k-sub">M4b·N4 &nbsp;M5·N1 &nbsp;M7b CC·N6</div>
+    </div>
+    <div class="kpi">
+      <div class="k-lbl">Exceptions to work</div>
+      <div class="k-val">382</div>
+      <div class="k-sub">341 · 37 · 4 across M10/M8/M9</div>
+    </div>
+    <div class="kpi money">
+      <div class="k-lbl">Uncollected receivable <span class="mid">M10</span></div>
+      <div class="k-val">784,300</div>
+      <div class="k-sub">AED · 300 not received + 41 no payment</div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Check register</h2>
+      <span class="hint">Check order, so a reader can confirm all ten are accounted for · each row
+        expands to the full monthly series</span>
+    </div>
+    <div class="scroll">
+      <table class="reg">
+        <thead>
+          <tr>
+            <th class="stripe" style="background:var(--surface-2)"></th>
+            <th style="min-width:250px">Check</th>
+            <th>Status</th>
+            <th>Headline metric</th>
+            <th>Numerator / denominator</th>
+            <th>Threshold</th>
+            <th style="min-width:126px">13-month trend</th>
+            <th class="r">vs last mo.</th>
+            <th class="r">Exceptions</th>
+          </tr>
+        </thead>
+        <tbody id="regbody"></tbody>
+      </table>
+    </div>
+    <div class="sparkkey">
+      <span><i class="kline"></i> metric</span>
+      <span><i class="kthr"></i> threshold</span>
+      <span><i class="kgap"></i> months the check did not run — shown as gaps, never as zero</span>
+      <span>Endpoint is the selected month, coloured by its state.</span>
+      <span>vs last mo. is coloured by whether the move is <em>good</em>, not by its sign.</span>
+    </div>
+  </section>
+
+  <div class="bar-controls">
+    <span class="ctl act"><span class="cap">Month</span> <span class="mono">2026-07</span> ▾</span>
+    <span class="ctl"><span class="cap">Trend</span> 13 months</span>
+    <span class="ctl"><span class="cap">Check</span> All</span>
+    <span class="ctl"><span class="cap">Type</span> CC + MV</span>
+    <span class="ctl act"><span class="cap">Status</span> Open only</span>
+    <span class="ctl act"><span class="cap">Severity</span> Red + amber</span>
+    <span class="spacer"></span>
+    <button class="btn" type="button">Export CSV</button>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Exceptions to work</h2>
+      <span class="hint">Sorted by amount involved, then detected date · 94 rows, 8 shown ·
+        accounts masked · no MOHRE ID, no individual salary</span>
+    </div>
+    <div class="scroll exc">
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th><th>Rule breached</th><th>Subject</th><th>Case ref</th>
+            <th>Type</th><th>Detail</th><th class="r">Amount (AED)</th><th>Detected</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M10</span></td>
+            <td class="rule">CC contract on payroll with no client payment received</td>
+            <td class="subj">Contr-118432</td><td class="mono">PC-2607-0101</td>
+            <td><span class="type-chip">CC</span></td>
+            <td class="detail">no payment · Aug window closed</td>
+            <td class="r amt">2,300</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M10</span></td>
+            <td class="rule">CC contract on payroll with no client payment received</td>
+            <td class="subj">Contr-121077</td><td class="mono">PC-2607-0102</td>
+            <td><span class="type-chip">CC</span></td>
+            <td class="detail">no payment · Aug window closed</td>
+            <td class="r amt">2,300</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M10</span></td>
+            <td class="rule">CC contract payment bounced and not re-presented</td>
+            <td class="subj">Contr-119904</td><td class="mono">PC-2607-0103</td>
+            <td><span class="type-chip">CC</span></td>
+            <td class="detail">status BOUNCED · 2026-08-15</td>
+            <td class="r amt">2,100</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
+            <td class="rule">Normal bank IBAN changed to du Pay</td>
+            <td class="subj">Maid #4471</td><td class="mono">PC-2607-0441</td>
+            <td><span class="type-chip">CC</span></td>
+            <td class="detail">BANK_TRANSFER ••••4417 <span class="arrow">→</span> DU_PAY_CARD ••••9902</td>
+            <td class="r dash">—</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
+            <td class="rule">du Pay changed to a different du Pay account</td>
+            <td class="subj">Maid #5188</td><td class="mono">PC-2607-0442</td>
+            <td><span class="type-chip">MV</span></td>
+            <td class="detail">DU_PAY_CARD ••••1120 <span class="arrow">→</span> DU_PAY_CARD ••••7734</td>
+            <td class="r dash">—</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
+            <td class="rule">Ansari changed to a different Ansari account</td>
+            <td class="subj">Maid #2903</td><td class="mono">PC-2607-0443</td>
+            <td><span class="type-chip">CC</span></td>
+            <td class="detail">ANSARI_VISA_CARD ••••0031 <span class="arrow">→</span> ANSARI_VISA_CARD ••••0088</td>
+            <td class="r dash">—</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M9</span></td>
+            <td class="rule">Normal bank IBAN changed to Ansari</td>
+            <td class="subj">Maid #6742</td><td class="mono">PC-2607-0444</td>
+            <td><span class="type-chip">MV</span></td>
+            <td class="detail">BANK_TRANSFER ••••2210 <span class="arrow">→</span> ANSARI_VISA_CARD ••••0177</td>
+            <td class="r dash">—</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fail"><i class="sq"></i>M8</span></td>
+            <td class="rule">Paid date outside the payroll month it is booked to</td>
+            <td class="subj">Maid #3310</td><td class="mono">PC-2607-0518</td>
+            <td><span class="type-chip">CC</span></td>
+            <td class="detail">paid 2026-06-28 · booked 2026-07</td>
+            <td class="r dash">—</td><td class="mono">2026-08-07</td>
+            <td><span class="badge b-fail"><i class="dot"></i>OPEN</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="duo">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Tie-out</h2>
+        <span class="hint">A broken identity is itself an exception</span>
+      </div>
+      <div class="tie">
+        <div class="tie-row">
+          <div class="tie-name">1 · Population</div>
+          <div class="tie-eq">
+            <span>5,754 CC</span><span class="op">+</span><span>19,659 MV</span>
+            <span class="op">+</span><span>0 unclassified</span>
+            <span class="op">=</span><span>25,413 rows</span>
+            <span class="tie-ok">✓ holds</span>
+          </div>
+        </div>
+        <div class="tie-row">
+          <div class="tie-name">2 · Contract buckets (M10)</div>
+          <div class="tie-eq">
+            <span>5,061 received</span><span class="op">+</span><span>300 not received</span>
+            <span class="op">+</span><span>41 no payment</span>
+            <span class="op">=</span><span>5,402 contracts</span>
+            <span class="tie-ok">✓ holds</span>
+          </div>
+        </div>
+        <div class="tie-row">
+          <div class="tie-name">3 · Wage bill vs WPS (second source)</div>
+          <div class="tie-eq">
+            <span>40,500,000 payroll</span><span class="op">−</span><span>40,486,150 WPS</span>
+            <span class="op">=</span><span>13,850</span>
+            <span class="tie-bad">△ variance</span>
+          </div>
+          <div class="cwhy">22 maids present on one side only — raised as data-quality exceptions.
+            This tie-out did not exist in the n8n flow.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Exceptions by rule</h2>
+        <span class="hint">Counts sum to 382</span>
+      </div>
+      <div class="chart">
+        <div class="bars" id="bars"></div>
+        <div class="axis"><div class="ticks"><span>0</span><span>100</span><span>200</span><span>300</span></div></div>
+      </div>
+    </section>
+  </div>
+
+  <p class="prov">
+    <b>Sources:</b> HOUSEMAID_PAYROLL_HISTORY · HOUSEMAIDS_INFO · WPS_RECORDS ·
+    HOUSEMAID_OUTSTANDING_BALANCE_DETAILS · CLIENT_MANAGEMENT_PAYMENTS · BI_PAYROLL_* (approved)
+    <br><b>Audit month:</b> 2026-07 &nbsp;·&nbsp; <b>Payroll locked:</b> 2026-08-05 18:20 Gulf &nbsp;·&nbsp; <b>Data as of:</b> 2026-08-07 06:00 Gulf
+    &nbsp;·&nbsp; <b>Spec:</b> SPEC_housemaid_payroll_critical_checks_v2
+    <br><span class="mockup">Illustrative mockup — synthetic values throughout. Delivered as a link;
+    the report body is never emailed.</span>
+  </p>
+</div>
+
+<script>
+(function(){
+  // 13 audit months ending at the selected one. null = check did not run that month.
+  var CHECKS = [
+    {k:"M1", name:"Duplicate MOHRE IDs", why:"No two payroll rows may share an employee unique ID",
+     state:"ok", metric:"0 duplicates", nd:["0","25,413 rows"], thr:"= 0", exc:"0",
+     series:[0,0,1,0,0,0,0,2,0,0,0,0,0], threshold:0, lowerBetter:true, unit:"", dp:0},
+    {k:"M2", name:"CC maids without a client", why:"Unplaced CC maids cost money whether deployed or not",
+     state:"ok", metric:"3.70%", nd:["213","5,754 CC maids"], thr:"\u2264 5.00%", exc:"0",
+     series:[4.1,4.3,3.9,4.6,4.2,3.8,4.0,4.4,4.1,3.9,3.7,3.8,3.70], threshold:5, lowerBetter:true, unit:"pp", dp:2},
+    {k:"M3", name:"CC wage-bill movement", why:"Month-over-month change in total CC payroll",
+     state:"ok", metric:"+AED 170,000", nd:["12.48M","12.31M prior"], thr:"\u2264 +300k", exc:"0",
+     series:[120,-40,210,95,180,-15,260,140,90,175,-60,205,170], threshold:300, lowerBetter:true, unit:"k", dp:0},
+    {k:"M4", name:"Loan recovery", why:"M4a (approved) renders; M4b waits on the REPAYMENTS ledger \u2014 N4",
+     state:"block", metric:"M4a 91.07% \u00b7 M4b \u2014", nd:["2,277,900","2,501,355 collectable"], thr:"M4b \u2265 25.00%", exc:"\u2014",
+     series:[null,null,null,null,null,91.1,88.4,90.2,92.6,89.8,91.5,90.9,91.07], threshold:null, lowerBetter:false, unit:"pp", dp:2,
+     gapNote:"approved model starts 2026-01"},
+    {k:"M5", name:"Accommodation-day earnings", why:"Waits on grp1/2/5/6 projected into the payroll model \u2014 N1",
+     state:"block", metric:"a \u2014 b \u2014 c \u2014", nd:["\u2014","\u2014"], thr:"all \u2265 1.00%", exc:"\u2014",
+     series:[null,null,null,null,null,null,null,null,null,null,null,null,null], threshold:1, lowerBetter:false, unit:"pp", dp:2,
+     gapNote:"never ingested"},
+    {k:"M6", name:"MV wages vs client receipts", why:"Receipts AED 33.4M, clear of the AED 2.8M plausibility floor",
+     state:"ok", metric:"83.89%", nd:["28.02M wages","33.40M receipts"], thr:"\u2264 90.00%", exc:"0",
+     series:[82.1,83.4,81.9,84.2,83.0,85.1,82.7,83.9,84.5,83.2,82.8,84.0,83.89], threshold:90, lowerBetter:true, unit:"pp", dp:2},
+    {k:"M7", name:"Previously unpaid salaries", why:"MV arm ran; CC arm waits on the arrears definition \u2014 O12 / N6",
+     state:"block", metric:"MV 0.42% \u00b7 CC \u2014", nd:["118,470","28.02M MV paid"], thr:"both \u2264 1.00%", exc:"0",
+     series:[0.31,0.38,0.29,0.44,0.35,0.41,0.33,0.39,0.46,0.36,0.40,0.37,0.42], threshold:1, lowerBetter:true, unit:"pp", dp:2},
+    {k:"M8", name:"Pay period correctness", why:"Paid date must fall in the window for the period it claims",
+     state:"fail", metric:"37 rows off-period", nd:["37","25,413 rows"], thr:"= 0", exc:"37",
+     series:[4,7,3,12,5,9,6,18,8,11,22,15,37], threshold:0, lowerBetter:true, unit:"", dp:0},
+    {k:"M9", name:"Bank-account diversion", why:"4 red-flag transitions out of 29 account changes",
+     state:"fail", metric:"4 red flags", nd:["4","24,180 compared"], thr:"= 0", exc:"4",
+     series:[1,0,2,1,3,0,1,2,1,0,2,1,4], threshold:0, lowerBetter:true, unit:"", dp:0},
+    {k:"M10", name:"CC contract payment reconciliation", why:"Contract side from SALES_SILVER.CONTRACTS; payments via N2",
+     state:"fail", metric:"6.31% uncollected", nd:["341","5,402 contracts"], thr:"\u2264 5.00%", exc:"341",
+     series:[4.2,4.6,4.1,5.3,4.8,4.4,5.1,4.9,5.5,5.2,5.8,6.0,6.31], threshold:5, lowerBetter:true, unit:"pp", dp:2}
+  ];
+
+  var STATE = {
+    ok:    {badge:"b-ok",    stripe:"s-ok",    icon:"dot", label:"OK",      col:"var(--ok)"},
+    fail:  {badge:"b-fail",  stripe:"s-fail",  icon:"sq",  label:"FAIL",    col:"var(--fail)"},
+    block: {badge:"b-block", stripe:"s-block", icon:"bar", label:"BLOCKED", col:"var(--neutral)"},
+    warn:  {badge:"b-warn",  stripe:"s-warn",  icon:"tri", label:"SKIPPED", col:"var(--warn)"}
+  };
+
+  function esc(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;"); }
+
+  // One line, its own scale, threshold as a reference line, emphasised endpoint.
+  // Months the check did not run are gaps carrying the state colour - never zero.
+  function spark(c){
+    var W=118, H=30, pad=4, n=c.series.length;
+    var real = c.series.filter(function(v){ return v !== null; });
+    if(!real.length){
+      return '<span class="nospark">no data \u00b7 ' + esc(c.gapNote || "not run") + '</span>';
+    }
+    var lo = Math.min.apply(null, real), hi = Math.max.apply(null, real);
+    if(c.threshold !== null){ lo = Math.min(lo, c.threshold); hi = Math.max(hi, c.threshold); }
+    if(lo === hi){ lo -= 1; hi += 1; }
+    var span = hi - lo;
+    var X = function(i){ return pad + i*(W-2*pad)/(n-1); };
+    var Y = function(v){ return H-pad - (v-lo)/span*(H-2*pad); };
+
+    var segs=[], cur=[];
+    for(var i=0;i<n;i++){
+      if(c.series[i]===null){ if(cur.length){segs.push(cur); cur=[];} }
+      else cur.push([X(i), Y(c.series[i])]);
+    }
+    if(cur.length) segs.push(cur);
+
+    var out='';
+    // gap runs, drawn on the baseline in the state colour
+    var g=null;
+    for(var i=0;i<=n;i++){
+      if(i<n && c.series[i]===null){ if(g===null) g=i; }
+      else if(g!==null){
+        out += '<line x1="'+X(g).toFixed(1)+'" y1="'+(H-pad)+'" x2="'+X(i-1).toFixed(1)+'" y2="'+(H-pad)+
+               '" stroke="'+STATE[c.state].col+'" stroke-width="2" stroke-dasharray="1 3" stroke-linecap="round" fill="none"/>';
+        g=null;
+      }
+    }
+    if(c.threshold !== null){
+      var ty = Y(c.threshold).toFixed(1);
+      out += '<line x1="0" y1="'+ty+'" x2="'+W+'" y2="'+ty+'" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="3 3" fill="none" opacity="0.7"/>';
+    }
+    segs.forEach(function(seg){
+      if(seg.length===1){
+        out += '<circle cx="'+seg[0][0].toFixed(1)+'" cy="'+seg[0][1].toFixed(1)+'" r="2" fill="var(--accent)"/>';
+        return;
+      }
+      var d = seg.map(function(p,j){ return (j?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1); }).join(" ");
+      out += '<path d="'+d+' L'+seg[seg.length-1][0].toFixed(1)+' '+(H-pad)+' L'+seg[0][0].toFixed(1)+' '+(H-pad)+' Z" fill="var(--accent)" opacity="0.10" stroke="none"/>';
+      out += '<path d="'+d+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    });
+    var last = segs[segs.length-1], e = last[last.length-1];
+    out += '<circle cx="'+e[0].toFixed(1)+'" cy="'+e[1].toFixed(1)+'" r="3.6" fill="'+STATE[c.state].col+'" stroke="var(--surface)" stroke-width="2"/>';
+
+    return '<span class="sparkwrap"><svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" ' +
+           'aria-label="'+esc(c.k)+' over 13 months, latest '+esc(c.metric)+'"><title>'+esc(c.k)+' \u2014 13-month trend</title>'+out+'</svg></span>';
+  }
+
+  function delta(c){
+    var s=c.series, n=s.length;
+    if(s[n-1]===null || s[n-2]===null || s[n-2]===undefined) return '<span class="delta d-flat">\u2014</span>';
+    var d = s[n-1]-s[n-2];
+    var better = c.lowerBetter ? d < 0 : d > 0;
+    var cls = Math.abs(d) < 1e-9 ? "d-flat" : (better ? "d-good" : "d-bad");
+    var sign = d > 0 ? "+" : (d < 0 ? "\u2212" : "");
+    var mag = Math.abs(d).toFixed(c.dp);
+    if(c.unit === "k") mag = Math.abs(d).toFixed(0) + "k";
+    else if(c.unit) mag = mag + " " + c.unit;
+    return '<span class="delta '+cls+'">'+sign+mag+'</span>';
+  }
+
+  document.getElementById("regbody").innerHTML = CHECKS.map(function(c){
+    var st = STATE[c.state];
+    return '<tr>' +
+      '<td class="stripe '+st.stripe+'"></td>' +
+      '<td><span class="cid">'+c.k+'</span> <span class="cname">'+esc(c.name)+'</span>' +
+        '<div class="cwhy">'+esc(c.why)+'</div></td>' +
+      '<td><span class="badge '+st.badge+'"><i class="'+st.icon+'"></i>'+st.label+'</span></td>' +
+      '<td class="metric">'+esc(c.metric)+'</td>' +
+      '<td class="numden">'+esc(c.nd[0])+' <span class="sep">/</span> '+esc(c.nd[1])+'</td>' +
+      '<td class="thresh">'+esc(c.thr)+'</td>' +
+      '<td>'+spark(c)+'</td>' +
+      '<td class="r">'+delta(c)+'</td>' +
+      '<td class="r metric">'+esc(c.exc)+'</td>' +
+    '</tr>';
+  }).join("");
+})();
+</script>
+
+<script>
+(function(){
+  var data = [
+    {k:"M10 · No client payment",  v:41},
+    {k:"M8 · Off-period pay date", v:37},
+    {k:"M10 · Payment not received", v:300},
+    {k:"M9 · Account diversion",   v:4},
+    {k:"M1 · Duplicate MOHRE ID",  v:0},
+    {k:"M2 · CC without client",   v:0},
+    {k:"M3 · Wage-bill movement",  v:0},
+    {k:"M7 · Arrears",             v:0}
+  ];
+  var max = 300, host = document.getElementById("bars"), html = "";
+  data.forEach(function(d){
+    var pct = (d.v / max) * 100;
+    var zero = d.v === 0;
+    html += '<div class="bar-row">'
+          +   '<div class="bar-lbl">' + d.k + '</div>'
+          +   '<div class="bar-track"><div class="bar-fill' + (zero ? ' zero' : '') + '" style="width:'
+          +     pct + '%;' + (zero ? '' : 'background:var(--accent)') + '"></div></div>'
+          +   '<div class="bar-val">' + d.v + '</div>'
+          + '</div>';
+  });
+  host.innerHTML = html;
+})();
+</script>

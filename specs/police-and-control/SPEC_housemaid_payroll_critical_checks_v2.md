@@ -1031,7 +1031,12 @@ shows, not a privileged wider extract.
 
 **Mockup.** https://claude.ai/code/artifact/5ffa76cd-ac5c-4517-a6ed-c3dfdd0e9924 — synthetic
 throughout. It renders the expected day-one state (several checks `SKIPPED` pending N1/N2/N4/N6)
-Republished 2026-09-03 for the four-state decision: it now shows a realistic mid-transition month
+Source kept at `mockup/payroll-audit-register.html`. Republished 2026-09-03 with the 13-month
+sparklines: one line per check on its own scale, threshold drawn as a dashed reference, the
+selected month as the emphasised endpoint coloured by state, and months the check did not run
+rendered as dotted gaps in that state's colour rather than as zero. M4's series starts in 2026-01
+because the approved model does; M5 has none at all and says so. Also republished for the
+four-state decision: it now shows a realistic mid-transition month
 — N2 landed (M6 and M10 run), N1/N4/N6 outstanding (M4, M5 and M7 render `BLOCKED` in grey, which
 does not fail the month). The month is FAIL because three checks genuinely failed; with no
 failures and no skips it would read `Partial — 7 of 10 evaluated`. The KPI strip carries skipped
