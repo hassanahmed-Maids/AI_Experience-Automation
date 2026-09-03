@@ -48,6 +48,24 @@ no backfill — the history back to 2020-07-01 comes with them.**
 | `HOUSEMAID_PAYROLL_BEAN_ID` | Join key to `HOUSEMAIDPAYROLLBEANS` (section C) |
 | **`SALARY_TYPE`** | **CC / MV, snapshotted at payroll time.** This matters more than it looks — see below |
 | **`HOUSEMAID_UNPAID_STATUS`** | The per-row reason a salary was excluded from the run. Check 7 |
+| **`PAY_START_DATE`** | **The Ansari file's "Pay Start Date" — see below, it reopens check 8** |
+| **`PAY_END_DATE`**, **`DAYS_IN_PERIOD`** | The pay period the row was paid for |
+| `RECORD_TYPE`, `SN`, `AGENT_ID`, `EMPLOYEE_NAME` | The remaining Ansari/WPS row identity columns |
+
+**These are the Ansari file.** Confirmed from `TransferFilesService.generateWPSTransferFile()`: the
+per-employee EDR row is 19 columns, and the first ten come almost entirely from
+`HOUSEMAIDPAYROLLLOGS` — `SN`, `RECORD_TYPE`, `EMPLOYEE_UNIQUE_ID`, `EMPLOYEE_NAME`, `AGENT_ID`,
+`EMPLOYEE_ACCOUNT_WITH_AGENT`, `PAY_START_DATE`, `PAY_END_DATE`, `DAYS_IN_PERIOD`, and Income Fixed
+Component = `TOTAL_SALARY`. (`NEWREQUESTS` supplies the banking fields as a fallback when the log's
+copy is blank; `HOUSEMAIDS` supplies the name.) Columns 11–19 are a literal `"0"` and eight empty
+allowance fields. **So the spreadsheet the retired flow depended on is reconstructable from one
+table**, which is the strongest argument for ingesting this set.
+
+⚠ **`PAY_START_DATE` matters more than its neighbours.** The file writes it when populated and
+falls back to the 1st of `PAYROLL_MONTH` only when null. The audit check that tests it is therefore
+*not* redundant with `PAYROLL_MONTH` — it is only redundant when the column is empty. Please
+include it, and tell us how often it is non-null; that single fact decides whether one of the ten
+checks is real or vacuous.
 
 **Why `SALARY_TYPE` is the important one.** Six of the ten checks partition the population into CC
 and MV. Today the warehouse can only answer that from *current state* — `HOUSEMAIDS.HOUSEMAID_TYPE`
@@ -156,6 +174,37 @@ Optional companion: `HOUSEMAIDBALANCESHISTORIES.PREVIOUS_UNPAID_DEDUCTION_BALANC
 
 ---
 
+### C5 · Archived payroll and Ansari files — `ATTACHMENTS` and `MONTHLYPAYROLLDOCUMENTS`
+
+The ERP screen at `/payroll/v2/payroll-archived-files` retrieves the generated files themselves
+(endpoint `POST /payroll/accountantTodo/fetchPayrollFile`, which emails them to the requester).
+**The file bytes are persisted, not just metadata** — stored via `Storage.storeTemporary` in object
+storage, with a row in `ATTACHMENTS` pointing at them. There are two separate paths:
+
+| File | Owning table | How it is found | Month | Type discriminator |
+| --- | --- | --- | --- | --- |
+| WPS transfer, local transfer, detailed audit | `PAYROLLACCOUNTANTTODOS` | `ATTACHMENTS.OWNER_TYPE = 'PayrollAccountantTodo'`, `OWNER_ID` → the completed todo | `PAYROLLACCOUNTANTTODOS.PAYROLL_MONTH`, and `MONTHLYPAYMENTRULES.PAYROLL_MONTH` | `ATTACHMENTS.TAG` ∈ `WPSTransferFile`, `LocalTransferFile`, `HousemaidDetailedPayrollFile` |
+| **Ansari payment work order (PWO)** | `MONTHLYPAYROLLDOCUMENTS` | its own `attachments` relation | `PAYROLL_DATE` | `TYPE = 'PPWO'` |
+
+`ATTACHMENTS` columns: `ID`, `NAME`, `SIZE`, `EXTENSION`, `PATH`, `TAG`, `OWNER_TYPE`, `OWNER_ID`,
+`UNIQUE_TAG`, `AMAZON`, `_SOURCE`, plus the usual audit columns.
+`MONTHLYPAYROLLDOCUMENTS` additionally carries **`FILE_HASH`** — an MD5 checksum of the generated
+file.
+
+**Why this is worth ingesting even though the underlying rows are available.** Everything else in
+this document reconstructs what *should* have been paid from the payroll tables. These rows record
+what was *actually generated and sent*, with a checksum. That makes two things possible that no
+reconstruction can: proving the file that reached Al Ansari matches the payroll the ERP holds, and
+detecting a payroll month whose file was regenerated after the fact.
+
+**We are not asking for the file contents in the warehouse** — only the metadata rows
+(`ATTACHMENTS` and `MONTHLYPAYROLLDOCUMENTS`), so the dashboard can show that a file exists for
+each payroll month, when it was created, and whether its hash changed. Ingesting payroll file
+*bodies* would put 25k unredacted salary rows per month into the warehouse, which is the exposure
+the whole migration exists to remove.
+
+---
+
 ## D. Existing model, one missing row type
 
 `BA_VIEWS.CLIENT_MANAGEMENT_SILVER.CLIENT_MANAGEMENT_PAYMENTS` is built from **`PAYMENTS`**, but
@@ -217,6 +266,10 @@ Neither is a data request; both surfaced while tracing the above.
    **not in the audited field set**. There is also no approval step, no permission check, and no
    validation on it (unconstrained `@Column String`; payroll only tests non-empty). Nobody can say
    who changed a maid's payment account, when, or from what.
-2. **The MOL company number is a hardcoded literal.** `"720610101"`, written into the WPS transfer
-   file's SCR summary row by `TransferFilesService.generateWPSTransferFile()` and **duplicated** in
-   `PaymentWorkOrderController` for the Ansari PWO file. Not a table, not a config constant.
+2. **Two hardcoded literals in the WPS file's SCR summary row**, neither in a table or a config
+   constant: **MOL Company Number `"0000000836318"`** (column 3) and **Routing Bank Code
+   `"720610101"`** (column 4), both written by
+   `TransferFilesService.generateWPSTransferFile()`.
+   *(Correcting an earlier reading of ours that had `720610101` as the MOL number — a first, less
+   detailed answer conflated the two. `0000000836318` is the MOL company number, and it matches
+   the value the retired n8n flow already guarded against.)*

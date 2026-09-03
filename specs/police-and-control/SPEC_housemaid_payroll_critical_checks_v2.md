@@ -183,6 +183,7 @@ measured.** See O1.
 | D7.7 | Hygiene flags | ↑ | `FAKE` (`BOOLEAN`), `IGNORE_IN_REPORTING` (`NUMBER` `0/1`) | — | **Both must be filtered** — §1 |
 | D7.8 | Live-out flag | ↑ | `IS_LIVE_OUT` | — | ⚠ **`VARCHAR`, values `'00'`/`'01'` — not a boolean.** `WHERE IS_LIVE_OUT = TRUE` matches nothing and raises no error |
 | D8 | Contract history | `BA_VIEWS.SALES_SILVER.CONTRACTS_HISTORY` | — | — | Alternative as-at source for D7.5. **Columns not yet inspected — O13** |
+| D9 | **The generated payroll and Ansari files themselves** *(new 2026-09-03)* | ERP `ATTACHMENTS` (owner `PayrollAccountantTodo`, `TAG` ∈ `WPSTransferFile` / `LocalTransferFile` / `HousemaidDetailedPayrollFile`) and `MONTHLYPAYROLLDOCUMENTS` (`TYPE = 'PPWO'`, the Ansari payment work order, with `FILE_HASH`) | metadata only | one row per generated file | **Not in Snowflake.** Surfaced by `/payroll/v2/payroll-archived-files` → `POST /payroll/accountantTodo/fetchPayrollFile`. File bytes live in object storage; only the metadata is wanted — see the new tie-out below |
 
 **The D1.3 / D1.4 name inversion — read before writing any salary metric.** In this view
 `NET_SALARY` is the **net** figure (sourced from `mmdb…TOTAL_SALARY`) and `TOTAL_SALARY` is the
@@ -724,11 +725,23 @@ lets P&C work a case.
   employee type), each with its own `PAYMENT_DATE`. The comparison must pick the rule that applies
   to the maid's row, not an arbitrary one. Needs `MONTHLYPAYMENTRULES` ingested (C2).
 - **Inputs.** D1.2, D1.9, D4 (`PAYROLL_DATE`), D2.4.
-- **Mapping note — this check's meaning changes, and the change is an improvement.** In the
-  spreadsheet this was `Pay Start Date`. In Snowflake `PAYROLL_MONTH` is the first day of the
-  month by construction, so a literal port is tautological and would always pass — a green tick
-  testing nothing. Instead compare **`PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE`
-  against `PAYROLL_MONTH`**. **O2 — needs P&C sign-off.**
+- **Mapping note — revised 2026-09-03, and the earlier reading was too pessimistic.** v2 said a
+  literal port was tautological because `PAYROLL_MONTH` is the first of the month by construction.
+  That was right about `PAYROLL_MONTH` and wrong about the check: the ERP has a real
+  **`HOUSEMAIDPAYROLLLOGS.PAY_START_DATE`** column, and the Ansari/WPS file writes it when
+  populated, falling back to the 1st of `PAYROLL_MONTH` only when null. The Snowflake model simply
+  does not project it. So:
+
+  | | |
+  | --- | --- |
+  | **M8a — the original check, ported literally** | `PAY_START_DATE` must equal the first day of `PAYROLL_MONTH`. Genuine wherever the column is populated, vacuous wherever it is null — **so the report must display how many rows had a non-null `PAY_START_DATE`**, or a green tick is unreadable |
+  | **M8b — the payment-window check** | `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` fall within `[1st of M, PAYMENT_DATE + grace]` |
+
+  These are complementary, not alternatives: M8a tests the period the row *claims*, M8b tests when
+  the money *moved*. **O2 now asks P&C to confirm both, and asks Payroll how often
+  `PAY_START_DATE` is populated** — that one fact decides whether M8a is a real control.
+- **Ingestion note.** `PAY_START_DATE`, `PAY_END_DATE` and `DAYS_IN_PERIOD` are on the same source
+  table as everything else in D1, so this is a column projection, not a pipeline.
 - **De-duplication (v2).** D4 is one row per maid per **WPS report**, not per maid-month. Apply
   the same selection rule as tie-out 3 (latest report per maid per month) before comparing, or
   the check emits duplicate exception rows for a single resubmission.
@@ -953,6 +966,21 @@ v1 omitted:
 
 Display the variance and the count of maids present on only one side.
 
+**4 — A file exists for the month, and it has not changed since** *(new 2026-09-03, from D9)*.
+Every audit month must have a generated WPS/Ansari file recorded against its completed
+`PayrollAccountantTodo`, and an Ansari PWO in `MONTHLYPAYROLLDOCUMENTS` with a `FILE_HASH`. The
+report displays, per month: whether each expected file exists, its creation date, and whether the
+hash has changed since the month was first audited.
+
+This is a different kind of control from the other three and worth having precisely for that
+reason. Tie-outs 1–3 all reconcile figures the ERP holds against each other; this one asks whether
+the artefact that actually reached the exchange house matches the payroll the ERP still holds. A
+regenerated file for a closed month is invisible to every other check in this spec.
+
+**Metadata only.** The file bodies stay where they are — ingesting them would put roughly 25,000
+unredacted salary rows per month into the warehouse, which is precisely the exposure this migration
+exists to remove (§0).
+
 ---
 
 ## 4. Finalised UI Report
@@ -1163,7 +1191,7 @@ displayed separately from the contract count for exactly this reason.
 | # | Item | Owner |
 | --- | --- | --- |
 | O1 | **No warehouse grant — the single access blocker.** See §9 for the exact request. `PAYROLL_AND_MONEY_CONTROL_ROLE` has no USAGE on any warehouse (`SHOW WAREHOUSES` returns 0 rows; `CURRENT_WAREHOUSE()` is empty), so only metadata-served statements run. Columns, types, profiled ranges and row counts are verified; **freshness, grain and period coverage are asserted, not measured**. Also blocks O19 (approved-KPI register search) and O24 (the `ANSARI_PAYMENT_METHOD` distribution) | Data team / Snowflake admin |
-| O2 | **M8 changes meaning, and needs a grace period.** (a) `PAYROLL_MONTH` is the first of the month by construction, so a literal port of the old Pay-Start-Date check always passes and tests nothing — accept retiring it and replacing it with "was the money moved for the period it claims", comparing `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` against `PAYROLL_MONTH`. (b) **Set the grace period.** *Narrowed 2026-09-03:* the cutoff no longer needs guessing — `MONTHLYPAYMENTRULES.PAYMENT_DATE` is the ERP's own scheduled payment date per payroll month, so the window is `[1st of M, PAYMENT_DATE + grace]` and P&C sets only the grace. Expect findings on day one where the old check reported none — the baseline resets | Police & Control |
+| O2 | **M8 splits in two, and needs a grace period.** *Revised 2026-09-03 — the original check is not dead after all.* (a) `HOUSEMAIDPAYROLLLOGS.PAY_START_DATE` is a real column the Ansari file writes, falling back to the 1st of `PAYROLL_MONTH` only when null, so the original check ports literally as **M8a** — confirm you want it, and **ask Payroll how often it is populated**, since that decides whether it tests anything. (b) **M8b**, the payment-window check, stands alongside it: `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` within the window. (c) **Set the grace period.** *Narrowed 2026-09-03:* the cutoff no longer needs guessing — `MONTHLYPAYMENTRULES.PAYMENT_DATE` is the ERP's own scheduled payment date per payroll month, so the window is `[1st of M, PAYMENT_DATE + grace]` and P&C sets only the grace. Expect findings on day one where the old check reported none — the baseline resets | Police & Control |
 | O12 | **CONFIRMED 2026-09-03 — `PREVIOUSLY_UNPAID_SALARIES` is MV-only, so Check 7's CC arm has always summed to zero and always passed.** The field is documented on `HousemaidPayrollBean` as "previous salaries for Maid Visa", populated only at final-file generation, from prior-month logs where `transferred = false`, `willBeIncluded = true`, `payrollMonth < current` and `housemaidUnpaidStatus = UNPAID_VISA_PAYMENT`. **CC maids never enter that branch; the value stays null/0.** What remains open is which CC mechanism replaces it — see N6, where the obvious candidate does **not** obviously mean the same thing | Payroll Mgmt + P&C |
 | O15 | **Deletion-flag polarity.** `IS_DELETED` and `EXCLUDED_FROM_PAYROLL` are `VARCHAR` `'00'/'01'` with no documented polarity; `WPS_RECORDS.TRASHED` has no profiled values. A guess the wrong way empties the population — which G1/G2 abort on above 100 rows, or which passes silently below | Data team |
 
@@ -1184,7 +1212,7 @@ displayed separately from the contract count for exactly this reason.
 | O17 | ~~No payroll-lock signal~~ **RESOLVED 2026-09-03 — the signal exists, it just is not in Snowflake.** `MONTHLYPAYMENTRULES` carries `PAYROLL_MONTH`, `PAYMENT_DATE`, `LOCK_DATE` (`= PAYMENT_DATE − DAYS_BEFORE_LOCK`, the end of the editable window; audit to-dos generate on it), `AUDITING_FINISHED` and `FINISHED`. G5 should read `AUDITING_FINISHED`. Note a payroll month can have **several rules**, each with its own `PAYMENT_DATE`. Now an ingestion item (C2 in `erp-source-tables-for-dna.md`), not an unknown | Data team |
 | O18 | ~~`FREEDOM_OPERATOR` and `WALKIN`~~ **CLOSED 2026-09-03.** Both get monthly payroll rows and the ERP **treats both as CC** — only `MAID_VISA` follows a distinct payroll path, and payroll exclusion is driven by `excludedFromPayroll`, not by maid type. D3's rule is correct as written; no P&C decision needed | — |
 | O21 | Displaying the MOHRE ID needs a named pre-approval, or the case-reference scheme stands | Police & Control |
-| O22 | ~~M1's company-MOL-number exclusion~~ **ANSWERED 2026-09-03 — and it is a finding.** The number is a **hardcoded literal `"720610101"`** in `TransferFilesService.generateWPSTransferFile()`, **duplicated** in `PaymentWorkOrderController`. Not a table, not a config constant. Note it differs from the `0000000836318` the n8n code guarded against, so M1 should exclude both literals and the discrepancy should be raised with Payroll | Payroll Management |
+| O22 | ~~M1's company-MOL-number exclusion~~ **CLOSED 2026-09-03.** The WPS SCR summary row carries **two** hardcoded literals: **MOL Company Number `"0000000836318"`** (column 3) and **Routing Bank Code `"720610101"`** (column 4). M1 excludes `0000000836318`, which is exactly what the n8n code already guarded against. **Correcting our own earlier reading** — a first, less detailed answer conflated the two literals and reported the routing code as the MOL number; there is no discrepancy to raise. Both are hardcoded rather than configured, which is a maintenance note for Payroll, not a blocker | — |
 | O23 | M3 restatement — freeze each month at first clean run and show later movement separately. Confirm | Police & Control |
 | O25 | M10 threshold re-calibration — the n8n 5% was measured against `not_received` only; `M10_uncollected` is the wider bucket | Police & Control |
 | O26 | Tie-out 3 — **partially closed 2026-09-03.** The ERP table is `WPSRECORDS`; **`PAYROLL_DATE` is the column that identifies the payroll month**, and `TRASHED` is a soft-delete for unmatched "unknown" WPS employees (`true` hides them; a later matching upload flips it back to `false`) — so `TRASHED = true` rows are excluded. Still open: the row-selection rule when a maid has several reports in a month, and key normalisation / `MAID_ID` vs `EMPLOYEE_UNIQUE_ID` | Data team + P&C |
