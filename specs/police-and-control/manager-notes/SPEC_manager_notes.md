@@ -51,7 +51,7 @@ that already detects **airfare additions over the nationality limit** and **repe
 a configurable window**, and records sign-off in `CONFIRMED_AMOUNT_BY_AUDITOR` /
 `CONFIRMED_REPEATED_BY_AUDITOR`. **G1's amount arm and the duplicate rule are not new.** The honest
 case for this dashboard is *independence from that internal role, plus the 22 payment types the ERP
-checks nothing about* — see **MN-O23**.
+checks nothing about* — that choice is **§7 Q2**, and it changes what coverage should count.
 
 **Reader and action.** A P&C auditor works the month's findings case by case. Jacky reviews before
 anything is acted on (maker–checker). **Red** = money added above what the rule allowed, or with no
