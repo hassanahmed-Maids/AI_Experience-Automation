@@ -7,6 +7,7 @@
 | **Date** | 2026-09-02 |
 | **UI mockup** | https://claude.ai/code/artifact/5ffa76cd-ac5c-4517-a6ed-c3dfdd0e9924 |
 | **Status** | Draft — awaiting requestor approval point by point |
+| **Delivered on** | **MaidsInsights** — the dashboard the auditor opens. **Snowflake** is the warehouse underneath it: the tables, the role, the grants, the SQL. Both names appear in this spec and they are not interchangeable |
 | **Replaces** | The retired "Housemaid Payroll Critical Checks On Security Room" automation (inactive, blocked at intake; the platform it ran on is being decommissioned) |
 
 **Changes from v1** (all from the spec-auditor gate, 2026-09-02 — v1 was never issued):
@@ -38,9 +39,9 @@ spreadsheets it depended on — the Al Ansari bank payroll file and an ERP payro
 human through the retired Security Room portal, which POSTed them in a request body. One
 retained run held 25,290 unredacted payroll rows alongside four live ERP session fields.
 
-Moving to Snowflake is therefore not only a platform migration. It removes the file-upload
-intake that caused the exposure, because **the content of both spreadsheets already exists
-inside Snowflake** as ERP-sourced tables. This spec re-expresses each check against those
+Moving to **MaidsInsights**, over Snowflake, is therefore not only a platform migration. It removes
+the file-upload intake that caused the exposure, because **the content of both spreadsheets already
+exists inside Snowflake** as ERP-sourced tables. This spec re-expresses each check against those
 tables and names, explicitly, what is not yet there.
 
 **Scope note.** This spec defines *what must be true of the data and the numbers*. It does not
@@ -445,9 +446,11 @@ model, the export or the screen. If a future check needs one, add it here alongs
 **The four controls that carry the load instead. Binding on the build.**
 
 1. **A dedicated Snowflake role**, granted to named Police & Control auditors and no one else.
-   The dashboard reads through that role; membership is a list someone owns and reviews, not an
-   inherited group. This is what replaces masking, so it has to exist before the dashboard is
-   shared — not after.
+   The MaidsInsights dashboard reads through that role; membership is a list someone owns and
+   reviews, not an inherited group. This is what replaces masking, so it has to exist before the
+   dashboard is shared — not after. ⚠ **If MaidsInsights reads through a shared service account
+   rather than the viewer's own role, this control does not work as written** — the grant would sit
+   on the tool, not the person. Confirm which it is before go-live; it belongs in O31.
 2. **Access is logged, and the log is readable.** Who opened the dashboard, for which audit month,
    and what they exported. An auditing tool that cannot itself be audited is a gap — and §8's
    first row is precisely that the predecessor had no such boundary.
@@ -1444,7 +1447,7 @@ as complete.
 
 ## 8. What the migration removes
 
-| Predecessor mechanism | Fate in Snowflake |
+| Predecessor mechanism | Fate in MaidsInsights / Snowflake |
 | --- | --- |
 | Two human-uploaded spreadsheets POSTed in a request body | **Gone.** Both are ERP tables already in the warehouse |
 | `prev_cc_total` — a required, non-zero, portal-supplied input with no automatic source | **Gone.** Read the prior month from the same table |

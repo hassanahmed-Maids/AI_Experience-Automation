@@ -1,4 +1,4 @@
-# DNA-9446 — payroll audit data in Snowflake
+# DNA-9446 — payroll audit data in Snowflake (dashboard on MaidsInsights)
 
 **Filed 2026-09-03:** https://jira-maids-cc.atlassian.net/browse/DNA-9446 — Data Engineering Task,
 Domain *Money Control*, OKR `4-1`, related to DNA-9437. Kept here as the source of the description
@@ -12,7 +12,7 @@ text; edit the ticket in Jira, not this file.
 | --- | --- |
 | Project | **DNA** — Data & Analytics (id `10282`) |
 | Issue type | **Data Engineering Task** (id `10770`) — stated scope: *"SnowFlake administration, **ingestion**, security, APIs, access, and infrastructure"* |
-| Summary | **Payroll audit — ingest the two monthly payroll archived files (WPS transfer + detailed payroll) into Snowflake** |
+| Summary | **Payroll audit — ingest the two monthly payroll archived files (WPS transfer + detailed payroll) into MaidsInsights** *(changed from "into Snowflake" in Jira on 2026-09-03, not by us — kept)* |
 | Domain/Department (`customfield_11606`) | **Money Control** (`12180`) — confirmed by Hassan 2026-09-03; matches DNA-9437 |
 | OKR (`customfield_11605`) | `4-1` — mandatory field; picked as the most-used value on recent DNA work (15 of the last 60 days' tickets, across Core / Risk / Visa / PRO / Marketing). No Money Control ticket in that window carried an OKR at all, so there was no local precedent. The ticket says so and asks DNA to re-tag |
 | Reporter | hassan.ahmed@maids.cc |
@@ -24,12 +24,16 @@ text; edit the ticket in Jira, not this file.
 
 ---
 
-## Description (paste as-is)
+## Description
+
+> ⚠ **Jira is the source of truth for the description.** It has been edited twice since filing
+> (attachments referenced, check-name table added, mockup link raised). The copy below is the
+> original and is retained for history — read the ticket, not this section.
 
 ### What we need
 
 Police & Control runs ten critical checks on the housemaid payroll every month. They currently run
-in a retired automation that is being decommissioned; they are moving to a Snowflake dashboard.
+in a retired automation that is being decommissioned; they are moving to a MaidsInsights dashboard.
 
 That process never queried anything. **A person downloaded two files the ERP already generates and
 archives every month, and uploaded them to a portal.** All ten checks are arithmetic on those two
