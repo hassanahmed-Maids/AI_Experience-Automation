@@ -266,7 +266,7 @@ WHERE ROW_TYPE = 'Reason'
 GROUP BY 1, 2 ORDER BY 1, 3 DESC;
 ```
 
-**Tells us:** whether CC arrears exist and are simply unmeasured by the n8n check, or genuinely
+**Tells us:** whether CC arrears exist and are simply unmeasured by the legacy check, or genuinely
 do not occur.
 
 ---

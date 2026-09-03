@@ -7,7 +7,7 @@
 | **Date** | 2026-09-02 |
 | **UI mockup** | https://claude.ai/code/artifact/5ffa76cd-ac5c-4517-a6ed-c3dfdd0e9924 |
 | **Status** | Draft — awaiting requestor approval point by point |
-| **Replaces** | n8n workflow `zwSxrV00VE4rOSvd` — "Housemaid Payroll Critical Checks On Security Room" (`active: false`, blocked at intake; n8n is being deprecated) |
+| **Replaces** | The retired "Housemaid Payroll Critical Checks On Security Room" automation (inactive, blocked at intake; the platform it ran on is being decommissioned) |
 
 **Changes from v1** (all from the spec-auditor gate, 2026-09-02 — v1 was never issued):
 contract data was found to exist in `BA_VIEWS.SALES_SILVER` and moved from an ingestion
@@ -22,11 +22,11 @@ de-duplication rule, month column or tolerance; the recurring schedule now names
 
 ## 0. Why this spec exists
 
-The ten checks below run today as a single n8n code node. That flow is deprecated, and it is
-already non-runnable: its `Load Inputs` node throws by design because the two spreadsheets it
-depended on — the Al Ansari bank payroll file and an ERP payroll export — were uploaded by a
+The ten checks below run today as a single block of code in a retired automation. That process is
+deprecated, and it is already non-runnable: its input stage throws by design because the two
+spreadsheets it depended on — the Al Ansari bank payroll file and an ERP payroll export — were uploaded by a
 human through the retired Security Room portal, which POSTed them in a request body. One
-retained execution held 25,290 unredacted payroll rows alongside four live ERP session fields.
+retained run held 25,290 unredacted payroll rows alongside four live ERP session fields.
 
 Moving to Snowflake is therefore not only a platform migration. It removes the file-upload
 intake that caused the exposure, because **the content of both spreadsheets already exists
@@ -238,10 +238,10 @@ does — and states where the P&C check means something different.
 > | `BI_PAYROLL_SALARY_PAYMENT_PERFORMANCE` | month × maid_type | none |
 > | `BI_PAYROLL_DU_PAY_ADOPTION` | month × maid_type | none |
 
-| P&C check | Approved model | Reused verbatim? | Where it differs from the n8n check |
+| P&C check | Approved model | Reused verbatim? | Where it differs from the legacy check |
 | --- | --- | --- | --- |
-| Check 4 | `BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS` | Yes — **M4a** | **Different denominator.** Approved = deducted ÷ *collectable this month*; n8n = repayment ÷ *whole outstanding book*. Profiled approved percentages 70–94%; the n8n 25% threshold is against a far larger denominator. **Not the same number; the 25% cannot be applied to the approved ratio.** Both shown |
-| Check 7 | `BI_PAYROLL_UNPAID_SALARY_MONITORING` | Yes — **M7a** | **Headcount vs money.** Approved counts excluded maids; n8n is unpaid AED ÷ paid AED ≤ 1%. Both kept |
+| Check 4 | `BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS` | Yes — **M4a** | **Different denominator.** Approved = deducted ÷ *collectable this month*; legacy = repayment ÷ *whole outstanding book*. Profiled approved percentages 70–94%; the legacy 25% threshold is against a far larger denominator. **Not the same number; the 25% cannot be applied to the approved ratio.** Both shown |
+| Check 7 | `BI_PAYROLL_UNPAID_SALARY_MONITORING` | Yes — **M7a** | **Headcount vs money.** Approved counts excluded maids; legacy is unpaid AED ÷ paid AED ≤ 1%. Both kept |
 | Check 3 | `BI_PAYROLL_SALARY_PAYMENT_PERFORMANCE` | As **denominator source** | Approved counts salaries (headcount); M3 is an AED delta. Shown alongside so a ratio is never read without its denominator |
 | Check 9 | `BI_PAYROLL_DU_PAY_ADOPTION` | **Context only** | **Not a substitute.** Approved = month-level *adoption mix*; M9 = *per-maid switch between months*. A month with unchanged mix can contain hundreds of diversions |
 | Check 8 | `BI_PAYROLL_COMPLIANCE_WPS_MONITORING` | **Context** | Approved = WPS-condition compliance; M8 is narrower |
@@ -360,11 +360,11 @@ Four items. **v2 removed the fifth (the contract link) — it exists, as D7.**
 
 #### N5 — Mid-month CC↔MV transition
 
-- **Definition.** A maid who changed between CC and MV during the audit month. The n8n check read
+- **Definition.** A maid who changed between CC and MV during the audit month. The legacy check read
   this from the payroll export's `Type Of maid` (`CC`, `MV to CC`, `MV`, `CC to MV`, blank).
 - **Why it matters.** M2, M3, M5, M6, M7 and M10 all partition on maid type. Without a transition
   record a switcher lands wholly on one side — a known, quantified inaccuracy inherited from the
-  n8n flow, not introduced here, but this is the moment to fix it.
+  retired process, not introduced here, but this is the moment to fix it.
 - **Requested.** A populated type-change log: `HOUSEMAID_ID`, `FROM_TYPE`, `TO_TYPE`,
   `CHANGE_DATE`. Check first whether `SALES_SILVER.CONTRACTS.IS_CCTOMV` (`BOOLEAN`) and
   `IS_LIVING_SWITCH` already cover part of this — **unverified**.
@@ -475,11 +475,11 @@ report must say so per metric rather than draw a line into empty space:
 | `SKIPPED` | **Should have run this month and did not** — absent prior month, empty population, a fetch that came back implausible, a column unexpectedly missing | **Yes** |
 | `BLOCKED` | **Structurally cannot run yet**, because a named ingestion item on the allow-list below is outstanding | No |
 
-`SKIPPED` keeps the meaning and the consequence it had in the n8n code, which learned it the hard
+`SKIPPED` keeps the meaning and the consequence it had in the legacy code, which learned it the hard
 way: a fraud check that could not run once rendered green, indistinguishable from "we compared
 both months and found nothing". That rule stands unchanged.
 
-`BLOCKED` exists because the migration introduces a situation the n8n rule never faced. On day one
+`BLOCKED` exists because the migration introduces a situation the legacy rule never faced. On day one
 five check-slots cannot run — not because of anything about this month, but because their data has
 never been ingested. Under the old rule the report would read FAIL every month, identically, for a
 reason nobody can act on in any given month. A FAIL that fires unconditionally teaches its readers
@@ -532,7 +532,7 @@ else                          → Pass
 - **Inputs.** D1.1, D1.2, D2.4 (deletion filter), D2 (join).
 - **Filters.** `PAYROLL_MONTH = audit_month`; `EMPLOYEE_UNIQUE_ID` matches `^[0-9]+$`; §1's
   exclusion predicates.
-- **Row-identity rule (carried from n8n).** The source spreadsheet's trailer carried the company
+- **Row-identity rule (carried from the predecessor).** The source spreadsheet's trailer carried the company
   MOL number `0000000836318` in the ID column, passing the numeric test and creating a phantom
   flag. In Snowflake the trailer does not exist, **but the company MOL number may still appear as
   a value** — exclude it and state the exclusion on the report. **Where that number is read from
@@ -550,8 +550,8 @@ else                          → Pass
 - **Inputs.** D1.6, D3 (with the D3 collapse), D2.1, D2.4.
 - **Filters.** `PAYROLL_MONTH = audit_month`; maid type = CC; §1 exclusions.
 - **Division by zero.** Zero CC maids → `SKIPPED`.
-- **Threshold.** Green ≤ 5.00%; Red > 5.00%. *(n8n `CC_RATIO_MAX = 0.05`.)*
-- **Open — O4.** The n8n rule treats every non-`WITH_CLIENT` status as "without client",
+- **Threshold.** Green ≤ 5.00%; Red > 5.00%. *(legacy constant `CC_RATIO_MAX = 0.05`.)*
+- **Open — O4.** The legacy rule treats every non-`WITH_CLIENT` status as "without client",
   including `ON_VACATION`, `SICK_WITHOUT_CLIENT`, `PENDING_VACATION`, `ASSIGNED_OFFICE_WORK`.
   Those are arguably legitimately unplaced. Confirm the denominator.
 
@@ -565,7 +565,7 @@ else                          → Pass
   `M3 = M3_current − M3_prior`  *(signed)*
 - **Inputs.** D1.2, D1.3, D3, D2.4; plus `BI_PAYROLL_SALARY_PAYMENT_PERFORMANCE` (§2.2) for the
   displayed denominator.
-- **Prior month.** Read from the same table — this removes the n8n `prev_cc_total` input entirely.
+- **Prior month.** Read from the same table — this removes the `prev_cc_total` portal input entirely.
 - **Denominator display.** Show `TOTAL_SALARIES` / `PAID_SALARIES` for both months beside the AED
   figures. A wage-bill move driven by headcount is a different finding from the same move at flat
   headcount.
@@ -603,7 +603,7 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
   month. If the denominator is **`<= 0`** across a month with > 100 maids, the result is
   `SKIPPED — denominator not positive`, **not** a threshold failure. v1's guard only covered
   exactly zero.
-- **Threshold.** Green ≥ 25.00%; Red < 25.00%. *(n8n `LOAN_RATIO_MIN = 0.25`.)*
+- **Threshold.** Green ≥ 25.00%; Red < 25.00%. *(legacy constant `LOAN_RATIO_MIN = 0.25`.)*
 - **Interim.** Until N4 lands, M4b renders `BLOCKED — awaiting the REPAYMENTS ledger (N4)`, which does not fail the month. M4a
   still renders, so the month is not without a loan-recovery signal.
 
@@ -617,7 +617,7 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
   `M5b = SUM(grp6) / SUM(grp5)` — live-out accommodation share
   `M5c = (SUM(grp2)+SUM(grp6)) / (SUM(grp1)+SUM(grp5))` — combined
 - **Inputs.** N1; D3 and D2.1 for the CC filter.
-- **Filters — the ERP answer settles an old disagreement.** The n8n comment claimed
+- **Filters — the ERP answer settles an old disagreement.** The legacy comment claimed
   "Grp1/Grp2: CC only. Grp5/Grp6: all maid types", while the code applied a CC-only filter to all
   four sums. The ERP code (§7) shows the comment was wrong: **grp5/grp6 are the live-out
   remapping of grp1/grp2**, not a different maid population. The split is live-in vs live-out
@@ -627,7 +627,7 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
   ⚠ Read live-out from `HOUSEMAIDS_INFO.LIVE_OUT` (`NUMBER` `0`/`1`), **not**
   `CONTRACTS.IS_LIVE_OUT`, which is `VARCHAR` `'00'`/`'01'`.
 - **Division by zero.** Any zero denominator → that sub-check `SKIPPED`, parent `SKIPPED`.
-- **Threshold.** Green ≥ 1.00% on all three. *(n8n `GRP_RATIO_MIN = 0.01`.)*
+- **Threshold.** Green ≥ 1.00% on all three. *(legacy constant `GRP_RATIO_MIN = 0.01`.)*
 
 ### M6 — MV wages vs MV client receipts (Check 6)
 
@@ -647,16 +647,16 @@ model's own **`PERCENTAGE`** column, displayed with `METRIC_AMOUNT` and
   `DATE_OF_PAYMENT` in the month after the audit month; `RECEIVED_DATE` between the first day of
   the audit month and the run date; `FAKE = false`; `IGNORE_IN_REPORTING = 0`.
   **The `RECEIVED_DATE` bound applies to M6 only** — see §1.
-- **Plausibility floor — carried from n8n, and it earned its place.** A production run returned a
+- **Plausibility floor — carried from the predecessor, and it earned its place.** A production run returned a
   denominator of AED 3,431 against ~19,659 MV maids; it was truthy, so it passed the zero-check
   and rendered as a threshold *result* rather than a broken fetch. Rule: if the denominator is
   below **10% of MV salaries**, the check is `SKIPPED — implausible receipts total`, never a
   threshold verdict. Healthy runs land near AED 33.4M against AED 28.0M of MV salaries (**83.89%**),
   so the floor sits about **11.9×** below a healthy denominator — ample headroom.
-- **Threshold.** Green ≤ 90.00%; Red > 90.00%. *(n8n `MV_RATIO_MAX = 0.90`.)*
-- **Date asymmetry — O6.** The n8n MV query pins `dateOfPayment` to a **single exact date** (the
+- **Threshold.** Green ≤ 90.00%; Red > 90.00%. *(legacy constant `MV_RATIO_MAX = 0.90`.)*
+- **Date asymmetry — O6.** The legacy MV query pins `dateOfPayment` to a **single exact date** (the
   1st) while the CC query uses a **full-month range**; §1 states the range version as the rule.
-  An MV payment dated the 2nd is invisible under the n8n behaviour. Probably a bug in the running
+  An MV payment dated the 2nd is invisible under the legacy behaviour. Probably a bug in the running
   flow; not changed silently.
 
 ### M7 — Previously unpaid salaries (Check 7)
@@ -681,7 +681,7 @@ lets P&C work a case.
   to gross) before it meets this denominator.
 - **⚠ The check is half-vacuous today — the most consequential finding in this spec.** The ERP
   computes `PREVIOUSLY_UNPAID_SALARIES` **only for maid-visa (MV) maids**. If that holds, the
-  n8n check's **CC arm has always summed to zero and always passed** — a green tick on the
+  legacy check's **CC arm has always summed to zero and always passed** — a green tick on the
   arrears control, for the life of the flow — and CC arrears are currently unmeasured anywhere.
   1. Do **not** port `PREVIOUSLY_UNPAID_SALARIES` as the CC numerator. Derive CC arrears from D1:
      prior `PAYROLL_MONTH` rows for the same `HOUSEMAID_ID` carrying an exclusion reason (D1.10)
@@ -689,7 +689,7 @@ lets P&C work a case.
      or CC and MV are not the same metric.
   2. Until confirmed, M7b's CC arm renders `BLOCKED — CC arrears source unconfirmed (N6)`, never PASS.
   **O12, blocking.**
-- **Threshold.** Green ≤ 1.00% for **both** CC and MV. *(n8n `UNPAID_RATIO_MAX = 0.01`.)*
+- **Threshold.** Green ≤ 1.00% for **both** CC and MV. *(legacy constant `UNPAID_RATIO_MAX = 0.01`.)*
 - **Division by zero.** `NET_SALARY` includes zero rows; a type whose denominator sums to zero →
   that side `SKIPPED`, parent `SKIPPED`.
 
@@ -703,7 +703,7 @@ lets P&C work a case.
 
   > **Correction, 2026-09-03.** This previously read *"the paid date falls outside the payroll
   > month"*, which is wrong and would have failed essentially every row: salaries for month `M`
-  > are paid **after** `M` closes — the n8n flow ran on the 7th and the matching client payment is
+  > are paid **after** `M` closes — the retired process ran on the 7th and the matching client payment is
   > dated the 1st of `M+1`. A payment on 2 August for July payroll is normal, not an exception.
   > The check needs a window, not a containment test.
 
@@ -762,7 +762,7 @@ lets P&C work a case.
   — a diversion control that silently covered only CC would miss ~19,600 MV maids with nothing on
   the report to say so. State the compared population on the report.
 - **Account classification — resolved via Ask the Code, 2026-09-02 (O24 largely closed).** Use
-  `ANSARI_PAYMENT_METHOD` (D1.8) rather than re-implementing the n8n regexes. The authoritative
+  `ANSARI_PAYMENT_METHOD` (D1.8) rather than re-implementing the legacy regexes. The authoritative
   rule is `Housemaid.getAnsariPaymentMethod()`, enum `com.magnamedia.extra.AnsariPaymentMethod`.
   It is **computed at read time, never stored**. Decision order, on the trimmed account value:
 
@@ -777,21 +777,21 @@ lets P&C work a case.
   | 7 | strip `^0+`, then starts `19` | `OVER_THE_COUNTER` |
   | 8 | no match | `''` |
 
-  **The auditor's concern does not hold, and the reason matters.** The worry was that the n8n
+  **The auditor's concern does not hold, and the reason matters.** The worry was that the legacy
   Ansari pattern has no `AE` prefix and so could never reach the classifier's `AE` branch, leaving
   red-flag rules 2, 4 and 5 permanently silent. There is a **separate non-`AE` branch** (rows
   4–7) and `ANSARI_VISA_CARD` is reachable through it. The truncated view metadata showed only the
   `AE` half, which is what made the inference look sound.
 
-  **Three corrections to the n8n patterns — the ERP rule is authoritative and should replace them:**
+  **Three corrections to the legacy patterns — the ERP rule is authoritative and should replace them:**
 
-  | n8n pattern | ERP rule | Difference |
+  | Legacy pattern | ERP rule | Difference |
   | --- | --- | --- |
-  | du Pay `^AE\d{2}026075123000\d{7}$` | marker at fixed offset only | n8n is **narrower** — it also pins `0260` before the marker and exactly 7 trailing digits. A du Pay account issued on a different BIC would be missed |
-  | Ansari `^00000000001\d+$` | strip all leading zeros, then `10` | n8n **over-matches** (`11…`, `12…` also pass) and **under-matches** (a different count of leading zeros is missed). The two agree only on genuine `…10…` accounts |
-  | Normal IBAN `^AE\d{21}$` | any `AE…` that is not du Pay, **no length check** | n8n leaves a short `AE…` value unclassified and skips it; the ERP calls it `BANK_TRANSFER`. Verified against the ERP's own test value `"AE123456751"` |
+  | du Pay `^AE\d{2}026075123000\d{7}$` | marker at fixed offset only | the legacy pattern is **narrower** — it also pins `0260` before the marker and exactly 7 trailing digits. A du Pay account issued on a different BIC would be missed |
+  | Ansari `^00000000001\d+$` | strip all leading zeros, then `10` | it **over-matches** (`11…`, `12…` also pass) and **under-matches** (a different count of leading zeros is missed). The two agree only on genuine `…10…` accounts |
+  | Normal IBAN `^AE\d{21}$` | any `AE…` that is not du Pay, **no length check** | the legacy pattern leaves a short `AE…` value unclassified and skips it; the ERP calls it `BANK_TRANSFER`. Verified against the ERP's own test value `"AE123456751"` |
 
-  **Two account types the n8n check never knew existed:** `PAYROLL_CARD` (`9…`) and
+  **Two account types the legacy check never knew existed:** `PAYROLL_CARD` (`9…`) and
   `OVER_THE_COUNTER` (strip zeros → `19`), alongside `FAB_MASTER_CARD`. All three are
   prepaid or cash instruments — the same risk shape as du Pay — so transitions into them
   almost certainly belong in the red-flag set. **O8, widened.**
@@ -886,11 +886,11 @@ lets P&C work a case.
   `received` (at least one `RECEIVED` payment — receiving any payment counts as collected on),
   `not_received` (payments exist, none received), `no_payment` (no payment row at all).
 - **Formula — v2 correction.** v1's formula numerator was "contracts with **no received
-  payment**" while its threshold and n8n provenance spoke only of `not_received`; those differ by
+  payment**" while its threshold and legacy provenance spoke only of `not_received`; those differ by
   the whole `no_payment` bucket, which is exactly what this check exists to surface. Resolved by
-  making the headline the union and keeping the n8n figure visible beside it:
+  making the headline the union and keeping the legacy figure visible beside it:
   `M10_uncollected = (not_received + no_payment) / total CC contracts on payroll`  ← **the threshold metric**
-  `M10_notreceived = not_received / total CC contracts on payroll`  ← displayed, the n8n-comparable figure
+  `M10_notreceived = not_received / total CC contracts on payroll`  ← displayed, the legacy-comparable figure
 - **Inputs.** D1.3, D3, D7 (contract, type, validity — available); N2 (payment rows — **the only
   blocker**). Until N2 lands M10 renders `BLOCKED — awaiting monthly client payments (N2)`, which
   does not fail the month.
@@ -905,13 +905,13 @@ lets P&C work a case.
   D7.5's validity dates to resolve the contract **as at the audit month** instead. The exact
   predicate (overlap with the month, vs `START_OF_CONTRACT <= month_end AND
   COALESCE(DATE_OF_TERMINATION, END_OF_CONTRACT) >= month_start`) is **O13**.
-- **Threshold.** Green `M10_uncollected ≤ 5.00%`; Red above. *(n8n `maxNotReceivedRatio = 0.05`,
+- **Threshold.** Green `M10_uncollected ≤ 5.00%`; Red above. *(legacy constant `maxNotReceivedRatio = 0.05`,
   which was measured against the narrower bucket — the threshold may need re-calibrating against
   the union. **O25.**)*
 - **Data-quality failures — these fail the check independently of the ratio.** Duplicate contract
   references in payroll; the payment source returning fewer rows than it reports available
   (truncation); an unrecognised response shape; **zero CC contracts resolved from a populated
-  payroll file** (explicitly a FAIL — the n8n code had a defect where an empty population rendered
+  payroll file** (explicitly a FAIL — the legacy code had a defect where an empty population rendered
   green).
 - **Orphan payments (v2).** Payments on CC contracts with **no matching payroll row** — the
   reverse direction — are counted and displayed. A reconciliation that looks only one way hides
@@ -952,7 +952,7 @@ above the G2 threshold, aborts.
 
 **3 — Wage bill against the independent second source.** `SUM(D1.NET_SALARY)` for the month
 reconciled against `SUM(WPS_RECORDS.PAID_SALARY)` for the same month, matched on
-`EMPLOYEE_UNIQUE_ID`. **This tie-out did not exist in the n8n flow** — it had one view of the
+`EMPLOYEE_UNIQUE_ID`. **This tie-out did not exist in the retired process** — it had one view of the
 payroll; Snowflake has two, and using both is the largest control improvement available in this
 migration. Precisely because of that, v1's version was under-specified. It requires four things
 v1 omitted:
@@ -1199,10 +1199,10 @@ displayed separately from the contract count for exactly this reason.
 
 | # | Item | Owner |
 | --- | --- | --- |
-| O4 | M2 denominator — do `ON_VACATION`, `SICK_WITHOUT_CLIENT`, `PENDING_VACATION`, `ASSIGNED_OFFICE_WORK` count as "without client"? The n8n rule says yes; it materially moves the ratio | Police & Control |
-| O6 | M6 date asymmetry — the n8n MV query pins `dateOfPayment` to one date, the CC query uses a range. Likely a bug; not changed silently | P&C + Accounting |
+| O4 | M2 denominator — do `ON_VACATION`, `SICK_WITHOUT_CLIENT`, `PENDING_VACATION`, `ASSIGNED_OFFICE_WORK` count as "without client"? The legacy rule says yes; it materially moves the ratio | Police & Control |
+| O6 | M6 date asymmetry — the legacy MV query pins `dateOfPayment` to one date, the CC query uses a range. Likely a bug; not changed silently | P&C + Accounting |
 | O7 | Worked examples are synthetic. Supply two real cases already verified by hand | Police & Control |
-| O8 | **Widened 2026-09-02.** The ERP classifier has **seven** outcomes, not the n8n matrix's four: `FAB_MASTER_CARD`, `PAYROLL_CARD` and `OVER_THE_COUNTER` were never in it. All three are prepaid or cash instruments — the same risk shape as du Pay — so transitions into them very likely belong in the red-flag set. Decide, and restate the matrix over the ERP's own values | Police & Control |
+| O8 | **Widened 2026-09-02.** The ERP classifier has **seven** outcomes, not the legacy matrix's four: `FAB_MASTER_CARD`, `PAYROLL_CARD` and `OVER_THE_COUNTER` were never in it. All three are prepaid or cash instruments — the same risk shape as du Pay — so transitions into them very likely belong in the red-flag set. Decide, and restate the matrix over the ERP's own values | Police & Control |
 | O24 | **Narrowed 2026-09-02 — no longer the original concern.** The ERP classifier is fully resolved (M9); Ansari accounts *are* reachable via a separate non-`AE` branch. What remains: the Snowflake column is a **dbt re-implementation** of the Java getter and its profiled values omit `PAYROLL_CARD` and `OVER_THE_COUNTER`. If the dbt CASE drops those branches, such accounts collapse to `''` and are invisible to Check 9. One `COUNT(*) GROUP BY ANSARI_PAYMENT_METHOD` settles it — needs O1. **The acceptance test is redefined** — no labelled diversion exists in the ERP, so it becomes a back-test over historical month pairs that P&C then labels, plus threshold calibration from the base rate (M9). Needs O1; a first-month task, not a go-live blocker | Data team + P&C |
 | O13 | **Contract as-at resolution.** D7.5 provides the dates; the exact predicate (month overlap vs start/termination bounds) and whether `CONTRACTS_HISTORY` is the better source are undecided | P&C + Client Mgmt |
 | O14 | Loan month boundary — v2 ERP code uses `< payrollEnd`, legacy uses `payrollEnd + 1 day`. Pick one | Payroll Management |
@@ -1212,9 +1212,9 @@ displayed separately from the contract count for exactly this reason.
 | O17 | ~~No payroll-lock signal~~ **RESOLVED 2026-09-03 — the signal exists, it just is not in Snowflake.** `MONTHLYPAYMENTRULES` carries `PAYROLL_MONTH`, `PAYMENT_DATE`, `LOCK_DATE` (`= PAYMENT_DATE − DAYS_BEFORE_LOCK`, the end of the editable window; audit to-dos generate on it), `AUDITING_FINISHED` and `FINISHED`. G5 should read `AUDITING_FINISHED`. Note a payroll month can have **several rules**, each with its own `PAYMENT_DATE`. Now an ingestion item (C2 in `erp-source-tables-for-dna.md`), not an unknown | Data team |
 | O18 | ~~`FREEDOM_OPERATOR` and `WALKIN`~~ **CLOSED 2026-09-03.** Both get monthly payroll rows and the ERP **treats both as CC** — only `MAID_VISA` follows a distinct payroll path, and payroll exclusion is driven by `excludedFromPayroll`, not by maid type. D3's rule is correct as written; no P&C decision needed | — |
 | O21 | Displaying the MOHRE ID needs a named pre-approval, or the case-reference scheme stands | Police & Control |
-| O22 | ~~M1's company-MOL-number exclusion~~ **CLOSED 2026-09-03.** The WPS SCR summary row carries **two** hardcoded literals: **MOL Company Number `"0000000836318"`** (column 3) and **Routing Bank Code `"720610101"`** (column 4). M1 excludes `0000000836318`, which is exactly what the n8n code already guarded against. **Correcting our own earlier reading** — a first, less detailed answer conflated the two literals and reported the routing code as the MOL number; there is no discrepancy to raise. Both are hardcoded rather than configured, which is a maintenance note for Payroll, not a blocker | — |
+| O22 | ~~M1's company-MOL-number exclusion~~ **CLOSED 2026-09-03.** The WPS SCR summary row carries **two** hardcoded literals: **MOL Company Number `"0000000836318"`** (column 3) and **Routing Bank Code `"720610101"`** (column 4). M1 excludes `0000000836318`, which is exactly what the legacy code already guarded against. **Correcting our own earlier reading** — a first, less detailed answer conflated the two literals and reported the routing code as the MOL number; there is no discrepancy to raise. Both are hardcoded rather than configured, which is a maintenance note for Payroll, not a blocker | — |
 | O23 | M3 restatement — freeze each month at first clean run and show later movement separately. Confirm | Police & Control |
-| O25 | M10 threshold re-calibration — the n8n 5% was measured against `not_received` only; `M10_uncollected` is the wider bucket | Police & Control |
+| O25 | M10 threshold re-calibration — the legacy 5% was measured against `not_received` only; `M10_uncollected` is the wider bucket | Police & Control |
 | O26 | Tie-out 3 — **partially closed 2026-09-03.** The ERP table is `WPSRECORDS`; **`PAYROLL_DATE` is the column that identifies the payroll month**, and `TRASHED` is a soft-delete for unmatched "unknown" WPS employees (`true` hides them; a later matching upload flips it back to `false`) — so `TRASHED = true` rows are excluded. Still open: the row-selection rule when a maid has several reports in a month, and key normalisation / `MAID_ID` vs `EMPLOYEE_UNIQUE_ID` | Data team + P&C |
 | O27 | Tie-out 3 materiality tolerance. Proposed AED 5,000 or 0.05% | Police & Control |
 | O30 | **Control gap, independent of this dashboard.** A housemaid's payment account (`NEWREQUESTS.EMPLOYEE_ACCOUNT_WITH_AGENT`) has **no audit trail** — `NEWREQUESTS` is Envers-audited but this field is not in the audited set, and no Snowflake revision view carries it — **no approval step or permission check**, and **no validation** (unconstrained `@Column String`; payroll only checks non-empty). Nobody can say who changed a maid's payment account, when, or from what. Detecting diversion after the fact is a poor substitute for preventing it | Payroll Management + whoever owns payroll integrity |
@@ -1317,7 +1317,7 @@ returned, including the ERP's own misspelling of `EXCULDED_FROM_PAYROLL`. These 
 - A short `AE…` value still classifies as `BANK_TRANSFER` — the ERP's own test value is
   `"AE123456751"`. There is **no IBAN length check** in this path.
 
-Full comparison against the n8n patterns, and the two residual issues, are in **M9**.
+Full comparison against the legacy patterns, and the two residual issues, are in **M9**.
 
 **Answer 5 — is there a historical diversion to test against?** (`erp/magnamedia-payroll-management`,
 `erp/magnamedia-complaints`, `erp/magnamedia-housemaid-management`)
@@ -1355,13 +1355,13 @@ as complete.
 
 ## 8. What the migration removes
 
-| n8n mechanism | Fate in Snowflake |
+| Predecessor mechanism | Fate in Snowflake |
 | --- | --- |
 | Two human-uploaded spreadsheets POSTed in a request body | **Gone.** Both are ERP tables already in the warehouse |
 | `prev_cc_total` — a required, non-zero, portal-supplied input with no automatic source | **Gone.** Read the prior month from the same table |
 | `prev_ansari_data` — prior-month accounts passed in the payload, absent of which the fraud check silently skipped | **Gone.** Prior month is one more row set |
-| ERP session token, `isERPAuth`, `deviceIdProduction` concatenated into a Cookie header and retained in plaintext in every execution | **Gone.** No live ERP call |
-| A retained execution holding 25,290 unredacted payroll rows | **Gone.** No execution store |
+| ERP session token, `isERPAuth`, `deviceIdProduction` concatenated into a Cookie header and retained in plaintext in every run | **Gone.** No live ERP call |
+| A retained run holding 25,290 unredacted payroll rows | **Gone.** No run history store |
 | The full report body, payroll figures included, emailed to an inbox | **Gone.** Link only — §2.4 |
 | Column-rename fragility (`Remaining Loan Balance` → `Outstanding Balance` between two monthly exports, silently) | **Reduced.** Typed warehouse columns; a rename becomes a build error rather than a wrong number |
 | Single source of truth for the wage bill | **Improved.** Two independent sources, reconciled — tie-out 3 |

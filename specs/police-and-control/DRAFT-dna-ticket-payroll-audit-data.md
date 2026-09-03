@@ -27,9 +27,9 @@
 ### What we need
 
 Police & Control runs ten critical checks on the housemaid payroll every month. They currently run
-in an n8n workflow that is being deprecated; they are moving to a Snowflake dashboard.
+in a retired automation that is being decommissioned; they are moving to a Snowflake dashboard.
 
-The n8n flow never queried anything. **A person downloaded two files the ERP already generates and
+That process never queried anything. **A person downloaded two files the ERP already generates and
 archives every month, and uploaded them to a portal.** All ten checks are arithmetic on those two
 files. So the ask is narrow:
 
@@ -110,8 +110,8 @@ Warehouse compute to answer these ourselves is **DNA-9437** (no new object acces
 
 These files contain per-maid salaries and bank account numbers. **This is not new exposure to
 Snowflake:** `HOUSEMAID_PAYROLL_HISTORY` already holds the same fields for ~1.3M rows under
-role-based access. What made the n8n predecessor unsafe was an *ungoverned* store — retained
-executions holding 25,290 unredacted rows alongside live ERP session tokens, with no access
+role-based access. What made the predecessor unsafe was an *ungoverned* store — retained run
+histories holding 25,290 unredacted rows alongside live ERP session tokens, with no access
 boundary. A governed warehouse table under existing RBAC is a different thing, and this ticket
 retires the ungoverned copy.
 
