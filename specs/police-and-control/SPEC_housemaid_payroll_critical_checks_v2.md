@@ -1004,7 +1004,7 @@ displayed separately from the contract count for exactly this reason.
 
 | # | Item | Owner |
 | --- | --- | --- |
-| O1 | **No warehouse grant.** `PAYROLL_AND_MONEY_CONTROL_ROLE` has no warehouse USAGE, so no row-level query runs: columns, types, profiled ranges and row counts are verified, but **freshness, grain and period coverage are asserted, not measured**. It also blocks O19 | Data team / Snowflake admin |
+| O1 | **No warehouse grant — the single access blocker.** See §9 for the exact request. `PAYROLL_AND_MONEY_CONTROL_ROLE` has no USAGE on any warehouse (`SHOW WAREHOUSES` returns 0 rows; `CURRENT_WAREHOUSE()` is empty), so only metadata-served statements run. Columns, types, profiled ranges and row counts are verified; **freshness, grain and period coverage are asserted, not measured**. Also blocks O19 (approved-KPI register search) and O24 (the `ANSARI_PAYMENT_METHOD` distribution) | Data team / Snowflake admin |
 | O2 | **M8 changes meaning.** `PAYROLL_MONTH` is the first of the month by construction, so a literal port always passes and tests nothing. Proposed: compare `PAID_ON_DATE_FORMATTED` and `WPS_RECORDS.PAYROLL_DATE` against `PAYROLL_MONTH` | Police & Control |
 | O3 | **Skipped-drives-fail with a known gap.** M4b, M5, M6, M7b(CC) and M10 are `SKIPPED` until N1/N2/N4/N6 land, so G4 fails every month meanwhile. Confirm that is wanted, or add a fourth state (`BLOCKED`) that does not fail the month | Police & Control |
 | O12 | **`PREVIOUSLY_UNPAID_SALARIES` is MV-only.** If confirmed, Check 7's CC arm has always summed to zero and always passed, and CC arrears are unmeasured. Confirm, then extend the ERP computation or approve the D1-derived CC definition (N6) | Payroll Mgmt + P&C |
@@ -1183,3 +1183,74 @@ as complete.
 
 Two things the migration does **not** fix on its own: the mid-month CC↔MV transition (N5), which
 needs an ERP change; and Check 7's CC arm (O12), which needs a definition decision.
+
+---
+
+## 9. Access request — what the Snowflake admin needs to grant
+
+Everything below was measured in this session on 2026-09-02/03 as
+`hassan.ahmed@maids.cc` / `PAYROLL_AND_MONEY_CONTROL_ROLE`, account `IH42925`.
+
+### 9.1 Warehouse USAGE — blocking, and the only thing stopping verification
+
+**Symptom.** `SHOW WAREHOUSES` returns **0 rows** and `SELECT CURRENT_WAREHOUSE()` returns the
+empty string. Statements Snowflake can serve from metadata succeed — `SHOW …`, `DESC VIEW …`,
+`GET_DDL(…)`, and a bare `SELECT COUNT(*) FROM <view>`. Anything needing compute fails with:
+
+> `Unable to run the command. You must specify the warehouse to use by either setting the`
+> `warehouse field in the body of the request or by setting the DEFAULT_NAMESPACE property for`
+> `the current user.`
+
+That includes `MAX(<date>)`, any `GROUP BY`, any explicit column list, `SELECT * … LIMIT 0`, and
+every `INFORMATION_SCHEMA` query. The MCP connector exposes only a `sql` parameter with no
+warehouse field, so the warehouse must resolve server-side.
+
+**Grant needed.** Two statements — the grant alone is not enough, because nothing in the request
+names a warehouse:
+
+```sql
+GRANT USAGE ON WAREHOUSE <WH> TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE;
+ALTER USER "hassan.ahmed@maids.cc" SET DEFAULT_WAREHOUSE = <WH>;
+```
+
+**Sizing.** `XSMALL` is ample. The workload is aggregate reads over views of ≤ 5.5M rows, run
+monthly by one person — not the dashboard's own refresh, which the ERP/data-governance team owns
+(§1). Attaching a resource monitor is reasonable and will not get in the way.
+
+**What it unblocks, concretely:** O1 (freshness, grain and period coverage measured rather than
+asserted), O19 (searching `INSIGHTS_DASHBOARD_CONTAINER` for approved definitions), O24 (one
+`COUNT(*) … GROUP BY ANSARI_PAYMENT_METHOD` settles whether `PAYROLL_CARD` and
+`OVER_THE_COUNTER` occur), O15 (reading the actual `'00'`/`'01'` polarity instead of guessing),
+and the M9 back-test that produces check 9's acceptance test and threshold calibration.
+
+### 9.2 `SILVER.HOUSEMAID_MANAGEMENT` — non-blocking, one question only
+
+`BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` is a passthrough
+(`SELECT * FROM SILVER.HOUSEMAID_MANAGEMENT.HOUSEMAID_PAYROLL_HISTORY`), and in `SILVER` this role
+sees only `INFORMATION_SCHEMA` and `PUBLIC` — `SILVER.HOUSEMAID_MANAGEMENT` returns *"does not
+exist or not authorized"*. That is what prevented diffing the dbt `ANSARI_PAYMENT_METHOD` CASE
+against the Java getter (O24).
+
+```sql
+GRANT USAGE ON SCHEMA SILVER.HOUSEMAID_MANAGEMENT TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE;
+```
+
+**Or simply have the data team paste the model's CASE expression** — read access to the SILVER
+layer is not otherwise needed, and the narrower option is preferable.
+
+### 9.3 `SNOWFLAKE.ACCOUNT_USAGE` — not needed
+
+The role holds USAGE on `BA_VIEWS`, `MAIDSCCINSIGHTS`, `MARKETING`, `PAYROLL` and `SILVER`, and
+none on the `SNOWFLAKE` share. The plugin's discovery queries use
+`SNOWFLAKE.ACCOUNT_USAGE.TABLES` / `.COLUMNS`, which are therefore unavailable — but `SHOW …` and
+`DESC VIEW` covered every discovery need here. **Do not request it.**
+
+### 9.4 What is already sufficient
+
+No further object grants are needed for the build. The role already holds 425 view grants across
+`BA_VIEWS`, covering every table this spec names as verified: `HOUSEMAID_PAYROLL_HISTORY`,
+`HOUSEMAIDS_INFO`, `HOUSEMAID_TYPE_LOGS`, `WPS_RECORDS`, `HOUSEMAID_OUTSTANDING_BALANCE_DETAILS`,
+`CLIENT_MANAGEMENT_PAYMENTS`, `SALES_SILVER.CONTRACTS`, `CONTRACTS_HISTORY`, and the five
+`BI_PAYROLL_*` gold models. It also holds full DDL rights on `PAYROLL.CROSS_DOMAIN`,
+`PAYROLL.PUBLIC` and `PAYROLL.RAW_DATA`, all currently empty — the natural home for the new
+models if the Snowflake team wants one.
