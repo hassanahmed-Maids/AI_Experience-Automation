@@ -79,12 +79,12 @@ h1,h2,h3{font-family:"Archivo",sans-serif; margin:0; text-wrap:balance; letter-s
 .kpi.money .k-lbl,.kpi.money .k-sub{color:#A6B3CC}
 .kpi.money .k-lbl .mid{border-color:#3D465A; color:#A6B3CC}
 .kpi.money .k-val{color:#FFFFFF}
-:root[data-theme="dark"] .kpi.money,
-:root:not([data-theme="light"]) .kpi.money{background:var(--surface-2); border-color:var(--accent)}
+:root[data-theme="dark"] .kpi.money{background:var(--surface-2); border-color:var(--accent)}
+:root[data-theme="dark"] .kpi.money .k-val{color:var(--ink)}
 @media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .kpi.money{background:var(--surface-2); border-color:var(--accent)}
   :root:not([data-theme="light"]) .kpi.money .k-val{color:var(--ink)}
 }
-:root[data-theme="dark"] .kpi.money .k-val{color:var(--ink)}
 .kpi .k-val.c-fail{color:var(--fail)} .kpi .k-val.c-warn{color:var(--warn)}
 
 /* ── panels ───────────────────────────────────── */
