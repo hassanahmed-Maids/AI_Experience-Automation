@@ -191,7 +191,7 @@ tbody tr:last-child td{border-bottom:none}
   <p class="note"><b>Mockup, not live data.</b> Every figure is synthetic and illustrative — no value
   belongs to a real person. Monthly shapes are scaled from the requestor's own twelve-month
   measurement (16,159 payments, AED 6,348,968, Sep 2025 – Aug 2026). The month is <b>FAIL</b>
-  because three group rules produced findings. It is also mostly <b>unjudged</b>: four of the seven
+  because two group rules produced findings (G1's cap arm, G7). It is also mostly <b>unjudged</b>: five of the seven
   group rules cannot run — G2 has no payment scale written down anywhere, G6's winners list is not
   in the warehouse, G4's recalculation has no inputs named, and G1 can test the amount but not the
   entitlement. <b>Their notes are pending, never clean</b> — v1 of this mockup counted them as clean
@@ -392,7 +392,9 @@ tbody tr:last-child td{border-bottom:none}
         <div class="rung"><div class="rn mono">MG1</div><div class="rtxt">Paid-on-payroll-month not yet ingested — no correct month filter exists</div><div class="rout o-none">blocks all</div></div>
         <div class="rung"><div class="rn mono">MG2</div><div class="rtxt"><b>Expense match rate below floor.</b> The note→payment link is a heuristic, not a key — a low match rate means unevaluated, not clean</div><div class="rout o-none">blocks MN3</div></div>
         <div class="rung"><div class="rn mono">MG3</div><div class="rtxt">Text verifier unavailable — routed notes stay pending</div><div class="rout o-pend">pending</div></div>
-        <div class="rung"><div class="rn mono">MG4</div><div class="rtxt"><b>A group's expected source missing.</b> Every note in that group goes to pending and into MN8 — <b>never clean</b></div><div class="rout o-pend">pending</div></div>
+        <div class="rung"><div class="rn mono">MG4</div><div class="rtxt"><b>An arm's expected source missing.</b> Every note that arm would have judged goes to pending and into MN8 — <b>never clean</b>, and never cleared by a sign-off or the verifier either</div><div class="rout o-pend">pending</div></div>
+        <div class="rung"><div class="rn mono">MG6</div><div class="rtxt"><b>A blank payment type exists.</b> Fires this month — G9 count is 1</div><div class="rout o-pend">fail (incomplete)</div></div>
+        <div class="rung"><div class="rn mono">MG7</div><div class="rtxt">Payroll-time maid type not ingested — gate ❽ renders <b>pending</b>, never a finding</div><div class="rout o-pend">pending</div></div>
         <div class="rung"><div class="rn mono">MG5</div><div class="rtxt"><b>Zero notes in the month.</b> ~1,347 is the norm, so zero means the feed broke — a finding about the run, not a clean month</div><div class="rout o-pend">skipped</div></div>
       </div>
     </section>
@@ -417,7 +419,7 @@ tbody tr:last-child td{border-bottom:none}
      notes:113, aed:184958, finds:1, above:500, pend:112,
      src:"Caps AED 2,000 Filipino / 1,350 other (module parameters) — a cap, so paying less is not an exception. Eligibility % 24 == 22",
      state:"block", note:"cap arm only · entitlement and periodicity arms blocked (N11)",
-     series:[1500,0,1000,2500,0,1000,0,1500,1000,0,2000,1000,1000]},
+     series:[1500,0,1000,2500,0,1000,0,1500,1000,0,2000,1000,500]},
     {k:"G2", name:"Loyalty payment", types:"Anti-attrition Incentive",
      notes:268, aed:135072, finds:null, above:null, pend:268,
      src:"Nothing. No payment scale exists anywhere — 307 distinct amounts, 0–900",

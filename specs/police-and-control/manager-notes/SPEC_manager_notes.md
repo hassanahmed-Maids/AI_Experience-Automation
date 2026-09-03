@@ -4,15 +4,45 @@
 | --- | --- |
 | **Requested by** | Hassan Ahmed, Police & Control |
 | **Business owner / reviewer** | Jacky (maker–checker; money-out payroll check) |
-| **Spec version** | v5 |
+| **Spec version** | v6 |
 | **Date** | 2026-09-03 |
 | **UI mockup** | https://claude.ai/code/artifact/a08a0bea-96cf-4ea3-af21-ccced5c94a5d |
 | **Delivered on** | **MaidsInsights** — the dashboard the auditor opens. **Snowflake** is the warehouse underneath: tables, role, grants, SQL. Not interchangeable |
-| **Status** | Draft — restructured onto the P&C template. Two audit gates passed (v1: 10 critical / 15 major; v2: 3 critical / 9 major), a third is running against v3. **11 of the 20 source rules are still `Pending Business` or `Pending Technical`**, so the build cannot start regardless of this document |
+| **Status** | Draft. **Four audit gates run** — v1: 10 critical / 15 major · v2: 3 critical / 9 major · v4: 5 critical / 13 major · v5: 7 critical / 13 major. Each gate's findings are accounted for in the changelogs below. **11 of the 20 source rules are still `Pending Business` or `Pending Technical`**, so the build cannot start regardless of this document |
 
 > **Numbering.** The template's `M<n>` and `O<n>` are prefixed **`MN`** here. The payroll-checks
 > spec sits in the same folder with its own M1–M10 and O1–O32, and the two are cited across each
 > other; unprefixed numbers would collide.
+
+### What changed from v5
+
+The fourth gate said the arm registry *"is the right idea and the first one that moved a number"*
+but **is not yet a closed system** — 7 critical, 13 major. Four of the criticals are the class
+finding a new door; one is an error of my own that is worse than the class.
+
+1. 🔴 **Rung 0 and rung ❼ were two doors into MN6 that the registry did not guard.** The ladder is
+   first-match-wins and both sit **above** the group line, so an ERP sign-off or a `justified`
+   verifier return set `cleared_by_rule` **without the blocked arms ever running**. And the ERP's
+   sign-off answers a *different question* — round 2 says it covers airfare-over-limit and
+   repetition only, which is precisely not what G3's scheme arm tests.
+2. 🔴 **`available` had no value for an arm with no expected source at all.** G2 has no ingestion
+   item because no rule exists anywhere — so `available = NOT EXISTS(blocking ingestion item)`
+   returns **TRUE** and 268 notes become evaluable against nothing. **That is the class with the
+   judgement moved one level up**, which is exactly what the registry was meant to prevent.
+3. 🔴 **`note_selector` was unconstrained**, so T4 was still satisfiable by construction: write
+   G3's selector as *"…notes with no ERP sign-off"* and both sides shrink together.
+4. 🔴 **T4 did not close on v5's own month** — 714 notes / AED 473,357 from the registry against
+   MN8's 713 / 470,857. The Δ is the G1 cap-breach note, which has one concluded arm and two
+   blocked ones, and the verdict space had no cell for *finding **and** partly unevaluable*.
+5. 🔴 **I asserted an un-run check as fact, and it blocked most of the dashboard.**
+   `00-discovery-log.md` flagged `EXPENSES_CONFIGURATION` as *"the likely home of the price
+   lists … not yet assessed"* — and v5 promoted that to *"N11 is not in the warehouse"*, which
+   blocks G1's entitlement arm, both G3 arms and G6: the bulk of the 89% headline. **The mirror of
+   the class: blocking what could be judged, with no guard that re-tests it.** See D5.
+6. **MN5 and MN8 used un-clamped `SUM`**, netting negative additions off the very figures that
+   exist to size unevaluable money.
+7. **The duplicate rule had no rung, no arm and no metric** — §1 names it as one of four failures,
+   §3 gives it a key, example D protects it, and it could not fire.
 
 ### What changed from v4
 
@@ -159,6 +189,10 @@ is, the default is the requestor's own written rule: *counts and totals only*.
 | D4.3 | Nationality | same | `NATIONALITY`, `NATIONALITY_CATEGORY` `VARCHAR` | G1's price split. Filipino = picklist code `philippines` *(code-verified)* |
 | D4.4 | Employment state | same | `STATUS`, `DATE_OF_TERMINATION`, `MODE_OF_TERMINATION` | G4's final-salary context |
 | D4.5 | Live-out | same | `LIVE_OUT` `NUMBER 0/1` | Separates the transport allowance from genuine taxi trips (G7) |
+| **D5.1** | **Per-payment-type configuration** | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION` | `SALARY_ADDITION_TYPE` `VARCHAR` — 21 values incl. Airfare Ticket, Bonus, VIP Bonus, Anti-attrition Incentive, Taxi Reimbursement, MOHRE requirement additions | 🔴 **v6: this view was flagged in the discovery log as *"not yet assessed"* and then treated as absent for three versions.** It is the ERP's own per-type configuration and it keys on exactly the axis the groups key on |
+| **D5.2** | **G7's expected side** | same | **`REQUIRE_INVOICE`**, **`REQUIRE_ATTACHMENT`** `BOOLEAN` *(verified)* | 🔴 **A real boolean expected value, per payment type.** v5 gave G7's receipt test an *actual* (D2.7) and **no expected at all**. `REQUIRE_ATTACHMENT_VALUE` is the `'00'/'01'` twin — use the BOOLEAN |
+| **D5.3** | **Gate ❼'s mapping** | same | `SALARY_ADDITION_TYPE` ↔ D3 `EXPENSE_TYPE` | ⚠️ **One row holds both**, so ❼'s "expense head ≠ payment type" may be a deterministic join, not a question for the text verifier. **Assess before routing it to a classifier — MN-O26** |
+| — | ~~`LIMIT_FOR_APPROVAL` as the entitlement~~ | same | `LIMIT_FOR_APPROVAL` `FLOAT` (10–3,700) | ⚠️ **It is not the entitlement.** The sibling `LIMIT_FOR_CEO_APPROVAL`'s own metadata reads *"Approval-amount threshold … above this amount require CEO-level approval"*. **An approval threshold, not a price list** — the G1 caps remain module parameters. Recorded because the fourth gate proposed it as a candidate and the negative is worth stating once |
 
 ⚠️ **`HOUSEMAID_MANAGER_NOTES` is 10 columns of a 37-column entity.** Everything in §2.3 is a
 column on the table that already feeds this view — a projection, not a pipeline.
@@ -238,7 +272,7 @@ Every field is a confirmed column on `PAYROLLMANAGERNOTES`, which already feeds 
 | **N8** | `FROM_MANAGER_ID`, `CREATOR`, `LAST_MODIFIER` | `BIGINT` `UNVERIFIED` | Actor attribution, replacing dead D1.8 | No per-manager view |
 | **N9** | `PAYROLL_ACCOUNTANT_TODO_ID` | `BIGINT` `UNVERIFIED` | Ties the note to the payroll run — **the same `PayrollAccountantTodo` the payroll-checks spec is built on**. Tie-outs T2 and T3 rest on it | The two P&C payroll dashboards cannot be reconciled |
 | **N10** | `CONFIRMED_AMOUNT_BY_AUDITOR`, `CONFIRMED_REPEATED_BY_AUDITOR` | `TINYINT(1)` | 🔴 **Required, not optional.** The ERP's internal auditor signs off here (§1). Without them the dashboard re-raises closed cases | Every finding list restates adjudicated cases |
-| **N11** | The G6 winners list; the G1/G3 entitlement lists | — | The **expected** side for three arms. G1's are module parameters in the `Parameter` config table, read via `Setup.getParameter()` *(code-verified)* | Those arms have nothing to compare against |
+| **N11** | The **G6 winners list**; the **G3 scheme prices**; the **G1 caps** as module parameters (`PARAMETER_HOUSEMAID_*_AIRFARE_TICKET_LIMIT`, read via `Setup.getParameter()`) *(code-verified)* | — | The **expected** side for three arms. **Re-scoped in v6:** D5 supplies G7's expected side and possibly ❼'s mapping, so N11 is narrower than v5 claimed — but `EXPENSES_CONFIGURATION` holds **approval thresholds, not entitlements**, so it does **not** unblock G1, G3 or G6 | Those arms have nothing to compare against |
 | **N12** | On **D3**, add `SALARY_ADDITION_TYPE_ID`, `REFERRED_MAID_ID`, `PURPOSE_ADDITIONAL_DESCRIPTION_ID` `BIGINT` `UNVERIFIED`, **and `LOCAL_CURRENCY_AMOUNT`** | — | The three columns the pivot lacks — plus a fourth: 🔴 **`LOCAL_CURRENCY_AMOUNT` exists on `EXPENSES_PAYMENTS` but NOT on `EXPENSES_REQUESTS`**, which is where the match lands. "The AED fix is one column" does not reach the request side, and a note matched to a USD request would compare AED to USD silently. Until it is added, filter `CURRENCY_NAME = 'AED'` on D3 and count the rest separately | The match runs in mixed currencies |
 | **N13** | `SCHEDULED_ANNUAL_VACATION_ID`, `NUMBER_OF_DAYS_WORKED_AT_OFFICE` | `BIGINT`, `INT` `UNVERIFIED` | The structural signals that make §2.2c's partition — and so MG2's denominator — computable | ❻b has no basis |
 | **N14** | **G4's recalculation inputs**: the salary **as at payroll time**, `startDate`, `CcMaidSwitchedToMv.lastCcSalary` + `switchDate`, and `BaseAdditionalInfo.infoValue` where `infoKey = 'mvExtraAmount'` | — | 🔴 All four G4 arms need them. ⚠️ `HOUSEMAIDS_INFO.BASIC_SALARY` exists but is her **current** salary — the same snapshot problem as MN-O14 | G4 is entirely unevaluable, AED 815,001/yr |
@@ -295,7 +329,7 @@ Currency **AED**; the expected side is multi-currency and every comparison reads
 | | Formula | Notes |
 | --- | --- | --- |
 | **MN4** | `COUNT` of notes with verdict *finding* | The red count |
-| **MN5** | `COUNT` and `SUM(D1.4)` where verdict is *pending* | **Amber. Never folded into clean.** Includes every blocked arm and every ❾ note |
+| **MN5** | `COUNT` and **`SUM(GREATEST(D1.4, 0))`** where verdict is *pending*, with the negative count and amount reported alongside | **Amber. Never folded into clean.** Includes every blocked arm and every ❾ note. 🔴 **v6: clamped.** §1 puts negative additions in `pending`, so v5's plain `SUM` netted them off the very figures that size unevaluable money — the defect `GREATEST` was added to MN2 to kill, reintroduced two metrics later |
 | **MN6a** | `COUNT` of notes cleared by a **deterministic rule** | 🔴 **A rule sets `cleared_by_rule`; nothing else does. Never a remainder, never computed by subtraction.** As a remainder it swept blocked notes into clean in three successive versions |
 | **MN6b** | `COUNT` of notes cleared by the **text verifier** returning `justified` | **Shown separately, v5.** A model's opinion and an arithmetic rule are not the same evidence, and folding them into one "clean" figure hides how much of it is a classifier. Carries a **sampled human review rate** |
 | **MN6** | `MN6a + MN6b` | Displayed as the total, always with the split beneath |
@@ -312,8 +346,8 @@ Currency **AED**; the expected side is multi-currency and every comparison reads
 
 ### MN8 — Unevaluable money
 
-- **Formula.** `SUM(D1.4)` over every note **whose applicable arm could not conclude**. No group
-  clause — v4 carried one, and *"every note in a BLOCKED group"* plus *"a group's status is the
+- **Formula.** `SUM(GREATEST(D1.4, 0))` over **DISTINCT notes all of whose applicable arms are
+  unavailable**, with the negative count and amount reported alongside. No group clause — v4 carried one, and *"every note in a BLOCKED group"* plus *"a group's status is the
   worst of its arms"* produced **three defensible values from one dataset** (348,130 / 349,130 /
   402,947), so T4 passed or failed on the builder's reading.
 - **A subset of MN5, and the tile says so** — otherwise a reader adds the two together.
@@ -324,7 +358,8 @@ Evaluated in order; **first match wins**.
 
 | # | Condition | Verdict | Colour | Red flag? |
 | --- | --- | --- | --- | --- |
-| 0 | already signed off by the internal payroll auditor (**N10**) | **ADJUDICATED — ERP** — sign-off is a **clearing rule id**, so it sets `cleared_by_rule` and MN6 can see it | ⚪ Grey | No — shown with the sign-off, never re-raised |
+| ❷…❺b | *(the scope and sanity gates run first — see below)* | | | |
+| 0 | already signed off by the internal payroll auditor (**N10**) | **ADJUDICATED — ERP** — sets `cleared_by_rule` **only if every applicable arm is `available`**; otherwise `PENDING — ADJUDICATED, ARM BLOCKED` | ⚪ Grey | No — shown with the sign-off, never re-raised |
 | ❶ | *(binding, not a verdict)* every join is on `HOUSEMAID_ID`, never name or MOL | — | — | — |
 | ❷ | `PAID_ON_PAYROLL_MONTH` ≠ audit month | **OUT OF SCOPE** | — | No |
 | ❸ | housemaid profile unreachable | **PENDING** | ⚪ Grey | No — an outage, not a finding |
@@ -334,11 +369,16 @@ Evaluated in order; **first match wins**.
 | ❻a | matched to an expense record, **`LOCAL_CURRENCY_AMOUNT`** disagrees | **AMOUNT DISAGREES** | 🔴 Red | **Yes** |
 | ❻b | expected to match (§2.2c), no expense record found | **PENDING — UNMATCHED** | ⚪ Grey | No — into MG2's numerator |
 | ❼ | expense head (D3 `EXPENSE_TYPE`) ≠ payment type | **VERIFIER** → `justified` / `unjustified` / `cannot tell` | ⚪→ | Only if `unjustified` |
+| ❼b | **duplicate within the group** — more than one addition on the group's key (N2 + N7 + N1 + `NOTE_DATE::date`), excluding `cover_deduction_limit` and `cover_negative_salary` | **DUPLICATE** — `expected = 0`, the whole second payment is the excess | 🔴 Red | **Yes** |
 | ❽ | her contract type (D4.2) cannot receive this payment | **NOT HER ENTITLEMENT** — ⚠️ **renders `PENDING` until MN-O14 lands** (guard MG7): D4.2 is her *current* type, so a maid who switched after payment would take a fabricated finding | 🔴 Red / ⚪ Grey | **Yes**, once the snapshot exists |
 | — | **exactly one group rule, judged by the applicable arm** — G1…G7 | per arm | | |
 | ❾ | nothing settled it | **PENDING — NO RULE CONCLUDED** | ⚪ Grey | No |
 
-**The red shapes are exactly ❻a, ❽ and an `unjustified` verifier return.** Everything else is
+**The red shapes are exactly ❻a, ❼b, ❽ and an `unjustified` verifier return.** 🔴 **v6 added ❼b.**
+§1 names *"the same payment made twice"* as one of four failures the check exists to catch, §3 gives
+it a key and example D protects it — and through v5 it had **no rung, no arm and no metric**, so it
+could not fire, could not be blocked, and could not appear in MN4. Notes were cleared with the test
+never having run: a fourth door into MN6. Everything else is
 reported in its own section and never mixed into the headline.
 
 🔴 **Blocking is per ARM, not per group.** A group rule has several arms (G1: amount · entitlement ·
@@ -349,8 +389,17 @@ otherwise blocked group.** Earlier versions said *"a note in a blocked group is 
 else is true"*, which read literally converts a concluded finding into pending — and the register
 did the opposite of what the text said, twice.
 
-🔴 **`justified` from the verifier sets `cleared_by_rule`.** Without that, MN6's definition would
-leave verifier-cleared notes pending forever and MG3 would never lift.
+🔴 **Rung 0 and a `justified` ❼ return set `cleared_by_rule` ONLY when every arm whose
+`note_selector` covers the note has `available = TRUE`.** Otherwise the note is `pending`, reason
+`ADJUDICATED — ARM BLOCKED` or `VERIFIER-CLEARED — ARM BLOCKED`, and it stays in MN5 and MN8.
+**v5 left these as two unguarded doors into MN6**: the ladder is first-match-wins and both rungs sit
+above the group line, so either could clear a note without its blocked arms ever running. And the
+ERP sign-off answers a *different question* — round 2 confirms it covers airfare-over-limit and
+repetition only, which is not what G3's scheme arm tests. **A sign-off about an amount is not a
+sign-off about an entitlement.**
+
+🔴 **Rung 0 runs after the scope and sanity gates (❷, ❺a, ❺b), not before them.** An
+ERP-adjudicated note that is out of scope, negative or zero must still take those branches.
 
 ### Groups
 
@@ -362,7 +411,7 @@ leave verifier-cleared notes pending forever and MG3 would never lift.
 | **G4** Part-month / final salary | MV Prorated Salary, Prorated salary, Last Day CC Switch Adjustment, MV Extra Salary | 815,001 | **One formula per type** *(round 2)*: `prorated_salary` = `round(basicSalary ÷ calendar days in the **previous** payroll month × days from startDate to the 1st)`, firing only when `startDate` ≥ the **27th of the previous month**; `last_day_cc_switch_adjustment` = `round(lastCcSalary ÷ days in **this** month)`, only when `switchDate` is the month's last day; `mv_extra_salary` = a config literal (`BaseAdditionalInfo.infoValue`, `infoKey = 'mvExtraAmount'`) | 🔴 **No — all four arms blocked.** Knowing a formula is not having its inputs: `basicSalary`-at-payroll-time, `startDate`, `lastCcSalary`, `switchDate` and `mvExtraAmount` are in no data point and no ingestion item (**N14**). ⚠️ **Two divisors, in two different months** — using one for both inverts the group. A note outside its type's trigger window is itself a finding |
 | **G5** Salary corrections | Salary Dispute, Forgive Deduction, MOHRE requirement additions, Medical Assistance, Lost Luggage Compensation | 479,025 | D2.2; what it cannot settle routes to ❼ | Yes, once N12 lands |
 | **G6** Raffle | Raffle Prize | 180,000 | The draw's winners list — **identity only** | **No** — N11 |
-| **G7** Reimbursements | Taxi Reimbursement, Maids.at other expenses, Accommodation Relocation, Passport Assistance, Flight ticket, Sim card, Cash advance, Transport fare | 159,652 | D2.2 — amount, beneficiary and approver must agree. Receipt test reads **D2.7 as `VARCHAR '00'/'01'`** | Yes, once N12 lands |
+| **G7** Reimbursements | Taxi Reimbursement, Maids.at other expenses, Accommodation Relocation, Passport Assistance, Flight ticket, Sim card, Cash advance, Transport fare | 159,652 | D2.2 — amount, beneficiary and approver must agree. 🔴 **Receipt test now has an expected side — `D5.2 REQUIRE_INVOICE` / `REQUIRE_ATTACHMENT`, per payment type.** v5 gave it an actual and nothing to compare against. Reads D2.7 as **`VARCHAR '00'/'01'`**, never as a boolean | Yes, once N12 lands |
 | **G8** Office work | Office Work Addition | 29,856 | — excluded from the population | n/a |
 | **G9** No type | the one blank | 150 | — gate ❹ catches it | Yes |
 
@@ -402,9 +451,25 @@ table the build maintains:
 | Column | Meaning |
 | --- | --- |
 | `group_id`, `arm_id` | e.g. `G1.cap`, `G1.entitlement`, `G1.periodicity`, `G4.prorated_salary` |
-| `expected_source` | the D-point or N-item the arm's expected value comes from |
-| `available` | derived from ingestion status — **not** from whether any note cleared |
-| `note_selector` | which notes this arm applies to |
+| `expected_source` | the D-point or N-item the arm's expected value comes from. 🔴 **May not be NULL when `available = 'available'`** |
+| `available` | 🔴 **Three-state, v6: `available` · `blocked_not_ingested` · `blocked_no_rule_exists`.** Derived from ingestion status and the existence of a rule — **never** from whether any note cleared, a group badge, or a human toggle. **v5's two-state version returned TRUE for G2**, whose arm has no ingestion item because *no rule exists anywhere*, making 268 notes evaluable against nothing — the class with the judgement moved one level up |
+| `note_selector` | which notes this arm applies to. 🔴 **Expressible over the population filter and `D1.3` / `D1.6` / `N2` / `D4.2` only.** It may **not** reference a verdict, `cleared_by_rule`, any MN metric, a ladder rung, or an ERP sign-off field. **v5 left this unconstrained**, so a selector written as *"…notes with no ERP sign-off"* shrinks T4's right side to match its left and the identity closes on a lie |
+
+⚠️ **`available` cannot be TRUE for a column nobody has confirmed exists.** Several
+`expected_source` values (N4's `REFUNDED_NOTE_ID`, N8, N9, N12's D3 columns, N13) are marked
+`UNVERIFIED` — *ingested* is not *exists*, and the registry must treat an unverified source as
+`blocked_not_ingested` until Ask the Code or the data team confirms it.
+
+🔴 **The three rules that make MN8 and T4 agree — v6.** v5 had *"whose applicable arm could not
+conclude"* (singular) against a registry saying *"every arm applicable to it"*, and the two
+disagreed by AED 2,500 on the spec's own month:
+
+1. **A note with any concluded red arm is a finding and leaves MN8**, whatever its other arms say.
+2. **MN8 and T4's right side both count DISTINCT notes** all of whose applicable arms are
+   unavailable. G1's two blocked arms select the same 113 notes; a per-arm sum double-counts them
+   and T4 fails permanently.
+3. **A note with a concluded green arm and a blocked arm is `pending`**, not clean — rule 1 is
+   asymmetric on purpose: a finding is evidence, a clearance is only the absence of one.
 
 **A note is clean only when *every* arm applicable to it concluded satisfied.** v4 said *"the arm
 that applies to it"*, singular — which for G1's conjunctive arms (amount ∧ entitlement ∧
@@ -540,7 +605,7 @@ status and cannot be moved by how a note was scored.
 **Full month expectation** *(the mockup's month, assuming N1–N10 and N12 have landed and N11 has
 not)*. 1,336 notes · AED 526,592 · MN4 **6** · MN5 **714** (AED 470,869) · MN6 **616**
 (AED 50,043) · MN3 **AED 2,020** · MN7 **46.56%** · MN8 **AED 470,857** · month verdict **Fail**
-(G1 and G7 hold findings) · **2 of 7 group rules evaluated, 8 arms blocked**. T1 closes;
+(G1 and G7 hold findings) · **2 of 7 group rules evaluated, 10 arms blocked** *(G1 entitlement + periodicity, G2, G3 scheme + referral, G4 × 4, G6 — v5 said 8 and omitted G1's two, the very arms example B insists are blocked)*. T1 closes;
 T2–T4 are not yet computable.
 
 ⚠️ **These are v5's figures and they are much worse than v4's** — coverage 46.56% against 66.39%,
@@ -573,6 +638,9 @@ across spec versions is the metric working.**
 | MN-O13 | ~~The AED basis~~ **CLOSED.** `LOCAL_CURRENCY_AMOUNT` is always AED. One column, no FX table | — | Closed |
 | MN-O17 | ~~Which notes should have an expense record~~ **CLOSED enough to build.** §2.2c's partition | — | Closed |
 | MN-O18 | ~~G4's recalculation inputs~~ **CLOSED.** Three formulas, two divisors, §3 G4. The `mv_prorated_salary` arm remains unknown | — | Closed |
+| MN-O26 | **Is gate ❼ a deterministic join?** `EXPENSES_CONFIGURATION` holds `SALARY_ADDITION_TYPE` and D3 holds `EXPENSE_TYPE` on one row. If they map, ❼ is SQL and not a question for a text classifier — which would shrink MN6b materially | Data team | No |
+| MN-O27 | **Per-manager attribution was silently dropped.** A check named *Manager Notes* has no manager column, filter or metric; N8 is an ingestion ask no metric consumes. Keep it and wire it, or drop N8 and say so | Police & Control | No |
+| MN-O28 | **G5's expected side is undefined for three of its five payment types.** `MOHRE requirement additions`, `Medical Assistance` and `Lost Luggage Compensation` appear in neither list in §2.2c, so ❻b and MG2's denominator have no basis for them — the G3 shape, one group over | P&C + Data | **Yes** |
 | MN-O8 | **Not a data request.** `PENALTY_DEDUCTION` is API-settable only, bypasses the payroll lock, is excluded from the payroll queries that catch `DEDUCTION`, and has no refund path | Payroll integrity | No |
 
 ---
