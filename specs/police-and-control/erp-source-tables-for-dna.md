@@ -7,9 +7,15 @@ ERP codebase via the Low-Code Platform ("Ask the Code") on 2026-09-02/03 — non
 Companion documents: `SPEC_housemaid_payroll_critical_checks_v2.md` (what the data is for) and
 `snowflake-verification-queries.md` (aggregate queries to confirm the "already there" rows).
 
-**Summary of the ask:** four ERP tables are absent from the warehouse entirely, one existing model
-is missing seven columns it already has in its source, and one existing model needs one extra
-payment type. Nothing else is needed.
+**How to read this.** We are telling you **where the data lives in the ERP**, not which Snowflake
+objects to use. Where we already know a warehouse object exists we say so as a convenience, but
+the mapping is yours — you know the models, the layers and the lineage better than we can from
+outside. If an ERP column below is already surfaced somewhere we have not spotted, that is the
+right answer and it costs us nothing.
+
+**Summary of the ask:** four ERP tables appear to be absent from the warehouse entirely, one
+existing model is missing nine columns its own source table already has, and one existing model
+needs one extra payment type.
 
 ---
 
@@ -27,7 +33,7 @@ payment type. Nothing else is needed.
 ## B. Existing model, missing columns — **the cheapest and highest-value ask**
 
 `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` is built from
-**`mmdb.housemaidpayrolllogs`** and already carries most of what we need. These seven columns
+**`mmdb.housemaidpayrolllogs`** and already carries most of what we need. These nine columns
 exist on that same source table and are simply not projected into the model. **No new pipeline,
 no backfill — the history back to 2020-07-01 comes with them.**
 
@@ -37,9 +43,37 @@ no backfill — the history back to 2020-07-01 comes with them.**
 | `MOHRE_PRO_RATED_SALARY` | Check 5 — accommodation-day earnings, live-in ("grp2") |
 | `TOTAL_LIVE_OUT_PRO_RATED_SALARY` | Check 5 — full-salary-day earnings, live-out ("grp5") |
 | `MOHRE_LIVE_OUT_PRO_RATED_SALARY` | Check 5 — accommodation-day earnings, live-out ("grp6") |
-| `UNPAID_DEDUCTION` | Check 7 — arrears / carried deductions |
+| `UNPAID_DEDUCTION` | Check 7 — carried deductions (see the caveat in section C4) |
 | `UNPAID_DEDUCTION_REPAYMENT` | Check 7 — recovery of the above |
 | `HOUSEMAID_PAYROLL_BEAN_ID` | Join key to `HOUSEMAIDPAYROLLBEANS` (section C) |
+| **`SALARY_TYPE`** | **CC / MV, snapshotted at payroll time.** This matters more than it looks — see below |
+| **`HOUSEMAID_UNPAID_STATUS`** | The per-row reason a salary was excluded from the run. Check 7 |
+
+**Why `SALARY_TYPE` is the important one.** Six of the ten checks partition the population into CC
+and MV. Today the warehouse can only answer that from *current state* — `HOUSEMAIDS.HOUSEMAID_TYPE`
+and `LIVE_OUT`, as at now — so a maid who switched type after the payroll month is counted on the
+wrong side, and the predecessor n8n flow conceded the same inaccuracy. `SALARY_TYPE` is the type
+**as at that payroll row**, which removes the problem rather than documenting it. It is the single
+highest-value column in this section.
+
+**Two more things confirmed on columns already in the model**, which change how they should be
+used rather than requiring anything new:
+
+- **`STATUS` is snapshotted at payroll time** (`housemaid.getRealStatus()` at log creation,
+  refreshed on transfer, falling back to live `HOUSEMAIDS` only when null). The "CC maids without
+  a client" check must read the payroll row's `STATUS`, not the maid's current one.
+- **`TOTAL_SALARY` is the net amount actually sent to Al Ansari**; `TOTAL_EARNINGS` is gross
+  (pro-rated contractual). `TOTAL_SALARY = TOTAL_EARNINGS + MANAGER_ADDITIONS − TOTAL_DEDUCTION`.
+  The WPS/Ansari transfer file writes `TOTAL_SALARY`. ⚠ **For maid-visa maids that figure includes
+  rolled-up prior-month amounts**, so a WPS-versus-payroll reconciliation will legitimately show MV
+  rows where the transferred amount exceeds that month's own salary. Note the Snowflake model
+  exposes these two under **inverted-looking names** — `NET_SALARY` ← `TOTAL_SALARY` and
+  `TOTAL_SALARY` ← `TOTAL_EARNINGS`.
+- **`TRANSFERRED`** (`IS_TRANSFERRED` in the model) is `false` while a salary is pending and `true`
+  once the Ansari/WPS payment is confirmed. It is the clean test for "was this actually paid" —
+  better than testing whether `PAID_ON_DATE` is null. `PAID_ON_DATE` is set when `TRANSFERRED`
+  flips; `PAID_ON_STATUS` is free text holding the exclusion reason while pending and a payment
+  note afterwards.
 
 **Naming trap worth passing on:** `TOTAL_PRO_RATED_SALARY` is the **full-salary-day** figure and
 `MOHRE_PRO_RATED_SALARY` the **accommodation-day** figure. Neither name says so, and binding them
@@ -162,7 +196,12 @@ it because it will bite whoever builds the model.
    it against the ERP's own classifier, which has **seven** outcomes where the dbt model's profiled
    values show only five — if the model drops the `PAYROLL_CARD` and `OVER_THE_COUNTER` branches,
    those accounts fall into `''` and become invisible to the bank-account diversion check.
-3. **Do `IS_DELETED` / `EXCLUDED_FROM_PAYROLL` (`VARCHAR '00'/'01'`) use `'00'` for false?** The
+3. **Which MOHRE ID should we join on?** `NEWREQUESTS.EMPLOYEE_UNIQUE_ID` is authoritative;
+   `HOUSEMAIDPAYROLLLOGS.EMPLOYEE_UNIQUE_ID` is a snapshot copied at log creation, and WPS file
+   generation uses the log value first and falls back to the live one. For a monthly audit the
+   snapshot is the right choice — it is what was actually paid against — but flagging it so the
+   two are not assumed identical.
+4. **Do `IS_DELETED` / `EXCLUDED_FROM_PAYROLL` (`VARCHAR '00'/'01'`) use `'00'` for false?** The
    ERP question timed out twice; a one-line answer or the `GROUP BY` in
    `snowflake-verification-queries.md` Q2 settles it. Guessing wrong empties the whole population.
 

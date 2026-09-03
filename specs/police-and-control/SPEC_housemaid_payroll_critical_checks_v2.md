@@ -154,7 +154,9 @@ measured.** See O1.
 | D1.3 | **Net** amount paid (the "Ansari (AED)" figure) | ↑ | `NET_SALARY` | — | `FLOAT`, 0–13,200. Source column `mmdb…TOTAL_SALARY` |
 | D1.4 | **Gross** earnings | ↑ | `TOTAL_SALARY` | — | `FLOAT`, 0–13,000. Source column `mmdb…TOTAL_EARNINGS`. ⚠ **The two names are inverted relative to their meaning** — see the warning below |
 | D1.5 | Additions / deductions | ↑ | `ADDITIONS`, `DEDUCTIONS` | — | `MANAGER_ADDITIONS` (−1,516–8,800), `TOTAL_DEDUCTION` (0–2,800). *Used by: M7b's gross↔net reconciliation only; otherwise context* |
-| D1.6 | Maid status on the payroll row | ↑ | `STATUS` | — | 20 values incl. `WITH_CLIENT`, `AVAILABLE`, `ON_VACATION`, `SURPLUS`, `SICK_WITHOUT_CLIENT`, `EMPLOYEMENT_TERMINATED` *(ERP spelling)*. M2 |
+| D1.6 | Maid status on the payroll row | ↑ | `STATUS` | — | 20 values incl. `WITH_CLIENT`, `AVAILABLE`, `ON_VACATION`, `SURPLUS`, `SICK_WITHOUT_CLIENT`, `EMPLOYEMENT_TERMINATED` *(ERP spelling)*. **Confirmed snapshotted at payroll time** (`housemaid.getRealStatus()` at log creation, refreshed on transfer; falls back to live `HOUSEMAIDS` only when null) — so M2 must read this column, **not** `HOUSEMAIDS_INFO.STATUS`, which is current state |
+| D1.12 | Was the salary actually paid | ↑ | ERP `TRANSFERRED` → `IS_TRANSFERRED` | — | `false` while pending; set `true` when the Ansari/WPS payment is confirmed. **The clean test for "paid", better than checking whether `PAID_ON_DATE` is null.** Promoted from context to an input of M7 and M8 |
+| D1.13 | Exclusion reason at payroll time | ↑ | ERP `HOUSEMAID_UNPAID_STATUS` | — | The per-row reason a salary was excluded. **Not currently projected into the Snowflake model.** M7 |
 | D1.7 | Bank / agent account | ↑ | `EMPLOYEE_ACCOUNT_WITH_AGENT` | — | Free text. **Sensitive — §2.4.** M9 |
 | D1.8 | Account type, pre-classified | ↑ | `ANSARI_PAYMENT_METHOD` | — | `FAB_MASTER_CARD`, `ANSARI_VISA_CARD`, `DU_PAY_CARD`, `BANK_TRANSFER`, `''`. Derived in-model. M9 |
 | D1.9 | Date the salary was paid | ↑ | `PAID_ON_DATE_FORMATTED` | — | `DATE`, min `2020-08-04`. `COALESCE(TRY_TO_DATE(…'YYYY-MM-DD'), …'DD MONTH, YYYY', …'DD MON, YYYY')` over free-text `PAID_ON_DATE`. M8 |
@@ -166,7 +168,8 @@ measured.** See O1.
 | D2.3 | Loan master fields | ↑ | `OUTSTANDING_BALANCE` (−2,500–26,900), `MONTHLY_LOAN`, `DEDUCTION_CAP` | — | Point-in-time, not as-at a past month. **Context** — M4b uses D5, which is per-loan and reconstructable |
 | D2.4 | Payroll eligibility flags | ↑ | `IS_DELETED`, `EXCLUDED_FROM_PAYROLL`, `WITH_MOL_NUMBER`, `LAST_PAYROLL_LOCK_DATE` | — | First two are `VARCHAR` `'00'/'01'` — see §1. `WITH_MOL_NUMBER` is `NUMBER` `0/1`. ⚠ **`LAST_PAYROLL_LOCK_DATE` profiles to "no non-null values" — it is empty and cannot serve as the payroll-lock signal.** O17 |
 | D2.5 | Salary rates | ↑ | `BASIC_SALARY`, `PRIMARY_SALARY`, `ACCOMMODATION_SALARY` (0–1,500) | — | **Context** — rates, not per-month day-group earnings. M5 uses N1 |
-| D3 | CC / MV rule | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TYPE_LOGS` | `TO_TYPE` | one row per maid; join `HOUSEMAID_ID` `NUMBER(38,0)` | In-model rule verbatim: `CASE WHEN h.HOUSEMAID_TYPE = 'MAID_VISA' THEN 'MV' WHEN h.LIVE_OUT = 1 THEN 'CC Live Out' WHEN h.LIVE_OUT = 0 THEN 'CC Live In' END`. ⚠ **Emits no value `'CC'`** — see below |
+| D3 | **CC / MV, snapshotted at payroll time** *(revised 2026-09-03)* | ERP `HOUSEMAIDPAYROLLLOGS` | **`SALARY_TYPE`** | one row per maid per payroll month | Values `'CC'` / `'MV'`, snapshotted when the detailed breakdown is populated. **This is the correct source and it is not yet in Snowflake** — see below. `HOUSEMAIDPAYROLLBEANS.HOUSEMAID_TYPE` is a second snapshot of the same thing |
+| D3-alt | CC / MV, point-in-time fallback | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TYPE_LOGS` | `TO_TYPE` | one row per maid | In-model rule verbatim: `CASE WHEN h.HOUSEMAID_TYPE = 'MAID_VISA' THEN 'MV' WHEN h.LIVE_OUT = 1 THEN 'CC Live Out' WHEN h.LIVE_OUT = 0 THEN 'CC Live In' END`. ⚠ **Emits no value `'CC'`**, and it is *current state*, not as-at the payroll month. Use only until `SALARY_TYPE` is ingested |
 | D4 | WPS / MOL salary record | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.WPS_RECORDS` | `EMPLOYEE_UNIQUE_ID` (`VARCHAR`), `MAID_ID` (`NUMBER(38,0)`), `PAID_SALARY`, `PAYROLL_DATE`, `REPORT_DATE`, `UPLOADED_DATE`, `WPS_STATUS`, `TRASHED` | **one row per maid per WPS report — not per maid-month** | `COUNT(*) = 701,735`. Second independent side for tie-out 3. `CONTRACT_SALARY`, `EN_NAME`, `AR_NAME` are **context** |
 | D5 | Loans | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_OUTSTANDING_BALANCE_DETAILS` | `ID`, `HOUSEMAID_ID`, `AMOUNT` (−2,400–13,600), `REPAID_AMOUNT`, `WAIVED_AMOUNT` | one row per loan | Source `mmdb_transformed.employeeloans`. `TYPE`, `BALANCE_DATE`, `STATUS ∈ {NOT_YET_PAID, PAID, PARTIALLY_PAID}` are **context**. **PARTIAL — see below** |
 | D6 | Client payments | `BA_VIEWS.CLIENT_MANAGEMENT_SILVER.CLIENT_MANAGEMENT_PAYMENTS` | `ID`, `CONTRACT_ID` (`NUMBER(38,0)`), `PAYMENT_TYPE`, `STATUS`, `AMOUNT_OF_PAYMENT` (−3,229–26,000), `DATE_OF_PAYMENT` (`DATE`), `RECEIVED_DATE` (`TIMESTAMP_NTZ`, **null if not yet received**) | one row per payment | **PARTIAL — the monthly payment type is absent. See below / N2** |
@@ -431,6 +434,35 @@ Amounts rounded to 0 dp for display, summed at full precision. `NULL` amounts �
 classification (maid type unresolved) **excludes the row from ratio denominators and raises a
 data-quality exception** — never silently CC or MV. Division by zero renders `—` and sets the
 check **SKIPPED**, never PASS.
+
+**Every check is a time series, not a single month** *(P&C requirement, 2026-09-03)*. Each of the
+ten checks stores its headline metric, its threshold and its state **per audit month**, so the
+dashboard can show this month beside the preceding ones. Three rules make the trend honest rather
+than decorative:
+
+1. **The denominator travels with the ratio.** Every ratio metric displays its numerator and
+   denominator as their own values, not just the percentage. A ratio that moves because coverage
+   moved looks identical to one that moves because behaviour did, and only the denominator
+   separates them. This is why M3 already carries headcount beside the AED figures; the same now
+   applies to M2, M4, M5, M7, M10 and the M9 comparison base.
+2. **State changes are part of the series.** A month where a check was `BLOCKED` or `SKIPPED` is
+   plotted as a gap with its state, never as zero and never interpolated. A run of green that
+   turns out to be a run of "could not run" is exactly the failure the four-state rule exists to
+   prevent, and a chart is where it would hide most easily.
+3. **Restatements are visible.** Prior months are frozen at their first clean run (M3's rule,
+   generalised). If a prior month's figure later changes, both values are shown — the trend must
+   not silently rewrite history it already reported.
+
+**Comparison window.** Rolling **13 months** where history allows, so the current month sits
+against the same month last year as well as against last month. History is not uniform and the
+report must say so per metric rather than draw a line into empty space:
+
+| Source | Earliest |
+| --- | --- |
+| Payroll rows (D1) and everything derived from them | 2020-07-01 |
+| WPS records (D4) | check on ingestion |
+| Approved `BI_PAYROLL_*` models (M4a, M7a, and M3's denominator) | **2026-01-01** |
+| Anything waiting on N1/N2/N4/N6 | from the month ingestion starts |
 
 **The four-state rule** *(P&C decision, 2026-09-03 — closes O3)*. Every check is `PASS`, `FAIL`,
 `SKIPPED` or `BLOCKED`.
@@ -925,8 +957,11 @@ Display the variance and the count of maids present on only one side.
 
 ## 4. Finalised UI Report
 
-**Archetype.** Primarily **exception / rule-breach list** (archetype 4), with a **two-sided
-reconciliation** panel for the tie-out and a **trend** strip for the month-over-month ratios.
+**Archetype.** Two archetypes carried together, deliberately: an **exception / rule-breach list**
+(archetype 4) for working this month's cases, and a **trend monitor** (archetype 5) across every
+check, because P&C reads the direction as well as the value. The trend-monitor rules bind — most
+importantly that **the denominator is displayed as its own column**, never implied by the ratio.
+A **two-sided reconciliation** panel carries the tie-out.
 
 **Layout.** One screen: KPI strip → check register → exception table → tie-out → one chart.
 
@@ -941,8 +976,22 @@ reconciliation** panel for the tie-out and a **trend** strip for the month-over-
 | Exceptions to work | count | Exception-grain rows across M1, M7, M8, M9, M10 |
 | **Uncollected receivable — M10** | AED | **v2: split.** v1 had one "Amount at risk" tile summing M10 (money owed *to* the company) with M7b arrears (money owed *by* the company to workers). Those move in opposite directions and netting them is not interpretable — and per §2.4 arrears are no longer displayed as a figure at all. This tile is `SUM(not_received + no_payment payment amounts)`, renders `—` when M10 is `SKIPPED` or `BLOCKED`, and is defined here rather than appearing only in the UI |
 
-**Check register.** Ten rows: ID · name · status badge · headline metric · threshold · exception
-count. Each expands to metric detail and its exception table.
+**Check register.** Ten rows: ID · name · status badge · headline metric · **numerator /
+denominator** · threshold · **13-month sparkline** · **vs. last month** · exception count. Each
+expands to metric detail, the full monthly series as a table, and its exception table.
+
+**The sparkline is a real chart, not an ornament.** One line per check, on that check's own scale,
+with the threshold drawn as a reference line so a reader sees the margin rather than just the
+shape. The current month is the emphasised endpoint. Months where the check was `BLOCKED` or
+`SKIPPED` are gaps carrying that state's colour — never zero, never interpolated across.
+
+**"vs. last month"** shows the signed change in the metric's own unit (AED for M3, percentage
+points for the ratios, a count for M1/M8/M9), with direction coloured by *whether it is good*, not
+by sign — a falling not-received ratio is green even though the number went down.
+
+**Month selector.** The report opens on the latest closed audit month. Changing it moves the whole
+page, trend included, so a past month can be re-read exactly as it was reported — which is what a
+restatement gets compared against.
 
 **Exception table columns.**
 
