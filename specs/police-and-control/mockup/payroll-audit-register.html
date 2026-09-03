@@ -397,7 +397,7 @@ tbody tr:last-child td{border-bottom:none}
     <section class="panel">
       <div class="panel-head">
         <h2>Tie-out</h2>
-        <span class="hint">A broken identity is itself an exception</span>
+        <span class="hint">A broken identity is itself an exception · 4 checks the artefact, not the figures</span>
       </div>
       <div class="tie">
         <div class="tie-row">
@@ -428,6 +428,18 @@ tbody tr:last-child td{border-bottom:none}
           <div class="cwhy">22 maids present on one side only — raised as data-quality exceptions.
             This tie-out did not exist in the n8n flow.</div>
         </div>
+        <div class="tie-row">
+          <div class="tie-name">4 · Archived files exist and are unchanged</div>
+          <div class="tie-eq">
+            <span>WPS transfer ✓</span><span class="op">·</span><span>detailed payroll ✓</span>
+            <span class="op">·</span><span>Ansari PWO ✓</span>
+            <span class="op">·</span><span>hash</span>
+            <span class="tie-ok">✓ unchanged</span>
+          </div>
+          <div class="cwhy">Generated 2026-08-05 18:22 Gulf · PWO MD5 matches the value recorded at
+            first audit. A file regenerated for a closed month is invisible to every other check
+            here. Metadata only — no file contents leave the ERP.</div>
+        </div>
       </div>
     </section>
 
@@ -444,8 +456,12 @@ tbody tr:last-child td{border-bottom:none}
   </div>
 
   <p class="prov">
-    <b>Sources:</b> HOUSEMAID_PAYROLL_HISTORY · HOUSEMAIDS_INFO · WPS_RECORDS ·
-    HOUSEMAID_OUTSTANDING_BALANCE_DETAILS · CLIENT_MANAGEMENT_PAYMENTS · BI_PAYROLL_* (approved)
+    <b>Inputs:</b> the two archived payroll files the ERP generates each month —
+    <span class="mono">WPSTransferFile</span> (Ansari/WPS transfer) and
+    <span class="mono">HousemaidDetailedPayrollFile</span> — retrieved from
+    ERP → Payroll → Archived files.
+    <br><b>Supporting:</b> maid master · loans · contracts · WPS records · client payments ·
+    BI_PAYROLL_* (approved definitions) · ATTACHMENTS + MONTHLYPAYROLLDOCUMENTS (file assurance)
     <br><b>Audit month:</b> 2026-07 &nbsp;·&nbsp; <b>Payroll locked:</b> 2026-08-05 18:20 Gulf &nbsp;·&nbsp; <b>Data as of:</b> 2026-08-07 06:00 Gulf
     &nbsp;·&nbsp; <b>Spec:</b> SPEC_housemaid_payroll_critical_checks_v2
     <br><span class="mockup">Illustrative mockup — synthetic values throughout. Delivered as a link;
