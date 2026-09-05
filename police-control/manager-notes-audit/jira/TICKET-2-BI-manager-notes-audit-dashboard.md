@@ -3,7 +3,9 @@
 **Issue type:** `BI Visualization Task` *(file it as this, not "New Request")*
 **Project:** DNA · **Routing:** BI / Visualization — Eddy Elrahi
 **Summary:** `Manager Notes Audit dashboard on MaidsInsights`
-**Blocked by:** the Analytic Engineering ticket above — the model must merge first.
+**Blocked by:** `DNA-____` — the Analytic Engineer ticket. Fill the key in once it is filed, and add
+the *blocks* link. The model must merge first; DNA's own doctrine is that SQL/model work always
+blocks the visual build.
 
 ---
 
@@ -16,6 +18,10 @@ with a second reviewer before anything is acted on.
 > **Build one page on MaidsInsights that renders the ten metrics from the AE model, at note grain,
 > with every element carrying its metric id.** No metric is computed here — every tile, chart,
 > filter, colour and export column aggregates the single `AUDIT_VERDICT` column the model produces.
+
+The ten: `M1 Cases in Scope` · `M2 Money in Scope` · `M7 Findings` · `M8 Unverifiable` ·
+`M9 Cleared` · `M10 Coverage` · `M11 Amount at Risk` · `M12 Duplicate Groups` ·
+`M13 Expense Match Rate` · `M14 Completeness Exceptions`.
 
 A mockup exists and is linked at the bottom, but ⚠️ **it is a Claude artifact URL and the intake bot
 cannot read it** — so the layout is restated in full below and **this description is the working
