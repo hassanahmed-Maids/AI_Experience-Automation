@@ -1,8 +1,18 @@
 # How DNA requests get written, routed and delivered — and what it means for this one
 
-Read of the DNA (Data & Analytics) Jira project on 2026-09-05: ~170 dashboard/audit/payroll
-tickets scanned, 8 read in full with their comment threads, plus the two tickets that already
-touch the exact tables this audit reads.
+Read of the DNA (Data & Analytics) Jira project on 2026-09-05.
+
+**Sample, stated precisely.** Four JQL searches returned **162 distinct tickets** at title level
+(dashboard, audit, payroll, additions, Police, plus 100 most-recently-resolved Done tickets of any
+kind). **14 were opened**; of those, **4 were read complete and untruncated** (DNA-9454, DNA-9464,
+and the structure of DNA-9236 and DNA-8370), and the rest through an extract capping descriptions
+at 2,600 characters and comments at 700 — so the tails of DNA-9446 (9,396 chars), DNA-9437 (4,686)
+and DNA-8960 (3,519) have not been read.
+
+**The format conclusion rests on one exemplar.** DNA-9454 is the ticket whose section order this
+copies; no second ticket in that exact shape was found. What the other thirteen corroborate is the
+surrounding process — the intake bot, the playbook fields, the split doctrine, the
+acceptance-criteria standard — not the section order itself.
 
 ---
 
@@ -180,6 +190,53 @@ separately. So our request must state where it sits relative to that, or intake 
 | **DNA-9454** / **DNA-9455** | applicant ticketing audit, eleven P&C metrics | To Do / On-Hold | sibling P&C audit, different population; the format model |
 | **DNA-7074** | the "most recent expense request" filter | Done | the upstream cause of the payment-method mis-attribution |
 | **DNA-9133** | anomaly detection on Additions by Category | Ongoing | same measure, different purpose |
+
+---
+
+## 3b. Does long-form actually ship? — tested, and yes
+
+An earlier read of this project suggested it might not: every elaborate P&C-style ticket found
+(DNA-9454, DNA-9446, DNA-9437) was still To Do, while the dashboards that reached Done had
+descriptions of 935–3,519 characters. That was a sampling artifact — those three were all filed
+two days before the read, and the search was keyword-filtered to dashboards and audits.
+
+Testing it properly against the **100 most-recently-resolved Done tickets of any kind**:
+
+| | |
+|---|---|
+| Median description | **785 characters** |
+| Mean | 1,456 |
+| ≥ 3,000 chars | 16 of 100 |
+| ≥ 5,000 chars | 8 of 100 |
+| ≥ 8,000 chars | 2 of 100 |
+
+So a long ticket is unusual — but it ships. Four of the longest reached **Done**:
+
+| Key | Chars | Type | Shape |
+|---|---|---|---|
+| **DNA-9124** | 15,730 | BI | Long **unstructured** prose — no headings, no tables. Done, closed via merged MR !1135 |
+| **DNA-8925** | 9,052 | AE | 2 headings, no tables. Done |
+| **DNA-9236** | 6,999 | BI | **13 headings, 10 tables, explicit Acceptance Criteria and Attached Resources.** Done, closed via merged MR !1112 |
+| **DNA-9173** | 5,909 | AE | 15 numbered metric sections, grain stated. Done, merged after a dbt merge-gate check |
+
+**DNA-9236 is the proof case** — a structured, table-heavy spec with acceptance criteria that went
+all the way to a merged MR. Its section order (Summary · Context · Requirements · Example Table
+Layout · mappings · definitions · Controls · Chart Specifications · Acceptance Criteria · Attached
+Resources) is independent corroboration of the shape DNA-9454 uses.
+
+**The one long ticket that was cancelled was not bounced for its format.** DNA-8370 (7,024 chars,
+Business Case · Objective · Scope · Technical Implementation · Deliverables · Acceptance Criteria ·
+Dependencies · Related Queries — written by the AE manager himself) was cancelled in Jira as a
+business decision; the bot comment records only *"The task was cancelled in Jira, so I'd like it to
+be excluded from the bot's queue."*
+
+**Conclusion:** length is not a risk; being long *and* shapeless is what correlates with churn.
+Our AE ticket at ~12,000 characters is longer than 99 of 100 recent Done tickets, which is a real
+signal to keep the description tight and push detail into the attachments — but the structure is
+right.
+
+More playbook templates surfaced by this pass: `BI — Template — Add Element`,
+`BI — Template — UI / Copy / Design`, `AE — Template — Business Logic Change`.
 
 ---
 
