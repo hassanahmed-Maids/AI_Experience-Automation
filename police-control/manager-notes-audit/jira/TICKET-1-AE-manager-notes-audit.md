@@ -136,7 +136,7 @@ non-salary columns only.
 
 | File | What it is |
 | --- | --- |
-| **`DNA_ATTACHMENT_source_tables.md`** | **Start here.** Every data point mapped to its object, the two link routes, the fourteen-row trap table, and the reference data that does not exist |
+| **`DNA_ATTACHMENT_source_tables.md`** | **Start here.** Every data point mapped to its object, the two link routes, the fifteen-row trap table, and the reference data that does not exist |
 | **`SPEC_manager_notes_audit_DEV.md`** | The full logic — population, audit-month resolution, the test battery, the verdict algebra, all 24 payment types mapped to groups, ten metrics, twelve run guards |
 | **`SPEC_manager_notes_audit_v2.md`** | The long-form specification with the reasoning behind every rule. Not needed to start; attached for the record |
 
