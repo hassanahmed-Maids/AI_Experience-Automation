@@ -117,6 +117,14 @@ reports clean.**
 
 ## 5. Sources
 
+> **Verification note.** Every table, column, type and enum below comes from the Snowflake
+> catalog and from the ERP source code. **None of it has been confirmed against actual rows** —
+> an access limitation on our side meant no row-level query could be run, so while we are
+> confident *what* exists, we could not verify *exactly where* it lands, nor its population,
+> freshness or cardinality. You have the access we didn't. Confirm each source as you wire it
+> up, treat anything marked *confirm* as a genuine open question rather than a formality, and
+> run §12's three checks before publishing a number.
+
 ### In Snowflake
 
 | Ref | Table | Columns you need |
@@ -378,7 +386,7 @@ none of them is a query away:
 | 5 | **Confirm the note amount is AED.** The note table has no currency column, so the whole spec assumes it. If that is wrong, every comparison, M2, M11 and both tie-outs are wrong in an unknown direction | ERP team |
 | 6 | **The `MONTHLYPAYMENTRULES` lock column** (N7) | ERP team |
 
-**Three checks worth running first, before writing anything else:**
+**Three checks worth running first**, which also close out §5's verification note:
 
 ```sql
 -- 1. the grain the whole report rests on (G2)
