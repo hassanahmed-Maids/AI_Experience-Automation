@@ -1,0 +1,304 @@
+<title>Manager Notes Audit Build</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Serif:wght@600;700&display=swap">
+<style>
+:root{
+  --ink:#15181D; --ink-2:#454D58; --ink-3:#727C8A;
+  --bg:#FCFCFB; --panel:#FFFFFF; --panel-2:#F4F5F3; --line:#E3E5E1; --line-2:#CBD0C9;
+  --red:#A32118; --amber:#B07F09; --green:#0A7245; --accent:#3538CD;
+  --red-wash:#FBEDEB; --amber-wash:#FBF3E0; --green-wash:#E9F4EE; --accent-wash:#EDEEFB;
+  --code-bg:#F2F3F0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+    --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+    --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF;
+    --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+    --code-bg:#202320;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+  --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --code-bg:#202320;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; scroll-padding-top:24px}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased}
+
+#prog{position:fixed; top:0; left:0; height:2px; width:0; background:var(--accent); z-index:60}
+
+.shell{max-width:1400px; margin:0 auto; padding:0 22px 96px;
+  display:grid; grid-template-columns:232px minmax(0,1fr); gap:42px; align-items:start}
+@media (max-width:1040px){.shell{grid-template-columns:1fr; gap:0}}
+
+.mast{grid-column:1/-1; padding:32px 0 0}
+.eyebrow{font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:var(--ink-3);
+  font-weight:600}
+.mast h1{font-family:"IBM Plex Serif",Georgia,serif; font-size:33px; line-height:1.1;
+  letter-spacing:-.022em; margin:7px 0 0; font-weight:700; text-wrap:balance}
+.mast .lede{margin:10px 0 0; color:var(--ink-2); max-width:62ch; font-size:16px}
+.meta{margin:16px 0 0; display:flex; flex-wrap:wrap; gap:8px}
+.chip{font-size:11.5px; font-weight:600; letter-spacing:.03em; padding:5px 10px; border-radius:3px;
+  border:1px solid var(--line); background:var(--panel-2); color:var(--ink-2); white-space:nowrap}
+.chip.red{color:var(--red); background:var(--red-wash); border-color:color-mix(in srgb,var(--red) 28%,transparent)}
+.chip a{color:inherit}
+
+/* figure band — these numbers are the business case */
+.figs{grid-column:1/-1; margin:26px 0 0; display:grid; gap:1px; background:var(--line);
+  border:1px solid var(--line); border-radius:6px; overflow:hidden;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.fig{background:var(--panel); padding:15px 17px 16px}
+.fig b{display:block; font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+  font-size:26px; line-height:1.05; letter-spacing:-.03em; font-weight:500}
+.fig span{display:block; margin-top:7px; font-size:12.5px; color:var(--ink-2); line-height:1.4}
+.fig.hot b{color:var(--red)}
+.fig.warm b{color:var(--amber)}
+
+nav{position:sticky; top:16px; max-height:calc(100vh - 36px); overflow-y:auto;
+  padding:26px 0 24px; font-size:13px}
+nav b{display:block; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 10px; font-weight:600}
+nav a{display:block; color:var(--ink-2); text-decoration:none; padding:4px 10px 4px 11px;
+  border-left:2px solid var(--line); line-height:1.35}
+nav a:hover{color:var(--ink); background:var(--panel-2)}
+nav a.t3{padding-left:22px; font-size:12.4px; color:var(--ink-3)}
+nav a.on{color:var(--accent); border-left-color:var(--accent); font-weight:600; background:var(--accent-wash)}
+@media (max-width:1040px){
+  nav{position:static; max-height:none; overflow:visible; border-bottom:1px solid var(--line);
+    padding:16px 0; columns:2; column-gap:24px}
+}
+
+article{padding:28px 0 0; min-width:0}
+article > *{max-width:80ch}
+article > .tw, article > hr, article > pre{max-width:none}
+h2{font-family:"IBM Plex Serif",Georgia,serif; font-size:24px; line-height:1.2;
+  letter-spacing:-.018em; font-weight:700; margin:48px 0 4px; padding-top:14px;
+  border-top:1px solid var(--line); text-wrap:balance}
+article > h2:first-child{margin-top:4px; border-top:0; padding-top:0}
+h3{font-size:16.5px; line-height:1.3; letter-spacing:-.008em; font-weight:600; margin:30px 0 2px}
+h4{font-size:13.5px; font-weight:600; margin:24px 0 2px; color:var(--ink)}
+p{margin:13px 0}
+a{color:var(--accent)}
+hr{border:0; border-top:1px solid var(--line); margin:40px 0}
+ul,ol{margin:13px 0; padding-left:21px}
+li{margin:5px 0}
+li::marker{color:var(--ink-3)}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:.86em;
+  background:var(--code-bg); border:1px solid var(--line); border-radius:3px;
+  padding:1px 4px; word-break:break-word}
+pre{background:var(--code-bg); border:1px solid var(--line); border-radius:5px;
+  padding:14px 16px; overflow-x:auto; margin:16px 0}
+pre code{background:none; border:0; padding:0; font-size:12.6px; line-height:1.6}
+blockquote{margin:18px 0; padding:13px 17px; background:var(--panel-2);
+  border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:0 5px 5px 0}
+
+.sev{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px;
+  vertical-align:.06em; flex:none}
+.sev-hi{background:var(--red)} .sev-md{background:var(--amber)}
+.sev-ok{background:var(--green); border-radius:2px}
+p.callout{padding:12px 15px; border-radius:0 5px 5px 0; margin:17px 0}
+p.callout.hi{background:var(--red-wash); border-left:3px solid var(--red)}
+p.callout.md{background:var(--amber-wash); border-left:3px solid var(--amber)}
+li.hi{list-style:none; margin-left:-21px; padding:9px 13px; background:var(--red-wash);
+  border-left:3px solid var(--red); border-radius:0 4px 4px 0}
+
+.tw{overflow-x:auto; margin:18px 0; border:1px solid var(--line); border-radius:5px;
+  background:var(--panel)}
+table{border-collapse:collapse; width:100%; font-size:13px; line-height:1.5}
+th,td{text-align:left; padding:9px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3);
+  font-weight:600; background:var(--panel-2); white-space:nowrap; position:sticky; top:0}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--panel-2)}
+td code{font-size:11.6px}
+.tw.bare table{font-size:13.5px}
+.tw.bare td:first-child{width:170px; color:var(--ink-3); font-weight:600; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase; background:var(--panel-2)}
+
+footer{grid-column:1/-1; border-top:1px solid var(--line); margin-top:52px; padding-top:18px;
+  font-size:12.5px; color:var(--ink-3); display:flex; flex-direction:column; gap:5px}
+footer b{color:var(--ink-2); font-weight:600}
+a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{nav,#prog{display:none} .shell{grid-template-columns:1fr; max-width:none}
+  article > *{max-width:none} .tw{break-inside:avoid}}
+</style>
+
+<div id="prog"></div>
+<div class="shell">
+
+<header class="mast">
+  <div class="eyebrow">Police &amp; Control · maids.cc · developer spec · 2026-09-05</div>
+  <h1>Manager Notes Audit</h1>
+  <p class="lede">Managers add money to housemaid payslips every month. Every addition is supposed
+    to be justified by the rule governing that payment type, and nothing checks that today.
+    This is the build.</p>
+  <div class="meta">
+    <span class="chip">Target: MaidsInsights on Snowflake</span>
+    <span class="chip">Grain: one row per note</span>
+    <span class="chip">Monthly, manual — never scheduled</span>
+    <span class="chip red">Blocked on the warehouse grant</span>
+    <span class="chip"><a href="https://claude.ai/code/artifact/75d6c4b8-ee4e-431a-aa8a-b19daa19e051">Report mockup &rarr;</a></span>
+  </div>
+</header>
+
+<section class="figs" aria-label="Why this exists">
+  <div class="fig"><b>AED 6.3m</b><span>added to payslips a year, across ~16,000 payments</span></div>
+  <div class="fig"><b>~1,300</b><span>additions a month — one case each, judged separately</span></div>
+  <div class="fig hot"><b>0</b><span>of them checked against their rule today</span></div>
+  <div class="fig warm"><b>~1/3</b><span>of cases this check can judge on current data — under a tenth of the money</span></div>
+</section>
+
+<nav aria-label="Contents">
+  <b>Contents</b>
+  <a class="t2" href="#1-the-business-case">1. The business case</a><a class="t2" href="#2-what-youre-building">2. What you're building</a><a class="t2" href="#3-population">3. Population</a><a class="t2" href="#4-audit-month-read-this-before-writing-any-filter">4. audit_month — read this before writing any filter</a><a class="t2" href="#5-sources">5. Sources</a><a class="t3" href="#in-snowflake">In Snowflake</a><a class="t3" href="#to-ingest-from-the-erp-all-columns-exist-mechanism-is-the-da">To ingest from the ERP — all columns exist, mechanism is the data team's call</a><a class="t3" href="#the-note-expense-link">The note → expense link</a><a class="t2" href="#6-traps-that-return-a-wrong-answer-instead-of-an-error">6. Traps that return a wrong answer instead of an error</a><a class="t2" href="#7-verdict-model">7. Verdict model</a><a class="t2" href="#8-group-rules-the-24-payment-types">8. Group rules — the 24 payment types</a><a class="t2" href="#9-metrics">9. Metrics</a><a class="t2" href="#10-run-guards">10. Run guards</a><a class="t2" href="#11-ui">11. UI</a><a class="t2" href="#12-blocked-on">12. Blocked on</a><a class="t2" href="#13-open-decisions-pc">13. Open decisions (P&amp;C)</a>
+</nav>
+
+<article>
+<h2 id="1-the-business-case">1. The business case</h2>
+<p>Every month, managers at maids.cc add money to housemaids' payslips. Flight-home money, loyalty payments, referral and signing bonuses, part-month salaries, salary corrections, raffle prizes, reimbursing a maid for money she spent herself. Roughly <strong>1,300 additions a month, worth about AED 0.5m</strong> — some <strong>AED 6.3m a year across ~16,000 payments</strong>.</p>
+<p>Every one of them is supposed to be justified by whatever rule governs that type of payment. <strong>Nobody currently checks.</strong> Police &amp; Control wants a dashboard that does.</p>
+<p><strong>Four things it looks for</strong></p>
+<div class="tw bare"><table><tbody><tr><td><strong>F1 Over-limit</strong></td><td>More money paid than the rule allowed</td></tr><tr><td><strong>F2 Duplicate</strong></td><td>The same payment made twice</td></tr><tr><td><strong>F3 Not entitled</strong></td><td>Paid against a rule that never applied to that maid</td></tr><tr><td><strong>F4 No basis</strong></td><td>Nothing behind it explaining why it was paid</td></tr></tbody></table></div>
+<p><strong>Who uses it.</strong> A P&amp;C auditor opens it once a month and works that month's cases one at a time. A second person reviews before anything is acted on — maker–checker. Red means money went out above what was allowed, or with nothing behind it. Amber means the check could not reach a conclusion, and it always says why. Green means a rule actually ran and cleared the payment.</p>
+<p><strong>Why a new check when the ERP already has one.</strong> The ERP has an internal payroll-auditor role that already detects over-limit airfare payments and repeated additions. But it only queries notes where <code>CONFIRMED_*_BY_AUDITOR = false</code> — so the moment someone confirms a case it leaves that list, <strong>while the payment stays over the limit</strong>. This dashboard is the independent second check. The internal sign-off is shown as context and never clears a case here. That is what guard G9 enforces, and it is the single clearest reason this project exists.</p>
+<p><strong>What it can honestly deliver today: a verdict on about a third of the cases and under a tenth of the money.</strong> The rest cannot be judged — not because those payments are wrong, but because the rules or the reference data needed to judge them are not in the warehouse, and in one case (the loyalty payment) do not exist anywhere in the company. <strong>That is the most valuable thing this reports</strong>, and the design must not let it read as a pass. It is why coverage leads the KPI strip and why amber always carries its reason.</p>
+<p><strong>The one engineering risk worth naming up front.</strong> The failure mode this design exists to prevent is: <em>something is marked as blocked on the screen while the underlying numbers still count those notes as clean.</em> A guard that changes no number. Or a clearance that lets a note skip a test that could not run. Every section below that looks over-engineered — the single verdict column, the no-early-exit test battery, the blocking guards — is there for that reason. Treat it as the primary risk, not a footnote.</p>
+<hr>
+<h2 id="2-what-youre-building">2. What you're building</h2>
+<p><strong>Grain: one row per manager note.</strong> Four additions to one maid in one month = four cases, judged separately.</p>
+<p><strong>Output: one note-level table</strong>, computed once, carrying exactly one verdict per note. Every tile, chart, filter, row colour and export column aggregates that table. Nothing anywhere re-derives eligibility (§7).</p>
+<p><strong>Refresh: monthly, manual. Never scheduled</strong> — recurring warehouse jobs go through the ERP team.</p>
+<p><strong>Delivered on MaidsInsights</strong>, with Snowflake as the warehouse underneath. Not interchangeable.</p>
+<p>The rest of this document is the build.</p>
+<hr>
+<h2 id="3-population">3. Population</h2>
+<pre><code>NOTE_TYPE = 'ADDITION'
+AND HOUSEMAID_ID IS NOT NULL
+AND APPLIED = true AND NOT_FINAL = false          -- N1
+AND IS_REFUND = false AND addition_reason &lt;&gt; 'refund'   -- N3
+AND addition_reason &lt;&gt; 'office_work_addition'     -- separate check owns it
+AND audit_month = &lt;selected month&gt;                -- see §4</code></pre>
+<p>Out of scope: <code>DEDUCTION</code> / <code>PENALTY_DEDUCTION</code> (feed is dead), office staff, client notes (<code>CLIENT_MANAGER_NOTES</code>), profile notes (<code>HOUSEMAID_MANAGERACTIONLOGS</code>).</p>
+<p>In scope and easy to get wrong: <strong>negative amounts</strong> (clawbacks — reported, never netted against a finding), <strong>both contract types</strong>, <strong>system-generated additions</strong> (<code>forgive_deduction</code>, <code>cover_deduction_limit</code>, <code>cover_negative_salary</code> — pending Q3).</p>
+<p><strong>No profile predicate in the population.</strong> An unreadable or deleted profile is a <em>verdict</em> (amber), not an exclusion. Join notes → <code>HOUSEMAIDS_INFO</code> as a <strong>LEFT JOIN</strong>. Filtering <code>IS_DELETED &lt;&gt; '01'</code> drops rows silently — the column is TEXT and nullable, so the comparison yields UNKNOWN for missing profiles and they vanish from every count and every tie-out while the totals still balance on the survivors.</p>
+<h2 id="4-audit-month-read-this-before-writing-any-filter">4. <code>audit_month</code> — read this before writing any filter</h2>
+<pre><code>if PAID_ON_PAYROLL_MONTH is not null:  audit_month = PAID_ON_PAYROLL_MONTH     -- authoritative
+else:                                  audit_month = payroll month whose LOCK WINDOW contains
+                                                     NOTE_DATE, and the note must reconcile into
+                                                     that month's MANAGER_ADDITIONS
+else:                                  verdict = AMBER "paid month cannot be established"</code></pre>
+<p class="callout hi"><span class="sev sev-hi" aria-label="critical"></span> <strong><code>PAID = true</code> is not "was paid".</strong> For most routine additions the ERP writes neither <code>PAID</code> nor <code>PAID_ON_PAYROLL_MONTH</code>. Those are written only for carried-forward <em>must-be-paid</em> reasons (<code>salary_dispute</code>, <code>taxi_reimbursement</code>, <code>forgive_deduction</code>, <code>airfare_ticket</code>, <code>AR-1</code>, <code>anti_attrition_incentive</code>, <code>Maids_at_other_expenses</code>, <code>medical_assistant</code>, <code>mv_prorated_salary</code>). <code>HousemaidPayrollController</code>'s manual "mark as paid" sets <code>PAID</code> <strong>without</strong> <code>PAID_ON_PAYROLL_MONTH</code>. <strong>Filtering on <code>PAID = true</code> drops most of the population and the month reports clean.</strong></p>
+<p><code>audit_month</code> is a payroll month as its first day (<code>DATE</code>) — same domain as <code>HOUSEMAID_PAYROLL_HISTORY.PAYROLL_MONTH</code>, so G1 joins on equal keys. <code>PAID_ON_DATE_FORMATTED</code> is a settlement date: display it, never window on it.</p>
+<h2 id="5-sources">5. Sources</h2>
+<h3 id="in-snowflake">In Snowflake</h3>
+<div class="tw"><table><thead><tr><th>Ref</th><th>Table</th><th>Columns you need</th></tr></thead><tbody><tr><td>D1</td><td><code>BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES</code></td><td><code>ID</code>, <code>HOUSEMAID_ID</code>, <code>NOTE_TYPE</code>, <code>AMOUNT</code>, <code>REASON</code>, <code>NOTE_REASON</code>, <code>NOTE_DATE</code>, <code>REQUESTED_BY</code>, <code>APPROVED_BY</code></td></tr><tr><td>D2</td><td><code>…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY</code></td><td><code>HOUSEMAID_ID</code>, <code>PAYROLL_MONTH</code>, <code>ADDITIONS</code>, <code>PAID_ON_DATE_FORMATTED</code>, <code>IS_TRANSFERRED</code></td></tr><tr><td>D3</td><td><code>…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO</code></td><td><code>ID</code>, <code>HOUSEMAID_TYPE</code>, <code>NATIONALITY</code>, <code>START_DATE</code>, <code>SALARY_STARTING_DATE</code>, <code>DATE_OF_TERMINATION</code>, <code>MODE_OF_TERMINATION</code>, <code>IS_DELETED</code></td></tr><tr><td>D4</td><td><code>BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS</code></td><td><code>ID</code>, <code>EXPENSE_TYPE</code>, <code>RELATED_TO_TYPE</code>, <code>RELATED_TO_ID</code>, <code>REQUEST_STATUS</code>, <code>REFUNDED</code>, <code>AMOUNT</code>, <code>CURRENCY_NAME</code>, <code>BENEFICIARY_TYPE</code>, <code>BENEFICIARY_NAME</code>, <code>APPROVED_BY</code>, <code>CREATION_DATE</code></td></tr><tr><td>D5</td><td><code>…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS</code></td><td><code>HOUSEMAID_ID</code>, <code>TICKET_TYPE</code>, <code>BUYER</code>, <code>PURCHASE_DATE</code>, <code>REFUNDED</code>, <code>IS_DELETED</code>, <code>IS_LATEST_HM_TICKET</code></td></tr><tr><td>D6</td><td><code>…HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES</code>, <code>…HOUSEMAID_REFERRALS</code></td><td>referral, referred maid, bonus-requested date, cancelled date</td></tr><tr><td>D7</td><td><code>BA_VIEWS.CORE_SILVER.PICKLISTS_INFO</code></td><td>picklist item id, code, name</td></tr></tbody></table></div>
+<p class="callout hi"><span class="sev sev-hi" aria-label="critical"></span> <strong>Do not source from <code>BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_MAID_SALARY_ADDITIONS_BY_CATEGORY</code>.</strong> It joins <code>EXPENSES_REQUESTS.RELATED_TO_ID</code> to a <strong>note id</strong> while that column is documented as a <strong>housemaid id</strong>. Ranges overlap, so it matches rows and raises no error; every column profiles as all-NULL. Raised to the Data team separately.</p>
+<h3 id="to-ingest-from-the-erp-all-columns-exist-mechanism-is-the-da">To ingest from the ERP — all columns exist, mechanism is the data team's call</h3>
+<p>Source <code>mmdb_transformed.payrollmanagernotes</code> unless noted. History from <strong>2024-01-01</strong>, backfilled.</p>
+<div class="tw"><table><thead><tr><th>Ref</th><th>Columns</th><th>Why</th></tr></thead><tbody><tr><td>N1</td><td><code>APPLIED</code>, <code>NOT_FINAL</code> <code>BOOLEAN</code></td><td>population predicate</td></tr><tr><td>N2</td><td><code>PAID</code>, <code>PAID_ON_PAYROLL_MONTH</code> <code>DATE</code>, <code>PAYROLL_MONTH</code> <code>DATE</code>, <code>PAYROLL_ACCOUNTANT_TODO_ID</code></td><td>§4</td></tr><tr><td>N3</td><td><code>IS_REFUND</code> <code>BOOLEAN</code>, <code>REFUNDED_NOTE_ID</code></td><td>refunds out of scope</td></tr><tr><td>N4</td><td><code>EXPENSE_ID</code> <code>BIGINT</code></td><td>the expense link — already used inside D1's own join, never selected</td></tr><tr><td>N5</td><td><code>ADDITION_REASON_ID</code>, <code>PURPOSE_ID</code> <code>BIGINT</code> → <code>PICKLISTS_ITEMS.ID</code></td><td>group routing</td></tr><tr><td>N6</td><td><code>CREATOR</code> <code>BIGINT</code> → <code>USERS.ID</code>, <code>CREATION_DATE</code></td><td>who made the addition</td></tr><tr><td>N7</td><td>payroll lock window per month — <code>MONTHLYPAYMENTRULES</code> (exact column TBC)</td><td>§4 branch 2</td></tr><tr><td>N8</td><td><code>PARAMETERS.CODE</code> / <code>.VALUE</code> for <code>PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT</code> (<code>"2000"</code>), <code>PARAMETER_HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET_LIMIT</code> (<code>"1350"</code>)</td><td>airfare cap</td></tr><tr><td>N9</td><td><code>CONFIRMED_AMOUNT_BY_AUDITOR</code>, <code>CONFIRMED_REPEATED_BY_AUDITOR</code> <code>BOOLEAN</code>; <code>PAYROLLAUDITHOUSEMAIDEXCEPTIONS</code>; <code>AUDITORACTIONS</code></td><td><strong>display only</strong> — see G9</td></tr></tbody></table></div>
+<p><strong>Not available anywhere, and each one blocks a group rule:</strong> effective-dated salary history (group D), referral/signing scheme prices (group C), raffle winners (group F), a written loyalty rule (group B — does not exist in the company), and the three reference mappings N14–N16 below.</p>
+<div class="tw"><table><thead><tr><th>Ref</th><th>Reference mapping</th><th>Blocks</th></tr></thead><tbody><tr><td>N14</td><td>payment type → allowed expense heads</td><td>T5</td></tr><tr><td>N15</td><td>contract type → allowed payment types</td><td>T7</td></tr><tr><td>N16</td><td>payment types that always carry an expense record</td><td>T4</td></tr></tbody></table></div>
+<p><strong>A payment type missing from N14/N15/N16 makes that test BLOCKED — never a pass, never a red.</strong> An empty list reds everything; a permissive default greens everything. Both are silent.</p>
+<h3 id="the-note-expense-link">The note → expense link</h3>
+<p class="callout hi"><span class="sev sev-hi" aria-label="critical"></span> <strong>There is no key.</strong> <code>payrollmanagernotes.EXPENSE_ID</code> → <code>EXPENSES.ID</code> is the expense <strong>catalogue</strong> row. No FK exists to <code>EXPENSEREQUESTTODOS</code> or <code>EXPENSEPAYMENTS</code>; the ERP copies fields across. The match is a heuristic:</p>
+<pre><code>candidates = EXPENSES_REQUESTS
+  where RELATED_TO_TYPE = 'MAID'
+    and RELATED_TO_ID   = note.HOUSEMAID_ID
+    and EXPENSE_TYPE resolves from note.EXPENSE_ID          -- N4
+    and CREATION_DATE within the note's entitlement window
+
+exactly 1  -&gt; matched
+&gt;1         -&gt; BLOCKED "multiple candidate expense records"   -- never take the first
+0          -&gt; unmatched; T4 decides red vs blocked by N16 and the floor</code></pre>
+<p>Publish the match rate (M13) <strong>per payment type per month</strong>. Below the floor (start at 80%), T4 cannot return red for that type. <strong>A low match rate means unverified, never clean.</strong></p>
+<h2 id="6-traps-that-return-a-wrong-answer-instead-of-an-error">6. Traps that return a wrong answer instead of an error</h2>
+<div class="tw bare"><table><tbody><tr><td><strong>Grain</strong></td><td>D1 LEFT JOINs <code>expensepayments</code> on <code>HOUSEMAID_ID + EXPENSE_ID</code> with no dedup, and <code>EXPENSE_ID</code> is a category. It can emit more rows than notes. <strong>Assert <code>COUNT(*) = COUNT(DISTINCT ID)</code> first (G2)</strong></td></tr><tr><td><strong>TEXT booleans</strong></td><td><code>HOUSEMAIDS_INFO.IS_DELETED</code> / <code>EXCLUDED_FROM_PAYROLL</code> = <code>'00'</code>/<code>'01'</code> nullable · <code>HOUSEMAID_PAYROLL_HISTORY.IS_TRANSFERRED</code> = <code>'YES'</code>/<code>'NO'</code> · <code>HOUSEMAIDS_TICKETS.IS_DELETED</code> = <code>'00'</code>/<code>'01'</code>. <code>= TRUE</code> matches nothing</td></tr><tr><td><strong>Empty-string sentinels</strong></td><td><code>BENEFICIARY_NAME</code>, <code>RELATED_TO_NAME</code>, <code>APPROVED_BY</code>, <code>REQUESTED_BY</code> return <code>''</code>, not NULL. Use <code>NULLIF(TRIM(x),'')</code></td></tr><tr><td><strong>Secure expenses</strong></td><td><code>EXPENSES_REQUESTS</code> excludes <code>is_secure = 1</code> categories <strong>entirely</strong>. "No expense record" and "record withheld" are indistinguishable → amber, never red</td></tr><tr><td><strong>Contract types</strong></td><td><code>HOUSEMAID_TYPE ∈ {Normal, MAID_VISA, FREEDOM_OPERATOR, WALKIN}</code> — <strong>four</strong>. <code>IF MV … ELSE CC</code> clears the last two against the wrong rule</td></tr><tr><td><strong>Epoch dates</strong></td><td><code>START_DATE</code> / <code>SALARY_STARTING_DATE</code> bottom out at <code>1970-01-01</code> = unknown. Service arithmetic on them returns a confident wrong answer</td></tr><tr><td><strong>Dead columns</strong></td><td><code>HOUSEMAID_MANAGER_NOTES.MANAGER</code>, <code>HOUSEMAIDS_INFO.LAST_PAYROLL_LOCK_DATE</code>, <code>.EID</code> are entirely NULL</td></tr><tr><td><strong>Multi-currency</strong></td><td><code>EXPENSES_REQUESTS.CURRENCY_NAME</code> spans 10 currencies. No FX → BLOCKED, not an approximate match</td></tr><tr><td><strong>Bonus ambiguity</strong></td><td>Referral and signing bonus share reason <code>bonus</code>; only <code>PURPOSE_ID</code> (<code>referral_bonus</code>) separates them. <strong>Route on <code>(ADDITION_REASON_ID, PURPOSE_ID)</code>, never on the resolved name</strong></td></tr><tr><td><strong>Note types</strong></td><td>The ERP enum has 7 values; <code>MANAGER_ADDITIONS</code> counts only <code>ADDITION</code>. Assert the other four are absent (G10)</td></tr><tr><td><strong>Parameters</strong></td><td><code>PARAMETERS.VALUE</code> is TEXT and <strong>not effective-dated</strong>. Cast it; snapshot it per run</td></tr><tr><td><strong>Timezone</strong></td><td><code>NOTE_DATE</code> is <code>TIMESTAMP_NTZ</code>, zone unstated. Truncate once, centrally; flag notes within 3h of a window edge</td></tr><tr><td><strong>Currency of the note</strong></td><td>D1 has no currency column. AED is an <strong>assumption</strong> — confirm</td></tr></tbody></table></div>
+<h2 id="7-verdict-model">7. Verdict model</h2>
+<p>Every applicable test is evaluated and written to <code>TEST_TRACE</code>. <strong>No early exit.</strong> Each returns <code>RED(failure_type)</code> · <code>GREEN</code> · <code>BLOCKED(reason)</code> · <code>N_A</code>.</p>
+<pre><code>RED    &lt;= any applicable test returned RED           (one is enough)
+AMBER  &lt;= not RED, and any applicable test BLOCKED
+GREEN  &lt;=&gt; every applicable test RAN and returned GREEN</code></pre>
+<p>A finding is evidence; a clearance is only the absence of one.</p>
+<div class="tw"><table><thead><tr><th>Test</th><th>RED when</th><th>BLOCKED when</th></tr></thead><tbody><tr><td>T1 profile readable</td><td>—</td><td>no profile row · <code>IS_DELETED='01'</code> · <code>HOUSEMAID_TYPE ∉ {Normal, MAID_VISA}</code> · epoch date</td></tr><tr><td>T2 payment type recorded</td><td><code>ADDITION_REASON_ID IS NULL</code> → <strong>F4</strong></td><td>id set but resolves to no picklist row</td></tr><tr><td>T3 amount usable</td><td>—</td><td><code>AMOUNT IS NULL</code> · <code>= 0</code> · <code>&lt; 0</code> (each its own reason)</td></tr><tr><td>T4 authorised + amount agrees</td><td>matched &amp; authorised &amp; |gap| &gt; 0.01 → <strong>F1</strong> · matched &amp; not authorised → <strong>F4</strong> · unmatched &amp; reason ∈ N16 &amp; rate ≥ floor → <strong>F4</strong></td><td>unmatched &amp; rate &lt; floor · N16 absent · multiple candidates · currency mismatch · N4 not landed</td></tr><tr><td>T5 expense head consistent</td><td>head ∉ N14 → <strong>F3</strong></td><td>N14 absent · T4 didn't match</td></tr><tr><td>T6 duplicate</td><td>duplicate group exists → <strong>F2</strong> on every member</td><td>window unknown · window extends outside loaded history</td></tr><tr><td>T7 contract type may receive</td><td>reason ∉ N15 for that type → <strong>F3</strong></td><td>N15 absent · T1 blocked</td></tr><tr><td>G  group rule</td><td>per rule</td><td>per rule; <strong>always</strong> when no group is mapped</td></tr></tbody></table></div>
+<p><strong>T4 authorisation:</strong> authorised ⟺ <code>REQUEST_STATUS = 'PAID' AND REFUNDED = FALSE</code>. <code>PENDING_PAYMENT</code> → BLOCKED. <code>REJECTED</code> / <code>DISMISSED</code> / <code>CANCELED</code> / <code>PENDING</code> → <strong>RED (F4)</strong>. Without this a note matched to a cancelled request with an equal amount reaches green.</p>
+<p><strong>T6 scan population is not the audit month</strong> — it is every note for that maid across the longest entitlement window of any payment type (24 months for <code>airfare_ticket</code>). Scanning one month makes two identical additions astride a month boundary invisible and greens both.</p>
+<p><strong>Duplicates are groups, not pairs.</strong> <code>DUPLICATE_GROUP_ID</code> + one <code>IS_RISK_REPRESENTATIVE = true</code> (latest by <code>NOTE_DATE</code>). Every member is a case; only the representative contributes to M11.</p>
+<p><strong>Blocking-reason precedence:</strong> first blocked test in order T1→T7→G. All blocked tests stay in <code>TEST_TRACE</code>. Without a fixed precedence the reason buckets are assignment-order dependent.</p>
+<p><strong>Output table — one row per note, computed once:</strong> <code>AUDIT_VERDICT ∈ {RED, AMBER, GREEN}</code> · <code>VERDICT_LABEL</code> · <code>FAILURE_TYPE ∈ {F1,F2,F3,F4}|null</code> · <code>BLOCKING_REASON|null</code> · <code>DUPLICATE_GROUP_ID</code> · <code>IS_RISK_REPRESENTATIVE</code> · <code>TEST_TRACE</code>. <strong>Every tile, chart, filter, row colour and export column aggregates this table. Nothing re-derives eligibility.</strong> There is no fourth verdict — negatives and zeros are AMBER with their own blocking reason.</p>
+<p>Failure types: <strong>F1</strong> over-limit · <strong>F2</strong> duplicate · <strong>F3</strong> not entitled · <strong>F4</strong> no basis.</p>
+<h2 id="8-group-rules-the-24-payment-types">8. Group rules — the 24 payment types</h2>
+<p>Exactly one group runs per note. Unmapped → BLOCKED → amber.</p>
+<div class="tw"><table><thead><tr><th><code>ADDITION_REASON_ID</code> code</th><th>Group</th><th>Buildable</th></tr></thead><tbody><tr><td><code>airfare_ticket</code></td><td><strong>A</strong> Flight home</td><td><span class="sev sev-ok" aria-label="verified"></span> once N8 lands</td></tr><tr><td><code>anti_attrition_incentive</code></td><td><strong>B</strong> Loyalty</td><td>❌ no rule exists</td></tr><tr><td><code>bonus</code> + purpose <code>referral_bonus</code></td><td><strong>C</strong> Referral</td><td>partial — event <span class="sev sev-ok" aria-label="verified"></span>, price ❌</td></tr><tr><td><code>bonus</code> + other purpose</td><td><strong>C</strong> Signing</td><td>partial — price ❌</td></tr><tr><td><code>prorated_salary</code>, <code>mv_prorated_salary</code>, <code>previously_held_salary</code>, <code>mv_extra_salary</code>, <code>last_day_cc_switch_adjustment</code></td><td><strong>D</strong> Part-month</td><td>partial — needs salary history</td></tr><tr><td><code>salary_dispute</code></td><td><strong>E</strong> Correction</td><td>partial — E1 <span class="sev sev-ok" aria-label="verified"></span>, E2 needs the judgement field</td></tr><tr><td><code>raffle_prize</code></td><td><strong>F</strong> Raffle</td><td>❌ winners list absent</td></tr><tr><td><code>taxi_reimbursement</code>, <code>medical_assistant</code>, <code>Maids_at_other_expenses</code>, <code>lost_luggage_compensation</code></td><td><strong>G</strong> Reimbursement</td><td><span class="sev sev-ok" aria-label="verified"></span> once N4 lands</td></tr><tr><td><code>forgive_deduction</code>, <code>cover_deduction_limit</code>, <code>cover_negative_salary</code></td><td><strong>I</strong> System-generated</td><td>pending Q3</td></tr><tr><td><code>recommendation_from_client</code></td><td><strong>J</strong> Google review</td><td>❌ no rule found</td></tr><tr><td><code>pay_vacation_days</code></td><td><strong>K</strong> Vacation</td><td>❌ no rule found</td></tr><tr><td><code>renewal_bonus</code>, <code>AR-1</code>, <code>low_exchange_rate_compensation</code></td><td><strong>H</strong> Unmapped</td><td>❌</td></tr><tr><td><code>office_work_addition</code>, <code>refund</code></td><td>—</td><td>out of scope</td></tr></tbody></table></div>
+<p><strong>A — Flight home</strong> (all conjunctive)</p>
+<ul><li>A1 <code>AMOUNT &gt; limit</code> → RED F1. limit = <code>PARAMETERS.VALUE</code> cast to number, Filipina when <code>HOUSEMAIDS.NATIONALITY</code> = picklist code <code>philippines</code>, else the other-nationality parameter. <strong>Strictly greater</strong>, matching the ERP. Use the raw nationality code, <strong>not</strong> <code>NATIONALITY_CATEGORY</code> — different partitions.</li><li>A2 months since <code>START_DATE</code> ≥ 6. A3 <code>months % 24 == 22</code>. Both BLOCKED on epoch dates.</li><li>A4 cash in lieu <strong>and</strong> a <code>MAIDCC</code> ticket (D5) for the same journey → RED F2.</li></ul>
+<p><strong>C</strong> C1 amount = scheme price at note date (BLOCKED) · C2 referral event exists · C3 not already paid. <strong>D</strong> D1 recompute from dates + salary in force (BLOCKED) · D2 termination mode · D3 window. <strong>E</strong> E1 expense record proves the amount <strong>AND</strong> E2 the stated reason justifies it. Conjunctive — if E2 is deferred, E2 is BLOCKED and group E is amber. <strong>F</strong> F1 maid on the winners list for that draw, nothing else. BLOCKED. <strong>G</strong> G1 amount agrees · G2 <code>BENEFICIARY_TYPE='MAID'</code> and id matches · G3 <code>NULLIF(TRIM(APPROVED_BY),'') IS NOT NULL</code>.</p>
+<h2 id="9-metrics">9. Metrics</h2>
+<p>All AED, 2dp, rounded per row then summed.</p>
+<div class="tw bare"><table><tbody><tr><td>M1 cases in scope</td><td><code>COUNT(DISTINCT note_id)</code> over §3</td></tr><tr><td>M2 money in scope</td><td><code>SUM(AMOUNT)</code>; publish <code>positive</code> and <code>negative</code> subtotals separately, never netted</td></tr><tr><td>M7 findings</td><td>count + amount where <code>AUDIT_VERDICT='RED'</code>, split by <code>FAILURE_TYPE</code></td></tr><tr><td>M8 unverifiable</td><td>count + amount where <code>AMBER</code>, <strong>always with the <code>BLOCKING_REASON</code> breakdown</strong></td></tr><tr><td>M9 cleared</td><td>count + amount where <code>GREEN</code></td></tr><tr><td>M10 coverage</td><td>cases <code>(M7+M9)/M1</code> · money <code>(M7.pos+M9.pos)/M2.positive</code>. <code>M1=0</code> → <code>—</code>. <strong>Leads the KPI strip</strong></td></tr><tr><td>M11 amount at risk</td><td>F1 → gap · F2 → representative row only · F3/F4 → full amount. Unquantifiable = 0 by construction</td></tr><tr><td>M12 duplicate groups</td><td><code>COUNT(DISTINCT DUPLICATE_GROUP_ID)</code></td></tr><tr><td>M13 match rate</td><td>matched / (reason ∈ N16), <strong>per payment type per month</strong>; tile shows aggregate + "n types below floor"</td></tr><tr><td>M14 completeness exceptions</td><td>maid-months failing G1; own count and amount, <strong>not folded into M1/M2/M7</strong></td></tr></tbody></table></div>
+<p>No approved KPI definition has been confirmed for any of these — check <code>BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER</code> before treating them as new. If one exists it wins verbatim with all its filters.</p>
+<h2 id="10-run-guards">10. Run guards</h2>
+<div class="tw"><table><thead><tr><th></th><th></th><th>Blocks publish</th></tr></thead><tbody><tr><td>G1</td><td>Per maid × <code>audit_month</code>: <code>SUM(all that payslip's ADDITION notes, unfiltered) = HOUSEMAID_PAYROLL_HISTORY.ADDITIONS</code>. <strong>Both sides unfiltered</strong>; reconcile scope exclusions as named lines (<code>of which refunds: n, AED x</code>). Residual → M14</td><td>residual → M14</td></tr><tr><td>G2</td><td><code>COUNT(*) = COUNT(DISTINCT ID)</code> on D1</td><td><strong>yes</strong></td></tr><tr><td>G3</td><td><code>M7+M8+M9 = M1</code> in count and <code>= M2</code> in money</td><td><strong>yes</strong></td></tr><tr><td>G4</td><td><code>M8.count = COUNT(non-null BLOCKING_REASON)</code>, and reason buckets sum to M8 in count <strong>and</strong> money</td><td>no</td></tr><tr><td>G5</td><td>No <code>GREEN</code> row has a <code>BLOCKED</code> or unrun applicable test in <code>TEST_TRACE</code></td><td><strong>yes</strong></td></tr><tr><td>G6</td><td>Every verdict word rendered maps to <code>RED</code>/<code>AMBER</code>/<code>GREEN</code></td><td>no</td></tr><tr><td>G7</td><td>N14/N15/N16 loaded and cover every payment type seen</td><td>no — forces BLOCKED</td></tr><tr><td>G8</td><td>N8 parameters read this run, cast cleanly, displayed on the provenance line</td><td>no</td></tr><tr><td>G9</td><td><strong>No query filters on <code>CONFIRMED_*_BY_AUDITOR</code>; no test reads them as evidence</strong></td><td><strong>yes</strong></td></tr><tr><td>G10</td><td><code>COUNT(*) WHERE NOTE_TYPE IN ('EXTRA_SHIFT','BONUS','SALARY_RAISE','REDUCTION') = 0</code></td><td>no</td></tr><tr><td>G11</td><td>Each run snapshotted with run id + as-of; re-run of a closed month diffs against the prior snapshot, changed verdicts become exception rows</td><td>no</td></tr><tr><td>G12</td><td>Every TEXT-boolean filter is a string compare; every free-text equality is <code>NULLIF(TRIM(x),'')</code></td><td>no</td></tr></tbody></table></div>
+<p>A blocking guard renders <strong>in place of</strong> the KPI strip, not beside it.</p>
+<p><strong>Why G9 matters.</strong> The ERP's own auditor (<code>HousemaidsExceptions.generateHousemaidExceptions()</code>) detects over-limit airfare and repeated additions, but queries only notes where <code>CONFIRMED_*_BY_AUDITOR = false</code>. Once someone confirms one, it leaves the ERP's list <strong>while the payment stays over the limit</strong>. Inheriting that filter blinds this report to exactly the population it exists to see. Display the sign-off as context; never let it clear a case.</p>
+<h2 id="11-ui">11. UI</h2>
+<p>One screen: filters → KPI strip → guard strip → case table → one chart → provenance.</p>
+<p>KPI order: <strong>coverage (cases, money) first</strong>, then M1/M2, M7/M11, M8, M9, M14, M13. Every tile carries its metric id.</p>
+<p>Case table, default sort <strong>amount at risk desc, then paid month desc</strong>: verdict pill (colour <strong>and</strong> word) · label · failure type · rule breached or blocking reason · note id · maid id · contract · payment type · paid month (<code>recorded</code>/<code>derived</code>) · amount · authorised · at risk · approver · internal sign-off (context) · status.</p>
+<p>Filters: audit month (default last completed) · verdict · failure type · payment type · contract · blocking reason · reviewed. Drill-down shows the full <code>TEST_TRACE</code> — which is what makes an amber actionable and a green auditable. One chart: amber cases by blocking reason. CSV export of the row-level detail.</p>
+<p><strong>Sensitivity.</strong> Maids and approvers appear as <strong>internal ids</strong> — no names, phone, contact, EID, passport, address. <code>APPROVED_BY</code> stores a <em>name</em>, so map it to an id before display and resolve only in the reviewed drill-down. For <code>prorated_salary</code> / <code>mv_prorated_salary</code> / <code>previously_held_salary</code> / <code>mv_extra_salary</code> the note amount <strong>is</strong> a salary figure: show a band on screen, exact value in the reviewed drill-down (Q5). Provenance line names <code>HOUSEMAIDS_INFO</code> and states only non-salary columns are read.</p>
+<p><strong>Maker–checker.</strong> The status column is a write-back — that makes this an application, not a dashboard. Decide before building (Q6).</p>
+<h2 id="12-blocked-on">12. Blocked on</h2>
+<div class="tw"><table><thead><tr><th></th><th>Need</th><th>From</th></tr></thead><tbody><tr><td>B1</td><td>Warehouse compute grant for <code>PAYROLL_AND_MONEY_CONTROL_ROLE</code> — <code>SHOW WAREHOUSES</code> returns 0 rows, so <strong>not one row has been read</strong>; nothing below is verified against data</td><td>Data platform</td></tr><tr><td>B2</td><td><code>SELECT</code> on <code>BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER</code>, <code>.MONEY_CONTROL_SILVER</code>, <code>.CORE_SILVER</code></td><td>BA_VIEWS owner</td></tr><tr><td>B3</td><td>N1–N9 ingested</td><td>ERP → Data team</td></tr><tr><td>B4</td><td>N14–N16 written</td><td>P&amp;C + Payroll</td></tr><tr><td>B5</td><td>Salary history, scheme prices, raffle winners, a loyalty rule</td><td>respective owners</td></tr><tr><td>B6</td><td>Timezone of <code>NOTE_DATE</code>; confirm note currency is AED; <code>MONTHLYPAYMENTRULES</code> lock column</td><td>ERP team</td></tr></tbody></table></div>
+<p><strong>First three queries once B1 lands:</strong> G2's distinctness check · <code>NOTE_TYPE</code> distribution (G10) · read <code>INSIGHTS_DASHBOARD_CONTAINER</code>.</p>
+<h2 id="13-open-decisions-pc">13. Open decisions (P&amp;C)</h2>
+<p><strong>Q1</strong> M13 confidence floor — start 80%, per payment type. Decides red vs amber on unmatched notes. <strong>Q2</strong> T4 tolerance — AED 0.01 is a float guard, not materiality. Want a materiality band? <strong>Q3</strong> System-generated additions (group I) in scope or out? <strong>Q4</strong> The loyalty rule. <code>anti_attrition_incentive</code> has no eligibility or amount rule anywhere in the ERP. Either one gets written, or the report states every month that the largest category of manager additions cannot be audited. <strong>Q5</strong> Salary-bearing rows — band on screen, or full amount? <strong>Q6</strong> Write-back in the first release, or read-only status tracked outside the tool?</p>
+</article>
+
+<footer>
+  <div><b>Markers —</b> a red dot marks something that returns a wrong answer rather than an
+    error if ignored; amber is a caution; a green square is a column read straight out of ERP
+    source.</div>
+  <div><b>Status —</b> no row of warehouse data has been read. The Police &amp; Control role has
+    no warehouse grant, so every table and column claim here is from the Snowflake catalog and the
+    ERP codebase, and nothing is verified against data.</div>
+  <div><b>Deeper —</b> the full specification carries the reasoning, the evidence log carries the
+    statement behind every table claim.</div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav a'));
+  var map = {};
+  links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  var heads = Array.prototype.slice.call(document.querySelectorAll('article h2, article h3'))
+                .filter(function(h){ return map[h.id]; });
+  function onScroll(){
+    var doc = document.documentElement;
+    var max = doc.scrollHeight - doc.clientHeight;
+    document.getElementById('prog').style.width =
+      (max > 0 ? (doc.scrollTop / max) * 100 : 0) + '%';
+    var cur = heads[0];
+    for (var i = 0; i < heads.length; i++){
+      if (heads[i].getBoundingClientRect().top <= 88) cur = heads[i]; else break;
+    }
+    links.forEach(function(a){ a.classList.remove('on'); });
+    if (cur && map[cur.id]) map[cur.id].classList.add('on');
+  }
+  var tick = false;
+  window.addEventListener('scroll', function(){
+    if (tick) return; tick = true;
+    requestAnimationFrame(function(){ onScroll(); tick = false; });
+  }, {passive:true});
+  onScroll();
+})();
+</script>
