@@ -10,9 +10,30 @@ at 2,600 characters and comments at 700 — so the tails of DNA-9446 (9,396 char
 and DNA-8960 (3,519) have not been read.
 
 **The format conclusion rests on one exemplar.** DNA-9454 is the ticket whose section order this
-copies; no second ticket in that exact shape was found. What the other thirteen corroborate is the
-surrounding process — the intake bot, the playbook fields, the split doctrine, the
-acceptance-criteria standard — not the section order itself.
+copies. What the others corroborate is the surrounding process — the intake bot, the playbook
+fields, the split doctrine, the acceptance-criteria standard — and, in DNA-9236 and DNA-9173, that
+a structured spec can reach a merged MR. Not the section order itself.
+
+🔴 **And no Police & Control audit has ever been delivered through DNA.** A search of the whole
+project for `Police` in the summary or `Police & Control` in the description returns **six tickets
+out of 8,540 resolved and ~9,500 total**:
+
+| Key | What | Status |
+|---|---|---|
+| DNA-9454 | Applicant ticketing audit — the format exemplar | **To Do** |
+| DNA-9455 | its BI split | **On-Hold** |
+| DNA-9446 | Payroll audit — ingest the two archived files | **To Do** |
+| DNA-9437 | Warehouse USAGE grant | **To Do** |
+| DNA-3873 | *Alert 476 — update recipient & grant access* | Done, Feb 2026 |
+| DNA-1655 | *"Grant me Access to SnowFlake Please"* | Done Archived, Oct 2025 |
+
+The only two that reached Done are an alert-recipient change and an access request. **All four
+substantive P&C audit tickets were filed on 2026-09-03**, two days before this read, and none has
+moved. Three of them are filed from this same account.
+
+So this is not an established house pattern for audit work being copied — it is a **sibling attempt
+from the same effort, not yet landed**. The format is defensible on the general evidence below;
+the claim "this is how P&C requests get built" is not supported, because none has been.
 
 ---
 
@@ -200,7 +221,9 @@ An earlier read of this project suggested it might not: every elaborate P&C-styl
 descriptions of 935–3,519 characters. That was a sampling artifact — those three were all filed
 two days before the read, and the search was keyword-filtered to dashboards and audits.
 
-Testing it properly against the **100 most-recently-resolved Done tickets of any kind**:
+Testing it against the **100 most-recently-resolved Done tickets of any kind** — noting that the
+project holds **8,540 resolved tickets**, so this is the most recent **1.2%** and the statistics
+below are recency-weighted, not the population:
 
 | | |
 |---|---|
