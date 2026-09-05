@@ -849,7 +849,7 @@ Every applicable test **ran** and returned green → **GREEN**. Gap AED 0.00. M1
 | Amount | AED 2,400.00 |
 | Cap | `PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` = `"2000"` → 2000.00 |
 | Service | 29 months since `START_DATE` |
-| Internal sign-off | `CONFIRMED_AMOUNT_BY_AUDITOR = **true**` |
+| Internal sign-off | `CONFIRMED_AMOUNT_BY_AUDITOR = true` — **already signed off in the ERP** |
 
 **Arithmetic.** Group A test A1: 2,400.00 **>** 2,000.00 → **RED (F1)**, over by **AED 400.00**.
 A2: 29 ≥ 6 → green. A3: 29 % 24 = 5, not 22 → the cycle test **blocks**, reason *"outside the
