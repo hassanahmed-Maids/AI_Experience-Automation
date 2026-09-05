@@ -137,10 +137,14 @@ reports clean.**
 | D6 | `…HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES`, `…HOUSEMAID_REFERRALS` | referral, referred maid, bonus-requested date, cancelled date |
 | D7 | `BA_VIEWS.CORE_SILVER.PICKLISTS_INFO` | picklist item id, code, name |
 
-🔴 **Do not source from `BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_MAID_SALARY_ADDITIONS_BY_CATEGORY`.**
-It joins `EXPENSES_REQUESTS.RELATED_TO_ID` to a **note id** while that column is documented as a
-**housemaid id**. Ranges overlap, so it matches rows and raises no error; every column profiles as
-all-NULL. Raised to the Data team separately.
+🔴 **Do not source from `BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_MAID_SALARY_ADDITIONS_BY_CATEGORY`
+until DNA-9464 deploys.** It joined `EXPENSES_REQUESTS.RELATED_TO_ID` to a **note id** when that
+column holds a **housemaid id**; ranges overlap, so it matched rows and raised no error.
+**DNA-9464 fixed it** to `epm.related_to_id_text = to_varchar(n.housemaid_id)` — measured on
+production, the old join matched **1 of 8,632** addition notes in a six-month window, the corrected
+join matches **7,878**. Status: Pending Deployment.
+✅ **Our M4 heuristic keys on the same column the fix adopts**, so that route is production-validated
+rather than inferred.
 
 ### In the ERP database
 
@@ -170,7 +174,14 @@ Read these from **`mmdb_transformed.payrollmanagernotes`** unless noted. Scope h
 | N13 | the loyalty rule | group B | nowhere. `anti_attrition_incentive` has no eligibility or amount rule anywhere in the ERP — its only reference is a payment-routing list. Someone has to write one (Q4) |
 | N14 | payment type → allowed expense heads | T5 | P&C + Payroll |
 | N15 | contract type → allowed payment types (all **four** types, see §6) | T7 | P&C + Payroll |
-| N16 | payment types that always carry an expense record | T4 | P&C + Payroll |
+| N16 | payment types that always carry an expense record | T4 | P&C + Payroll — **but two are already answered**, see below |
+
+🔴 **Two payment types are already known to carry no expense record, and both must be excluded from
+N16 before T4 is built.** DNA-9464 established that additions booked straight onto the salary with
+no payment behind them — *"mainly Airfare Ticket and Office Work Addition"* — now render as a third
+payment method, **Direct adjustment**, 565 of them across six months. So `airfare_ticket` legitimately
+has no expense request. **Without this, T4 would red-flag every flight-home payment as "no basis"** —
+a fabricated finding on the largest group in the audit.
 
 **A payment type missing from N14/N15/N16 makes that test BLOCKED — never a pass, never a red.**
 An empty list reds everything; a permissive default greens everything. Both are silent.
