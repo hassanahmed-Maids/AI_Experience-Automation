@@ -183,7 +183,7 @@ tbody tr:last-child td{border-bottom:none}
       </div>
       <div class="verdict">
         <div class="word">FAIL</div>
-        <div class="sub">6 findings · 1 of 7 group rules · 13 arms blocked</div>
+        <div class="sub">5 findings · 1 of 7 group rules · 11 arms blocked</div>
       </div>
     </div>
   </header>
@@ -191,12 +191,14 @@ tbody tr:last-child td{border-bottom:none}
   <p class="note"><b>Mockup, not live data.</b> Every figure is synthetic and illustrative — no value
   belongs to a real person. Monthly shapes are scaled from the requestor's own twelve-month
   measurement (16,159 payments, AED 6,348,968, Sep 2025 – Aug 2026). The month is <b>FAIL</b>
-  because two group rules produced findings (G1's cap arm, G7). It is also mostly <b>unjudged</b>: six of the seven
-  group rules cannot fully run — G2 has no payment scale written down anywhere, G6's winners list is not
-  in the warehouse, G4's recalculation has no inputs named, and G1 can test the amount but not the
-  entitlement. <b>Their notes are pending, never clean</b> — v1 of this mockup counted them as clean
-  and overstated coverage. Per-maid detail shown here is the design proposed in spec §2.4 and is
-  <b>pending the business owner's decision</b>; the default until then is the masked rule.</p>
+  because G7 produced findings. It is also mostly <b>unjudged</b>: six of the seven
+  group rules cannot fully run — G2 has no payment scale written down anywhere, G6's winners list is
+  not in the warehouse, G4's recalculation has no inputs named, and <b>G1 lost its one available arm
+  in v8</b>: the airfare caps are code <i>defaults</i>, and the requestor has declined to treat a
+  default as the live rule until real payments at 1,350 are shown to exist (MN-O31). <b>Their notes
+  are pending, never clean</b> — v1 of this mockup counted them as clean and overstated coverage.
+  Per-maid detail is shown <b>unmasked</b>, decided 2026-09-05: the auditor works named cases, and
+  the control is a named-auditor role plus a readable access log, not a hidden column.</p>
 
   <div class="kpis">
     <div class="kpi">
@@ -211,23 +213,23 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="kpi">
       <div class="k-lbl">Above expected <span class="mid">MN3</span></div>
-      <div class="k-val c-fail">2,020</div>
-      <div class="k-sub">AED · across 6 findings</div>
+      <div class="k-val c-fail">1,520</div>
+      <div class="k-sub">AED · across 5 findings</div>
     </div>
     <div class="kpi">
       <div class="k-lbl">Pending <span class="mid">MN5</span></div>
-      <div class="k-val c-warn">851</div>
-      <div class="k-sub">cases · AED 486,907 · never clean</div>
+      <div class="k-val c-warn">852</div>
+      <div class="k-sub">cases · AED 489,407 · never clean</div>
     </div>
     <div class="kpi">
       <div class="k-lbl">Coverage <span class="mid">MN7</span></div>
-      <div class="k-val c-fail">36.30%</div>
-      <div class="k-sub">485 of 1,336 judged</div>
+      <div class="k-val c-fail">36.23%</div>
+      <div class="k-sub">484 of 1,336 judged</div>
     </div>
     <div class="kpi">
       <div class="k-lbl">Unevaluable <span class="mid">MN8</span></div>
-      <div class="k-val">486,895</div>
-      <div class="k-sub">AED · within pending, not extra</div>
+      <div class="k-val">473,357</div>
+      <div class="k-sub">AED · 714 cases · within pending, not extra</div>
     </div>
   </div>
 
@@ -238,24 +240,26 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="cov-bar">
       <div class="cov-seg seg-clean" style="width:6.46%">clean · 34,005</div>
-      <div class="cov-seg seg-find"  style="width:1.08%" title="findings — AED 5,680"></div>
-      <div class="cov-seg seg-none"  style="width:92.46%">cannot be judged · 486,895</div>
-      <div class="cov-seg seg-pend"  style="width:0%; min-width:3px" title="pending — no payment type, AED 12"></div>
+      <div class="cov-seg seg-find"  style="width:0.60%" title="findings — AED 3,180"></div>
+      <div class="cov-seg seg-none"  style="width:89.89%">cannot be judged · 473,357</div>
+      <div class="cov-seg seg-pend"  style="width:3.05%" title="judgeable, not yet judged — AED 16,050">awaiting</div>
     </div>
     <div class="cov-key">
       <span><i class="sw clean"></i> Clean — every applicable arm ran and cleared it · AED 34,005 · 479 cases</span>
-      <span><i class="sw find"></i> Finding — flagged notes' own amounts · AED 5,680 · 6 cases</span>
-      <span><i class="sw none"></i> Cannot be judged — G1 entitlement, G2, G3, G4, G5 (3 of 5 types), G6 · AED 486,895 · 850 cases</span>
-      <span><i class="sw pend"></i> Pending — no payment type · AED 12 · 1 case</span>
+      <span><i class="sw find"></i> Finding — flagged notes' own amounts · AED 3,180 · 5 cases</span>
+      <span><i class="sw none"></i> Cannot be judged — G1 (all three arms), G2, G3, G4, G6 · AED 473,357 · 714 cases</span>
+      <span><i class="sw pend"></i> Judgeable, not yet judged — G5's three validity arms awaiting the verifier (AED 16,038 · 137 cases) + one blank payment type (AED 12)</span>
     </div>
-    <p class="note" style="margin:2px 0 0"><b>Two thirds of the money cannot be judged, and that is
-    the honest headline.</b> The loyalty payment (G2) alone is AED 135,072 paying 307 different
-    amounts between zero and 900, with nothing written down saying what a maid should receive. G1
-    can check the price but not the entitlement, G4's mv-prorated arm has no known formula, and G6's
-    winners list is not in the warehouse. <b>Blocking is per arm, not per group</b> — G4's other
-    three types are recalculated and cleared normally, so a group can be partly judged. None of the
-    rest is clean and none of it is a finding — it is <b>untested</b>, and the terminal catch-all is
-    what stops it reading as a pass.</p>
+    <p class="note" style="margin:2px 0 0"><b>Nine tenths of the money cannot be judged, and that
+    is the honest headline.</b> The loyalty payment (G2) alone is AED 135,072 paying 307 different
+    amounts between zero and 900, with nothing written down saying what a maid should receive.
+    G4's mv-prorated arm has no known formula, G6's winners list is not in the warehouse, and G1's
+    caps are code defaults nobody has checked against real payments. <b>Blocking is per arm, not per
+    group.</b> <b>The fourth band is new in v8 and is the one to watch:</b> a business decision on
+    2026-09-05 gave G5's three unmapped payment types a validity test instead of an amount test, so
+    AED 16,038 moved out of <i>cannot be judged</i> — but into <i>not yet judged</i>, not into clean.
+    Nothing here is clean and nothing here is a finding; it is <b>untested</b>, and the terminal
+    catch-all is what stops it reading as a pass.</p>
   </section>
 
   <section class="panel">
@@ -315,9 +319,9 @@ tbody tr:last-child td{border-bottom:none}
             <td class="subj">#181355</td>
             <td>2903 · <span class="nm">S. Kumari</span></td>
             <td>Airfare Ticket</td><td><span class="chip">G1 · cap</span></td>
-            <td class="r amt">2,500</td><td class="r amt">2,000</td><td class="r amt">500</td>
-            <td class="rule">Over the Filipino cap of AED 2,000 — a cap, so the excess is the finding, not the whole amount</td>
-            <td><span class="badge b-fail"><i class="sq"></i>FINDING</span></td>
+            <td class="r amt">2,500</td><td class="r dash">—</td><td class="r dash">—</td>
+            <td class="rule">G1 blocked in v8 — over the AED 2,000 code default, but a default is not the rule until real payments confirm it (MN-O31). Would read: expected 2,000, above 500</td>
+            <td><span class="badge b-warn"><i class="tri"></i>PENDING</span></td>
             <td><span class="chip">EP-93880</span></td>
           </tr>
           <tr>
@@ -376,7 +380,7 @@ tbody tr:last-child td{border-bottom:none}
         <div class="rung"><div class="rn">❺</div><div class="rtxt">Amount is zero</div><div class="rout o-pend">pending</div></div>
         <div class="rung"><div class="rn">❻a</div><div class="rtxt">Matched to an expense record, amount disagrees</div><div class="rout o-find">finding</div></div>
         <div class="rung"><div class="rn">❻b</div><div class="rtxt">Expected to match, but no expense record found</div><div class="rout o-pend">pending</div></div>
-        <div class="rung"><div class="rn">❼</div><div class="rtxt">Expense head does not map to the payment type — verifier returns justified / unjustified / cannot tell</div><div class="rout o-ver">verifier</div></div>
+        <div class="rung"><div class="rn">❼</div><div class="rtxt">Expense head does not map to the payment type, <b>or the type is one of G5's three validity types</b> — verifier returns justified / unjustified / cannot tell</div><div class="rout o-ver">verifier</div></div>
         <div class="rung"><div class="rn">❽</div><div class="rtxt">Her contract type cannot receive this payment</div><div class="rout o-find">finding</div></div>
         <div class="rung grp"><div class="rn">·</div><div class="rtxt"><b>Exactly one group rule</b> — G1…G7. Duplicates are tested <b>inside</b> the group, never once across all payments</div><div class="rout o-none">G1–G7</div></div>
         <div class="rung"><div class="rn">❾</div><div class="rtxt"><b>Nothing settled it</b> — pending, with its reason</div><div class="rout o-pend">pending</div></div>
@@ -392,7 +396,7 @@ tbody tr:last-child td{border-bottom:none}
         <div class="rung"><div class="rn mono">MG1</div><div class="rtxt">Paid-on-payroll-month not yet ingested — no correct month filter exists</div><div class="rout o-none">blocks all</div></div>
         <div class="rung"><div class="rn mono">MG2</div><div class="rtxt"><b>Expense match rate below floor.</b> The note→payment link is a heuristic, not a key — a low match rate means unevaluated, not clean</div><div class="rout o-none">blocks MN3</div></div>
         <div class="rung"><div class="rn mono">MG3</div><div class="rtxt">Text verifier unavailable — routed notes stay pending</div><div class="rout o-pend">pending</div></div>
-        <div class="rung"><div class="rn mono">MG4</div><div class="rtxt"><b>An arm's expected source missing.</b> Every note that arm would have judged goes to pending and into MN8 — <b>never clean</b>, and never cleared by a sign-off or the verifier either</div><div class="rout o-pend">pending</div></div>
+        <div class="rung"><div class="rn mono">MG4</div><div class="rtxt"><b>An arm's expected source missing.</b> Every note that arm would have judged goes to pending and into MN8 — <b>never clean</b>, and never cleared by the verifier either. <b>v8: an ERP payroll-auditor sign-off never clears anything at all</b> — this is an independent second check</div><div class="rout o-pend">pending</div></div>
         <div class="rung"><div class="rn mono">MG6</div><div class="rtxt"><b>A blank payment type exists.</b> Fires this month — G9 count is 1</div><div class="rout o-pend">fail (incomplete)</div></div>
         <div class="rung"><div class="rn mono">MG7</div><div class="rtxt">Payroll-time maid type not ingested — gate ❽ renders <b>pending</b>, never a finding</div><div class="rout o-pend">pending</div></div>
         <div class="rung"><div class="rn mono">MG5</div><div class="rtxt"><b>Zero notes in the month.</b> ~1,347 is the norm, so zero means the feed broke — a finding about the run, not a clean month</div><div class="rout o-pend">skipped</div></div>
@@ -403,10 +407,10 @@ tbody tr:last-child td{border-bottom:none}
   <p class="foot">
     <b>Sources:</b> HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES ·
     HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO · MONEY_CONTROL_SILVER.EXPENSES_PAYMENTS ·
-    N1–N10, N12 assumed landed · N11 outstanding · tie-outs T1–T4 not yet computable
+    N1–N10, N12 assumed landed · N11 outstanding · T1 and T4 close (T4: 714 notes / AED 473,357 from the arm registry) · T2–T3 not yet computable
     <br><b>Audit month:</b> 2026-07 (PAID_ON_PAYROLL_MONTH) &nbsp;·&nbsp;
     <b>Data as of:</b> 2026-08-07 06:00 Gulf &nbsp;·&nbsp;
-    <b>Spec:</b> SPEC_manager_notes v7 &nbsp;·&nbsp; <b>Refresh:</b> manual, never scheduled
+    <b>Spec:</b> SPEC_manager_notes v8 &nbsp;·&nbsp; <b>Refresh:</b> manual, never scheduled
     <br><span class="mockup">Illustrative mockup — synthetic values throughout. Delivered as a link;
     the report body is never emailed.</span>
   </p>
@@ -416,9 +420,9 @@ tbody tr:last-child td{border-bottom:none}
 (function(){
   var GROUPS = [
     {k:"G1", name:"Flight home money", types:"Airfare Ticket",
-     notes:113, aed:184958, finds:1, above:500, pend:112,
-     src:"Caps AED 2,000 Filipino / 1,350 other (module parameters) — a cap, so paying less is not an exception. Eligibility % 24 == 22",
-     state:"block", note:"cap arm only · entitlement and periodicity arms blocked (N11)",
+     notes:113, aed:184958, finds:null, above:null, pend:113,
+     src:"Caps AED 2,000 Filipino / 1,350 other — but these are code DEFAULTS, not measured production values (MN-O31). Eligibility % 24 == 22",
+     state:"block", note:"v8: all three arms blocked — a default is not evidence until real cases at 1,350 are shown to exist",
      series:[1500,0,1000,2500,0,1000,0,1500,1000,0,2000,1000,500]},
     {k:"G2", name:"Loyalty payment", types:"Anti-attrition Incentive",
      notes:268, aed:135072, finds:null, above:null, pend:268,
@@ -437,8 +441,8 @@ tbody tr:last-child td{border-bottom:none}
      series:[null,null,null,null,null,null,null,null,null,null,null,null,null], gapNote:"inputs not ingested"},
     {k:"G5", name:"Salary corrections", types:"Salary Dispute, Forgive Deduction, MOHRE requirement additions, Medical Assistance, Lost Luggage Compensation",
      notes:341, aed:39919, finds:0, pend:137, above:0,
-     src:"Expense record for 2 of 5 types. MOHRE additions, Medical Assistance and Lost Luggage are in neither list in §2.2c — no expected side",
-     state:"block", note:"3 of 5 arms blocked — logged as MN-O28 in v6 and not applied until v7",
+     src:"Expense record for 2 of 5 types. For MOHRE additions, Medical Assistance and Lost Luggage: no amount test — the note's stated reason must justify a payment of that type (decision, 2026-09-05)",
+     state:"warn", note:"v8: all five arms available — 137 notes awaiting the verifier, judgeable but not yet judged",
      series:[0,0,450,0,0,0,0,320,0,0,0,0,0]},
     {k:"G6", name:"Raffle prizes", types:"Raffle Prize",
      notes:24, aed:15000, finds:null, above:null, pend:24,
