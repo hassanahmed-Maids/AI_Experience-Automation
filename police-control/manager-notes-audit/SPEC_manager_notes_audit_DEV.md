@@ -3,16 +3,73 @@
 **Owner** Police & Control · **Rev** 2026-09-05 · **Target** MaidsInsights on Snowflake
 **Mockup** https://claude.ai/code/artifact/75d6c4b8-ee4e-431a-aa8a-b19daa19e051
 
-Managers add money to housemaid payslips — ~1,300 additions/month, ~AED 0.5m. Nothing checks
-that each one was justified. This builds the check.
+---
 
-**Grain: one row per manager note.** Four additions to one maid in one month = four cases.
+## 1. The business case
 
-**Refresh: monthly, manual. Never scheduled** — recurring warehouse jobs go through the ERP team.
+Every month, managers at maids.cc add money to housemaids' payslips. Flight-home money, loyalty
+payments, referral and signing bonuses, part-month salaries, salary corrections, raffle prizes,
+reimbursing a maid for money she spent herself. Roughly **1,300 additions a month, worth about
+AED 0.5m** — some **AED 6.3m a year across ~16,000 payments**.
+
+Every one of them is supposed to be justified by whatever rule governs that type of payment.
+**Nobody currently checks.** Police & Control wants a dashboard that does.
+
+**Four things it looks for**
+
+| | |
+|---|---|
+| **F1 Over-limit** | More money paid than the rule allowed |
+| **F2 Duplicate** | The same payment made twice |
+| **F3 Not entitled** | Paid against a rule that never applied to that maid |
+| **F4 No basis** | Nothing behind it explaining why it was paid |
+
+**Who uses it.** A P&C auditor opens it once a month and works that month's cases one at a time.
+A second person reviews before anything is acted on — maker–checker. Red means money went out
+above what was allowed, or with nothing behind it. Amber means the check could not reach a
+conclusion, and it always says why. Green means a rule actually ran and cleared the payment.
+
+**Why a new check when the ERP already has one.** The ERP has an internal payroll-auditor role
+that already detects over-limit airfare payments and repeated additions. But it only queries
+notes where `CONFIRMED_*_BY_AUDITOR = false` — so the moment someone confirms a case it leaves
+that list, **while the payment stays over the limit**. This dashboard is the independent second
+check. The internal sign-off is shown as context and never clears a case here. That is what
+guard G9 enforces, and it is the single clearest reason this project exists.
+
+**What it can honestly deliver today: a verdict on about a third of the cases and under a tenth
+of the money.** The rest cannot be judged — not because those payments are wrong, but because the
+rules or the reference data needed to judge them are not in the warehouse, and in one case
+(the loyalty payment) do not exist anywhere in the company. **That is the most valuable thing
+this reports**, and the design must not let it read as a pass. It is why coverage leads the KPI
+strip and why amber always carries its reason.
+
+**The one engineering risk worth naming up front.** The failure mode this design exists to
+prevent is: *something is marked as blocked on the screen while the underlying numbers still
+count those notes as clean.* A guard that changes no number. Or a clearance that lets a note skip
+a test that could not run. Every section below that looks over-engineered — the single verdict
+column, the no-early-exit test battery, the blocking guards — is there for that reason. Treat it
+as the primary risk, not a footnote.
 
 ---
 
-## 1. Population
+## 2. What you're building
+
+**Grain: one row per manager note.** Four additions to one maid in one month = four cases,
+judged separately.
+
+**Output: one note-level table**, computed once, carrying exactly one verdict per note. Every
+tile, chart, filter, row colour and export column aggregates that table. Nothing anywhere
+re-derives eligibility (§7).
+
+**Refresh: monthly, manual. Never scheduled** — recurring warehouse jobs go through the ERP team.
+
+**Delivered on MaidsInsights**, with Snowflake as the warehouse underneath. Not interchangeable.
+
+The rest of this document is the build.
+
+---
+
+## 3. Population
 
 ```sql
 NOTE_TYPE = 'ADDITION'
@@ -20,7 +77,7 @@ AND HOUSEMAID_ID IS NOT NULL
 AND APPLIED = true AND NOT_FINAL = false          -- N1
 AND IS_REFUND = false AND addition_reason <> 'refund'   -- N3
 AND addition_reason <> 'office_work_addition'     -- separate check owns it
-AND audit_month = <selected month>                -- see §2
+AND audit_month = <selected month>                -- see §4
 ```
 
 Out of scope: `DEDUCTION` / `PENALTY_DEDUCTION` (feed is dead), office staff, client notes
@@ -36,7 +93,7 @@ a finding), **both contract types**, **system-generated additions** (`forgive_de
 yields UNKNOWN for missing profiles and they vanish from every count and every tie-out while the
 totals still balance on the survivors.
 
-## 2. `audit_month` — read this before writing any filter
+## 4. `audit_month` — read this before writing any filter
 
 ```
 if PAID_ON_PAYROLL_MONTH is not null:  audit_month = PAID_ON_PAYROLL_MONTH     -- authoritative
@@ -58,7 +115,7 @@ reports clean.**
 `HOUSEMAID_PAYROLL_HISTORY.PAYROLL_MONTH`, so G1 joins on equal keys.
 `PAID_ON_DATE_FORMATTED` is a settlement date: display it, never window on it.
 
-## 3. Sources
+## 5. Sources
 
 ### In Snowflake
 
@@ -84,12 +141,12 @@ Source `mmdb_transformed.payrollmanagernotes` unless noted. History from **2024-
 | Ref | Columns | Why |
 |---|---|---|
 | N1 | `APPLIED`, `NOT_FINAL` `BOOLEAN` | population predicate |
-| N2 | `PAID`, `PAID_ON_PAYROLL_MONTH` `DATE`, `PAYROLL_MONTH` `DATE`, `PAYROLL_ACCOUNTANT_TODO_ID` | §2 |
+| N2 | `PAID`, `PAID_ON_PAYROLL_MONTH` `DATE`, `PAYROLL_MONTH` `DATE`, `PAYROLL_ACCOUNTANT_TODO_ID` | §4 |
 | N3 | `IS_REFUND` `BOOLEAN`, `REFUNDED_NOTE_ID` | refunds out of scope |
 | N4 | `EXPENSE_ID` `BIGINT` | the expense link — already used inside D1's own join, never selected |
 | N5 | `ADDITION_REASON_ID`, `PURPOSE_ID` `BIGINT` → `PICKLISTS_ITEMS.ID` | group routing |
 | N6 | `CREATOR` `BIGINT` → `USERS.ID`, `CREATION_DATE` | who made the addition |
-| N7 | payroll lock window per month — `MONTHLYPAYMENTRULES` (exact column TBC) | §2 branch 2 |
+| N7 | payroll lock window per month — `MONTHLYPAYMENTRULES` (exact column TBC) | §4 branch 2 |
 | N8 | `PARAMETERS.CODE` / `.VALUE` for `PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` (`"2000"`), `PARAMETER_HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET_LIMIT` (`"1350"`) | airfare cap |
 | N9 | `CONFIRMED_AMOUNT_BY_AUDITOR`, `CONFIRMED_REPEATED_BY_AUDITOR` `BOOLEAN`; `PAYROLLAUDITHOUSEMAIDEXCEPTIONS`; `AUDITORACTIONS` | **display only** — see G9 |
 
@@ -127,7 +184,7 @@ exactly 1  -> matched
 Publish the match rate (M13) **per payment type per month**. Below the floor (start at 80%), T4
 cannot return red for that type. **A low match rate means unverified, never clean.**
 
-## 4. Traps that return a wrong answer instead of an error
+## 6. Traps that return a wrong answer instead of an error
 
 | | |
 |---|---|
@@ -145,7 +202,7 @@ cannot return red for that type. **A low match rate means unverified, never clea
 | **Timezone** | `NOTE_DATE` is `TIMESTAMP_NTZ`, zone unstated. Truncate once, centrally; flag notes within 3h of a window edge |
 | **Currency of the note** | D1 has no currency column. AED is an **assumption** — confirm |
 
-## 5. Verdict model
+## 7. Verdict model
 
 Every applicable test is evaluated and written to `TEST_TRACE`. **No early exit.** Each returns
 `RED(failure_type)` · `GREEN` · `BLOCKED(reason)` · `N_A`.
@@ -192,7 +249,7 @@ own blocking reason.
 
 Failure types: **F1** over-limit · **F2** duplicate · **F3** not entitled · **F4** no basis.
 
-## 6. Group rules — the 24 payment types
+## 8. Group rules — the 24 payment types
 
 Exactly one group runs per note. Unmapped → BLOCKED → amber.
 
@@ -228,13 +285,13 @@ if E2 is deferred, E2 is BLOCKED and group E is amber.
 **G** G1 amount agrees · G2 `BENEFICIARY_TYPE='MAID'` and id matches · G3
 `NULLIF(TRIM(APPROVED_BY),'') IS NOT NULL`.
 
-## 7. Metrics
+## 9. Metrics
 
 All AED, 2dp, rounded per row then summed.
 
 | | |
 |---|---|
-| M1 cases in scope | `COUNT(DISTINCT note_id)` over §1 |
+| M1 cases in scope | `COUNT(DISTINCT note_id)` over §3 |
 | M2 money in scope | `SUM(AMOUNT)`; publish `positive` and `negative` subtotals separately, never netted |
 | M7 findings | count + amount where `AUDIT_VERDICT='RED'`, split by `FAILURE_TYPE` |
 | M8 unverifiable | count + amount where `AMBER`, **always with the `BLOCKING_REASON` breakdown** |
@@ -249,7 +306,7 @@ No approved KPI definition has been confirmed for any of these — check
 `BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER` before treating them as new. If one exists it
 wins verbatim with all its filters.
 
-## 8. Run guards
+## 10. Run guards
 
 | | | Blocks publish |
 |---|---|---|
@@ -274,7 +331,7 @@ detects over-limit airfare and repeated additions, but queries only notes where
 payment stays over the limit**. Inheriting that filter blinds this report to exactly the
 population it exists to see. Display the sign-off as context; never let it clear a case.
 
-## 9. UI
+## 11. UI
 
 One screen: filters → KPI strip → guard strip → case table → one chart → provenance.
 
@@ -301,7 +358,7 @@ and states only non-salary columns are read.
 **Maker–checker.** The status column is a write-back — that makes this an application, not a
 dashboard. Decide before building (Q6).
 
-## 10. Blocked on
+## 12. Blocked on
 
 | | Need | From |
 |---|---|---|
@@ -315,7 +372,7 @@ dashboard. Decide before building (Q6).
 **First three queries once B1 lands:** G2's distinctness check · `NOTE_TYPE` distribution (G10) ·
 read `INSIGHTS_DASHBOARD_CONTAINER`.
 
-## 11. Open decisions (P&C)
+## 13. Open decisions (P&C)
 
 **Q1** M13 confidence floor — start 80%, per payment type. Decides red vs amber on unmatched notes.
 **Q2** T4 tolerance — AED 0.01 is a float guard, not materiality. Want a materiality band?
@@ -325,9 +382,3 @@ the ERP. Either one gets written, or the report states every month that the larg
 manager additions cannot be audited.
 **Q5** Salary-bearing rows — band on screen, or full amount?
 **Q6** Write-back in the first release, or read-only status tracked outside the tool?
-
----
-
-**Expected coverage on today's data: ~⅓ of cases, <10% of money.** The rest cannot be judged
-because the rules or reference data don't exist — not because the payments are wrong. That is the
-most valuable thing this reports, and the design must not let it read as a pass.
