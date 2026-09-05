@@ -1,0 +1,421 @@
+<title>Manager Notes Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ink:#15181D; --ink-2:#4B535F; --ink-3:#727C8A;
+  --bg:#FCFCFB; --panel:#FFFFFF; --panel-2:#F5F6F4; --line:#E3E5E1; --line-2:#CFD3CD;
+  --red:#A32118; --amber:#B07F09; --green:#0A7245; --accent:#3538CD;
+  --red-wash:#FBEDEB; --amber-wash:#FBF3E0; --green-wash:#E9F4EE; --accent-wash:#EDEEFB;
+  --shadow:0 1px 2px rgba(21,24,29,.06), 0 8px 24px -16px rgba(21,24,29,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#E8EAE6; --ink-2:#A2A9A2; --ink-3:#7C847E;
+    --bg:#131513; --panel:#1A1C1A; --panel-2:#212421; --line:#2C2F2C; --line-2:#3C403C;
+    --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF;
+    --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#E8EAE6; --ink-2:#A2A9A2; --ink-3:#7C847E;
+  --bg:#131513; --panel:#1A1C1A; --panel-2:#212421; --line:#2C2F2C; --line-2:#3C403C;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  font-size:14px; line-height:1.5; margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1220px; margin:0 auto; padding:28px 22px 64px; display:flex; flex-direction:column; gap:20px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace; font-variant-numeric:tabular-nums}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; text-align:right}
+
+/* ---------- masthead ---------- */
+header{display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; justify-content:space-between;
+  border-bottom:1px solid var(--line); padding-bottom:16px}
+.eyebrow{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); font-weight:600}
+h1{font-size:27px; line-height:1.15; letter-spacing:-.022em; margin:4px 0 0; font-weight:600; text-wrap:balance}
+.sub{color:var(--ink-2); margin:6px 0 0; max-width:62ch}
+.mockflag{display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:600;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--accent);
+  background:var(--accent-wash); border:1px solid color-mix(in srgb,var(--accent) 26%, transparent);
+  padding:5px 10px; border-radius:3px}
+
+/* ---------- filters ---------- */
+.filters{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.fld{display:inline-flex; align-items:baseline; gap:7px; background:var(--panel); border:1px solid var(--line);
+  border-radius:4px; padding:6px 11px; font-size:13px}
+.fld span{color:var(--ink-3); font-size:11px; letter-spacing:.05em; text-transform:uppercase; font-weight:600}
+.fld b{font-weight:500}
+.spacerx{flex:1}
+.btn{font:inherit; font-size:13px; font-weight:500; color:var(--ink); background:var(--panel);
+  border:1px solid var(--line-2); border-radius:4px; padding:6px 13px; cursor:pointer}
+.btn:hover{background:var(--panel-2)}
+.btn:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(196px,1fr)); gap:1px;
+  background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden}
+.kpi{background:var(--panel); padding:15px 16px 16px; display:flex; flex-direction:column; gap:7px; min-height:118px}
+.kpi.lead{background:var(--panel-2)}
+.kpi h2{font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3);
+  margin:0; font-weight:600; display:flex; justify-content:space-between; gap:8px; align-items:baseline}
+.kpi h2 em{font-style:normal; color:var(--ink-3); opacity:.65; font-family:"IBM Plex Mono",monospace; font-size:10px}
+.kpi .v{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+  font-size:29px; line-height:1; letter-spacing:-.03em; font-weight:500}
+.kpi .v small{font-size:15px; color:var(--ink-2); letter-spacing:0}
+.kpi .note{font-size:12px; color:var(--ink-2); margin-top:auto}
+.meter{height:5px; background:var(--panel-2); border:1px solid var(--line); border-radius:3px; overflow:hidden; display:flex}
+:root[data-theme="dark"] .meter, :root:not([data-theme="light"]) .meter{background:#000}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .meter{background:var(--panel-2)}}
+.meter i{display:block; height:100%}
+
+/* ---------- assertions ---------- */
+.assert{display:flex; flex-wrap:wrap; gap:0; border:1px solid var(--line); border-radius:6px;
+  background:var(--panel); overflow:hidden}
+.assert .a{flex:1 1 240px; padding:12px 16px; display:flex; gap:11px; align-items:flex-start;
+  border-right:1px solid var(--line)}
+.assert .a:last-child{border-right:0}
+.tick{flex:none; width:17px; height:17px; border-radius:50%; display:grid; place-items:center;
+  font-size:10px; font-weight:700; margin-top:1px; color:var(--panel); background:var(--green)}
+.assert .a b{display:block; font-weight:600; font-size:12.5px}
+.assert .a p{margin:2px 0 0; font-size:12px; color:var(--ink-2)}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:6px; box-shadow:var(--shadow)}
+.phead{display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:baseline;
+  padding:14px 16px; border-bottom:1px solid var(--line)}
+.phead h3{margin:0; font-size:14.5px; font-weight:600; letter-spacing:-.01em}
+.phead p{margin:0; font-size:12.5px; color:var(--ink-2); max-width:66ch}
+
+.cols{display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:20px; align-items:start}
+@media (max-width:940px){.cols{grid-template-columns:1fr}}
+
+/* ---------- chart ---------- */
+.bars{padding:14px 16px 16px; display:flex; flex-direction:column; gap:9px}
+.bar{display:grid; grid-template-columns:1fr auto; gap:3px 12px; align-items:baseline}
+.bar .lab{font-size:12.5px; color:var(--ink); grid-column:1}
+.bar .val{grid-column:2; font-size:12.5px; color:var(--ink-2)}
+.bar .track{grid-column:1 / -1; height:11px; background:transparent; position:relative}
+.bar .fill{height:11px; background:var(--amber); border-radius:0 3px 3px 0; display:block;
+  transition:filter .12s ease}
+.bar:hover .fill{filter:brightness(1.12)}
+.bar .track::before{content:""; position:absolute; left:0; top:-1px; bottom:-1px; width:2px; background:var(--line-2)}
+.bar[data-tip]{cursor:default}
+.axis{display:flex; justify-content:space-between; font-size:11px; color:var(--ink-3);
+  border-top:1px solid var(--line); padding-top:7px; margin-top:3px}
+
+/* ---------- table ---------- */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse; width:100%; min-width:1080px; font-size:13px}
+th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3);
+  font-weight:600; white-space:nowrap; background:var(--panel-2); position:sticky; top:0}
+th.r,td.r{text-align:right}
+tbody tr:hover{background:var(--panel-2)}
+tbody tr:last-child td{border-bottom:0}
+.rulecell{max-width:31ch; color:var(--ink-2); font-size:12.5px}
+.rulecell b{color:var(--ink); font-weight:600; display:block; font-size:13px}
+.pill{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600;
+  padding:3px 8px 3px 6px; border-radius:3px; white-space:nowrap; border:1px solid transparent}
+.pill i{width:9px; height:9px; border-radius:2px; flex:none}
+.p-red{color:var(--red); background:var(--red-wash); border-color:color-mix(in srgb,var(--red) 30%,transparent)}
+.p-red i{background:var(--red)}
+.p-amb{color:var(--amber); background:var(--amber-wash); border-color:color-mix(in srgb,var(--amber) 34%,transparent)}
+.p-amb i{background:var(--amber); border-radius:50%}
+.p-grn{color:var(--green); background:var(--green-wash); border-color:color-mix(in srgb,var(--green) 30%,transparent)}
+.p-grn i{background:var(--green); transform:rotate(45deg); border-radius:1px}
+.ftype{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-2); white-space:nowrap}
+.ftype b{color:var(--ink); font-weight:600}
+.dash{color:var(--ink-3)}
+.gap-pos{color:var(--red); font-weight:600}
+.ctx{font-size:11.5px; color:var(--ink-3)}
+.ctx s{text-decoration:none; display:block; color:var(--ink-2)}
+
+.legend{display:flex; flex-wrap:wrap; gap:14px; padding:12px 16px; border-top:1px solid var(--line);
+  font-size:12px; color:var(--ink-2)}
+.legend span{display:inline-flex; align-items:center; gap:7px}
+.legend i{width:9px; height:9px; flex:none}
+.li-red{background:var(--red); border-radius:2px}
+.li-amb{background:var(--amber); border-radius:50%}
+.li-grn{background:var(--green); transform:rotate(45deg); border-radius:1px}
+
+footer{border-top:1px solid var(--line); padding-top:14px; color:var(--ink-3); font-size:12px;
+  display:flex; flex-direction:column; gap:5px}
+footer b{color:var(--ink-2); font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none !important; animation:none !important}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div>
+    <div class="eyebrow">Police &amp; Control · maids.cc</div>
+    <h1>Manager Notes Audit</h1>
+    <p class="sub">One case per manager note. A maid who received four additions in August is four
+      separate cases, judged separately. Second reviewer signs off before any case is acted on.</p>
+  </div>
+  <div class="mockflag">Mockup — illustrative figures, no real maid data</div>
+</header>
+
+<div class="filters">
+  <div class="fld"><span>Paid month</span><b>2026-08</b></div>
+  <div class="fld"><span>Verdict</span><b>All</b></div>
+  <div class="fld"><span>Failure type</span><b>All</b></div>
+  <div class="fld"><span>Contract</span><b>CC + MV</b></div>
+  <div class="fld"><span>Blocking reason</span><b>All</b></div>
+  <div class="fld"><span>Review</span><b>Unreviewed first</b></div>
+  <div class="spacerx"></div>
+  <button class="btn" type="button">Export cases (CSV)</button>
+</div>
+
+<!-- Coverage first, deliberately: it is the honest headline -->
+<section class="kpis">
+  <div class="kpi lead">
+    <h2>Coverage — cases <em>M6</em></h2>
+    <div class="v">34.5<small>%</small></div>
+    <div class="meter" aria-hidden="true">
+      <i style="width:3.2%;background:var(--red)"></i>
+      <i style="width:31.3%;background:var(--green)"></i>
+      <i style="width:65.5%;background:var(--amber)"></i>
+    </div>
+    <p class="note">448 of 1,300 cases reached a verdict.</p>
+  </div>
+  <div class="kpi lead">
+    <h2>Coverage — money <em>M7</em></h2>
+    <div class="v">8.4<small>%</small></div>
+    <div class="meter" aria-hidden="true">
+      <i style="width:5.6%;background:var(--red)"></i>
+      <i style="width:2.8%;background:var(--green)"></i>
+      <i style="width:91.6%;background:var(--amber)"></i>
+    </div>
+    <p class="note">AED 43,280 of AED 512,400 judged.</p>
+  </div>
+  <div class="kpi">
+    <h2>Cases in scope <em>M1</em></h2>
+    <div class="v">1,300</div>
+    <p class="note">Applied, paid, not a refund, paid in 2026-08.</p>
+  </div>
+  <div class="kpi">
+    <h2>Money in scope <em>M2</em></h2>
+    <div class="v">512,400</div>
+    <p class="note">AED. Additions <b>+519,880</b>, clawbacks <b>−7,480</b>, shown apart —
+      never netted.</p>
+  </div>
+  <div class="kpi">
+    <h2>Findings <em>M3</em></h2>
+    <div class="v" style="color:var(--red)">41</div>
+    <p class="note">AED 28,900 across F1–F4. 6 duplicate pairs.</p>
+  </div>
+  <div class="kpi">
+    <h2>Amount at risk <em>M8</em></h2>
+    <div class="v" style="color:var(--red)">21,640</div>
+    <p class="note">AED, quantifiable excess only. 6 red cases carry no quantifiable amount.</p>
+  </div>
+  <div class="kpi">
+    <h2>Unverifiable <em>M4</em></h2>
+    <div class="v" style="color:var(--amber)">852</div>
+    <p class="note">AED 469,120. Top reason: no rule exists for loyalty payments (291).</p>
+  </div>
+  <div class="kpi">
+    <h2>Expense match rate <em>M10</em></h2>
+    <div class="v" style="color:var(--amber)">71<small>%</small></div>
+    <p class="note">Below the 80% confidence floor, so “no basis” cannot be called red this month.</p>
+  </div>
+</section>
+
+<section class="assert" aria-label="Tie-out and build assertions">
+  <div class="a">
+    <span class="tick" aria-hidden="true">✓</span>
+    <div><b>TO-1 · 41 + 852 + 407 = 1,300</b>
+      <p>AED 28,900 + 469,120 + 14,380 = 512,400. Cases and money both tie.</p></div>
+  </div>
+  <div class="a">
+    <span class="tick" aria-hidden="true">✓</span>
+    <div><b>TO-3 / A2 · blocked 852 = amber 852</b>
+      <p>Every note shown as blocked is counted as blocked. No guard that changes no number.</p></div>
+  </div>
+  <div class="a">
+    <span class="tick" aria-hidden="true">✓</span>
+    <div><b>A3 · no green case skipped a test</b>
+      <p>All 407 cleared cases ran every applicable test. A clearance is never a default.</p></div>
+  </div>
+  <div class="a">
+    <span class="tick" aria-hidden="true" style="background:var(--amber)">!</span>
+    <div><b>TO-2 · payslip residual AED 1,240</b>
+      <p>3 maid-months where notes don’t sum to the payslip’s own additions. Listed as
+        3 completeness exceptions, not folded into the 1,300.</p></div>
+  </div>
+</section>
+
+<div class="cols">
+
+  <section class="panel">
+    <div class="phead">
+      <div>
+        <h3>Cases</h3>
+        <p>Sorted by amount at risk, then paid date. Maids are identified by internal id —
+          no name, phone or salary appears here or in the export.</p>
+      </div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Verdict</th><th>Type</th><th>Rule breached / blocked because</th>
+            <th>Note</th><th>Maid</th><th>Contract</th><th>Payment type</th>
+            <th class="r">Amount</th><th class="r">Authorised</th><th class="r">Gap</th>
+            <th>Approver</th><th>Internal sign-off</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pill p-red"><i></i>Finding</span></td>
+            <td class="ftype"><b>F1</b><br>Over-limit</td>
+            <td class="rulecell"><b>Paid above the authorised amount</b>
+              Expense request #149877 authorises AED 1,500; the note pays 2,400.</td>
+            <td class="mono">118420</td><td class="mono">38820</td><td>CC</td>
+            <td>Flight home</td>
+            <td class="num">2,400.00</td><td class="num">1,500.00</td>
+            <td class="num gap-pos">900.00</td>
+            <td>R. Haddad</td>
+            <td class="ctx"><s>Signed off in ERP</s>context only</td>
+          </tr>
+          <tr>
+            <td><span class="pill p-amb"><i></i>Unverifiable</span></td>
+            <td class="ftype"><b>—</b><br>Blocked</td>
+            <td class="rulecell"><b>No rule exists for loyalty payments</b>
+              Six tests returned green; the group rule could not run, so the case is not cleared.</td>
+            <td class="mono">118655</td><td class="mono">51002</td><td>CC</td>
+            <td>Loyalty payment</td>
+            <td class="num">1,000.00</td><td class="num dash">—</td><td class="num dash">—</td>
+            <td class="dash">—</td>
+            <td class="ctx">none</td>
+          </tr>
+          <tr>
+            <td><span class="pill p-amb"><i></i>Unverifiable</span></td>
+            <td class="ftype"><b>—</b><br>Blocked</td>
+            <td class="rulecell"><b>Expense-record match unreliable for this payment type (71%)</b>
+              Below the 80% floor, so “no basis” cannot be concluded. At 94% this same case
+              would be a red F4.</td>
+            <td class="mono">118501</td><td class="mono">40155</td><td>MV</td>
+            <td>Salary correction</td>
+            <td class="num">700.00</td><td class="num dash">—</td><td class="num dash">—</td>
+            <td class="dash">—</td>
+            <td class="ctx">none</td>
+          </tr>
+          <tr>
+            <td><span class="pill p-amb"><i></i>Unverifiable</span></td>
+            <td class="ftype"><b>—</b><br>Blocked</td>
+            <td class="rulecell"><b>Multiple candidate expense records for this note</b>
+              Two payments share the maid and expense category, so the link is ambiguous.
+              Taking the first match would manufacture a clearance or a finding.</td>
+            <td class="mono">118377</td><td class="mono">39004</td><td>CC</td>
+            <td>Reimbursement</td>
+            <td class="num">1,150.00</td><td class="num dash">—</td><td class="num dash">—</td>
+            <td class="dash">—</td>
+            <td class="ctx">none</td>
+          </tr>
+          <tr>
+            <td><span class="pill p-amb"><i></i>Reported</span></td>
+            <td class="ftype"><b>—</b><br>Negative</td>
+            <td class="rulecell"><b>Negative addition — money taken back</b>
+              Not an overpayment, and not nothing. Reported, never netted against a finding.</td>
+            <td class="mono">118290</td><td class="mono">47120</td><td>CC</td>
+            <td>Salary correction</td>
+            <td class="num">−450.00</td><td class="num dash">—</td><td class="num dash">—</td>
+            <td class="dash">—</td>
+            <td class="ctx">none</td>
+          </tr>
+          <tr>
+            <td><span class="pill p-grn"><i></i>Cleared</span></td>
+            <td class="ftype"><b>—</b><br>Rule ran</td>
+            <td class="rulecell"><b>Reimbursement matched, amount and beneficiary agree</b>
+              Expense request #151204: beneficiary is this maid, approver recorded, both AED.</td>
+            <td class="mono">118198</td><td class="mono">44711</td><td>CC</td>
+            <td>Reimbursement</td>
+            <td class="num">380.00</td><td class="num">380.00</td><td class="num">0.00</td>
+            <td>M. Fernandes</td>
+            <td class="ctx">none</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span><i class="li-red"></i>Red — money went out above what was allowed, or with nothing behind it</span>
+      <span><i class="li-amb"></i>Amber — could not conclude; the reason is always stated</span>
+      <span><i class="li-grn"></i>Green — a rule ran and cleared it</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="phead">
+      <div>
+        <h3>Why 852 cases could not be judged</h3>
+        <p>Cases per blocking reason, August 2026. This is the report’s real finding.</p>
+      </div>
+    </div>
+    <div class="bars">
+      <div class="bar" title="AED 178,400">
+        <span class="lab">No rule exists — loyalty payment</span><span class="val mono">291</span>
+        <span class="track"><i class="fill" style="width:100%"></i></span>
+      </div>
+      <div class="bar" title="AED 121,300">
+        <span class="lab">Flight-home cap not in the warehouse</span><span class="val mono">188</span>
+        <span class="track"><i class="fill" style="width:64.6%"></i></span>
+      </div>
+      <div class="bar" title="AED 74,900">
+        <span class="lab">Scheme price missing — referral &amp; signing</span><span class="val mono">143</span>
+        <span class="track"><i class="fill" style="width:49.1%"></i></span>
+      </div>
+      <div class="bar" title="AED 52,600">
+        <span class="lab">Salary in force unknown — part-month &amp; final</span><span class="val mono">96</span>
+        <span class="track"><i class="fill" style="width:33.0%"></i></span>
+      </div>
+      <div class="bar" title="AED 26,100">
+        <span class="lab">Expense match below the 80% floor</span><span class="val mono">74</span>
+        <span class="track"><i class="fill" style="width:25.4%"></i></span>
+      </div>
+      <div class="bar" title="AED 11,900">
+        <span class="lab">Raffle winners list not available</span><span class="val mono">38</span>
+        <span class="track"><i class="fill" style="width:13.1%"></i></span>
+      </div>
+      <div class="bar" title="AED 2,600">
+        <span class="lab">Payment type not mapped to a group</span><span class="val mono">14</span>
+        <span class="track"><i class="fill" style="width:4.8%"></i></span>
+      </div>
+      <div class="bar" title="AED 1,320">
+        <span class="lab">Profile unreadable, or contract neither CC nor MV</span><span class="val mono">8</span>
+        <span class="track"><i class="fill" style="width:2.7%"></i></span>
+      </div>
+      <div class="axis"><span>0</span><span>291 cases</span></div>
+    </div>
+    <div class="legend" style="display:block">
+      Reasons are mutually exclusive and sum to 852 — the same 852 counted in M4 and shown
+      as blocked in the table. Hover a bar for the money behind it.
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div><b>Sources —</b> <span class="mono">BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES</span>,
+    <span class="mono">…HOUSEMAID_PAYROLL_HISTORY</span>, <span class="mono">…HOUSEMAIDS_INFO</span>,
+    <span class="mono">…HOUSEMAIDS_TICKETS</span>, <span class="mono">BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS</span>,
+    <span class="mono">BA_VIEWS.CORE_SILVER.PICKLISTS_INFO</span>.</div>
+  <div><b>As of —</b> refreshed manually on 2026-09-05 for paid month 2026-08. Never scheduled:
+    recurring warehouse processes go through the ERP team.</div>
+  <div><b>Standing —</b> this is an independent second check. The ERP’s internal payroll-auditor
+    sign-off is displayed as context and never clears a case here.</div>
+  <div><b>Mockup —</b> every figure on this page is illustrative and internally consistent;
+    none of it has been read from the warehouse. No compute grant exists yet.</div>
+</footer>
+
+</div>
