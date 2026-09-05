@@ -35,6 +35,31 @@ So this is not an established house pattern for audit work being copied — it i
 from the same effort, not yet landed**. The format is defensible on the general evidence below;
 the claim "this is how P&C requests get built" is not supported, because none has been.
 
+### What those three are actually waiting on: nothing. They are queued.
+
+Checked state and changelogs. **Not one is blocked on missing information.**
+
+| Key | Status | Assignee | Priority |
+|---|---|---|---|
+| DNA-9454 | To Do, parented to epic **DNA-288 "Transform Money Control Data Domain"** (Ongoing) | Hadi AlMumayez | **Not Urgent** |
+| DNA-9455 | On-Hold, blocked by DNA-9454 — correct by design | eddy.elrahi | **Not Urgent** |
+| DNA-9446 | To Do, blocks DNA-9449, relates to DNA-9437 | Walid Al Kassar | **Not Urgent** |
+| DNA-9449 | To Do | Hadi AlMumayez | **Not Urgent** |
+| DNA-9437 | To Do — **no activity at all since creation** | Walid Al Kassar | **Not Urgent** |
+
+All were graded *Ready to start* by the intake bot. DNA-9454 was actively triaged — Bilal reassigned
+it twice within three hours of filing and parented it to a live epic the next day. So the tickets
+are well-formed and owned; **the only thing they share is the lowest priority in the scheme.**
+
+Two consequences:
+
+1. **A better-written ticket will not move this.** Filing a fourth *Not Urgent* request into the same
+   queue behind three others from the same requester gets the same result. What changes the outcome
+   is a priority conversation with Belal (AE) and Walid (DE), not more prose.
+2. **DNA-9437 is the one worth escalating alone.** It has had zero activity since it was created, it
+   is two SQL statements, and it gates the verification of everything else — including the checks
+   this audit's own acceptance criteria depend on.
+
 ---
 
 ## 1. The shape of the machine
