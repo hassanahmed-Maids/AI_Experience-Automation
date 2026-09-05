@@ -38,10 +38,10 @@ guard G9 enforces, and it is the single clearest reason this project exists.
 
 **What it can honestly deliver today: a verdict on about a third of the cases and under a tenth
 of the money.** The rest cannot be judged — not because those payments are wrong, but because the
-rules or the reference data needed to judge them are not in the warehouse, and in one case
-(the loyalty payment) do not exist anywhere in the company. **That is the most valuable thing
+rule or the reference data needed to judge them has never been written down, and in one case
+(the loyalty payment) does not exist anywhere in the company. **That is the most valuable thing
 this reports**, and the design must not let it read as a pass. It is why coverage leads the KPI
-strip and why amber always carries its reason.
+strip and why amber always carries its reason. §12 lists what is missing and who owns it.
 
 **The one engineering risk worth naming up front.** The failure mode this design exists to
 prevent is: *something is marked as blocked on the screen while the underlying numbers still
@@ -134,34 +134,40 @@ It joins `EXPENSES_REQUESTS.RELATED_TO_ID` to a **note id** while that column is
 **housemaid id**. Ranges overlap, so it matches rows and raises no error; every column profiles as
 all-NULL. Raised to the Data team separately.
 
-### To ingest from the ERP — all columns exist, mechanism is the data team's call
+### In the ERP database
 
-Source `mmdb_transformed.payrollmanagernotes` unless noted. History from **2024-01-01**, backfilled.
+The curated note view exposes ten columns; the source table has everything else this check needs.
+Read these from **`mmdb_transformed.payrollmanagernotes`** unless noted. Scope history to
+**2024-01-01 onward**.
 
 | Ref | Columns | Why |
 |---|---|---|
 | N1 | `APPLIED`, `NOT_FINAL` `BOOLEAN` | population predicate |
 | N2 | `PAID`, `PAID_ON_PAYROLL_MONTH` `DATE`, `PAYROLL_MONTH` `DATE`, `PAYROLL_ACCOUNTANT_TODO_ID` | §4 |
 | N3 | `IS_REFUND` `BOOLEAN`, `REFUNDED_NOTE_ID` | refunds out of scope |
-| N4 | `EXPENSE_ID` `BIGINT` | the expense link — already used inside D1's own join, never selected |
+| N4 | `EXPENSE_ID` `BIGINT` | the expense link — used inside D1's own join but not selected by it, so take it from the source |
 | N5 | `ADDITION_REASON_ID`, `PURPOSE_ID` `BIGINT` → `PICKLISTS_ITEMS.ID` | group routing |
 | N6 | `CREATOR` `BIGINT` → `USERS.ID`, `CREATION_DATE` | who made the addition |
-| N7 | payroll lock window per month — `MONTHLYPAYMENTRULES` (exact column TBC) | §4 branch 2 |
+| N7 | payroll lock window per month — `MONTHLYPAYMENTRULES` (confirm the column) | §4 branch 2 |
 | N8 | `PARAMETERS.CODE` / `.VALUE` for `PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` (`"2000"`), `PARAMETER_HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET_LIMIT` (`"1350"`) | airfare cap |
 | N9 | `CONFIRMED_AMOUNT_BY_AUDITOR`, `CONFIRMED_REPEATED_BY_AUDITOR` `BOOLEAN`; `PAYROLLAUDITHOUSEMAIDEXCEPTIONS`; `AUDITORACTIONS` | **display only** — see G9 |
 
-**Not available anywhere, and each one blocks a group rule:** effective-dated salary history
-(group D), referral/signing scheme prices (group C), raffle winners (group F), a written loyalty
-rule (group B — does not exist in the company), and the three reference mappings N14–N16 below.
+### Reference data these rules need, which does not exist yet
 
-| Ref | Reference mapping | Blocks |
-|---|---|---|
-| N14 | payment type → allowed expense heads | T5 |
-| N15 | contract type → allowed payment types | T7 |
-| N16 | payment types that always carry an expense record | T4 |
+| Ref | What | Feeds | Where it has to come from |
+|---|---|---|---|
+| N10 | effective-dated salary history — the salary in force on a past date, not the current profile value | group D | `mmdb` revision tables are the likely home; confirm the shape |
+| N11 | referral and signing bonus scheme prices, effective-dated, with their conditions | group C | the referral scheme owner. `MAIDS_REFERRALS_BONUSES` records what was **paid**, never what was **due** — auditing paid against paid proves nothing |
+| N12 | raffle winners per draw | group F | `RafflePerformerJob` runs the draw and writes `raffle_prize` notes; start there to find what it reads |
+| N13 | the loyalty rule | group B | nowhere. `anti_attrition_incentive` has no eligibility or amount rule anywhere in the ERP — its only reference is a payment-routing list. Someone has to write one (Q4) |
+| N14 | payment type → allowed expense heads | T5 | P&C + Payroll |
+| N15 | contract type → allowed payment types (all **four** types, see §6) | T7 | P&C + Payroll |
+| N16 | payment types that always carry an expense record | T4 | P&C + Payroll |
 
 **A payment type missing from N14/N15/N16 makes that test BLOCKED — never a pass, never a red.**
 An empty list reds everything; a permissive default greens everything. Both are silent.
+Same rule for N10–N13: the group rule returns BLOCKED and its notes are amber. **Amber is a
+result this check reports, not a failure of it.**
 
 ### The note → expense link
 
@@ -220,7 +226,7 @@ A finding is evidence; a clearance is only the absence of one.
 | T1 profile readable | — | no profile row · `IS_DELETED='01'` · `HOUSEMAID_TYPE ∉ {Normal, MAID_VISA}` · epoch date |
 | T2 payment type recorded | `ADDITION_REASON_ID IS NULL` → **F4** | id set but resolves to no picklist row |
 | T3 amount usable | — | `AMOUNT IS NULL` · `= 0` · `< 0` (each its own reason) |
-| T4 authorised + amount agrees | matched & authorised & \|gap\| > 0.01 → **F1** · matched & not authorised → **F4** · unmatched & reason ∈ N16 & rate ≥ floor → **F4** | unmatched & rate < floor · N16 absent · multiple candidates · currency mismatch · N4 not landed |
+| T4 authorised + amount agrees | matched & authorised & \|gap\| > 0.01 → **F1** · matched & not authorised → **F4** · unmatched & reason ∈ N16 & rate ≥ floor → **F4** | unmatched & rate < floor · N16 absent · multiple candidates · currency mismatch |
 | T5 expense head consistent | head ∉ N14 → **F3** | N14 absent · T4 didn't match |
 | T6 duplicate | duplicate group exists → **F2** on every member | window unknown · window extends outside loaded history |
 | T7 contract type may receive | reason ∉ N15 for that type → **F3** | N15 absent · T1 blocked |
@@ -255,14 +261,14 @@ Exactly one group runs per note. Unmapped → BLOCKED → amber.
 
 | `ADDITION_REASON_ID` code | Group | Buildable |
 |---|---|---|
-| `airfare_ticket` | **A** Flight home | ✅ once N8 lands |
-| `anti_attrition_incentive` | **B** Loyalty | ❌ no rule exists |
-| `bonus` + purpose `referral_bonus` | **C** Referral | partial — event ✅, price ❌ |
-| `bonus` + other purpose | **C** Signing | partial — price ❌ |
-| `prorated_salary`, `mv_prorated_salary`, `previously_held_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | **D** Part-month | partial — needs salary history |
+| `airfare_ticket` | **A** Flight home | ✅ |
+| `anti_attrition_incentive` | **B** Loyalty | ❌ needs N13 |
+| `bonus` + purpose `referral_bonus` | **C** Referral | partial — event ✅, price needs N11 |
+| `bonus` + other purpose | **C** Signing | partial — price needs N11 |
+| `prorated_salary`, `mv_prorated_salary`, `previously_held_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | **D** Part-month | partial — needs N10 |
 | `salary_dispute` | **E** Correction | partial — E1 ✅, E2 needs the judgement field |
-| `raffle_prize` | **F** Raffle | ❌ winners list absent |
-| `taxi_reimbursement`, `medical_assistant`, `Maids_at_other_expenses`, `lost_luggage_compensation` | **G** Reimbursement | ✅ once N4 lands |
+| `raffle_prize` | **F** Raffle | ❌ needs N12 |
+| `taxi_reimbursement`, `medical_assistant`, `Maids_at_other_expenses`, `lost_luggage_compensation` | **G** Reimbursement | ✅ |
 | `forgive_deduction`, `cover_deduction_limit`, `cover_negative_salary` | **I** System-generated | pending Q3 |
 | `recommendation_from_client` | **J** Google review | ❌ no rule found |
 | `pay_vacation_days` | **K** Vacation | ❌ no rule found |
@@ -270,18 +276,18 @@ Exactly one group runs per note. Unmapped → BLOCKED → amber.
 | `office_work_addition`, `refund` | — | out of scope |
 
 **A — Flight home** (all conjunctive)
-- A1 `AMOUNT > limit` → RED F1. limit = `PARAMETERS.VALUE` cast to number,
+- A1 `AMOUNT > limit` → RED F1. limit = `PARAMETERS.VALUE` (N8) cast to number,
   Filipina when `HOUSEMAIDS.NATIONALITY` = picklist code `philippines`, else the other-nationality
   parameter. **Strictly greater**, matching the ERP. Use the raw nationality code, **not**
   `NATIONALITY_CATEGORY` — different partitions.
 - A2 months since `START_DATE` ≥ 6. A3 `months % 24 == 22`. Both BLOCKED on epoch dates.
 - A4 cash in lieu **and** a `MAIDCC` ticket (D5) for the same journey → RED F2.
 
-**C** C1 amount = scheme price at note date (BLOCKED) · C2 referral event exists · C3 not already paid.
-**D** D1 recompute from dates + salary in force (BLOCKED) · D2 termination mode · D3 window.
+**C** C1 amount = scheme price at note date (N11) · C2 referral event exists · C3 not already paid.
+**D** D1 recompute from dates + salary in force (N10) · D2 termination mode · D3 window.
 **E** E1 expense record proves the amount **AND** E2 the stated reason justifies it. Conjunctive —
 if E2 is deferred, E2 is BLOCKED and group E is amber.
-**F** F1 maid on the winners list for that draw, nothing else. BLOCKED.
+**F** F1 maid on the winners list for that draw, nothing else.
 **G** G1 amount agrees · G2 `BENEFICIARY_TYPE='MAID'` and id matches · G3
 `NULLIF(TRIM(APPROVED_BY),'') IS NOT NULL`.
 
@@ -302,9 +308,9 @@ All AED, 2dp, rounded per row then summed.
 | M13 match rate | matched / (reason ∈ N16), **per payment type per month**; tile shows aggregate + "n types below floor" |
 | M14 completeness exceptions | maid-months failing G1; own count and amount, **not folded into M1/M2/M7** |
 
-No approved KPI definition has been confirmed for any of these — check
-`BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER` before treating them as new. If one exists it
-wins verbatim with all its filters.
+Before treating any of these as a new definition, check
+`BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER` for an approved one. If it holds a definition
+for a metric here, that definition wins verbatim, with all of its filters.
 
 ## 10. Run guards
 
@@ -358,19 +364,33 @@ and states only non-salary columns are read.
 **Maker–checker.** The status column is a write-back — that makes this an application, not a
 dashboard. Decide before building (Q6).
 
-## 12. Blocked on
+## 12. Before you can finish
 
-| | Need | From |
+Everything in §5's first two tables is available now. These are the pieces that are not, and
+none of them is a query away:
+
+| | What | Who |
 |---|---|---|
-| B1 | Warehouse compute grant for `PAYROLL_AND_MONEY_CONTROL_ROLE` — `SHOW WAREHOUSES` returns 0 rows, so **not one row has been read**; nothing below is verified against data | Data platform |
-| B2 | `SELECT` on `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER`, `.MONEY_CONTROL_SILVER`, `.CORE_SILVER` | BA_VIEWS owner |
-| B3 | N1–N9 ingested | ERP → Data team |
-| B4 | N14–N16 written | P&C + Payroll |
-| B5 | Salary history, scheme prices, raffle winners, a loyalty rule | respective owners |
-| B6 | Timezone of `NOTE_DATE`; confirm note currency is AED; `MONTHLYPAYMENTRULES` lock column | ERP team |
+| 1 | **N14, N15, N16** — the three reference mappings. Without them T4, T5 and T7 stay BLOCKED and their notes amber | P&C + Payroll |
+| 2 | **N10–N12** — salary history, scheme prices, raffle winners. Each one gates a group rule | respective owners |
+| 3 | **N13** — a written loyalty rule. It does not exist anywhere in the company (Q4) | the business |
+| 4 | **Timezone of `NOTE_DATE`** and the payslip dates. `TIMESTAMP_NTZ` carries none; if the ERP writes UTC, a note at 02:00 Dubai truncates to the previous day and crosses a lock-window edge | ERP team |
+| 5 | **Confirm the note amount is AED.** The note table has no currency column, so the whole spec assumes it. If that is wrong, every comparison, M2, M11 and both tie-outs are wrong in an unknown direction | ERP team |
+| 6 | **The `MONTHLYPAYMENTRULES` lock column** (N7) | ERP team |
 
-**First three queries once B1 lands:** G2's distinctness check · `NOTE_TYPE` distribution (G10) ·
-read `INSIGHTS_DASHBOARD_CONTAINER`.
+**Three checks worth running first, before writing anything else:**
+
+```sql
+-- 1. the grain the whole report rests on (G2)
+SELECT COUNT(*), COUNT(DISTINCT ID)
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES;
+
+-- 2. is money moving through a note type this scope excludes? (G10)
+SELECT NOTE_TYPE, COUNT(*) FROM ... GROUP BY 1;
+
+-- 3. does an approved definition already exist for any metric in §9?
+SELECT * FROM BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER LIMIT 50;
+```
 
 ## 13. Open decisions (P&C)
 
