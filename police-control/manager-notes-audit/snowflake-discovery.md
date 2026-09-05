@@ -263,6 +263,11 @@ Three findings that change the design:
    approvals for an earlier audit month. `CREATION_DATE` (from Oct 2021) can.
 4. `AMOUNT` reaching 2.2 × 10¹¹ is a data-quality outlier that will dominate any
    "amount at risk" total if not handled. `NEEDS COMPUTE` to size.
+5. **The empty-string sentinel is on two columns, not one.** Both `BENEFICIARY_NAME` and
+   `RELATED_TO_NAME` are documented as returning `''` — "the expected 'not applicable' sentinel,
+   not NULL" — when their `CASE` finds no branch. `APPROVED_BY` and `REQUESTED_BY` are free text
+   and store a **name, not a user id**, so any equality or null test on a free-text column from
+   this view needs `NULLIF(TRIM(x),'')`.
 
 ## 7. Reference data for the group rules
 
@@ -296,7 +301,18 @@ SHOW OBJECTS LIKE '%PICKLIST%' IN ACCOUNT; -- CORE_SILVER.PICKLISTS_INFO, ...
   This proves *a ticket was bought*, which is what a duplicate test needs (cash in lieu paid
   **and** a ticket purchased). It does **not** carry the **nationality cap** — no such price
   list exists in the warehouse.
-- `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_VACATIONS` (`mmdb.housemaidvacations`)
+  Full column list returned by `SHOW COLUMNS`, recorded here because a spec cannot cite what
+  the log does not carry: `ID`, `HOUSEMAID_ID`, `OFFICE_STAFF_ID`, `TICKET_TYPE`, `BUYER`,
+  `ARRIVAL_DATE`, `DEPARTURE_DATE`, `PURCHASE_DATE`, `CREATION_DATE`, `LAST_MODIFICATION_DATE`,
+  `ORIGINAL_FARE`, `FARE_IN_REF_CURRENCY`, `CURRENCY_ID`, `EXCHANGE_RATE`, `CHANGE_DATE_FEES`,
+  `REFUND_AMOUNT`, `REFUND_REQUEST_DATE`, `REFUNDABLE`, `REFUNDED`, `MISSED_FLIGHT`,
+  `AIRLINE_ID`, `ROUTE_ID`, `DEPARTURE_AIRPORT_ID`, `ARRIVAL_AIRPORT_ID`, `BOOKING_WEBSITE_ID`,
+  `BOOKING_CONFIRMATION_NUMBER`, `FLIGHT_NUMBER`, `CARD_USED_ID`, `REQUEST_ID`, `CREATOR`,
+  `CREATOR_MODULE`, `LAST_MODIFIER`, `MATCH_TO_PURCHASE_DECISION`, `MATCH_TO_REFUNDS_DECISION`,
+  `IS_DELETED`, `IS_LATEST_HM_TICKET`, `_UUID`, `ATTACHMENTS_COUNT`.
+  The maid key is `HOUSEMAID_ID` `FIXED(38,0)`; the ticket carries its own `CURRENCY_ID` and
+  `EXCHANGE_RATE`, so its fare is not necessarily AED.
+- **D8** — `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_VACATIONS` (`mmdb.housemaidvacations`)
   exists, for the repeating-cycle part of the flight rule.
 - `BA_VIEWS.CORE_SILVER.PICKLISTS_INFO` is the picklist reference — the source of the
   payment-type names. It is what would enumerate the 24 addition reasons. `NEEDS COMPUTE`.
@@ -326,3 +342,77 @@ labelled new Police & Control definitions pending that check.
 **No verdict in this table rests on a single row of data.** Each is a structural claim from
 metadata. Re-run §0 with a warehouse granted, then confirm every `NEEDS COMPUTE` marker
 before the first number is published.
+
+
+## 10. Code verification — Ask the Code, 2026-09-05
+
+The catalog cannot say what the ERP *does*. Four interrogations of the ERP source
+(conversations 45815–45818, modules `erp/magnamedia-payroll-management`,
+`erp/magnamedia-housemaid-management`, `erp/magnamedia-admin`) closed the gaps the catalog left.
+These are claims about **code**, not about rows; row-level behaviour is still O1.
+
+### 10.1 The columns v1 could only guess at — all exist
+
+| Need | Native column | Type |
+|---|---|---|
+| Applied to a payslip | `PAYROLLMANAGERNOTES.APPLIED`, `.NOT_FINAL` | `BOOLEAN` |
+| Paid, and which payslip | `.PAID`, `.PAID_ON_PAYROLL_MONTH`, `.PAYROLL_MONTH`, `.PAYROLL_ACCOUNTANT_TODO_ID` | `BOOLEAN`, `DATE`, `DATE`, `BIGINT` |
+| Refund / reversal | `.IS_REFUND`, `.REFUNDED_NOTE_ID`, `.OLD_NOTE_ID`, `.ADDITION_PAYROLL_MANAGER_NOTE_DEDUCTION_SOURCE_ID` | `BOOLEAN`, `BIGINT` × 3 |
+| Author | `.CREATOR`, `.CREATION_DATE`, `.LAST_MODIFIER`, `.LAST_MODIFICATION_DATE` | `BIGINT`, `DATETIME` |
+| Payment type ids | `.ADDITION_REASON_ID`, `.PURPOSE_ID` | `BIGINT` → `PICKLISTS_ITEMS.ID` |
+| Auditor sign-off | `.CONFIRMED_AMOUNT_BY_AUDITOR`, `.CONFIRMED_REPEATED_BY_AUDITOR` | `BOOLEAN` |
+
+### 10.2 The five findings that changed the design
+
+1. **`PAID = true` is not "was paid".** For routine additions the ERP writes **neither** `PAID`
+   nor `PAID_ON_PAYROLL_MONTH`; payment is inferred from `NOTE_DATE` in the payroll lock window
+   and the note rolling into that month's `MANAGER_ADDITIONS`. Those two columns are written only
+   for carried-forward *must-be-paid* reasons (`salary_dispute`, `taxi_reimbursement`,
+   `forgive_deduction`, `airfare_ticket`, `AR-1`, `anti_attrition_incentive`,
+   `Maids_at_other_expenses`, `medical_assistant`, `mv_prorated_salary`, …), and
+   `HousemaidPayrollController`'s manual "mark as paid" sets `PAID` **without**
+   `PAID_ON_PAYROLL_MONTH`. Scoping on `PAID = true` drops most of the population.
+2. **No note→payment key exists.** `PAYROLLMANAGERNOTES.EXPENSE_ID` is a FK to **`EXPENSES.ID`** —
+   the expense **catalogue** row — and there is **no FK** to `EXPENSEREQUESTTODOS` or
+   `EXPENSEPAYMENTS`. The link is a heuristic by construction, not by warehouse modelling.
+3. **The airfare cap exists, in `PARAMETERS`.**
+   `PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` = `"2000"`,
+   `PARAMETER_HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET_LIMIT` = `"1350"`,
+   `PARAMETER_HOUSEMAID_REPETITIVE_ADDITION_LIMIT` = `"3"` (months). Nationality splits on the
+   picklist code `philippines`. Service `months >= 6`, cycle `months % 24 == 22`
+   (`HousemaidsVacationAllowanceController`). **Values are TEXT, are seeded defaults, and are not
+   effective-dated.** *(Aside for the ERP team: the notification email hard-codes the literal
+   `2000` instead of reading the parameter, so changing the parameter makes the email lie.)*
+4. **The ERP's own auditor filters on `CONFIRMED_* = false`.**
+   `HousemaidsExceptions.generateHousemaidExceptions()` raises
+   `HOUSEMAID_FILIPINO_AIRFARE_TICKET`, `HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET` (on
+   `AMOUNT >` the limit, reason code `airfare_ticket`) and `HOUSEMAID_REPETITIVE_ADDED_PAYMENTS`
+   (`> 1` addition in 3 months, excluding `cover_deduction_limit` and `cover_negative_salary`).
+   `approveHousemaidException()` sets the flags true, at which point the case leaves the ERP's
+   list **while the payment stays over the limit**. An independent check must never inherit that
+   filter.
+5. **`NOTE_TYPE` has seven values** — `ADDITION, DEDUCTION, PENALTY_DEDUCTION, EXTRA_SHIFT, BONUS,
+   REDUCTION, SALARY_RAISE` — of which the last four are legacy or office-staff remnants, and
+   `MANAGER_ADDITIONS` counts only `ADDITION`. The catalog profiles only three, so the warehouse
+   view alone would never have shown this.
+
+### 10.3 Other code facts the spec relies on
+
+- **Edits update in place.** `PayrollManagerNoteController` does not override `updateEntity`;
+  `OLD_NOTE_ID` is dead code (its only `setOldNote` is commented out). A normal edit does not leave
+  a duplicate-looking pair. **Refunds** create a new row via `/ManagerNotes/bulkrefund`, linked by
+  `REFUNDED_NOTE_ID`, leaving the original untouched.
+- **Referral and signing bonus share addition reason `bonus`**, separated only by `PURPOSE_ID`
+  (`referral_bonus`, picklist `HousemaidPurposesForBonusAdditionalDescription` — **not seeded in
+  the repo**, so its items cannot be fully recovered from code).
+- **"Final salary" has no addition reason**; it is computed in
+  `PayrollHousemaidFinalSettlementController.calculateProrated`.
+- **The loyalty payment is `anti_attrition_incentive`**, and its **only** reference anywhere is
+  `HousemaidPayrollPaymentServiceV2.getMustBePaidManagerNotes` — a payment-routing list, not a
+  rule. There is nothing to test against.
+- **24 addition-reason codes** were recovered from code references and are listed in the spec's
+  §3 M6 table. Because they are *code-referenced*, a reason that exists in the picklist but is
+  referenced nowhere in code is absent from that list — which is why reading the picklist itself
+  is O2.
+- `EMPLOYEE_MANAGER_ID` is **not mapped in the current JPA entity**, which is why the warehouse's
+  `MANAGER` column is entirely NULL. `FROM_MANAGER_ID` is a **picklist item, not a user**.
