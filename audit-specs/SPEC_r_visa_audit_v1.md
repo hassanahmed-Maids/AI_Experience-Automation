@@ -32,7 +32,7 @@ to somebody to repay.**
 paid, or should have been recovered:
 
 1. **Double payment** — a second R-visa fee inside the same visa term with no cancellation behind it (≈ AED 447 each).
-2. **Fine overcharge** — more overstay days paid than the transaction dates justify (AED 50/day).
+2. **Fine overcharge** — more overstay days paid than the transaction dates justify, priced at the ERP's configured rate per day (seed default AED 50 — see §8.1).
 3. **Fine undercharge** — fewer overstay days paid than the dates imply. *This is the direction the prior art never tested and where most real cases sit* — 18 of 25 in 2025.
 4. **Fine responsibility unassigned** — a fine sitting on our books with nobody made to repay it.
 
@@ -126,12 +126,13 @@ role does not have.
 
 #### N1 — Authority tariff for the R-visa fee and the overstay fine
 
-- **Definition.** The government's published price for a residence visa (by term), the overstay fine per day, and the grace period before overstay begins.
+- **Definition.** The government's published price for a residence visa, by term.
+- ✅ **Narrowed 2026-09-06.** The overstay **rate and grace are no longer part of N1** — they were located in the ERP as configurable `PARAMETERS` rows (§8.1). **Only the base fee remains unsourced**, and §8.2 establishes that the ERP holds no tariff for it at all: the fee is typed in by a user. So N1 can be answered by the Visa/PRO team or by nobody.
 - **Source.** **Not a system.** A published authority tariff / the `Visa Process Details` document held by the Visa & PRO team.
 - **Native location.** None. Not in Snowflake, not established in the ERP.
 - **Owner.** Visa / PRO team (route via Malaz).
-- **Why this is the single most important item in the spec.** **Three of the four constants this check runs on — the base fee, the AED 50/day rate, and the 60-day grace — were reverse-engineered from Khalil's dashboard arithmetic and have never been read from an authority source.** They reconcile on 25 of 25 fine rows in 2025 and 15 of 15 off-base rows in 2026 — *two independent periods, which proves consistency and never correctness.* Every red T2/T3 verdict and the whole of M5/M6 rest on them.
-- **Values currently in use** (measured, not sourced): base fee **446.65 / 457.46 / 346.65**; the `Visa Process Details` tariff reads **457.46**, matching the figure live since **2025-07-07**. Fine **AED 50/day**. Grace **60 days**.
+- **Why this mattered.** All three constants — base fee, AED 50/day, 60-day grace — were reverse-engineered from Khalil's dashboard and reconciled on 25 of 25 fine rows in 2025 and 15 of 15 off-base rows in 2026. **Two independent periods, and the grace was still wrong** (§8.1). That is the whole argument for sourcing a constant rather than fitting one: *consistency across periods proves consistency, never correctness.* The base fee is the one still fitted rather than sourced, and M4 rests on it.
+- **Values.** Base fee **446.65 / 457.46 / 346.65** — observed, not sourced; the `Visa Process Details` tariff reads **457.46**, matching the figure live since **2025-07-07**. ~~Fine AED 50/day. Grace 60 days.~~ **Superseded — both now read from ERP `PARAMETERS` per §8.1.**
 - **History needed.** A dated tariff table — fee **by effective date**, since 2024-01-01. A single current price cannot audit a 2025 payment.
 - **Format.** Three columns minimum: `EFFECTIVE_FROM`, `EFFECTIVE_TO`, `AMOUNT`, per fee type and per term.
 - **Until it exists.** T2/T3 red verdicts are reported but carry the flag `CONSTANTS_UNSOURCED = TRUE`, and the report displays it on the provenance line. This is a stated limitation, not a silent one.
@@ -266,7 +267,7 @@ and it carries no verdict of its own.
 | **T3** | Fine undercharge | `paid_fine_days < implied_fine_days` | `paid_fine_days ≥ implied_fine_days` | as T2 | `implied_fine_days = 0` |
 | **T4** | Duplicate payment | ≥2 R-visa fees on one `VISA_REQUEST_ID` (or one visa term) with no cancellation and no written clearance | exactly one fee per term, or a second fee explained by a cancellation/renewal | T1 BLOCKED, or clearance text `UNCLEAR` (N3) | maid has one lifetime payment |
 | **T5** | Fine responsibility assigned | fine exists and is explicitly assigned to nobody | fine exists and a payer is recorded | **always, until N2 exists** | payment carries no fine |
-| **T6** | Base fee resolvable | never | `amount − k×50 ∈ {446.65, 457.46, 346.65}` for some integer `k ≥ 0` | no such `k` | refund rows (negative amount) |
+| **T6** | Base fee resolvable | never | `amount − k×rate_per_day ∈ {446.65, 457.46, 346.65}` for some integer `k ≥ 0` | no such `k`, or `rate_per_day` unresolved | refund rows (negative amount) |
 | **T7** | Date integrity | never | all dates > `1900-01-01` and ≤ run date | any date is a sentinel or implausible | — |
 | **T8** | Visa term matches contract | term bought ≠ contract term | term bought = contract term | **always, until D6/O6 confirms a term source** | — |
 | **T9** | Rejected R-visa handled | rejected visa with no refund claimed | — | **always (N4 — no source exists)** | — |
@@ -278,7 +279,8 @@ M9 is on the KPI strip.
 
 ### The anchor rule (T2/T3) — matching without a key
 
-There is no foreign key from an R-visa payment to the entry-visa payment that starts its 60-day clock.
+There is no foreign key from an R-visa payment to the entry-visa payment that starts its overstay clock.
+**The grace length is not fixed** — it is `0` or `30` days depending on `NEWREQUEST.TYPE_OF_PREVIOUS_VISA`, read from ERP `PARAMETERS` (§8.1). Where that field is null, T2/T3 are `BLOCKED(previous_visa_type_unknown)`; **never fall back to a default grace.**
 
 - **Candidate set.** All D2 rows with `PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')`, same `OWNER_ID`, `PAYMENT_DATE ≤` the R-visa payment date, `PAYMENT_DATE > '1900-01-01'`.
 - **Zero candidates ⇒ `BLOCKED(no_anchor)`.** Never guess, never infer from the maid's arrival.
@@ -352,13 +354,13 @@ There is no foreign key from an R-visa payment to the entry-visa payment that st
 
 ### M5 — Fine overcharge exposure (T2)
 
-- **Formula.** `Σ (paid_fine_days − implied_fine_days) × 50` over T2-RED payments.
+- **Formula.** `Σ (paid_fine_days − implied_fine_days) × rate_per_day` over T2-RED payments, where `rate_per_day` is the ERP `PARAMETERS` value as-at the payment date (§8.1). **Never hardcode 50.**
 - **Reference value.** 2025: **0 of 25** fine rows. 2026-01-01 → 2026-08-20: **3** (transactions `1692426`, `1706249`, `1990079`), total excess **4 days, AED 200**.
 - ⛔ **Do not retire T2 on a one-year zero.** *A zero measured on one period is a fact about that period, not a property of the check.*
 
 ### M6 — Fine undercharge exposure (T3)
 
-- **Formula.** `Σ (implied_fine_days − paid_fine_days) × 50` over T3-RED payments.
+- **Formula.** `Σ (implied_fine_days − paid_fine_days) × rate_per_day` over T3-RED payments, same source and same prohibition on hardcoding.
 - **Reference value.** 2025: **18 of 25** fine rows (day gaps of 105, 54, 53, 48). 2026: **5 of 14**. The prior-art dashboard stamps all of these `OK`.
 - **Note.** An undercharge is money **not yet** paid out. Keep it in a **separate column** from M4/M5, which are money already gone — see O8.
 
@@ -370,8 +372,7 @@ There is no foreign key from an R-visa payment to the entry-visa payment that st
 **Conventions shared by M3–M7** (stated once rather than repeated): inputs are D1 `TRANSACTION_AMOUNT`
 and D2 `AMOUNT`, `PURPOSE`, `PAYMENT_DATE`, `VISA_REQUEST_ID`, `OWNER_ID`, plus N1 for every constant ·
 AED, VAT-inclusive, no FX · 2 dp half-up **at row level**, totals sum the rounded rows · a NULL input
-makes its test `BLOCKED`, never zero · no division occurs except `÷ 50`, which is a constant, so no
-division-by-zero case arises · **no tolerance band**: these are exact-arithmetic tests, and a
+makes its test `BLOCKED`, never zero · the only division is `÷ rate_per_day`, so an unresolved or zero rate makes the test `BLOCKED` rather than raising — this is the one division-by-zero case and it must be handled · **no tolerance band**: these are exact-arithmetic tests, and a
 threshold would be a policy decision nobody has made (unlike the sibling overstay checks, which carry
 AED 300 and AED 200 thresholds — **do not borrow theirs**).
 
@@ -507,14 +508,22 @@ is a known defect class, not a one-off.
 | Transaction | `1641662`, 2025-12-17 |
 | Amount | **AED 5,046.65** — the largest fine of 2025 |
 
-- T6: `5,046.65 − 446.65 = 4,600`; `4,600 ÷ 50 = 92` — integer ⇒ **GREEN**, base fee 446.65, `paid_fine_days = 92`.
+- T6: `5,046.65 − 446.65 = 4,600`; `4,600 ÷ 50 = 92` — integer ⇒ **GREEN**, base fee 446.65, `paid_fine_days = 92` (at the seed rate of 50; re-derive if `PARAMETERS` held a different rate on 2025-12-17).
 - Anchor: last entry-visa payment on or before 2025-12-17 ⇒ `implied_fine_days = 140`.
-- T2: `92 > 140`? No ⇒ **GREEN**.
-- T3: `92 < 140`? Yes ⇒ **RED**. **M6 = (140 − 92) × 50 = AED 2,400.** Expected total would have been `446.65 + 140×50 = AED 7,446.65`.
+- Anchor: last entry-visa payment on or before 2025-12-17 gives an **entry-to-payment gap of 200 days**.
+- `implied_fine_days = 200 − grace_days`, and the grace depends on `TYPE_OF_PREVIOUS_VISA`:
 
-**Verdict = RED.** The prior art calls this `OK`. Every constant in the check is load-bearing here at
-once — the base fee, the AED 50/day rate and the 60-day grace — which is exactly why N1 blocks
-sign-off rather than merely annotating it.
+  | Grace | Implied days | T2 (over) | T3 (under) | M6a exposure |
+  | --- | --- | --- | --- | --- |
+  | ~~60 (superseded)~~ | ~~140~~ | ~~GREEN~~ | ~~RED~~ | ~~AED 2,400~~ |
+  | **30** (employment previous visa) | **170** | GREEN | **RED** | **AED 3,900** |
+  | **0** (tourist previous visa) | **200** | GREEN | **RED** | **AED 5,400** |
+
+- **The finding survives every candidate grace; only the figure moves.** Read `TYPE_OF_PREVIOUS_VISA` for this maid to settle which.
+
+**Verdict = RED** under every candidate grace. The prior art calls this `OK`. Every constant is
+load-bearing here at once — which is exactly why the grace error mattered and why the base fee still
+blocks sign-off rather than merely annotating it.
 
 ### Example F — AMBER, catch-all *(the sixth Notion case)*
 
@@ -552,23 +561,25 @@ AMBER.** The cheapest test that the catch-all actually fires.
 
 > ⛔ **These are drafts. They must be confirmed by the requestor before anyone files them.**
 > An earlier attempt filed them as **DNA-9529** and **DNA-9530** on 2026-09-06 without that
-> confirmation. Both have been **Cancelled** with a withdrawal comment, and both had already been
+> confirmation. Both are now **Cancelled** with a withdrawal comment, and both had already been
 > auto-assigned to a person (Bilal Alsayed and eddy.elrahi), so those two were notified. The Jira
 > connector exposes no delete; removing the records entirely needs a project admin in the UI.
-> **Both drafts below still quote the 60-day grace period and must be corrected per §8 before
-> re-filing.**
+> **Do not reuse those keys — a re-file is a new pair of tickets.**
+>
+> **Rewritten 2026-09-06 against §8.** The withdrawn versions asserted a flat 60-day overstay grace
+> and quoted fine-direction counts measured under it. Both are corrected below.
 >
 > **Duplicate search: done, 2026-09-06 (O2 closed).** DNA searched project-wide by summary and by
 > full text for `R-visa`, `overstay`, `visa fee`, `duplicate payment`, `VISAREQUESTEXPENSES`,
 > `LOST_VISA_EXPENSES`, `MISSING_EXPENSES`. **No ticket or model audits R-visa *fees*.** Every R-visa
-> item in DNA is a process-speed KPI (`R-Visa Speed`, `Days to Get the R-Visa`, the duration tables)
-> or a step-blocker alert. Two neighbours materially affect this spec and are recorded as O15 and O16.
+> item in DNA is a process-speed KPI or a step-blocker alert. Two neighbours matter — O15 and O16.
 >
-> **Set the issue type yourself on creation** — Jira automation re-types new tickets to " New Request".
-> **Precedent to mirror:** DNA-9454 / DNA-9455 (*"Applicant ticketing audit — model the eleven Police
-> & Control metrics in silver/gold from existing BA_VIEWS objects"*) is the same department, the same
-> shape and the same AE→BI split, and DNA-9446 / DNA-9449 is a second P&C audit pair. Match their
-> framing.
+> **Set the issue type yourself on creation** — Jira automation re-types new tickets to `" New Request"`.
+> On the withdrawn pair it did so twice and reverted the correction both times, so expect to fix the
+> type after the intake bot's pass rather than at creation.
+> **Precedent to mirror:** DNA-9454 / DNA-9455 (P&C, eleven metrics, same AE→BI split); a second P&C
+> audit pair is DNA-9446 / DNA-9449. Field values that pass validation: `OKR = 1-3`,
+> `Domain/Department = Money Control`, `Priority = Not Urgent`.
 
 ### Ticket 1 — `Analytic Engineer Task` (draft)
 
@@ -577,13 +588,11 @@ AMBER.** The cheapest test that the catch-all actually fires.
 **What we need.** Police & Control audits every residence-visa fee paid for a CC or MV housemaid, to
 catch a second fee inside one visa term, an overstay fine that disagrees with the dates, and a fine
 nobody was made to repay. Everything the model reads is already in `BA_VIEWS` — `VISA_SILVER.VISAREQUESTEXPENSES`
-and `MONEY_CONTROL_SILVER.TRANSACTIONS`.
+and `MONEY_CONTROL_SILVER.TRANSACTIONS` — plus two ERP config reads named below.
 
 > **No new object, grant, warehouse or pipeline is requested for the model itself. The ask is narrow:
 > build one silver model at payment grain carrying nine test outcomes and one verdict column, plus a
 > case-grain roll-up. The business logic is attached in full — you do not need to reverse-engineer it.**
-
-*(One access request is separate and does block verification — see Dependencies.)*
 
 **Playbook fields.**
 
@@ -596,19 +605,33 @@ and `MONEY_CONTROL_SILVER.TRANSACTIONS`.
 | `Grain` | One row per R-visa payment; roll-up one row per maid, all-time |
 | `BusinessGoal` | Detect duplicate residence-visa fees and mis-stated overstay fines |
 | `Consumer` | Police & Control (Security Room portal, workbook, email draft) |
-| `SourceData` | D1–D4 below |
+| `SourceData` | D1–D4 plus the two ERP config reads (E1, E2) |
 | `HistoricalBackfill` | Full history — the duplicate scan is all-time by design, not window-scoped |
-| `ColumnSet` | See "What it reads" and §3 of the attached spec |
 | `BusinessOwner` | Malaz (Police & Control) |
-| `Dependencies` | Blocks Ticket 2. Warehouse grant (below) blocks verification, not build |
-| `OutOfScope` | Office staff; salary rows; client refunds; entry visa / MOHRE / change-of-status / EID / ILOE; VAT treatment; **missing** R-visa payments (a separate check) |
-| `References` | This spec; Notion *R-Visa Audit*; SD-67794 |
+| `Dependencies` | Blocks Ticket 2. Warehouse grant blocks verification, not build. **E1/E2 block the fine tests** |
+| `OutOfScope` | Office staff; salary rows; client refunds; entry visa / MOHRE / change-of-status / EID / ILOE; VAT; **missing** R-visa payments (a separate check) |
+| `References` | `SPEC_r_visa_audit_v1.md` §8; Notion *R-Visa Audit*; SD-67794 |
 
-**The metrics, by fixed name and id.** M1 population · M2 cases · M3 amount at risk · M4 duplicate
-exposure · M5 fine overcharge exposure · M6 fine undercharge exposure · M6a underpaid exposure reported separately · M7 unassigned-responsibility
-exposure · M8 exception rate · M9 blocked rate · M10 anchor match rate. **Every card and column
-carries these ids** — two id systems on one page is how a reader ends up comparing figures that were
-never comparable.
+**The metrics, by fixed name and id.** M1 population · M2 cases · M3 amount at risk (money already
+gone) · M4 duplicate exposure · M5 fine overcharge exposure · M6 fine undercharge exposure ·
+**M6a underpaid exposure, reported separately and never summed into M3** · M7 unassigned-responsibility
+exposure · M8 exception rate · M9 blocked rate · M10 anchor match rate. Every card and column carries
+these ids.
+
+**Verdict algebra.** Every test returns exactly one of four values — `RED(type)` / `GREEN` /
+`BLOCKED(reason)` / `NOT_APPLICABLE`:
+
+```
+RED    ⟸ any applicable test returned RED
+AMBER  ⟸ not RED, and any applicable test BLOCKED
+GREEN  ⟺ every applicable test RAN and returned GREEN
+```
+
+Four rules that must hold: **no early exit** (evaluate every applicable test, record all outcomes in
+`TEST_TRACE`); **one verdict column computed once**, aggregated by every tile, chart, filter, colour
+and export, with nothing re-deriving eligibility; **no fourth state** — workflow state is a separate
+column and `inconclusive` is not a synonym for clean; **blocking scoped to the single test** — a
+missing anchor blocks the fine tests only, while the duplicate test still runs.
 
 **What it reads.**
 
@@ -618,46 +641,79 @@ never comparable.
 | D2 | `BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES` | `PURPOSE`, `VISA_REQUEST_ID`, `OWNER_ID`/`OWNER_TYPE`, `TRANSACTION_ID`, `PAYMENT_DATE` |
 | D3 | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION` | expense-head reconciliation (TO-2) |
 | D4 | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_HIERARCHY` | expense-head reconciliation (TO-2) |
+| **E1** | ERP `PARAMETERS` (`CODE`, `VALUE`) — **not yet in Snowflake** | the overstay rate and grace, per §8.1 |
+| **E2** | ERP `NEWREQUEST.TYPE_OF_PREVIOUS_VISA` — **not yet in Snowflake** | selects which E1 pair applies |
+
+**🔴 The overstay arithmetic — corrected. Read this before writing the fine tests.**
+
+An earlier draft of this spec used a flat **60-day grace** and a hardcoded **AED 50/day**. Verification
+against the ERP code on 2026-09-06 found neither is a constant:
+
+| `PARAMETERS.CODE` | Applies when `NEWREQUEST.TYPE_OF_PREVIOUS_VISA` is | Seed default |
+| --- | --- | --- |
+| `tourist_visa_grace_period` | `Tourist_Visit_Visa` | **0** |
+| `employment_visa_grace_period` | `Company_Sponsorship`, `Private_Sponsorship` | **30** |
+| `fine_for_tourist_visa` | `Tourist_Visit_Visa` | **50** AED/day |
+| `fine_for_employment_visa` | `Company_Sponsorship`, `Private_Sponsorship` | **50** AED/day |
+
+```
+grace_days        = PARAMETERS.VALUE for the code selected by TYPE_OF_PREVIOUS_VISA
+rate_per_day      = PARAMETERS.VALUE for the matching fine_for_* code
+implied_fine_days = GREATEST(0, DATEDIFF(day, anchor_entry_date, rvisa_payment_date) − grace_days)
+```
+
+- **`TYPE_OF_PREVIOUS_VISA` is a required input.** Null or an unmapped value ⇒ the fine tests return
+  `BLOCKED(previous_visa_type_unknown)`. **Never fall back to a default grace.**
+- **Read both parameters as-at the payment date.** They are configurable. If `PARAMETERS` is not
+  versioned, the historical values are unknowable and the fine tests on older rows are `BLOCKED` —
+  that determination is itself a deliverable of this ticket.
+- **Do not hardcode 50 or 60 anywhere.**
 
 **The joins that exist and the ones that do not.** D2 `TRANSACTION_ID` → D1 `ID` (NUMBER→NUMBER,
 **nullable on D2** — an unlinked expense is amber, not dropped). D2 `OWNER_ID` → D1 `HOUSEMAID_ID`
-(NUMBER→NUMBER, **D1 fill rate unmeasured**). **There is no key at all** from an R-visa payment to the
-entry-visa payment that starts its 60-day clock — that match is a documented heuristic with a
-published match rate and a 90% floor (§3, anchor rule). Coverage on every join is unmeasured because
-this spec was written without warehouse compute.
+(NUMBER→NUMBER, **D1 fill rate unmeasured**). **There is no key at all** from an R-visa payment to
+the entry-visa payment that starts the clock: candidate set is same `OWNER_ID`,
+`PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')`, `PAYMENT_DATE ≤` the R-visa payment. Zero
+candidates ⇒ BLOCKED. More than one ⇒ compute under **every** candidate; agree, the verdict stands;
+disagree, BLOCKED. **Never take the first or the latest** — of 40 fine rows since 2025, 6 have more
+than one candidate and the worst choice moves the answer by 965 days. Coverage on every join is
+unmeasured, because this spec was written without warehouse compute.
 
 **Traps — each silently produces wrong numbers.**
 
 | Trap | Cost if ignored |
 | --- | --- |
-| Scoping the population on a joined column (`OWNER_TYPE`, `CONTRACT_TYPE`, `STATUS`) | Records vanish from every count and total while the tie-outs still balance on the survivors. Worse than counting them clean |
-| Early-exit rule ladder | A record reaches green with an applicable test silently unrun. Notion test case 1 loses its duplicate red this way |
+| **Hardcoding the grace or the rate** | The whole fine-direction result inverts. A 60-day grace understates `implied_fine_days` by 30–60 days on every row |
+| Scoping the population on a joined column (`OWNER_TYPE`, `CONTRACT_TYPE`, `STATUS`) | Records vanish from every count and total while the tie-outs still balance on the survivors. **Scope is `PURPOSE` + date only** |
+| Early-exit rule ladder | A record reaches green with an applicable test silently unrun |
 | Keying duplicates on the maid's **name** from free text | ~4% precise: 56 groups in 2025, of which **54 resolve to more than one maid id**. Keyed on identity the answer is **2** |
-| Filtering the population on description text | Throws away **33.6% of 2026 rows (3,826 of 11,392)**; and before 2025-12-19 the renewal leg says `R-VISA` **zero times in 10,855 rows**, hiding **AED 2.16M** |
-| `CONTRACT_TYPE` compared without `TRIM()` | Values carry a trailing space — the CC/MV split matches nothing, silently |
+| Filtering the population on description text | Throws away **33.6% of 2026 rows (3,826 of 11,392)**; before 2025-12-19 the renewal leg says `R-VISA` **zero times in 10,855 rows**, hiding **AED 2.16M** |
+| `CONTRACT_TYPE` compared without `TRIM()` | Trailing space — the CC/MV split matches nothing, silently |
 | `SUM(AMOUNT)` without a range guard | Observed max ≈ **19.7 trillion** |
-| `PAYMENT_DATE` used without excluding `0025-11-06` | A two-thousand-year overstay; the prior dashboard differenced it silently and reported `OK` on a 54-day undercharge |
-| Duplicate scan limited to the reporting window | 2 repeat-payment maids inside 2025 versus **182 all-time** — roughly nine cases in ten missed |
+| `PAYMENT_DATE` without excluding the `0025-11-06` sentinel | A two-thousand-year overstay |
+| Duplicate scan limited to the reporting window | 2 repeat-payment maids inside 2025 versus **182 all-time** |
+| Treating `GETTING_THE_CONFIRMATION_TO_PROCEED_STATUS` as a clearance | It is the audited system's own sign-off. Display as context; it never clears a case |
 
 **Data asks — non-blocking for the model build.**
 
 | Ask | What it unlocks |
 | --- | --- |
-| N1 authority tariff (dated) | Lets a red T2/T3 verdict be trusted rather than merely reported |
-| N2 fine payer | Unblocks T5 (~40 cases, resolvable by hand once) |
-| N3 clearance text + AI judgement field | Unblocks the duplicate clearance route (9 pairs all-time) |
-| O6 visa term source | Unblocks T8 — **until then no case can reach green** |
+| **Ingest E1 `PARAMETERS` and E2 `TYPE_OF_PREVIOUS_VISA` into Snowflake, with history if it exists** | The fine tests. Without them, T2/T3 are BLOCKED on every row |
+| Authority tariff for the **base fee** (dated) | **Confirmed absent from the ERP** — the fee is user-entered on `NEWREQUESTEXPENSE.AMOUNT`, there is no price list by term. Only the Visa/PRO team can answer this |
+| Fine payer ruling (§8.3) | Turns T5 from blocked into runnable, and makes M7 meaningful |
+| Written-clearance text + AI judgement field | Unblocks the duplicate clearance route (9 pairs all-time) |
+| Visa term source | Unblocks T8 — **until then no case can reach green** |
 
-**What needs a decision, not engineering.** O3 (`CONTRACT_TYPE` is as-of-now, not as-of-payment) ·
-O8 (undercharge reported separately from money already gone) · O9 (staff names out of the export) ·
-O10 (ship with `CONSTANTS_UNSOURCED` displayed).
+**What needs a decision, not engineering.** The revised T5 derived from `HOUSEMAID.HOUSEMAID_TYPE`
+routing (O19) · `CONTRACT_TYPE` display-and-UI-filter only, never a model filter (resolved) · M6a
+reported separately from M3 (resolved) · staff creator names out of the export · ship with
+`CONSTANTS_UNSOURCED` on the provenance line.
 
 **Sensitivity — so it does not stall at intake.** No salary, no IBAN, no contact detail. The
-transaction **description** field is read to compute and is never displayed or exported: a sibling
-check measured that same field carrying passport numbers and visa ids from 2026-01 onward (31 of
-1,738 rows in January, 77 of 1,759 in February, rising), and **the share on R-visa rows is
-unmeasured**. Maid names are never a key and never displayed. Staff creator names are excluded from
-the row-level export.
+transaction **description** field is read to compute and never displayed or exported: a sibling check
+measured that same field carrying passport numbers and visa ids from 2026-01 onward (31 of 1,738 rows
+in January, 77 of 1,759 in February, rising), and the share on R-visa rows is unmeasured. Maid names
+are never a key and never displayed. Staff creator names are excluded from the row-level export.
 
 **Attached.** `DNA_ATTACHMENT_source_tables.md` *(Start here)* · `DNA_ATTACHMENT_verification_queries.md`
 (every measured figure with the query that produced it, aggregate only) · `SPEC_r_visa_audit_v1.md`.
@@ -666,55 +722,94 @@ the row-level export.
 
 | Ticket / object | Status | Why it does not overlap |
 | --- | --- | --- |
-| **DNA-5725** · **DNA-7915** — Alert 946, *Money Lost — Overstay Fines Not Paid by Client* | Done / live | **The closest thing that exists.** An *alert* on client-paid overstay fines, not an audit of R-visa fee payments; no duplicate test, no fine-vs-dates arithmetic. Overlaps T5 only — see **O15**, and do not inherit its filter |
-| **DNA-6078** — *Inflated Total Excluded Hours in R-Visa Duration Calculation* · **DNA-2363** — *Add New Columns & Filtering Logic to R-Visa Duration Tables* | Done | Both act on the R-Visa **duration** tables (D6), which measure process speed, not money. They matter here only because D6 is the candidate source for the visa term — see **O16** |
-| **DNA-9454** · **DNA-9455** — Applicant ticketing audit (P&C, eleven metrics) | To Do | Same department and same ticket shape, **different check entirely**. Listed as the precedent, not an overlap |
-| **DNA-9446** · **DNA-9449** — Payroll audit, monthly archived files | To Do | Different population (payroll), different sources (file ingestion) |
-| `LOST_VISA_EXPENSES` | existing silver model | Downstream of D2. Searched — no R-visa fee audit logic in DNA against it |
-| `MISSING_EXPENSES`, `MISSING_EXPENSES_HISTORICAL` | existing silver models | Absence of an expected expense; this check audits payments that exist |
-| `REQUESTS_EXPENSES_DETAILS` | existing gold model | Reporting detail, no verdict logic |
-| SD-67794 | open | The **n8n / ERP-API** build of the same check. Different runtime, and three of its four blockers do not apply in the warehouse (§2.4) |
-| MV Overstay Fines · CC Overstay Fines · E-ID Audit · ILOE Checker · Change of Status | sibling P&C checks | Share two policies (duplicate payments, fine responsibility) and **share no constants** — MV is expense 1677/base 575.65/client pays, CC is expense 1589/maid's loan pays, R-Visa is neither |
+| **DNA-9529 · DNA-9530** | **Cancelled** | An earlier, withdrawn version of *this* pair. Filed without sign-off and quoting the superseded 60-day grace. Not to be reused or reopened |
+| DNA-5725 · DNA-7915 — Alert 946, *Money Lost — Overstay Fines Not Paid by Client* | Done / live | The closest thing that exists. An **alert** on client-paid overstay fines, not an audit of R-visa fee payments; no duplicate test, no fine-vs-dates arithmetic. Overlaps T5 only — read its conditions first and **do not inherit its filter** |
+| DNA-6078 · DNA-2363 — R-Visa duration tables | Done | Process-speed measures, not money. They matter only because those tables are the candidate visa-term source, and DNA-6078 is a known defect in them |
+| DNA-9454 · DNA-9455 — Applicant ticketing audit (P&C) | To Do | Same department and shape, different check. The precedent, not an overlap |
+| DNA-9446 · DNA-9449 — Payroll audit | To Do | Different population and sources |
+| SD-67794 | Open | The n8n / ERP-API build of the same check. Different runtime; three of its four declared blockers do not apply in a warehouse build |
+| MV Overstay Fines · CC Overstay Fines · E-ID Audit · ILOE Checker · Change of Status | Sibling P&C checks | Share two policies and **no constants** — MV is expense 1677 / base 575.65 / client pays; CC is expense 1589 / maid's loan pays; R-Visa is neither |
 
 **Done when — numeric acceptance criteria.**
 
 1. `COUNT(*) − COUNT(DISTINCT PAYMENT_ID) = 0` on the payment-grain model — the grain holds.
-2. `RED + AMBER + GREEN = COUNT(DISTINCT OWNER_ID)` exactly, **residual 0** (TO-3).
-3. `Σ REASON_CODE buckets − AMBER total = 0` in both count and AED (TO-4).
-4. Every AMBER row has a non-null `REASON_CODE`: `COUNT(*) WHERE VERDICT='AMBER' AND REASON_CODE IS NULL = 0`.
-5. Every rendered verdict is one of exactly three words: `COUNT(DISTINCT VERDICT) = 3`.
-6. Population reproduces the reference measurement within **±0.5%** on both count and AED: 2025 = **19,311 rows / AED 8,684,562.33**; 2026-01-01→08-28 = **11,558 rows / AED 5,220,544.65**. A larger gap means the `PURPOSE` route and the expense-head route disagree — that gap is TO-2 and must be reconciled to **named, quantified lines**, not left as a residual.
-7. Expected magnitudes on first run, from the prior measurement — a wrong build is visible against these: duplicate-red cases **≈2 within 2025** and **≈182 repeat-payment cases all-time** (a result near **56** means the name-keyed rule was rebuilt); T3 undercharge **18 of 25** fine rows in 2025 and **5 of 14** in 2026; T2 overcharge **0 of 25** in 2025 and exactly **3** in 2026 (`1692426`, `1706249`, `1990079`, total excess 4 days / AED 200).
-8. All six worked examples in §5 of the spec return the stated verdict, including **Example D landing in AMBER and absent from the clean count**.
-9. `COUNT(*) WHERE PURPOSE NOT IN (<profiled enum>) = 0` — the run guard on the truncated enum (O5).
-10. Anchor match rate published per period; where it is `< 90%`, T2/T3 are withheld for that period and the period is labelled unverified.
+2. `RED + AMBER + GREEN = COUNT(DISTINCT OWNER_ID)` exactly, residual **0**.
+3. `Σ REASON_CODE buckets − AMBER total = 0` in both count and AED.
+4. `COUNT(*) WHERE VERDICT='AMBER' AND REASON_CODE IS NULL = 0`.
+5. `COUNT(DISTINCT VERDICT) = 3`.
+6. Population reproduces the reference measurement within **±0.5%** on count and AED: 2025 =
+   **19,311 rows / AED 8,684,562.33**; 2026-01-01→08-28 = **11,558 rows / AED 5,220,544.65**.
+   *(Unaffected by the grace correction — the population does not depend on it.)* A larger gap means
+   the `PURPOSE` route and the expense-head route disagree, and that gap is TO-2: reconcile it to
+   named, quantified lines, never leave it as a residual.
+7. Duplicate detection reproduces **≈2 duplicate-red cases within 2025** and **≈182 repeat-payment
+   cases all-time**. A result near **56** means the name-keyed rule was rebuilt — fail the build.
+   *(Unaffected by the grace correction.)*
+8. **Fine-direction counts are re-measured, not asserted.** The prior figures (18 of 25 undercharge
+   in 2025, 0 of 25 overcharge, 3 in 2026) were computed on the superseded 60-day grace and are
+   **not targets**. The correct grace is smaller (0 or 30), so `implied_fine_days` rises and the
+   direction of travel is fixed — these are the testable bounds:
+   - undercharge in 2025 **≥ 18 of 25 fine rows**;
+   - overcharge in 2025 **= 0**;
+   - overcharge in 2026-01-01→08-20 **≤ 3** (transactions `1692426`, `1706249`, `1990079`).
+
+   A run breaching any bound means the grace or the anchor is wrong, not the business.
+9. All worked examples in §5 return the stated verdict. **Example E is a T3 undercharge under every
+   candidate grace** — the exposure is AED **3,900** at a 30-day grace or AED **5,400** at 0 days
+   (paid 92 days; entry-to-payment gap 200 days). The verdict is the assertion; the figure follows
+   whichever grace `TYPE_OF_PREVIOUS_VISA` selects. The blocked example must land in AMBER and be
+   **absent from the clean count**.
+10. `COUNT(*) WHERE PURPOSE NOT IN (<profiled enum>) = 0` — a run guard, because the enum in the
+    column comment is truncated.
+11. `COUNT(*) WHERE fine_days > 0 AND TYPE_OF_PREVIOUS_VISA IS NULL AND VERDICT <> 'AMBER' = 0` —
+    proves no row was scored on a defaulted grace.
+12. Anchor match rate published per period; below **90%** the fine tests are withheld for that period
+    and the period is labelled unverified.
 
 ### Ticket 2 — `BI Visualization Task` (draft)
 
-**Summary.** `R-Visa fee audit — Police & Control exception dashboard`
+**Summary.** `[Split from <AE key>] BI: R-Visa fee audit — Police & Control exception dashboard`
 
-**Blocked by DNA-9529** — the Blocks link is set. SQL/model work always blocks the visual build.
+**Blocked by the AE ticket** — SQL/model work always blocks the visual build. File pre-split with the
+blocks link set.
 
-> ⚠️ **Issue type.** Both tickets were created with the correct types (`Analytic Engineer Task`, `BI Visualization Task`) and a Jira automation re-typed both to `" New Request"`. Setting them back was tried twice and the automation reverted it each time. This matches the known DNA behaviour — the intake bot recommends the type on its pass. **Someone with the right permission should confirm the types after the bot has graded them.**
+**Layout, restated in the description** (a Claude artifact link is not readable by the intake bot,
+which logs it `UNVERIFIED` and falls back to the description):
 
-**Layout, restated in the description** (the artifact link is not readable by the intake bot):
-KPI strip `M3` amount at risk (money already gone) · `M6a` exposure not yet paid — **never summed with M3** ·
-`M8` exception rate with its denominator · `M9` blocked rate · `M10` anchor match rate → tie-out line showing TO-1/TO-3/TO-4 → exception table at case grain,
-default sort **amount at risk descending**, columns: case (maid id, **never a name**), contract CC/MV/Unknown (filterable, all on by default),
-payment count, verdict, rule breached in the rule's own words, amount at risk, day arithmetic
-(`paid 92 d vs implied 140 d`), both transaction ids, workflow state → one chart, fine rows by
-outcome per period → provenance line carrying the two standing caveats → row-level CSV export.
+KPI strip `M3` amount at risk — money already gone · `M6a` exposure not yet paid, **never summed with
+M3** · `M8` exception rate with its denominator `M2` beside it · `M9` blocked rate · `M10` anchor
+match rate → tie-out line showing TO-1 / TO-3 / TO-4 on screen → exception table at case grain,
+default sort **amount at risk descending**, columns: case (maid id, **never a name**) · contract
+CC / MV / Unknown, filterable, all on by default · payment count · verdict · rule breached in the
+rule's own words · amount at risk · day arithmetic (`paid 92 d vs implied 170 d`) · both transaction
+ids · workflow state → one chart, fine rows by outcome per period → provenance line → row-level CSV
+export.
+
+**Filters.** Period (default current year) · contract · verdict (default Red + Amber) · workflow
+state. **The period filter scopes reporting only — the duplicate scan behind it is always all-time.**
+
+**Drill-down.** A case opens its payments: date, amount, purpose, visa request id, the anchor used,
+**the grace and rate applied and which `TYPE_OF_PREVIOUS_VISA` selected them**, every test outcome
+from `TEST_TRACE`, and the blocking reason where present.
 
 **Non-negotiables.** Row colour is driven by the single verdict column and nothing re-derives
-eligibility · verdict is shown as **label + icon, never colour alone** · the `M8` denominator is
-visible beside it · the provenance line always states *"constants unsourced (N1); T5/T8/T9 blocked —
-no case can currently reach green"*.
+eligibility · verdict shown as **label plus icon, never colour alone** · the `M8` denominator is
+visible beside it · `M9` will be near 100% on day one because three tests are blocked pending data
+asks, and the provenance line must say so.
 
-**Done when.** Every tile and the row colour aggregate the same `VERDICT` column (assert: tile counts
-= `GROUP BY VERDICT` counts, difference 0) · the tie-out line renders on screen and is not a
-back-office check · CSV export contains no description field and no staff name column.
+**Provenance line, always visible:** *"Base fee unsourced — no authority tariff exists and the ERP
+records it as a typed-in amount. Overstay grace and rate read from ERP `PARAMETERS` as-at payment
+date. Term, responsibility and rejection tests blocked — no case can currently reach green."*
 
----
+**Sensitivity.** Maid ids only, never names. The description field is never displayed and never
+exported. Staff creator names are excluded from the export. Per-person detail goes to the workbook
+only — counts and totals in chat, run summaries and email.
+
+**Done when.** Every tile and the row colour aggregate the same verdict column (tile counts −
+`GROUP BY VERDICT` counts = **0**) · the tie-out line renders on screen with residual **0** on each
+identity · CSV export contains no description field and no staff name column, asserted on the
+exported header · `M3` and `M6a` render as separate figures and no view sums them · **the drill-down
+shows the grace and rate actually applied to each fine row**.
 
 ## 8. ERP verification — Ask the Code, 2026-09-06
 
