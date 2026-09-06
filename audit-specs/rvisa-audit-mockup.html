@@ -1,0 +1,364 @@
+<title>R-Visa Fee Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Spectral:wght@500;600&display=swap">
+<style>
+:root{
+  --ground:#F4F6F8; --surface:#FFFFFF; --surface-2:#EDF1F5;
+  --ink:#131C24; --ink-2:#4C5C6B; --ink-3:#78889A;
+  --rule:#D9E1E9; --rule-2:#C3CFDA;
+  --accent:#1B4B7A;
+  --red:#B3261E; --red-soft:#FBEDEC;
+  --amber:#8A5A00; --amber-soft:#FBF3E4;
+  --green:#1D6B4C; --green-soft:#EAF4EF;
+  --c-under:#B3261E; --c-ok:#1B6EA8; --c-over:#C77A0A;
+  --shadow:0 1px 2px rgba(19,28,36,.06),0 8px 24px -16px rgba(19,28,36,.28);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D1319; --surface:#151D25; --surface-2:#1C262F;
+    --ink:#E4EBF2; --ink-2:#A6B4C2; --ink-3:#74838F;
+    --rule:#243039; --rule-2:#31404C;
+    --accent:#7FAEDD;
+    --red:#E8837A; --red-soft:#2A1A19;
+    --amber:#E0A83E; --amber-soft:#2A2213;
+    --green:#56C199; --green-soft:#132420;
+    --c-under:#D2564A; --c-ok:#3E8FCC; --c-over:#B8862B;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D1319; --surface:#151D25; --surface-2:#1C262F;
+  --ink:#E4EBF2; --ink-2:#A6B4C2; --ink-3:#74838F;
+  --rule:#243039; --rule-2:#31404C;
+  --accent:#7FAEDD;
+  --red:#E8837A; --red-soft:#2A1A19;
+  --amber:#E0A83E; --amber-soft:#2A2213;
+  --green:#56C199; --green-soft:#132420;
+  --c-under:#D2564A; --c-ok:#3E8FCC; --c-over:#B8862B;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.5; margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1140px;margin:0 auto;padding:28px 22px 56px;display:flex;flex-direction:column;gap:20px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:Spectral,Georgia,"Times New Roman",serif;font-weight:600;margin:0;text-wrap:balance}
+
+/* masthead */
+.mast{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;
+  border-bottom:2px solid var(--ink);padding-bottom:14px}
+.mast h1{font-size:30px;letter-spacing:-.01em;line-height:1.12}
+.eyebrow{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:6px}
+.mast .sub{color:var(--ink-2);font-size:13px;margin-top:6px;max-width:62ch}
+.prov{font-size:11.5px;color:var(--ink-3);text-align:right;line-height:1.65}
+.prov b{color:var(--ink-2);font-weight:500}
+
+/* banner */
+.banner{display:flex;gap:12px;background:var(--amber-soft);border:1px solid var(--rule-2);
+  border-left:3px solid var(--amber);border-radius:3px;padding:12px 14px}
+.banner .mark{color:var(--amber);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;padding-top:1px}
+.banner p{margin:0 0 6px;font-size:12.5px;color:var(--ink-2);max-width:88ch}
+.banner p:last-child{margin-bottom:0}
+.banner b{color:var(--ink)}
+
+/* kpi */
+.kpis{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+@media(max-width:820px){.kpis{grid-template-columns:1fr 1fr}}
+.kpi{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.kpi .lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600;
+  display:flex;align-items:baseline;gap:7px}
+.kpi .id{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--accent);
+  border:1px solid var(--rule-2);border-radius:2px;padding:0 4px;letter-spacing:0}
+.kpi .val{font-family:"IBM Plex Mono",monospace;font-size:26px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi.lead .val{font-size:36px;color:var(--red)}
+.kpi .den{font-size:11.5px;color:var(--ink-3)}
+.kpi.flag .val{color:var(--amber)}
+
+/* tie-out */
+.tieout{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;background:var(--surface-2);
+  border:1px solid var(--rule);border-radius:3px;padding:9px 14px;font-size:12px;color:var(--ink-2)}
+.tieout .t{font-family:"IBM Plex Mono",monospace;font-size:11.5px}
+.tieout .ok{color:var(--green);font-weight:600}
+.tieout .hd{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+
+/* table */
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:4px;box-shadow:var(--shadow)}
+.phead{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;justify-content:space-between;
+  padding:14px 16px 12px;border-bottom:1px solid var(--rule)}
+.phead h2{font-size:17px}
+.phead .note{font-size:11.5px;color:var(--ink-3)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-bottom:1px solid var(--rule);align-items:center}
+.filters .fl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-right:2px}
+.chip{font-size:11.5px;border:1px solid var(--rule-2);background:var(--surface);color:var(--ink-2);
+  border-radius:2px;padding:3px 9px;cursor:pointer;font-family:inherit}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:500}
+:root[data-theme="dark"] .chip[aria-pressed="true"],
+:root:not([data-theme="light"]) .chip[aria-pressed="true"]{color:#0D1319}
+.chip:focus-visible,.tbl tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.scroll{overflow-x:auto}
+.tbl{border-collapse:collapse;width:100%;min-width:920px;font-size:12.5px}
+.tbl th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:600;padding:9px 12px;border-bottom:1px solid var(--rule-2);white-space:nowrap;background:var(--surface)}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl .num{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl tbody tr{border-left:3px solid transparent}
+tr.v-red{border-left-color:var(--red);background:var(--red-soft)}
+tr.v-amber{border-left-color:var(--amber)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:.03em;
+  border-radius:2px;padding:2px 7px;white-space:nowrap;border:1px solid}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.p-red{color:var(--red);border-color:var(--red);background:var(--red-soft)}
+.p-amber{color:var(--amber);border-color:var(--amber);background:var(--amber-soft)}
+.p-green{color:var(--green);border-color:var(--green);background:var(--green-soft)}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-2);
+  border:1px solid var(--rule-2);border-radius:2px;padding:1px 5px}
+.rule-cell{font-weight:500}
+.rule-cell small{display:block;font-weight:400;color:var(--ink-3);font-size:11px;margin-top:2px;font-family:"IBM Plex Mono",monospace}
+.ids{color:var(--ink-3);font-size:11px}
+.dash{color:var(--ink-3)}
+.wf{font-size:11.5px;color:var(--ink-2);white-space:nowrap}
+.pfoot{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;
+  padding:11px 16px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--ink-3)}
+.btn{font-family:inherit;font-size:11.5px;font-weight:500;border:1px solid var(--rule-2);background:var(--surface);
+  color:var(--ink-2);border-radius:2px;padding:5px 11px;cursor:pointer}
+
+/* chart */
+.chart-grid{display:grid;grid-template-columns:1fr 300px;gap:20px}
+@media(max-width:880px){.chart-grid{grid-template-columns:1fr}}
+.bars{display:flex;flex-direction:column;gap:18px;padding:16px}
+.barrow .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.barrow .per{font-size:12.5px;font-weight:600}
+.barrow .tot{font-size:11.5px;color:var(--ink-3);font-family:"IBM Plex Mono",monospace}
+.track{display:flex;gap:2px;height:30px;width:100%}
+.seg{position:relative;display:flex;align-items:center;justify-content:center;border-radius:2px;
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;color:#fff;cursor:default;min-width:0}
+.seg:first-child{border-radius:3px 2px 2px 3px}
+.seg:last-child{border-radius:2px 3px 3px 2px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:0 16px 16px}
+.lg{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2)}
+.lg i{width:11px;height:11px;border-radius:2px;flex:none}
+.side{border-left:1px solid var(--rule);padding:16px}
+@media(max-width:880px){.side{border-left:none;border-top:1px solid var(--rule)}}
+.side h3{font-size:13px;margin-bottom:8px}
+.side p{margin:0 0 10px;font-size:12px;color:var(--ink-2);max-width:44ch}
+.side p:last-child{margin-bottom:0}
+.side b{color:var(--ink)}
+#tip{position:fixed;pointer-events:none;opacity:0;transition:opacity .12s;background:var(--ink);color:var(--ground);
+  font-size:11.5px;padding:6px 9px;border-radius:3px;z-index:9;white-space:nowrap;
+  font-family:"IBM Plex Mono",monospace;box-shadow:var(--shadow)}
+footer{font-size:11.5px;color:var(--ink-3);border-top:1px solid var(--rule);padding-top:14px;line-height:1.7}
+footer b{color:var(--ink-2)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <div class="eyebrow">Police &amp; Control · Money out · Visa</div>
+      <h1>R-Visa Fee Audit</h1>
+      <p class="sub">One residence-visa fee per visa term, at the tariff in force — and any overstay fine equal to what the dates imply, assigned to somebody to repay.</p>
+    </div>
+    <div class="prov">
+      <b>Sources</b> BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES ·<br>
+      BA_VIEWS.MONEY_CONTROL_SILVER.TRANSACTIONS<br>
+      <b>As of</b> 2026-09-06 14:20 GST · manual run<br>
+      <b>Spec</b> SPEC_r_visa_audit_v1 · grain: one row per maid
+    </div>
+  </header>
+
+  <div class="banner">
+    <div class="mark">Standing caveats</div>
+    <div>
+      <p><b>Fee and fine constants are unsourced (N1).</b> The base fee, the AED 50/day rate and the 60-day grace were reverse-engineered from the prior dashboard's arithmetic and read from no authority tariff. They reconcile on two independent periods, which proves consistency and never correctness.</p>
+      <p><b>T5, T8 and T9 are blocked pending N2 / O6 / N4 — so no case can currently reach green.</b> A record whose applicable test could not run is amber, never clean.</p>
+    </div>
+  </div>
+
+  <section class="kpis">
+    <div class="kpi lead">
+      <div class="lbl">Amount at risk <span class="id">M3</span></div>
+      <div class="val">AED 2,846.65</div>
+      <div class="den">2 red cases · duplicate AED 446.65 + undercharge AED 2,400.00</div>
+    </div>
+    <div class="kpi">
+      <div class="lbl">Exception rate <span class="id">M8</span></div>
+      <div class="val">33.3%</div>
+      <div class="den">2 of 6 cases</div>
+    </div>
+    <div class="kpi flag">
+      <div class="lbl">Blocked rate <span class="id">M9</span></div>
+      <div class="val">66.7%</div>
+      <div class="den">4 of 6 cases · a test could not run</div>
+    </div>
+    <div class="kpi flag">
+      <div class="lbl">Anchor match <span class="id">M10</span></div>
+      <div class="val">85.0%</div>
+      <div class="den">below the 90% floor — fine tests withheld for the period</div>
+    </div>
+  </section>
+
+  <div class="tieout">
+    <span class="hd">Tie-out</span>
+    <span class="t">TO-1 &nbsp;9 payments across 6 cases = M1 9 <span class="ok">✓</span></span>
+    <span class="t">TO-3 &nbsp;RED 2 + AMBER 4 + GREEN 0 = 6 <span class="ok">✓</span></span>
+    <span class="t">TO-4 &nbsp;reason buckets 4 = AMBER 4 <span class="ok">✓</span></span>
+  </div>
+
+  <section class="panel">
+    <div class="phead">
+      <h2>Cases</h2>
+      <div class="note">Illustrative — the six worked cases from the spec, not a live run. Blank cells are fields the source did not record.</div>
+    </div>
+    <div class="filters">
+      <span class="fl">Period</span>
+      <button class="chip" aria-pressed="false" type="button">2025</button>
+      <button class="chip" aria-pressed="true" type="button">All time</button>
+      <span class="fl" style="margin-left:10px">Contract</span>
+      <button class="chip" aria-pressed="true" type="button">CC</button>
+      <button class="chip" aria-pressed="true" type="button">MV</button>
+      <span class="fl" style="margin-left:10px">Verdict</span>
+      <button class="chip" aria-pressed="true" type="button">Red</button>
+      <button class="chip" aria-pressed="true" type="button">Amber</button>
+      <button class="chip" aria-pressed="false" type="button">Green</button>
+    </div>
+    <div class="scroll">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Case</th><th>Contract</th><th class="num">Pmts</th><th>Verdict</th>
+            <th>Rule breached / blocked</th><th class="num">At risk (AED)</th>
+            <th>Day arithmetic</th><th>Transaction ids</th><th>Workflow</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="v-red">
+            <td class="mono">Maid #105870</td><td><span class="tag">MV</span></td><td class="num">2</td>
+            <td><span class="pill p-red"><span class="dot"></span>RED</span></td>
+            <td class="rule-cell">Double payment<small>T4 · duplicate_no_cancellation</small></td>
+            <td class="num">446.65</td>
+            <td class="mono">2 fees · 4 d apart · 1 visa term</td>
+            <td class="ids mono">1482201 · 1486146</td>
+            <td class="wf">New</td>
+          </tr>
+          <tr class="v-red">
+            <td class="mono">—</td><td class="dash">—</td><td class="num">1</td>
+            <td><span class="pill p-red"><span class="dot"></span>RED</span></td>
+            <td class="rule-cell">Fine undercharge<small>T3 · paid &lt; implied</small></td>
+            <td class="num">2,400.00</td>
+            <td class="mono">paid 92 d vs implied 140 d</td>
+            <td class="ids mono">1641662</td>
+            <td class="wf">New</td>
+          </tr>
+          <tr class="v-amber">
+            <td class="mono">Maid #61273</td><td><span class="tag">MV</span></td><td class="num">2</td>
+            <td><span class="pill p-amber"><span class="dot"></span>AMBER</span></td>
+            <td class="rule-cell">Visa term source missing<small>T8 · term_source_missing</small></td>
+            <td class="num dash">—</td>
+            <td class="mono">819 d gap · renewal, 2-yr term</td>
+            <td class="ids mono">856161 · 2085707</td>
+            <td class="wf">With verifier</td>
+          </tr>
+          <tr class="v-amber">
+            <td class="mono">Maid #94824</td><td class="dash">—</td><td class="num">2</td>
+            <td><span class="pill p-amber"><span class="dot"></span>AMBER</span></td>
+            <td class="rule-cell">Visa term source missing<small>T8 · term_source_missing</small></td>
+            <td class="num dash">—</td>
+            <td class="mono">123 d gap · 2 visa cycles, 1 fee each</td>
+            <td class="ids mono">1351061 · 1532914</td>
+            <td class="wf">With verifier</td>
+          </tr>
+          <tr class="v-amber">
+            <td class="mono">—</td><td class="dash">—</td><td class="num">1</td>
+            <td><span class="pill p-amber"><span class="dot"></span>AMBER</span></td>
+            <td class="rule-cell">Date sentinel<small>T7 · fine gates blocked</small></td>
+            <td class="num dash">—</td>
+            <td class="mono">description date 0025-10-03</td>
+            <td class="ids mono">1526423</td>
+            <td class="wf">New</td>
+          </tr>
+          <tr class="v-amber">
+            <td class="mono">Maid #105525</td><td class="dash">—</td><td class="num">1</td>
+            <td><span class="pill p-amber"><span class="dot"></span>AMBER</span></td>
+            <td class="rule-cell">Base fee unresolved<small>T6 · base_fee_unresolved</small></td>
+            <td class="num dash">—</td>
+            <td class="mono">798.05 fits no base + n×50</td>
+            <td class="ids mono">1536291</td>
+            <td class="wf">New</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pfoot">
+      <span>Click a row to open its payments, anchor used, and every test outcome from <span class="mono">TEST_TRACE</span>.</span>
+      <button class="btn" type="button">Export row-level CSV</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="phead">
+      <h2>Overstay-fine rows by outcome</h2>
+      <div class="note">The direction the prior dashboard never tested. Measured 2026-08-20.</div>
+    </div>
+    <div class="chart-grid">
+      <div>
+        <div class="bars">
+          <div class="barrow">
+            <div class="top"><span class="per">2025</span><span class="tot">25 fine rows</span></div>
+            <div class="track">
+              <div class="seg" style="flex:18;background:var(--c-under)" data-tip="Undercharge · 18 rows · 72%">18</div>
+              <div class="seg" style="flex:7;background:var(--c-ok)" data-tip="Within tolerance · 7 rows · 28%">7</div>
+            </div>
+          </div>
+          <div class="barrow">
+            <div class="top"><span class="per">2026 to 08-20</span><span class="tot">14 fine rows</span></div>
+            <div class="track">
+              <div class="seg" style="flex:5;background:var(--c-under)" data-tip="Undercharge · 5 rows · 36%">5</div>
+              <div class="seg" style="flex:6;background:var(--c-ok)" data-tip="Within tolerance · 6 rows · 43%">6</div>
+              <div class="seg" style="flex:3;background:var(--c-over)" data-tip="Overcharge · 3 rows · 21% · AED 200 excess">3</div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="lg"><i style="background:var(--c-under)"></i>Fine undercharge — paid &lt; implied (T3)</span>
+          <span class="lg"><i style="background:var(--c-ok)"></i>Within tolerance</span>
+          <span class="lg"><i style="background:var(--c-over)"></i>Fine overcharge — paid &gt; implied (T2)</span>
+        </div>
+      </div>
+      <div class="side">
+        <h3>Why T2 stays in the check</h3>
+        <p>The prior dashboard reds only on <b>overcharge</b>, of which 2025 had <b>none</b> — and stamps all 18 undercharges <span class="mono">OK</span>.</p>
+        <p>Overcharge does happen, just rarely: <b>3 cases in 2026</b>, total excess 4 days, AED 200.</p>
+        <p><b>Do not retire T2 on a one-year zero.</b> A zero measured on one period is a fact about that period, not a property of the check.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <b>Verdict algebra.</b> RED ⟸ any applicable test RED · AMBER ⟸ not red and any applicable test BLOCKED · GREEN ⟺ every applicable test ran and passed. One verdict column, computed once, aggregated by every tile, filter and colour above. <span class="mono">inconclusive</span> is not a synonym for clean.<br>
+    <b>Sensitivity.</b> Maid names are never the key and never displayed; the transaction description field is read to compute and never displayed or exported; staff creator names are excluded from the row-level export. Per-person detail goes to the workbook only — counts and totals in chat, run summaries and email.
+  </footer>
+</div>
+
+<div id="tip" role="status"></div>
+<script>
+const tip=document.getElementById('tip');
+document.querySelectorAll('.seg[data-tip]').forEach(el=>{
+  el.addEventListener('pointerenter',e=>{tip.textContent=el.dataset.tip;tip.style.opacity='1';});
+  el.addEventListener('pointermove',e=>{
+    tip.style.left=Math.min(e.clientX+14,window.innerWidth-tip.offsetWidth-8)+'px';
+    tip.style.top=(e.clientY-34)+'px';
+  });
+  el.addEventListener('pointerleave',()=>{tip.style.opacity='0';});
+});
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+  c.setAttribute('aria-pressed',c.getAttribute('aria-pressed')==='true'?'false':'true');
+}));
+</script>
