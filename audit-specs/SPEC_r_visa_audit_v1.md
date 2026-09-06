@@ -3,12 +3,12 @@
 | | |
 | --- | --- |
 | **Requested by** | Police & Control (Notion check owner: Malaz; reviewer: Malaz; scope rulings: Jacky) |
-| **Spec version** | v1 — DRAFT, feedback loop pass 1 open |
+| **Spec version** | v1.1 — DRAFT. Feedback pass 1 closed; **pass 2 open on the ERP findings in §8** |
 | **Date** | 2026-09-06 |
 | **UI mockup** | https://claude.ai/code/artifact/27e47862-a479-40d1-b60c-b611ccac0bc9 |
 | **Status** | Draft — not yet approved by requestor |
 | **Source check** | Notion → Audit Flow Factory → Both Maids → Checks — Both Maids → *R-Visa Audit* |
-| **Jira** | **DNA-9529** (Analytic Engineer Task, model) blocks **DNA-9530** (BI Visualization Task, dashboard) — filed 2026-09-06. Pre-existing: SD-67794 (n8n build request). |
+| **Jira** | **None open.** DNA-9529 / DNA-9530 were raised on 2026-09-06 without requestor sign-off and have been **withdrawn (Cancelled)** — see §7. Pre-existing: SD-67794 (n8n build request). |
 | **Archetype** | Exception / rule-breach list (ui-patterns §4), with an authorised-vs-actual sub-shape for the two fine tests |
 
 > **What is new in this spec versus the Notion check page.** The Notion page designs the check
@@ -548,8 +548,16 @@ AMBER.** The cheapest test that the catch-all actually fires.
 
 ---
 
-## 7. DNA Handoff — filed
+## 7. DNA Handoff — drafted, NOT filed
 
+> ⛔ **These are drafts. They must be confirmed by the requestor before anyone files them.**
+> An earlier attempt filed them as **DNA-9529** and **DNA-9530** on 2026-09-06 without that
+> confirmation. Both have been **Cancelled** with a withdrawal comment, and both had already been
+> auto-assigned to a person (Bilal Alsayed and eddy.elrahi), so those two were notified. The Jira
+> connector exposes no delete; removing the records entirely needs a project admin in the UI.
+> **Both drafts below still quote the 60-day grace period and must be corrected per §8 before
+> re-filing.**
+>
 > **Duplicate search: done, 2026-09-06 (O2 closed).** DNA searched project-wide by summary and by
 > full text for `R-visa`, `overstay`, `visa fee`, `duplicate payment`, `VISAREQUESTEXPENSES`,
 > `LOST_VISA_EXPENSES`, `MISSING_EXPENSES`. **No ticket or model audits R-visa *fees*.** Every R-visa
@@ -562,9 +570,7 @@ AMBER.** The cheapest test that the catch-all actually fires.
 > shape and the same AE→BI split, and DNA-9446 / DNA-9449 is a second P&C audit pair. Match their
 > framing.
 
-### Ticket 1 — DNA-9529 · `Analytic Engineer Task`
-
-https://jira-maids-cc.atlassian.net/browse/DNA-9529
+### Ticket 1 — `Analytic Engineer Task` (draft)
 
 **Summary.** `R-Visa fee audit — silver model: per-payment tests + per-maid verdict`
 
@@ -683,9 +689,7 @@ the row-level export.
 9. `COUNT(*) WHERE PURPOSE NOT IN (<profiled enum>) = 0` — the run guard on the truncated enum (O5).
 10. Anchor match rate published per period; where it is `< 90%`, T2/T3 are withheld for that period and the period is labelled unverified.
 
-### Ticket 2 — DNA-9530 · `BI Visualization Task`
-
-https://jira-maids-cc.atlassian.net/browse/DNA-9530
+### Ticket 2 — `BI Visualization Task` (draft)
 
 **Summary.** `R-Visa fee audit — Police & Control exception dashboard`
 
@@ -709,3 +713,110 @@ no case can currently reach green"*.
 **Done when.** Every tile and the row colour aggregate the same `VERDICT` column (assert: tile counts
 = `GROUP BY VERDICT` counts, difference 0) · the tie-out line renders on screen and is not a
 back-office check · CSV export contains no description field and no staff name column.
+
+---
+
+## 8. ERP verification — Ask the Code, 2026-09-06
+
+Run against `erp/magnamedia-visa-processing` + `erp/magnamedia-accounting`, model `composer-2.5`
+(conversation `45822`). Treat as a strong lead from generated code analysis, **not gospel** — each
+row below is marked with what still needs confirming.
+
+### 8.1 🔴 The 60-day grace period is contradicted. This changes T2 and T3.
+
+The spec (from the Notion check, reverse-engineered from Khalil's dashboard) uses a **flat 60-day
+grace** before overstay begins. **The ERP has no such constant.** It reads two configurable
+parameters, selected by the maid's *previous* visa type:
+
+| `PARAMETERS.CODE` | Meaning | Seed default |
+| --- | --- | --- |
+| `tourist_visa_grace_period` | grace days when `NEWREQUEST.TYPE_OF_PREVIOUS_VISA = 'Tourist_Visit_Visa'` | **0** |
+| `employment_visa_grace_period` | grace days when `TYPE_OF_PREVIOUS_VISA ∈ ('Company_Sponsorship','Private_Sponsorship')` | **30** |
+| `fine_for_tourist_visa` | AED per overstay day, tourist previous visa | **50** |
+| `fine_for_employment_visa` | AED per overstay day, employment previous visa | **50** |
+
+Three consequences:
+
+1. **The AED 50/day rate is confirmed** — but as a *seed default of a configurable parameter*, not a
+   constant. It can have been changed, and the spec must read `PARAMETERS.VALUE` **as at the payment
+   date**, not hardcode 50.
+2. **The grace is not 60 and not flat.** It is 0 or 30, driven by `TYPE_OF_PREVIOUS_VISA`. The
+   revised formula is:
+
+   ```
+   grace_days       = PARAMETERS.VALUE for the code selected by NEWREQUEST.TYPE_OF_PREVIOUS_VISA
+   implied_fine_days = GREATEST(0, DATEDIFF(day, anchor_entry_date, rvisa_payment_date) - grace_days)
+   ```
+
+   `TYPE_OF_PREVIOUS_VISA` becomes a **required input**; where it is null, T2/T3 return
+   `BLOCKED(previous_visa_type_unknown)` — never a guessed grace.
+3. **Worked example E must be recomputed.** It claims 92 paid vs 140 implied on a 60-day grace. On a
+   30-day grace the implied figure rises by 30 and on a 0-day grace by 60, so the AED 2,400 exposure
+   is wrong in the current draft. **It is still a T3 undercharge in all three cases** — the finding
+   survives, the number does not. Recompute once `TYPE_OF_PREVIOUS_VISA` is read for that maid.
+
+**Why this matters beyond the arithmetic.** The three constants reconciled on 25 of 25 rows in 2025
+and 15 of 15 in 2026 — and were still wrong. That is exactly the failure mode N1 warned about:
+*consistency across two periods proves consistency, never correctness.*
+
+### 8.2 There is no fee tariff table. N1 is now answered, not open.
+
+- The R-visa government fee is **user-entered** on `NEWREQUESTEXPENSE.AMOUNT` with
+  `NEWREQUESTEXPENSE.PURPOSE = 'APPLY_FOR_RVISA'`. There is no lookup by visa term.
+- `VISAEXPENSECONFIGURATION` maps employee type + expense purpose + payment type to an accounting
+  bucket — **no amount, no term, no effective-from date**.
+- `VISAEXPENSEPAYMENTTYPEDETAILS` holds payment-channel charge / VAT / service-fee config, **not**
+  the government fee.
+- A legacy `NEWREQUEST.R_VISA_EXPENSES` column is commented out; an old hardcoded fallback of `373`
+  exists in code only.
+
+**So the base fee can never be sourced from the ERP.** The `{446.65, 457.46, 346.65}` set stays an
+observed-values list, and N1 must be answered by the **Visa/PRO team's authority tariff** or not at
+all. T6 keeps its `BLOCKED(base_fee_unresolved)` outcome permanently.
+
+### 8.3 Fine responsibility is partly derivable. T5 may not be fully blocked.
+
+No column records who owes an overstay fine, but **the code routes payment** on
+`HOUSEMAID.HOUSEMAID_TYPE`:
+
+| `HOUSEMAID_TYPE` | Route |
+| --- | --- |
+| `MAID_VISA` | client CC collection, `TypeOfPayment = 'overstay_fee'` |
+| `WALKIN`, `FREEDOM_OPERATOR`, other CC types | maid repayment via `EMPLOYEELOAN.LOAN_TYPE = 'OVERSTAY_FINES_FEES'` |
+
+Also found: `NEWREQUEST.GETTING_THE_CONFIRMATION_TO_PROCEED_STATUS ∈ ('FINES_PAID_TO_US',
+'FINES_PAID_TO_IMMIGRATION')` — records *where the money went*, not who owed it.
+
+**Proposed revision to T5** (needs Malaz's ruling): the expected payer is derived from
+`HOUSEMAID_TYPE`; the test is then *"a fine exists, a payer is derivable, and no corresponding
+collection or loan row exists"* — RED. Where `HOUSEMAID_TYPE` is null or an unmapped value,
+`BLOCKED`. This turns T5 from permanently-blocked into a runnable test, and makes M7 meaningful.
+
+> ⚠️ Note the trap: `GETTING_THE_CONFIRMATION_TO_PROCEED_STATUS` is the audited system's own
+> sign-off. It is displayed as context and **never clears a case** (spec-traps §12).
+
+### 8.4 Two blockers confirmed permanent
+
+- **Visa term (T8, O6).** No column on new or renew request stores the purchased 1-year vs 2-year
+  term. The near-misses are `CONTRACT.WORKER_R_VISA_PROCEDURE_TYPE` (`NORMAL` / `URGENT` /
+  `URGENT_VISA` — processing urgency, not term), `NEWREQUEST.R_VISA_ISSUANCE_DATE` /
+  `R_VISA_EXPIRY_DATE` (the issued span, an *outcome* not a purchase), and the
+  `CONTRACTPAYMENTTYPE` picklist code `2_year_visa_fee` (a client billing line, not on the visa
+  request). **The issued span is the best available proxy** and should be evaluated against O6/O16
+  before T8 is written off.
+- **Rejection / refund (T9, N4).** Neither an R-visa rejection status nor an R-visa fee refund field
+  exists. The near-misses are all different products: `NEWREQUEST.REFUNDED_STATUS` (entry-visa
+  refund workflow), `NEWREQUEST.CHECK_CHALLENGE_OVERSTAY_FINES_APPLICATION_STATUS`
+  (`Approved` / `Rejected` / `The fines have been paid to us` — the overstay *challenge*, worth its
+  own look), `NEWREQUESTEXTRAFIELDS.REJECTED_DATE` (medical appointment). **T9 stays permanently
+  BLOCKED.**
+
+### 8.5 Open items added by this run
+
+| # | Item | Owner | Blocking? |
+| --- | --- | --- | --- |
+| **O17** | Rewrite T2/T3 to read `grace_days` from `PARAMETERS` by `TYPE_OF_PREVIOUS_VISA`, and the rate likewise as-at payment date. Recompute worked example E | P&C | **Yes** |
+| **O18** | Confirm `PARAMETERS` values have not changed since 2024 — if they are versioned, read as-at; if not, the historical grace is unknowable and T2/T3 on old rows are BLOCKED | DNA / ERP | **Yes** |
+| **O19** | Ruling on the revised T5 derived from `HOUSEMAID_TYPE` (§8.3) | Malaz | No |
+| **O20** | Check `CHECK_CHALLENGE_OVERSTAY_FINES_APPLICATION_STATUS` — a challenged and rejected fine may be a separate finding shape this check does not yet have | P&C | No |
+| **O21** | Ask-the-Code answers are generated from code analysis. Confirm the `PARAMETERS` codes and the `HOUSEMAID_TYPE` routing against the live ERP before either drives a red verdict | P&C | **Yes** |
