@@ -8,7 +8,7 @@
 | **UI mockup** | https://claude.ai/code/artifact/27e47862-a479-40d1-b60c-b611ccac0bc9 |
 | **Status** | Draft — not yet approved by requestor |
 | **Source check** | Notion → Audit Flow Factory → Both Maids → Checks — Both Maids → *R-Visa Audit* |
-| **Jira (existing)** | SD-67794 (n8n build request). DNA tickets not yet raised — see §7. |
+| **Jira** | **DNA-9529** (Analytic Engineer Task, model) blocks **DNA-9530** (BI Visualization Task, dashboard) — filed 2026-09-06. Pre-existing: SD-67794 (n8n build request). |
 | **Archetype** | Exception / rule-breach list (ui-patterns §4), with an authorised-vs-actual sub-shape for the two fine tests |
 
 > **What is new in this spec versus the Notion check page.** The Notion page designs the check
@@ -305,7 +305,7 @@ There is no foreign key from an R-visa payment to the entry-visa payment that st
   > | Attribute | Wrong (as a filter) | Right |
   > | --- | --- | --- |
   > | `OWNER_TYPE` | `= 'HOUSEMAID'` — drops every NULL owner | Exclude only `= 'OFFICE_STAFF'` explicitly. NULL ⇒ **T1 BLOCKED**, record stays in |
-  > | `CONTRACT_TYPE` | `TRIM(...) IN ('CC','MV')` — drops NULL contract | Display attribute only. NULL ⇒ shown as `—`, record stays in |
+  > | `CONTRACT_TYPE` | `TRIM(...) IN ('CC','MV')` in the **model** — drops NULL contract | **Displayed, and filterable in the UI** *(ruling, 2026-09-06)*. Three selectable buckets — `CC`, `MV`, **`Unknown`** — all on by default, so a null-contract record is visible and de-selectable rather than absent. `TRIM()` is mandatory (trailing space). It is never a filter in the model itself |
   > | `STATUS` | `<> 'Dismissed'` — drops NULL status, **and inherits the audited system's own filter** | Exclude a row only where `STATUS = 'Dismissed'` **and** `TRANSACTION_ID IS NULL`. A dismissed line that still carries a transaction id means money moved and is in scope — the ERP's own bookkeeping state must never clear a case (spec-traps §12) |
   > | `AMOUNT` | `BETWEEN -2000 AND 100000` — drops NULL and outliers | Rows outside the guard are **exception rows**, reported and excluded from `SUM` only, never dropped. NULL `AMOUNT` ⇒ exception row. Bound is a placeholder — **O7** |
   > | `IS_DELETED` | `= '0'` | Inert (only `'0'` exists). Do **not** rely on it as a soft-delete guard |
@@ -324,12 +324,24 @@ There is no foreign key from an R-visa payment to the entry-visa payment that st
 - **Nulls.** `OWNER_ID` null ⇒ the payment forms a singleton case flagged `T1 BLOCKED`. **Never dropped.**
 - **Reference value.** Maids with a repeat payment: **2** within 2025; **182** all-time.
 
-### M3 — Amount at risk (headline)
+### M3 — Amount at risk (headline) — money already gone
 
-- **Definition.** Money exposed by red findings.
-- **Formula.** `M3 = M4 + M5 + M6 + M7`, summed over cases where `VERDICT = 'RED'`.
+- **Definition.** Money **paid out** that should not have been, exposed by red findings.
+- **Formula.** `M3 = M4 + M5 + M7`, summed over cases where `VERDICT = 'RED'`.
+- **M6 is deliberately excluded** — see M6a. *(Ruling, 2026-09-06.)*
 - **Rounding.** 2 dp at row level.
-- **This is the number an executive reads alone** — it must be the exposure, not the population total.
+- **This is the number an executive reads alone** — so it must be a true loss figure, not the
+  population total and not a figure inflated by money we have not in fact paid.
+
+### M6a — Underpaid fine exposure (reported separately, never inside M3)
+
+- **Definition.** Fine days the dates imply that we have **not yet paid** — a liability that may still
+  land, not a loss already taken.
+- **Formula.** Identical to M6. Displayed as its own figure, labelled *"exposure not yet paid"*.
+- **Why separated.** 18 of 25 fine rows in 2025 are undercharges. Folded into M3 they would dominate
+  the headline and make money-not-yet-spent read as money lost. Kept separate, both numbers stay
+  honest — and the undercharge finding, which is the main thing this spec adds over the prior
+  dashboard, still gets a figure of its own rather than being demoted to context.
 
 ### M4 — Duplicate exposure (T4)
 
@@ -397,7 +409,7 @@ DNA intake bot and is logged `UNVERIFIED`.
 
 **Layout.** One screen: KPI strip → tie-out line → exception table → one chart (fine rows by outcome).
 
-**KPI strip.** `M3` amount at risk · `M8` exception rate (with denominator `M2`) · `M9` blocked rate · `M10` anchor match rate. Each tile shows its metric ID.
+**KPI strip.** `M3` amount at risk (money already gone) · `M6a` exposure not yet paid · `M8` exception rate (with denominator `M2`) · `M9` blocked rate · `M10` anchor match rate. Each tile shows its metric ID. **M3 and M6a are never added together.**
 
 **Columns.**
 
@@ -518,13 +530,15 @@ AMBER.** The cheapest test that the catch-all actually fires.
 | # | Item | Owner | Blocking? |
 | --- | --- | --- | --- |
 | **O1** | **Row-level verification never ran.** This role has no warehouse grant. Re-run §2.1 as a `SnowFlake Access Request`, then profile: `PURPOSE` distribution, D1↔D2 join rate, `HOUSEMAID_ID` fill rate, and M1 reproduced on the `PURPOSE` route against the 19,311 / 11,558 reference figures | DNA / DE | **Yes** |
-| **O2** | **Search DNA for `LOST_VISA_EXPENSES`, `MISSING_EXPENSES`, `REQUESTS_EXPENSES_DETAILS` before building.** They are downstream of D2 and may already implement part of this check. A defect found while writing another spec had already been filed *and fixed* there | P&C | **Yes** |
-| **O3** | `CONTRACT_TYPE` is the maid's **latest active** contract, not her contract at payment date. Decide: accept as-of-now labelling, or source the contract as-of-payment | Malaz | **Yes** — it decides which population each payment is audited under |
+| ~~**O2**~~ | **CLOSED 2026-09-06.** DNA searched (project-wide, summary and full-text). **No ticket or model audits R-visa *fees*** — every R-visa item in DNA is a process-speed KPI or a step-blocker alert. Four relevant neighbours found; see the *Not a duplicate* table in §7, and O15/O16 below | P&C | Closed |
+| ~~**O3**~~ | **RESOLVED 2026-09-06.** `CONTRACT_TYPE` is **displayed and filterable in the UI** (CC / MV / Unknown, all on by default) and is **never a population filter in the model**. As-of-payment sourcing is not pursued; the as-of-now caveat is carried on the provenance line | Malaz | Closed |
 | **O4** | Query `INSIGHTS_DASHBOARD_CONTAINER` for an approved R-visa / visa-fee / overstay definition. If one exists it replaces M1–M4 verbatim with all its filters | DNA | **Yes** |
 | **O5** | D2's `PURPOSE` enum is **truncated with "…"** in the column comment. Profile full membership — the warehouse enum has been shorter than the source enum before (spec-traps §5). Make the surplus a run guard asserting zero out-of-scope values | DNA | **Yes** |
 | **O6** | Confirm whether `RVISA_DURATIONS_DETAILS_*` (D6) carries the purchased 1y/2y term. Until it does, **T8 is BLOCKED and no case can reach GREEN** | DNA | **Yes** |
 | **O7** | `AMOUNT` range guard bound is a placeholder (`-2000 … 100000`). Set it from the profiled distribution | DNA | No |
-| **O8** | Confirm M6 (undercharge — money not yet paid) is reported **separately** from M4/M5 (money already gone), and that M3 does not add them into one headline | Malaz | No |
+| ~~**O8**~~ | **RESOLVED 2026-09-06.** M6 is reported separately as **M6a**, outside M3. M3 = M4 + M5 + M7 | Malaz | Closed |
+| **O15** | **Alert 946 — "Money Lost — Overstay Fines Not Paid by Client"** already exists (DNA-5725 modified its conditions; DNA-7915 excluded old cases). It overlaps **T5** (fine responsibility). Read its conditions before building T5 — and note it is scoped to *client*-paid fines, whereas R-Visa's payer is the open question in N2. **Do not inherit its filter** | Malaz / DNA | **Yes** — it decides whether T5 is new work or a re-point |
+| **O16** | **DNA-6078 — "Inflated Total Excluded Hours in R-Visa Duration Calculation"** is a known defect in the R-Visa duration tables (D6), and **DNA-2363** changed their columns and filtering logic. D6 is the candidate source for the visa term (O6). Read both before depending on D6, or T8 inherits a known-wrong calculation | DNA | **Yes** — gates O6 |
 | **O9** | Confirm `CREATOR` / `LAST_MODIFIER_NAME` are excluded from the row-level export — staff names attached to cases framed as wrongdoing | Malaz | No |
 | **O10** | N1 tariff — the three unsourced constants. **This does not block the build; it blocks trusting a red T2/T3 verdict.** Ship with `CONSTANTS_UNSOURCED` displayed | Visa/PRO | No (build) / **Yes** (sign-off) |
 | **O11** | N2 fine payer, ~40 cases, resolvable by hand once | Malaz | No — T5 correctly BLOCKED meanwhile |
@@ -534,18 +548,23 @@ AMBER.** The cheapest test that the catch-all actually fires.
 
 ---
 
-## 7. DNA Handoff — draft tickets
+## 7. DNA Handoff — filed
 
-> **Not yet filed.** These are drafts for review. Filing them is a call for the requestor, and
-> **O2 must be discharged first**: search DNA for `LOST_VISA_EXPENSES`, `MISSING_EXPENSES`,
-> `MISSING_EXPENSES_HISTORICAL` and `REQUESTS_EXPENSES_DETAILS` before either ticket is raised. Those
-> four are downstream of D2 in its own dbt lineage and may already implement part of this check.
-> A defect found independently while writing another spec had already been filed *and fixed* in DNA,
-> with production measurements that corrected two rules in the draft.
+> **Duplicate search: done, 2026-09-06 (O2 closed).** DNA searched project-wide by summary and by
+> full text for `R-visa`, `overstay`, `visa fee`, `duplicate payment`, `VISAREQUESTEXPENSES`,
+> `LOST_VISA_EXPENSES`, `MISSING_EXPENSES`. **No ticket or model audits R-visa *fees*.** Every R-visa
+> item in DNA is a process-speed KPI (`R-Visa Speed`, `Days to Get the R-Visa`, the duration tables)
+> or a step-blocker alert. Two neighbours materially affect this spec and are recorded as O15 and O16.
 >
 > **Set the issue type yourself on creation** — Jira automation re-types new tickets to " New Request".
+> **Precedent to mirror:** DNA-9454 / DNA-9455 (*"Applicant ticketing audit — model the eleven Police
+> & Control metrics in silver/gold from existing BA_VIEWS objects"*) is the same department, the same
+> shape and the same AE→BI split, and DNA-9446 / DNA-9449 is a second P&C audit pair. Match their
+> framing.
 
-### Ticket 1 — `Analytic Engineer Task`
+### Ticket 1 — DNA-9529 · `Analytic Engineer Task`
+
+https://jira-maids-cc.atlassian.net/browse/DNA-9529
 
 **Summary.** `R-Visa fee audit — silver model: per-payment tests + per-maid verdict`
 
@@ -580,7 +599,7 @@ and `MONEY_CONTROL_SILVER.TRANSACTIONS`.
 | `References` | This spec; Notion *R-Visa Audit*; SD-67794 |
 
 **The metrics, by fixed name and id.** M1 population · M2 cases · M3 amount at risk · M4 duplicate
-exposure · M5 fine overcharge exposure · M6 fine undercharge exposure · M7 unassigned-responsibility
+exposure · M5 fine overcharge exposure · M6 fine undercharge exposure · M6a underpaid exposure reported separately · M7 unassigned-responsibility
 exposure · M8 exception rate · M9 blocked rate · M10 anchor match rate. **Every card and column
 carries these ids** — two id systems on one page is how a reader ends up comparing figures that were
 never comparable.
@@ -641,7 +660,11 @@ the row-level export.
 
 | Ticket / object | Status | Why it does not overlap |
 | --- | --- | --- |
-| `LOST_VISA_EXPENSES` | existing silver model | **Verify before building (O2)** — downstream of D2, may already cover part of this |
+| **DNA-5725** · **DNA-7915** — Alert 946, *Money Lost — Overstay Fines Not Paid by Client* | Done / live | **The closest thing that exists.** An *alert* on client-paid overstay fines, not an audit of R-visa fee payments; no duplicate test, no fine-vs-dates arithmetic. Overlaps T5 only — see **O15**, and do not inherit its filter |
+| **DNA-6078** — *Inflated Total Excluded Hours in R-Visa Duration Calculation* · **DNA-2363** — *Add New Columns & Filtering Logic to R-Visa Duration Tables* | Done | Both act on the R-Visa **duration** tables (D6), which measure process speed, not money. They matter here only because D6 is the candidate source for the visa term — see **O16** |
+| **DNA-9454** · **DNA-9455** — Applicant ticketing audit (P&C, eleven metrics) | To Do | Same department and same ticket shape, **different check entirely**. Listed as the precedent, not an overlap |
+| **DNA-9446** · **DNA-9449** — Payroll audit, monthly archived files | To Do | Different population (payroll), different sources (file ingestion) |
+| `LOST_VISA_EXPENSES` | existing silver model | Downstream of D2. Searched — no R-visa fee audit logic in DNA against it |
 | `MISSING_EXPENSES`, `MISSING_EXPENSES_HISTORICAL` | existing silver models | Absence of an expected expense; this check audits payments that exist |
 | `REQUESTS_EXPENSES_DETAILS` | existing gold model | Reporting detail, no verdict logic |
 | SD-67794 | open | The **n8n / ERP-API** build of the same check. Different runtime, and three of its four blockers do not apply in the warehouse (§2.4) |
@@ -660,16 +683,20 @@ the row-level export.
 9. `COUNT(*) WHERE PURPOSE NOT IN (<profiled enum>) = 0` — the run guard on the truncated enum (O5).
 10. Anchor match rate published per period; where it is `< 90%`, T2/T3 are withheld for that period and the period is labelled unverified.
 
-### Ticket 2 — `BI Visualization Task`
+### Ticket 2 — DNA-9530 · `BI Visualization Task`
+
+https://jira-maids-cc.atlassian.net/browse/DNA-9530
 
 **Summary.** `R-Visa fee audit — Police & Control exception dashboard`
 
-**Blocked by Ticket 1.** SQL/model work always blocks the visual build.
+**Blocked by DNA-9529** — the Blocks link is set. SQL/model work always blocks the visual build.
+
+> ⚠️ **Issue type.** Both tickets were created with the correct types (`Analytic Engineer Task`, `BI Visualization Task`) and a Jira automation re-typed both to `" New Request"`. Setting them back was tried twice and the automation reverted it each time. This matches the known DNA behaviour — the intake bot recommends the type on its pass. **Someone with the right permission should confirm the types after the bot has graded them.**
 
 **Layout, restated in the description** (the artifact link is not readable by the intake bot):
-KPI strip `M3` amount at risk · `M8` exception rate with its denominator · `M9` blocked rate ·
-`M10` anchor match rate → tie-out line showing TO-1/TO-3/TO-4 → exception table at case grain,
-default sort **amount at risk descending**, columns: case (maid id, **never a name**), contract CC/MV,
+KPI strip `M3` amount at risk (money already gone) · `M6a` exposure not yet paid — **never summed with M3** ·
+`M8` exception rate with its denominator · `M9` blocked rate · `M10` anchor match rate → tie-out line showing TO-1/TO-3/TO-4 → exception table at case grain,
+default sort **amount at risk descending**, columns: case (maid id, **never a name**), contract CC/MV/Unknown (filterable, all on by default),
 payment count, verdict, rule breached in the rule's own words, amount at risk, day arithmetic
 (`paid 92 d vs implied 140 d`), both transaction ids, workflow state → one chart, fine rows by
 outcome per period → provenance line carrying the two standing caveats → row-level CSV export.
