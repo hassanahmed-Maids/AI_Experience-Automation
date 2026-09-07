@@ -150,6 +150,29 @@ td.mono s{text-decoration:none; display:block; font-family:"IBM Plex Sans",sans-
 .li-amb{background:var(--amber); border-radius:50%}
 .li-grn{background:var(--green); transform:rotate(45deg); border-radius:1px}
 
+/* ---------- completeness exceptions ---------- */
+table.tight{min-width:0}
+.recon{padding:15px 16px 16px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.85fr);
+  gap:20px; align-items:start}
+@media (max-width:860px){.recon{grid-template-columns:1fr}}
+.ledger{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums;
+  font-size:12.5px; background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+  padding:12px 14px; display:grid; grid-template-columns:1fr auto; gap:3px 18px}
+.ledger .lb{color:var(--ink-2)}
+.ledger .lv{text-align:right}
+.ledger .rul{grid-column:1 / -1; border-top:1px solid var(--line-2); margin:5px 0 2px}
+.ledger .tot{font-weight:600; color:var(--ink)}
+.ledger .lb.tot{color:var(--ink)}
+.ledger .sm{color:var(--ink-3); font-size:11.5px}
+.ledger .cap{grid-column:1 / -1; font-family:"IBM Plex Sans",sans-serif; font-size:11px;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-top:9px}
+.dirn{font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap}
+.d-over{color:var(--red)}
+.d-under{color:var(--amber)}
+.notes-list{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px}
+.notes-list li{font-size:12.5px; color:var(--ink-2)}
+.notes-list b{color:var(--ink); font-weight:600}
+
 footer{border-top:1px solid var(--line); padding-top:14px; color:var(--ink-3); font-size:12px;
   display:flex; flex-direction:column; gap:5px}
 footer b{color:var(--ink-2); font-weight:600}
@@ -239,8 +262,8 @@ footer b{color:var(--ink-2); font-weight:600}
   <div class="kpi">
     <h2>Completeness exceptions <em>M14</em></h2>
     <div class="v" style="color:var(--amber)">3</div>
-    <p class="note">AED 1,240. Maid-months where notes don’t reconcile to the payslip.
-      Findings in their own right — not folded into M1.</p>
+    <p class="note">AED 1,240 across 3 maid-months. <b>855 over</b> · <b>385 under</b>, never
+      netted. A different grain — not folded into M1.</p>
   </div>
   <div class="kpi">
     <h2>Match rate <em>M13</em></h2>
@@ -279,9 +302,9 @@ footer b{color:var(--ink-2); font-weight:600}
   </div>
   <div class="a">
     <span class="tick" aria-hidden="true" style="background:var(--amber)">!</span>
-    <div><b>G1 · payslip residual AED 1,240</b>
+    <div><b>G1 · payslip residual AED 1,240 in 3 maid-months</b>
       <p>Both sides unfiltered; refunds and office-work reconciled as named lines. What remains
-        is M14, which has its own tile and its own money.</p></div>
+        is M14 — own tile, own money, own grain. 0 payslips unread.</p></div>
   </div>
 </section>
 
@@ -482,6 +505,104 @@ footer b{color:var(--ink-2); font-weight:600}
   </section>
 
 </div>
+
+<section class="panel">
+  <div class="phead">
+    <div>
+      <h3>Completeness exceptions <em style="font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-3);opacity:.65">M14</em></h3>
+      <p>The only thing on this page that can see a record which does not exist. Every other metric
+        is built from notes that are there; these are maid-months where the payslip and the notes
+        disagree. The grain is <b>maid × paid month</b>, not note — so these rows carry no note id
+        and no verdict, and are counted and valued entirely separately from the 1,300 cases.</p>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <table class="tight">
+      <thead>
+        <tr>
+          <th>Maid</th><th>Paid month</th>
+          <th class="r">Payslip additions</th><th class="r">Notes, unfiltered</th>
+          <th class="r">Residual</th><th>Direction</th><th>What it means</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono">46330</td><td class="mono">2026-08</td>
+          <td class="num">3,120.00</td><td class="num">2,420.00</td>
+          <td class="num gap-pos">+700.00</td>
+          <td><span class="dirn d-over">Over</span></td>
+          <td class="rulecell">Money on the payslip with no note behind it. Worked through on the right.</td>
+        </tr>
+        <tr>
+          <td class="mono">43902</td><td class="mono">2026-08</td>
+          <td class="num">1,955.00</td><td class="num">2,340.00</td>
+          <td class="num" style="color:var(--amber);font-weight:600">−385.00</td>
+          <td><span class="dirn d-under">Under</span></td>
+          <td class="rulecell">A note that never reached the payslip — or an amount edited after
+            the payslip was cut. A different investigation from the two above it.</td>
+        </tr>
+        <tr>
+          <td class="mono">50118</td><td class="mono">2026-08</td>
+          <td class="num">640.00</td><td class="num">485.00</td>
+          <td class="num gap-pos">+155.00</td>
+          <td><span class="dirn d-over">Over</span></td>
+          <td class="rulecell">Money on the payslip with no note behind it.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="recon">
+    <div class="ledger">
+      <span class="cap" style="margin-top:0">Maid 46330 · 2026-08 · guard G1</span>
+      <span class="lb">payslip ADDITIONS</span><span class="lv">3,120.00</span>
+      <span class="lb">all ADDITION notes, unfiltered (4)</span><span class="lv">− 2,420.00</span>
+      <span class="rul"></span>
+      <span class="lb tot">residual → M14</span><span class="lv tot">700.00</span>
+
+      <span class="cap">Reconciled beneath, as named lines</span>
+      <span class="lb sm">118846 · refund (IS_REFUND = true)</span><span class="lv sm">380.00</span>
+      <span class="lb sm">118847 · office_work_addition</span><span class="lv sm">200.00</span>
+      <span class="lb sm">118844 · taxi_reimbursement — in scope</span><span class="lv sm">240.00</span>
+      <span class="lb sm">118845 · airfare_ticket — in scope</span><span class="lv sm">1,600.00</span>
+      <span class="rul"></span>
+      <span class="lb">scoped population (2 notes → M1/M2)</span><span class="lv">1,840.00</span>
+
+      <span class="cap">Month total</span>
+      <span class="lb">over — paid, no note (2)</span><span class="lv">855.00</span>
+      <span class="lb">under — note, not paid (1)</span><span class="lv">385.00</span>
+      <span class="lb sm">payslips unread — guard blocked (0)</span><span class="lv sm">—</span>
+      <span class="rul"></span>
+      <span class="lb tot">M14.amount, absolute</span><span class="lv tot">1,240.00</span>
+    </div>
+
+    <ul class="notes-list">
+      <li><b>Both sides unfiltered — that is the whole trick.</b> Comparing the <i>scoped</i> 1,840
+        against the payslip total would show a residual of 1,280, of which AED 580 is definitional:
+        the refund and the office-work note are supposed to be absent from scope. The tie-out would
+        then fail for every maid-month containing a refund, every month, and an operator learns
+        within two months to ignore a strip that is always amber. The real finding is 700.</li>
+      <li><b>Over and under are never netted.</b> Signed, these three residuals sum to +470 — a
+        figure that describes no maid-month on this page and understates the exposure by 770. Two
+        exceptions would disappear into one. M14.amount is the sum of absolute residuals, the two
+        directions shown separately, for the same reason M2 splits positive from negative.</li>
+      <li><b>This sits on top of the note verdicts, not instead of them.</b> Notes 118844 and 118845
+        still run the full battery and keep their own verdicts inside the 1,300. The AED 700 is
+        added to neither the money in scope nor the amount at risk — it is a different amount about
+        a different object, and guard G3 is untouched by it.</li>
+      <li><b>No payslip row is blocked, not clean.</b> A maid-month with no payroll history row
+        cannot be reconciled and is counted on its own line — never reported as tying out. A guard
+        that clears a payslip it never read is the same defect the verdict ladder exists to prevent.</li>
+    </ul>
+  </div>
+
+  <div class="legend" style="display:block">
+    Drill-down opens the payslip’s own additions figure and its as-of date, all four notes with the
+    reason each is in or out of scope, the signed residual, and the maid’s other paid months — so a
+    residual that reverses next month reads as a late posting rather than a loss.
+  </div>
+</section>
 
 <footer>
   <div><b>Sources —</b> <span class="mono">BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES</span>,
