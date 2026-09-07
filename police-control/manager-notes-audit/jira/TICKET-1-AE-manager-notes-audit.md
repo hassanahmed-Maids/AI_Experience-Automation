@@ -46,7 +46,7 @@ is one row per maid × payroll month.**
 | D1 | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES` | the note |
 | D2 | `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` | payslip month + `MANAGER_ADDITIONS` — the tie-out anchor |
 | D3 | `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO` | contract type, nationality, service dates |
-| D4 | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` | the authorising expense request |
+| D4 | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` | the authorising expense request — 🔴 **not currently granted**, see below |
 | D5 | `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS` | tickets purchased — flight-home duplicate test |
 | D6 | `…MAIDS_REFERRALS_BONUSES`, `…HOUSEMAID_REFERRALS` | the referral event |
 | D7 | `BA_VIEWS.CORE_SILVER.PICKLISTS_INFO` | the payment-type picklist |
@@ -54,7 +54,14 @@ is one row per maid × payroll month.**
 Plus, from **`mmdb_transformed.payrollmanagernotes`** — all present in the ERP source; how they reach
 the warehouse is your call: `APPLIED`, `NOT_FINAL`, `PAID`, `PAID_ON_PAYROLL_MONTH`, `IS_REFUND`,
 `EXPENSE_ID`, `ADDITION_REASON_ID`, `PURPOSE_ID`, `CREATOR`. Also `PARAMETERS.CODE`/`VALUE` for the
-airfare limits and the lock window on `MONTHLYPAYMENTRULES`.
+airfare limits and the lock window on `MONTHLYPAYMENTRULES` — 🔴 the lock window is **not in
+Snowflake by any route** and has to come from the ERP.
+
+🔴 **Two blockers, both detailed in attachment §11.** `EXPENSES_REQUESTS` is **not granted** to
+`PAYROLL_AND_MONEY_CONTROL_ROLE`, so a warehouse grant alone still leaves T4, T5, groups G and E and
+the match rate blocked. And **do not code a fixed list of payment types** — the warehouse carries live
+addition categories absent from the attachment's code-recovered list, and that profile is itself
+truncated. An unmapped reason must BLOCK, never pass.
 
 **Column inventories, types, profiled ranges and the model SQL: attached source-tables doc.**
 
@@ -77,12 +84,13 @@ it must never resolve to the first candidate: **7,020 of 7,878 matched notes (89
 holding more than one expense request** (DNA-9464). Multiple candidates → unverifiable, not matched.
 Full route and blind spots: source-tables doc §5.
 
-### Three data asks, none of them blocking
+### Data asks, none of them blocking
 
-**N10** effective-dated salary history · **N11** referral and signing scheme prices, effective-dated ·
-**N12** raffle winners per draw. Each leaves one group rule returning BLOCKED and its notes amber.
-Detail and where to start looking: source-tables doc §9. **Amber is a result this report publishes,
-not a failure of it** — it is the honest statement that no rule exists to test against.
+**N10** effective-dated salary history · **N12** raffle winners per draw · **N17** a contract-type
+timeline per maid · **N18** a row-level loan source · **N19** the effective-dated `live_out` flag.
+Routes for each: attachment §9 and §11. Each leaves one group rule returning BLOCKED and its notes
+amber. **Amber is a result this report publishes, not a failure of it** — the honest statement that
+no rule exists to test against.
 
 ### Two things that need a decision, not engineering
 
@@ -92,7 +100,10 @@ money. Either a rule gets written, or the report says so every month.
 
 **Three reference mappings do not exist** — payment type → allowed expense heads, contract type →
 allowed payment types, and which types always carry an expense record. Business rules, not data;
-until they exist those tests return BLOCKED. ⚠️ **Two entries of the third are settled:** airfare
+until they exist those tests return BLOCKED. 🔴 **The referral scheme has since been supplied by
+payroll** — attachment §11 — and it changes the grain: referral bonus is judged per **referral
+event**, not per note. `HOUSEMAID_REFERRALS.AMOUNT` is the authorised amount to compare paid
+against. ⚠️ **Two entries of the third are settled:** airfare
 and office-work additions are booked straight onto salary with no payment behind them
 (*"Direct adjustment"*, 565 in six months — DNA-9464). Without that, every flight-home payment is
 red-flagged "no basis".
@@ -110,7 +121,7 @@ carries it, the dashboard bands it, so display is a config flag not a schema cha
 
 | File | What it is |
 | --- | --- |
-| **`DNA_ATTACHMENT_source_tables.md`** | **Start here.** Data points with types and profiled ranges, the two link routes, the ERP rules, all 24 payment-type codes, a fifteen-row trap table, the six outstanding checks |
+| **`DNA_ATTACHMENT_source_tables.md`** | **Start here.** Data points with types and profiled ranges, the two link routes, the ERP rules, the payment-type codes, a fifteen-row trap table, the outstanding checks — and **§11, the business rules from payroll**, which override the code in two places |
 | **`SPEC_manager_notes_audit_DEV.md`** | The full logic — population, audit-month resolution, test battery, verdict algebra, group rules, metrics, run guards |
 | **`SPEC_manager_notes_audit_v2.md`** | Long-form, reasoning behind every rule. Not needed to start |
 
@@ -146,13 +157,15 @@ That reports what was added, by category. This audits whether each addition was 
 6. **Amber always carries its reason.** `COUNT(AMBER) = COUNT(non-null BLOCKING_REASON)`, and the
    reason buckets sum to M8 in count and money.
 7. **The auditor's own flags are not used.** Zero occurrences of `CONFIRMED_AMOUNT_BY_AUDITOR` or
-   `CONFIRMED_REPEATED_BY_AUDITOR` in any filter or test — display columns only. The ERP's detection
-   queries `CONFIRMED_* = false`, so a confirmed but still over-limit payment leaves its list while
-   staying over the limit. That population is why this report exists.
+   `CONFIRMED_REPEATED_BY_AUDITOR` in any filter or test — display columns only. Why: attachment §7.
 8. **Note-type integrity.** `COUNT(*)` where `NOTE_TYPE IN ('EXTRA_SHIFT','BONUS','SALARY_RAISE',
    'REDUCTION')` in the audit window is **0**.
 9. **The payslip reconciles.** Per maid × audit month, all that payslip's `ADDITION` notes sum to
    `HOUSEMAID_PAYROLL_HISTORY.ADDITIONS`, **both sides unfiltered**, exclusions reconciled as named
    lines. Residual surfaces as M14, never absorbed.
 10. **M13 is per payment type per month**, not one aggregate, with the 80% floor applied per type.
-11. **History reaches back to 2024-01-01.**
+11. **Referral bonus is judged per referral event**, not per note: the payments for one event sum to
+    a single figure, and an amount outside the scheme blocks rather than reds.
+12. **Loan-paired types tie out.** For the loan-paired categories, `addition_amount = loan_amount`;
+    every deviation is a row in the output, not a rounding note.
+13. **History reaches back to 2024-01-01.**

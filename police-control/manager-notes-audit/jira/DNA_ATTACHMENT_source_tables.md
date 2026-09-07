@@ -124,7 +124,7 @@ row that does not.
 | --- | --- | --- | --- |
 | **D4** | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` | `ID`, `EXPENSE_TYPE`, `RELATED_TO_TYPE`, `RELATED_TO_ID`, `REQUEST_STATUS`, `REFUNDED`, `AMOUNT`, `CURRENCY_NAME`, `BENEFICIARY_TYPE`, `BENEFICIARY_NAME`, `APPROVED_BY`, `REQUESTED_BY`, `PAYMENT_METHOD`, `EXPENSE_PAYMENT_ID`, `CREATION_DATE` | `REQUEST_STATUS ∈ {PAID, REJECTED, DISMISSED, PENDING_PAYMENT, CANCELED, PENDING}` · `BENEFICIARY_TYPE ∈ {SUPPLIER, MAID, OFFICE_STAFF, TAXI_DRIVER, NOT_DETERMINED}` · `CURRENCY_NAME` spans **10** currencies · `STATUS_CHANGE_DATE` starts only **2025-12-16**, so it cannot date an approval for an earlier month — use `CREATION_DATE` (min 2021-10-21) `catalog` |
 | **D5** | `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS` | `HOUSEMAID_ID`, `TICKET_TYPE`, `BUYER`, `ORIGINAL_FARE`, `FARE_IN_REF_CURRENCY`, `CURRENCY_ID`, `EXCHANGE_RATE`, `PURCHASE_DATE`, `REFUNDED`, `IS_DELETED`, `IS_LATEST_HM_TICKET` | `TICKET_TYPE ∈ {TO_DUBAI, TO_EXIT, TO_MANILA, TERMINATION, PREWORK_VACATION, VACATION, OFFICE_STAFF, OFFICE_TICKET}` · `BUYER ∈ {PRIVATE, MAIDCC}` · `ID` tops at **14,564** — small enough to suspect a dead source; check 4 in §8 `catalog` |
-| **D6** | `…MAIDS_REFERRALS_BONUSES`, `…HOUSEMAID_REFERRALS` | referral, referred maid, bonus-requested date, cancelled date | `MAIDS_REFERRALS_BONUSES` is built from the **same** `payrollmanagernotes` source, filtered `NOTE_TYPE='ADDITION' AND pi3.NAME='Referral bonus' AND AMOUNT != 0`. It records what was **paid**, never what was **due** `catalog` |
+| **D6** | `…MAIDS_REFERRALS_BONUSES`, `…HOUSEMAID_REFERRALS` | referral, referred maid, bonus-requested date, cancelled date, **`HOUSEMAID_REFERRALS.AMOUNT`** | 🔴 `MAIDS_REFERRALS_BONUSES` is built from the **same** `payrollmanagernotes` source, filtered `NOTE_TYPE='ADDITION' AND pi3.NAME='Referral bonus' AND AMOUNT != 0` — **circular as a price source**, and that filter deletes exactly the notes T3 flags. Use it for the **paid** amount only. **`HOUSEMAID_REFERRALS.AMOUNT` is the authorised amount** — paid-vs-authorised is the conformance test. Profiled values: paid `250, 500, 1000, 1200, 1500, 2000`; authorised `0, 500, 1000, 1200` — **AED 1,200 is in both and is not in the stated scheme**. Referral records start **2025-02-20**, payments **2022-04-21** → the earlier period must BLOCK, never red. `REFERRED_MAID_ID` is `COALESCE(direct, latest-by-phone, latest-by-WhatsApp)` — partly heuristic. ⚠️ carries the referred maid's **name and phone**, and `CREATOR`/`LAST_MODIFIER` are staff **full names** — none may reach the model output `catalog` |
 | **D7** | `BA_VIEWS.CORE_SILVER.PICKLISTS_INFO` | picklist item id, code, name | Resolves `ADDITION_REASON_ID` / `PURPOSE_ID`. Its own columns have never been profiled — check 2 in §8 `catalog` |
 
 ⚠️ **`BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_MAID_SALARY_ADDITIONS_BY_CATEGORY` is not a
@@ -205,8 +205,13 @@ is published per payment type and carries a floor, rather than each row being ju
 | `PARAMETER_HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET_LIMIT` | `"1350"` | every other nationality |
 | `PARAMETER_HOUSEMAID_REPETITIVE_ADDITION_LIMIT` | `"3"` | months in the ERP's repeated-additions window |
 
-Service and cycle are hard-coded in `HousemaidsVacationAllowanceController`: `months >= 6`, repeating
-at `months % 24 == 22`.
+🔴 **Do not implement the code's tenure test.** `HousemaidsVacationAllowanceController` hard-codes
+`months >= 6` and `months % 24 == 22` — one month in twenty-four, from `START_DATE`, contract type
+never consulted. **Payroll's rule is different and governs**: at least **22 months as a CC maid**, an
+MV break **under a year bridges**, a year **or longer resets** to her return to CC. The two agree only
+at months 22/46/70, so building on the code would flag or block most legitimate airfare payments. The
+divergence is a finding for P&C, not a spec choice.
+This needs a **contract-type timeline** (§ below), not a start date.
 
 🔴 `VALUE` is **TEXT**, these are **seeded defaults not necessarily today's values**, and they are
 **not effective-dated** — a cap changed mid-year retroactively re-judges settled months. Read the
@@ -226,10 +231,15 @@ true, at which point the case leaves the ERP's list **while the payment stays ov
 population is precisely what an independent second check exists to see, so no query in this model may
 filter on `CONFIRMED_AMOUNT_BY_AUDITOR` or `CONFIRMED_REPEATED_BY_AUDITOR`. They are display columns.
 
-### The 24 addition reasons `code`
+### The addition reasons `code`
 
-Recovered from code references. ⚠️ A reason present in the picklist but referenced nowhere in code
-is missing from this list — reading the picklist is check 2 in §8.
+Recovered from code references. 🔴 **This list is incomplete and we do not know by how much.** The
+warehouse's own `ADDITION_CATEGORY` profile
+(`BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY`) carries live categories that appear
+nowhere below — **Accommodation Relocation, Sim card Loan, WPS Compliance Loan, PCR Test & medical
+assistance Loan, Live-out Transportation Assistance, NOL Card**, and several **Part-Time Cleaners
+Expenses** categories — and that profile is itself **truncated**. Reading the picklist is check 2 in
+§8 and it is what closes this. **Do not code a fixed list of reasons.**
 
 | Code | Name | Group |
 | --- | --- | --- |
@@ -357,3 +367,66 @@ red-flagged "no basis" — a fabricated finding on the largest group in the audi
 
 **The existing Payroll Dashboard section *"Additions to the maid's salaries"* is not replaced by
 this.** That reports additions by category; this audits whether each one was justified.
+
+
+---
+
+## 11. Added 2026-09-07 — business rules from payroll, and two access facts
+
+**Source:** George Abboud (Housemaid Payroll) via Hassan Ahmed, 2026-09-07. These are business
+rules, not code findings, and where they conflict with the ERP they govern.
+
+### Airfare — `airfare_ticket`
+At least **22 months as a CC maid** as of the note date. Contract-type timeline walked backwards: an
+**MV interval under one year bridges** (the CC service before it still counts); **one year or longer
+resets** the clock to her return to CC. MV months themselves do not count. She must also **have been
+CC when the payment was made** — never judged on the profile-current type.
+*Open:* whether MV months count at all, the exactly-12-month boundary, multiple switches, what
+governs the second ticket, and whether the floor applies to termination repatriation as well as
+vacation flights.
+
+### Referral bonus — `bonus` + purpose `referral_bonus`
+**AED 1,000 per referral event**, paid once the referred maid completes **30 days with the client**.
+Referred maid **CC** → 1,000 to the referrer, nothing to the referred. Referred maid **MV** → **500
+each**, or 1,000 to the referrer as a stated exception. **The referred maid must not already be with
+the company** — payroll's *most common reason a bonus is rejected*.
+The **grain is the referral event, not the note**: one referral produces up to two notes and they are
+judged together, with the event total tied to 1,000.
+*Open:* what the **AED 1,200** is; what governs the MV exception; "never been with us" vs "not
+currently with us"; whether the amounts ever changed.
+
+### Signing bonus — `bonus`, other or no purpose
+*"Promised by retractors"* — a retention payment negotiated per case when someone talks a maid out of
+leaving. **No price by construction.** Test that a retraction exists and an authoriser is named; never
+judge the amount against the referral scheme.
+🔴 Referral and signing bonus are **entangled in free text** — the warehouse classifies an MV referral
+by exact-matching the note reason *"Signing bonus for this MV maid because she was referred by an MV
+maid"*, so `PURPOSE_ID` alone does not separate them.
+
+### Accommodation Relocation — not in the code-recovered list
+The maid must be **CC live-out**, and the amount must be booked as an **addition and a matching loan
+at the same time**: `addition_amount = loan_amount`. An addition with no loan is money given rather
+than advanced.
+⚠️ **Already breaking:** `BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY` profiles
+`ADDITION_LOAN_AMOUNT` from **0** and `LOAN_PERCENTAGE_OF_ADDITIONS` up to **114.75** — loans both
+missing and exceeding their additions.
+
+### Three data requirements these rules create
+
+| # | What | Where it is |
+|---|---|---|
+| **N17** | **Contract-type timeline** per maid — every CC/MV interval with dates | `HOUSEMAIDS_INFO_REVISION` has `OLD_HOUSEMAID_TYPE`, `HOUSEMAID_TYPE`, `SWITCH_HOUSEMAID_TYPE_DATE` and **all are empty**. Working routes: `mmdb.housemaids_revisions` (the VISA models read it for `FIRST_HOUSEMAID_TYPE`), or the `to_type` column behind `BI_HOUSEMAID_STATUS_LOGS` |
+| **N18** | **Row-level loans** paired to additions | No raw or silver loans table exists — only three gold views, all aggregated. ⚠️ repayment is unverifiable: it runs through deductions, which are out of scope |
+| **N19** | **`live_out` flag**, effective-dated | Not on `HOUSEMAID_TYPE`; the gold layer derives `CC Live In / CC Live Out / MV` from a separate `live_out` flag |
+
+### Two access facts, verified
+
+- `SHOW WAREHOUSES` returns **zero rows** for `PAYROLL_AND_MONEY_CONTROL_ROLE`.
+  `SHOW GRANTS TO ROLE` returns **668 grants — 426 view SELECTs, USAGE on 5 databases and 40 schemas,
+  zero warehouses.**
+- 🔴 **`BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` is not granted.** The schema has USAGE; only
+  `TRANSACTIONS` is SELECT-able there. **A warehouse grant alone will not unblock T4, T5, group G,
+  group E or the match rate.**
+- The payroll **lock window is not obtainable from Snowflake by any route**: no `%PAYMENT_RULE%`
+  object exists account-wide, and `LAST_PAYROLL_LOCK_DATE`, `LOCK_DATE` and their `_MODIFIED` twins
+  all profile as `"no non-null values"`. It has to come from the ERP.

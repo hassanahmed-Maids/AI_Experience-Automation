@@ -81,6 +81,12 @@ ran, and what it returned — plus the candidate expense records with their stat
 parameter values used, the maid's other notes inside the entitlement window, and the ERP auditor
 state labelled *context — does not clear this case*.
 
+**6b. Completeness exceptions and the loan-pairing strip.** The payslip residual at maid × month
+grain — its own count and money, **never folded into the case counts** — with the over and under
+directions shown separately and never netted, plus a blocked line for maid-months whose payslip could
+not be read. Beside it, for the loan-paired payment types, `addition_amount` against `loan_amount`:
+the ratio should be 100 % and the warehouse currently profiles it from 0 % to 114.75 %.
+
 **7. Provenance line.** Sources, audit month and how it was derived, the airfare parameter values
 read this run, the match-rate floor, run id and as-of timestamp.
 
