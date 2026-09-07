@@ -430,3 +430,107 @@ missing and exceeding their additions.
 - The payroll **lock window is not obtainable from Snowflake by any route**: no `%PAYMENT_RULE%`
   object exists account-wide, and `LAST_PAYROLL_LOCK_DATE`, `LOCK_DATE` and their `_MODIFIED` twins
   all profile as `"no non-null values"`. It has to come from the ERP.
+
+
+---
+
+## 12. The nine check archetypes — the shape to build in
+
+~25 payment types, but only **nine mechanisms**. Build the nine as functions, drive them from a
+config table, and a new payment type is a row rather than new code. Each obeys the same contract as
+every test in the spec: `RED(type)` · `GREEN` · `BLOCKED(reason)` · `N_A`.
+
+| Key | Archetype | Asks | Tier | Characteristic silent failure |
+| --- | --- | --- | --- | --- |
+| **CEIL** | Ceiling | is it more than the rule allows? | row | a TEXT threshold compared to a number matches nothing; a threshold with no effective dating re-judges closed months |
+| **ELIG** | Eligibility | did this person qualify at all? | row | reading a **profile-current** attribute to judge a historical payment |
+| **CORR** | Corroboration | is there a record authorising this? | row | taking the first of several candidates; accepting a matched record without checking its **status** — a `CANCELED` request with the right amount otherwise passes |
+| **RECOMP** | Recomputation | does the arithmetic reproduce the amount? | row | a confident wrong figure from a current rate — worse than none, because it looks like evidence |
+| **PAIR** | Pairing | is the counter-entry there, and equal? | row | proving the counterpart was *created* and calling that recovery |
+| **ROSTER** | Roster | is this person on the list? | row | defaulting — an empty list reds everything, a permissive default greens everything, both silently |
+| **UNIQ** | Uniqueness | has this already been paid? | **set** | scanning one month when the entitlement window is longer |
+| **RECON** | Reconciliation | does the set sum to an independently known figure? | **set** | comparing a *filtered* set against an *unfiltered* total, so the tie-out fails definitionally every period |
+| **UNRULED** | No rule exists | — | null | being mistaken for a data gap and put in a backlog, where it waits forever |
+
+🔴 **The row/set split is load-bearing.** UNIQ and RECON cannot be evaluated in a scalar expression
+per note — they need the note's siblings, and their verdicts attach to a **group**: a duplicate group,
+a referral event, a maid × payroll month. They run in a second pass.
+
+### The check plan per payment type
+
+This table is the configuration. Nothing below it knows what a payment type is.
+
+| Payment type | Plan |
+| --- | --- |
+| `airfare_ticket` | ELIG · CEIL · UNIQ |
+| `bonus` + purpose `referral_bonus` | ELIG · CORR · RECON · UNIQ |
+| `bonus` + other purpose | CORR |
+| `anti_attrition_incentive` | UNRULED |
+| `prorated_salary`, `mv_prorated_salary`, `previously_held_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | RECOMP · ELIG |
+| `salary_dispute` | CORR · UNRULED *(the justification half has no field)* |
+| `raffle_prize` | ROSTER |
+| `taxi_reimbursement`, `medical_assistant`, `Maids_at_other_expenses`, `lost_luggage_compensation` | CORR · ROSTER |
+| `forgive_deduction` | PAIR |
+| `cover_deduction_limit`, `cover_negative_salary` | RECOMP |
+| Accommodation Relocation | ELIG · PAIR |
+| Sim card Loan, WPS Compliance Loan, PCR & medical Loan | PAIR · UNRULED |
+| Live-out Transportation Assistance | ELIG · CEIL |
+| `recommendation_from_client` | ROSTER · CEIL |
+| `pay_vacation_days` | RECOMP |
+| `renewal_bonus`, `low_exchange_rate_compensation`, `AR-1` | UNRULED |
+| Part-Time Cleaners Expenses | — out of population pending the scope decision |
+| `office_work_addition`, `refund` | RECON only — named lines in the payslip tie-out |
+
+**Two archetypes run on every note regardless of type**, being properties of the population rather
+than the payment: the payslip RECON at maid × audit month (the tie-out → M14), and the duplicate UNIQ
+scan (→ M12).
+
+### The two passes
+
+```
+pass 1 — row-level
+for note in population:
+    plan = CHECK_PLAN[note.payment_type]
+    if plan is empty or unmapped:
+        trace(BLOCKED("payment type not mapped to a check plan")); continue
+    for (archetype, params) in plan:
+        trace(archetype.run(note, params)) if archetype.tier == ROW else trace(DEFERRED)
+
+pass 2 — set-level
+for g in duplicate_groups(window = per-type entitlement period): UNIQ.resolve(g)
+for e in referral_events:                                        RECON.resolve(e, expected = 1000)
+for (maid, month) in payslips:                                   RECON.resolve_payslip(maid, month)
+
+verdict — unchanged: RED if any RED · AMBER if any BLOCKED · GREEN only if every applicable ran GREEN
+```
+
+🔴 **The safety property.** A payment type with no plan yields an **empty archetype set**, and an
+empty set cannot satisfy *"every applicable check ran and returned GREEN"*. An unmapped type is
+therefore **BLOCKED by construction**, not by anyone remembering to handle it. Since the payment-type
+list is incomplete and the warehouse's category profile is truncated, new types **will** appear —
+this property is what keeps them arriving as amber-with-a-reason instead of silent greens. **Do not
+add a default branch.**
+
+### What the archetypes are blocked on, and what that implies for sequencing
+
+| Archetype | Payment types | Blocked on | Unblocked by |
+| --- | --- | --- | --- |
+| **UNIQ** | all | nothing | — |
+| **RECON** | all | nothing | — |
+| **CEIL** | 3 | nothing, for airfare | — |
+| **CORR** | 7 | the `EXPENSES_REQUESTS` grant, and `EXPENSE_ID` exposed downstream | one grant + one column |
+| **ELIG** | 9 | the contract-type timeline (N17), the `live_out` flag (N19) | one revision source |
+| **PAIR** | 5 | a row-level loan source (N18) | one ingestion |
+| **RECOMP** | 8 | effective-dated salary history (N10) | one revision source |
+| **ROSTER** | 7 | lists that exist nowhere (N12, N14–N16) | an owner writing them |
+| **UNRULED** | 7 | nothing — no rule was ever written | a decision, not data |
+
+🟢 **Phase 1 needs no new data.** UNIQ, RECON and the airfare CEIL are unblocked today: duplicate
+detection, the payslip tie-out, the referral-event tie-out and the airfare cap, on sources already
+granted.
+🔴 **ROSTER + UNRULED cover fourteen payment types** — more than any data problem, and neither is
+unblocked by engineering.
+
+⚠️ These are counts of payment **types**, not of notes or money. Which archetype carries the most
+money is unmeasured, because no row-level query has run. Worth measuring before sequencing off this
+table.

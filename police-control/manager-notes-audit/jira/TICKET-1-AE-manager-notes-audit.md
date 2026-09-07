@@ -18,6 +18,11 @@ but are not projected into the curated note view. So the ask is narrow:
 > **Model the ten metrics below at note grain in silver/gold.** Sources are listed here, and the
 > business logic is attached in full — you do not need to reverse-engineer it.
 
+**And it is smaller than it looks.** The logic covers ~25 payment types, but they are checked by only
+**nine reusable mechanisms**. Build the nine, drive them from a config table, and a new payment type
+becomes a row rather than new code — which matters, because the payment-type list is known to be
+incomplete. **Phase 1 below ships without waiting on anyone.**
+
 ### The ten metrics, by name
 
 Fixed names — they are what P&C reads in handovers, so anything built or labelled uses them exactly,
@@ -31,8 +36,36 @@ with the metric id.
 | M8 | `Unverifiable` | M13 | `Expense Match Rate` |
 | M9 | `Cleared` | M14 | `Completeness Exceptions` |
 
-M0 and M3–M6 in the spec are the engine — audit-month resolution, the test battery, the expense
-match, the verdict algebra, the group rules. They produce the one verdict column the ten aggregate.
+M0 and M3–M6 in the spec are the engine — audit-month resolution, the checks, the verdict algebra.
+They produce the one verdict column the ten aggregate.
+
+### How to build it — nine checks, not twenty-five rules
+
+Each returns `RED(type)` · `GREEN` · `BLOCKED(reason)` · `N_A`. **Definitions, the per-type check
+plan, the two-pass algorithm and what each is blocked on: attachment §12.**
+
+**CEIL** ceiling · **ELIG** eligibility as of the note date · **CORR** corroborating record ·
+**RECOMP** recompute from a rate and a period · **PAIR** counter-entry present and equal ·
+**ROSTER** membership of a list · **UNIQ** not already paid · **RECON** set sums to a known figure ·
+**UNRULED** nothing to test against.
+
+🔴 **UNIQ and RECON are set-level** — they need the note's siblings and their verdicts attach to a
+group (a duplicate group, a referral event, a maid × month), so they run in a **second pass**. The
+other seven are decidable from one row.
+
+🔴 **The safety property.** An unmapped payment type yields an **empty check plan**, and an empty set
+cannot satisfy *"every applicable check ran and returned GREEN"*. New payment types therefore arrive
+as **amber with a named reason**, never as silent greens. Please preserve this — no default branch.
+
+### Phase 1 ships without waiting on anyone
+
+**UNIQ, RECON and the airfare CEIL need nothing that is not already granted.** That is duplicate
+detection, the payslip tie-out, the referral-event tie-out and the airfare cap — real findings on
+current sources, the day the warehouse grant lands. **We would rather have that in production than
+wait for the whole thing.**
+
+Phase 2 is CORR, ELIG, PAIR and RECOMP, each gated on one data ask below. Phase 3 is ROSTER and
+UNRULED, which no engineering unblocks.
 
 ### Grain
 
@@ -51,17 +84,16 @@ is one row per maid × payroll month.**
 | D6 | `…MAIDS_REFERRALS_BONUSES`, `…HOUSEMAID_REFERRALS` | the referral event |
 | D7 | `BA_VIEWS.CORE_SILVER.PICKLISTS_INFO` | the payment-type picklist |
 
-Plus, from **`mmdb_transformed.payrollmanagernotes`** — all present in the ERP source; how they reach
-the warehouse is your call: `APPLIED`, `NOT_FINAL`, `PAID`, `PAID_ON_PAYROLL_MONTH`, `IS_REFUND`,
-`EXPENSE_ID`, `ADDITION_REASON_ID`, `PURPOSE_ID`, `CREATOR`. Also `PARAMETERS.CODE`/`VALUE` for the
-airfare limits and the lock window on `MONTHLYPAYMENTRULES` — 🔴 the lock window is **not in
-Snowflake by any route** and has to come from the ERP.
+Plus nine columns from **`mmdb_transformed.payrollmanagernotes`**, all present in the ERP source —
+how they reach the warehouse is your call: `APPLIED`, `NOT_FINAL`, `PAID`, `PAID_ON_PAYROLL_MONTH`,
+`IS_REFUND`, `EXPENSE_ID`, `ADDITION_REASON_ID`, `PURPOSE_ID`, `CREATOR`. Also `PARAMETERS.CODE`/
+`VALUE` for the airfare limits, and the payroll lock window — 🔴 **not in Snowflake by any route**,
+so it has to come from the ERP.
 
-🔴 **Two blockers, both detailed in attachment §11.** `EXPENSES_REQUESTS` is **not granted** to
-`PAYROLL_AND_MONEY_CONTROL_ROLE`, so a warehouse grant alone still leaves T4, T5, groups G and E and
-the match rate blocked. And **do not code a fixed list of payment types** — the warehouse carries live
-addition categories absent from the attachment's code-recovered list, and that profile is itself
-truncated. An unmapped reason must BLOCK, never pass.
+🔴 **Two blockers, both in attachment §11.** `EXPENSES_REQUESTS` is **not granted** to
+`PAYROLL_AND_MONEY_CONTROL_ROLE`, so a warehouse grant alone still leaves the CORR archetype — seven
+payment types — blocked. And **do not code a fixed list of payment types**: the warehouse carries
+live addition categories absent from the attachment's list, and that profile is truncated.
 
 **Column inventories, types, profiled ranges and the model SQL: attached source-tables doc.**
 
@@ -86,11 +118,9 @@ Full route and blind spots: source-tables doc §5.
 
 ### Data asks, none of them blocking
 
-**N10** effective-dated salary history · **N12** raffle winners per draw · **N17** a contract-type
-timeline per maid · **N18** a row-level loan source · **N19** the effective-dated `live_out` flag.
-Routes for each: attachment §9 and §11. Each leaves one group rule returning BLOCKED and its notes
-amber. **Amber is a result this report publishes, not a failure of it** — the honest statement that
-no rule exists to test against.
+**N10** salary history · **N12** raffle winners · **N17** contract-type timeline · **N18** row-level
+loans · **N19** the `live_out` flag. Each gates one archetype and no more — attachment §12 maps them.
+Routes: attachment §9 and §11. **Amber is a result this report publishes, not a failure of it.**
 
 ### Two things that need a decision, not engineering
 
@@ -110,11 +140,11 @@ red-flagged "no basis".
 
 ### On sensitivity — so it does not stall at intake
 
-**No new read access is requested; nothing here widens what any role can already see.** No name,
-phone, contact detail, EID, passport or address is displayed — maids and approvers appear as
-internal ids, and since `EXPENSES_REQUESTS.APPROVED_BY` stores a *name*, the model must expose an id
-alongside it. For the four prorated-salary types the note amount **is** a salary figure: the model
-carries it, the dashboard bands it, so display is a config flag not a schema change.
+**Nothing here widens what any role can already see.** No name, phone, contact detail, EID, passport
+or address is displayed — maids and approvers appear as internal ids, and since
+`EXPENSES_REQUESTS.APPROVED_BY` stores a *name*, the model must expose an id alongside it. Same for
+`HOUSEMAID_REFERRALS`, which carries the referred maid's name and phone. For the prorated-salary
+types the note amount **is** a salary figure: the model carries it, the dashboard bands it.
 `HOUSEMAIDS_INFO` is read for non-salary columns only.
 
 ### Attached
@@ -134,8 +164,6 @@ carries it, the dashboard bands it, so display is a config flag not a schema cha
 | **DNA-9133** | Ongoing | Same measure — detects a spike, does not test a rule |
 | **DNA-9446 / 9449** | To Do | Sibling P&C check — whole-payroll arithmetic, not per-note justification |
 | **DNA-9454 / 9455** | To Do / On-Hold | Sibling P&C audit — recruitment flights, different population |
-| **DNA-7074** | Done | Cause of the mis-attribution DNA-9464 hit; this model must not inherit it |
-| **DNA-9437** | To Do | Why these figures are catalog-derived rather than measured |
 
 **This does not replace the existing Payroll Dashboard "Additions to the maid's salaries" section.**
 That reports what was added, by category. This audits whether each addition was justified.
@@ -144,8 +172,8 @@ That reports what was added, by category. This audits whether each addition was 
 
 1. **Grain holds.** `COUNT(*) − COUNT(DISTINCT ID) = 0` on the note-level model — **zero**, not
    "materially fewer".
-2. **Population is the right size.** **1,300–1,500 addition notes per complete month** — DNA-9464
-   measured 8,632 across six months on the same source. Under 800 means the audit-month rule or the
+2. **Population is the right size.** **1,300–1,500 addition notes per complete month** (DNA-9464
+   measured 8,632 across six months on the same source). Under 800 means the audit-month rule or the
    applied/refund predicates are wrong.
 3. **One verdict column.** Each note carries exactly one `AUDIT_VERDICT ∈ {RED, AMBER, GREEN}`, plus
    `VERDICT_LABEL`, `FAILURE_TYPE`|null, `BLOCKING_REASON`|null, `DUPLICATE_GROUP_ID`,
@@ -157,12 +185,12 @@ That reports what was added, by category. This audits whether each addition was 
 6. **Amber always carries its reason.** `COUNT(AMBER) = COUNT(non-null BLOCKING_REASON)`, and the
    reason buckets sum to M8 in count and money.
 7. **The auditor's own flags are not used.** Zero occurrences of `CONFIRMED_AMOUNT_BY_AUDITOR` or
-   `CONFIRMED_REPEATED_BY_AUDITOR` in any filter or test — display columns only. Why: attachment §7.
+   `CONFIRMED_REPEATED_BY_AUDITOR` in any filter or test — display only. Why: attachment §7.
 8. **Note-type integrity.** `COUNT(*)` where `NOTE_TYPE IN ('EXTRA_SHIFT','BONUS','SALARY_RAISE',
    'REDUCTION')` in the audit window is **0**.
 9. **The payslip reconciles.** Per maid × audit month, all that payslip's `ADDITION` notes sum to
-   `HOUSEMAID_PAYROLL_HISTORY.ADDITIONS`, **both sides unfiltered**, exclusions reconciled as named
-   lines. Residual surfaces as M14, never absorbed.
+   `HOUSEMAID_PAYROLL_HISTORY.ADDITIONS`, **both sides unfiltered**, exclusions as named lines.
+   Residual surfaces as M14, never absorbed.
 10. **M13 is per payment type per month**, not one aggregate, with the 80% floor applied per type.
 11. **Referral bonus is judged per referral event**, not per note: the payments for one event sum to
     a single figure, and an amount outside the scheme blocks rather than reds.

@@ -607,6 +607,97 @@ null, one `BLOCKING_REASON` or null, `DUPLICATE_GROUP_ID`, `IS_RISK_REPRESENTATI
 nothing re-derives eligibility.** If a number and a pill can disagree, the build is wrong by
 construction.
 
+### The check archetypes — the shape M6 is actually built in
+
+🔴 **Added 2026-09-07.** M6 below organises payments by **business family**, which is how payroll
+thinks about them and the right way to talk to payroll. It is the wrong way to build. Group A and
+group G share no business meaning but do the same thing — *find a corroborating record and compare a
+number to it*. Groups D and K share nothing either, but both *recompute an amount from a rate and a
+period*. Meanwhile group C alone needs four different mechanisms.
+
+**Classified by mechanism, twelve bespoke group rules collapse into nine reusable functions plus a
+configuration table.** A new payment type then becomes a row in that table rather than new code —
+which matters, because the payment-type list is known to be incomplete (O2) and the warehouse's own
+category profile is truncated.
+
+Every archetype obeys the same contract as every test in M3: `RED(type)` · `GREEN` ·
+`BLOCKED(reason)` · `N_A`.
+
+| Key | Archetype | Asks | Tier | Characteristic silent failure |
+| --- | --- | --- | --- | --- |
+| **CEIL** | Ceiling | is it more than the rule allows? | row | a TEXT threshold compared to a number matches nothing; a threshold with no effective dating re-judges closed months |
+| **ELIG** | Eligibility | did this person qualify at all? | row | reading a **profile-current** attribute to judge a historical payment |
+| **CORR** | Corroboration | is there a record authorising this? | row | taking the first of several candidates; accepting a matched record without checking its **status** |
+| **RECOMP** | Recomputation | does the arithmetic reproduce the amount? | row | a confident wrong figure from a current rate — worse than none, because it looks like evidence |
+| **PAIR** | Pairing | is the counter-entry there, and equal? | row | proving the counterpart was *created* and calling that recovery |
+| **ROSTER** | Roster | is this person on the list? | row | defaulting — an empty list reds everything, a permissive default greens everything, both silently |
+| **UNIQ** | Uniqueness | has this already been paid? | **set** | scanning one month when the entitlement window is longer |
+| **RECON** | Reconciliation | does the set sum to an independently known figure? | **set** | comparing a *filtered* set against an *unfiltered* total, so the tie-out fails definitionally every period |
+| **UNRULED** | No rule exists | — | null | being mistaken for a data gap and put in a backlog, where it waits forever |
+
+🔴 **The row/set split is the load-bearing distinction.** UNIQ and RECON cannot be evaluated in a
+scalar expression per note — they need the note's siblings, and their verdicts attach to a *group*
+(a duplicate group, a referral event, a maid-month). They run in a second pass.
+
+**The check plan per payment type** — this is the configuration; nothing below it knows what a
+payment type is:
+
+| Payment type | Plan |
+| --- | --- |
+| `airfare_ticket` | ELIG · CEIL · UNIQ |
+| `bonus` + `referral_bonus` | ELIG · CORR · RECON · UNIQ |
+| `bonus` + other | CORR |
+| `anti_attrition_incentive` | UNRULED |
+| the five group-D reasons | RECOMP · ELIG |
+| `salary_dispute` | CORR · UNRULED *(E2 has no field)* |
+| `raffle_prize` | ROSTER |
+| the four group-G reasons | CORR · ROSTER |
+| `forgive_deduction` | PAIR |
+| `cover_deduction_limit`, `cover_negative_salary` | RECOMP |
+| Accommodation Relocation | ELIG · PAIR |
+| Sim card / WPS Compliance / PCR & medical Loan | PAIR · UNRULED |
+| Live-out Transportation Assistance | ELIG · CEIL |
+| `recommendation_from_client` | ROSTER · CEIL |
+| `pay_vacation_days` | RECOMP |
+| `renewal_bonus`, `low_exchange_rate_compensation`, `AR-1` | UNRULED |
+| `office_work_addition`, `refund` | RECON only — named lines in the tie-out |
+
+**Two archetypes run on every note regardless of type**, because they are properties of the
+population rather than the payment: the payslip RECON at maid × `AUDIT_MONTH` (G1 → M14), and the
+duplicate UNIQ scan (T6 → M12).
+
+**The two passes.**
+
+```
+pass 1 — row-level
+for note in population:
+    plan = CHECK_PLAN[note.payment_type]
+    if plan is empty or unmapped:
+        trace(BLOCKED("payment type not mapped to a check plan")); continue
+    for (archetype, params) in plan:
+        trace(archetype.run(note, params)) if archetype.tier == ROW else trace(DEFERRED)
+
+pass 2 — set-level
+for g in duplicate_groups(window = per-type entitlement period): UNIQ.resolve(g)
+for e in referral_events:                                        RECON.resolve(e, expected = 1000)
+for (maid, month) in payslips:                                   RECON.resolve_payslip(maid, month)
+
+verdict — unchanged from M5, and it must stay unchanged
+```
+
+🔴 **The safety property.** A payment type with no plan yields an **empty archetype set**, and an
+empty set cannot satisfy *"every applicable test ran and returned GREEN"* (M5). So an unmapped type
+is **BLOCKED by construction**, not by anyone remembering to handle it. Given that new payment types
+will keep appearing, this is the property that keeps them arriving as amber-with-a-reason rather than
+as silent greens.
+
+**What the reframing exposes.** Grouped by archetype rather than by payment type, **UNIQ, RECON and
+the airfare CEIL are unblocked today** — every input they need is already granted. Duplicate
+detection, the payslip tie-out, the referral-event tie-out and the airfare cap are therefore
+buildable the day O1 lands, with no modelling work waiting on anyone. Everything else is blocked on
+six archetypes, and **ROSTER + UNRULED together cover fourteen payment types** — neither of which
+engineering can unblock. The largest lever on coverage is a decision, not a pipeline.
+
 ### M6 — The group rules
 
 **Routing is on `(ADDITION_REASON_ID, PURPOSE_ID)` (N5), never on the resolved name (D4).** A rename
