@@ -93,6 +93,24 @@ read this run, the match-rate floor, run id and as-of timestamp.
 **8. Export.** Row-level CSV of the case table, under the same rules as the screen — approver ids
 not names, salary-bearing rows banded.
 
+### Phase 1 — what the screen shows before the model is complete
+
+The upstream model ships in phases (Ticket 1). **Phase 1 covers duplicate detection, the payslip
+tie-out, the referral-event tie-out and the airfare cap** — those need no data beyond what is already
+granted. Everything else lands later, as its data ask clears.
+
+So the first version of this screen is **mostly amber, and that is correct, not broken**. Build it to
+degrade honestly:
+
+- The **KPI strip renders in full from day one**, with coverage low and unverifiable high. Do not
+  hide a tile because its number is small.
+- The **blocking-reason chart is the main story** in phase 1 — it is what tells P&C which rules do
+  not exist yet.
+- **Guard chips show pass/fail, never blank.** A guard that could not run reads as "not run", not as
+  a tick.
+- No tile, chart or filter may be built against anything except the single verdict column. When
+  phase 2 lands, the numbers move and nothing in this screen changes.
+
 ### Two behaviours that are not cosmetic
 
 **Colour is never the only carrier.** Every verdict pill states its word, and the failure type is
