@@ -183,3 +183,60 @@ owner disputes V2, the read can be reopened for those 90 notes specifically — 
 
 **The 510-note alarm resolves to two real findings, one new one the investigation was not looking for,
 and a large correct-by-design population that should never have been counted.**
+
+
+---
+
+# Revision 2 · 2026-09-08 (conv. 46017, payroll in scope) — the mechanism, and a bigger finding
+
+## V8 · 🔴 RED — nothing validates the amount on the addition path
+
+**Twenty code paths create a `PayrollManagerNote`. Two refuse a zero.**
+`AbstractPayrollManagerNote.amount` is a nullable `Double` with **no bean validation, no
+`@PrePersist`/`@PreUpdate`, and no DB `NOT NULL` or `> 0` constraint.**
+`processExpenseRequestTodo` copies `expenseRequestTodo.getAmount()` verbatim; the generic
+`PUT /ManagerNotes` persists whatever the client sends; `POST /ManagerNotes/bulkcreate` posts a
+client-supplied list unchecked.
+
+🔴 **The asymmetry is inside a single file.** `ExpenseRequestTodoBusinessRule` guards the **loan**
+branch with `loanAmount > 0.0` and applies **no equivalent guard to the addition amount**. Someone knew
+the check was needed and wrote it on one branch.
+
+**Verdict: RED.** This is the mechanism behind the whole 510-note population — not a cause, a *licence*.
+**Fix: one guard, on the addition branch, matching the one already on the loan branch.**
+
+## V9 · 🔴 RED (raised as a question, mechanism named) — a cancelled expense does not void its note
+
+**A `PayrollManagerNote` is never voided when its `ExpenseRequestTodo` is cancelled, rejected or
+reversed.** No listener exists for those transitions, and **the note holds no foreign key back to the
+request**, so nothing *can* link back to void it. Once created, the note outlives the request that
+justified it.
+
+For a zero note this is harmless. **For a non-zero note it is not — the note is what payroll pays
+from.** ⚠️ **Whether accounting permits a cancel after `PAID`/confirmed is not established** (marked
+unverified in the answer), so this is a question with a named mechanism, not a confirmed loss.
+
+**Verdict: RED, pending one confirmation.** **It is the largest thing found today and it has nothing
+to do with zero amounts** — the zero-amount investigation walked into it, exactly as it walked into V6.
+
+## V10 · 🟢 The born-zero question is answerable — `PayrollManagerNote` is `@Audited`
+
+Hibernate Envers retains **every revision, including an amount before it was edited to zero**. That
+splits all 510 into born-zero and zeroed-later, which no query so far could.
+
+⚠️ **And it is the only trail that would.** `AuditorAction` rows are written only when
+`logActionRequired` is true **and** the acting user holds position `payroll_auditor` — and
+`logActionRequired` is set only by `customDelete`. **Background, service and generic-`PUT` edits
+produce no `AuditorAction` at all.** The visible audit trail misses precisely the paths most likely to
+have written these notes.
+
+**Verdict: BLOCKED on one ingestion check (Z8).** If the Envers tables are in the warehouse this
+resolves today; if not, it joins the raffle tables and `HousemaidExtraFields` as a named ingestion ask
+— and it is the most valuable of the three, because it makes note history auditable at all.
+
+## What zero notes actually do in payroll
+
+Excluded from payslip lines and must-be-paid selection (both filter `amount > 0.0`), so they move no
+money. But the regular-additions query has **no** amount filter, and the mark-as-paid loop touches
+notes irrespective of amount — **a zero note can be flagged paid and linked to a
+`PayrollAccountantTodo`.** Cosmetically present, financially inert.
