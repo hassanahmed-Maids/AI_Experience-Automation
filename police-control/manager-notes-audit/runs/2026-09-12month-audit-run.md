@@ -452,3 +452,52 @@ but **does it sum to more than this maid's own entitlement**.
 F12 asks that. `INCENTIVE_AMOUNT` is still not exposed — B4/B5's blocked column — so the entitlement is
 proxied by the largest whole-entitlement amount the maid was paid in any single note across the year.
 Anything over it is an overpayment; anything at or under it is proration behaving correctly.
+
+---
+
+# F12 — the same-day duplicate population is AED 838, and 52 groups cannot be judged at all
+
+| Verdict | Maid-days | AED | Excess |
+|---|---:|---:|---:|
+| Under entitlement — proration with a gap | 99 | 18,339 | 0 |
+| Entitlement unknown — never paid a whole month | 52 | 7,083 | — |
+| 🔴 **Over entitlement — overpaid** | **17** | 4,338 | **838** |
+| Exactly the entitlement — a clean split | 1 | 300 | 0 |
+
+**The anti-attrition duplicate finding has collapsed under every correction applied to it:**
+516 candidates on the calendar month → 259 on the batch cycle → **AED 838 of actual excess** in the
+same-day core. It is not a material finding, and saying so is the result.
+
+## Three caveats that belong with the 838
+
+1. 🔴 **17 is a floor, not a ceiling.** The entitlement proxy is the *largest* whole-entitlement note
+   the maid received all year, so the test only fires above her best-ever amount. A maid whose
+   entitlement was raised mid-year can exceed her then-current entitlement and still pass. The true
+   figure is higher; how much higher is unknowable without `INCENTIVE_AMOUNT`.
+2. 🔴 **52 groups, AED 7,083, cannot be adjudicated at all** — those maids were never paid a whole
+   month, so no proxy exists. **This is the concrete price of `INCENTIVE_AMOUNT` not being exposed**,
+   and it is now a number rather than an argument: the cheapest ask in the filing pack buys back 52
+   unjudgeable cases and removes the floor caveat above.
+3. **AED 838 across 17 groups averages AED 49** — too small for a duplicated monthly payment and the
+   wrong shape for one.
+
+## The 838 is probably the code's own arithmetic
+
+`MaidIncentiveExperimentJob` prorates with `daysBetween(startDate, endDate) + 1` over
+`daysBetween(firstDayOfMonth, currentDate) + 1`. **Inclusive counting on both segments pays the
+changeover day twice** when one contract ends and the next begins on the same date. That produces
+exactly this signature: a small excess, on maids with two same-day notes, in whole days of
+entitlement.
+
+F13 tests it by expressing each excess in days of entitlement. **Clustering at 1, 2, 3 is the
+arithmetic — a code defect worth one line to fix, affecting every prorated payment, not a control
+failure. Scattered fractions mean something else and the 17 stay open.**
+
+## Where anti-attrition ends up
+
+**One material finding: 42 notes, AED 9,019, paid before any enrolment record existed** — the job's own
+work, with every alternative explanation tested and eliminated. Alongside it the three control
+findings from the code, which apply to all 9,167 notes and AED 1.83m rather than to 42.
+
+**The duplicate rule produced no material finding on this payment type, and required five corrections
+to establish that.** Both halves of that sentence are the deliverable.

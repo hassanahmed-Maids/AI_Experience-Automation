@@ -862,3 +862,45 @@ FROM same_day s
 LEFT JOIN ent e ON e.HOUSEMAID_ID = s.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY maid_days DESC;
+
+-- F12 RESULTS 2026-09-08 — the same-day duplicate population, adjudicated. 169 groups:
+--   under entitlement (proration with a gap) ......  99 · AED 18,339 · excess 0  · legitimate
+--   entitlement unknown (never a whole month) .....  52 · AED  7,083 · excess -  · UNTESTABLE
+--   🔴 OVER entitlement - overpaid ................  17 · AED  4,338 · excess AED 838
+--   exactly the entitlement (clean split) .........   1 · AED    300 · excess 0  · legitimate
+--   The entitlement proxy is the LARGEST whole-entitlement note the maid received all year, so
+--   the test only fires above her best-ever amount: 17 is a FLOOR, not a ceiling. A maid whose
+--   entitlement was raised mid-year can exceed her then-entitlement and still pass.
+--   The 52 untestable groups are the concrete price of INCENTIVE_AMOUNT not being exposed.
+
+-- F13. Is the AED 838 a double payment, or the proration arithmetic double-counting the
+--      changeover day? MaidIncentiveExperimentJob computes
+--         daysBetween(startDate,endDate) + 1  /  daysBetween(firstDayOfMonth,currentDate) + 1
+--      Inclusive counting on BOTH segments means a contract ending and starting on the same
+--      day is paid twice for that day. If so the excess lands on WHOLE small day-counts.
+--      Expressing the excess in days of entitlement decides it: clustering at 1, 2, 3 is the
+--      arithmetic; scattered fractions are not.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), ent AS (
+    SELECT HOUSEMAID_ID, MAX(AMOUNT) AS entitlement
+    FROM paid WHERE AMOUNT IN (100,150,200,250,300,350,400,450,500)
+    GROUP BY 1
+), same_day AS (
+    SELECT HOUSEMAID_ID, note_day, COUNT(*) AS notes, SUM(AMOUNT) AS total
+    FROM paid GROUP BY 1, 2 HAVING COUNT(*) > 1
+)
+SELECT s.notes                                        AS notes_on_the_day,
+       ROUND((s.total - e.entitlement)
+             / (e.entitlement / DAY(LAST_DAY(s.note_day))), 1) AS excess_in_days,
+       COUNT(*)                                       AS maid_days,
+       ROUND(SUM(s.total - e.entitlement))            AS aed_excess
+FROM same_day s
+JOIN ent e ON e.HOUSEMAID_ID = s.HOUSEMAID_ID
+WHERE s.total > e.entitlement + 0.5
+GROUP BY 1, 2
+ORDER BY 2, 1;
