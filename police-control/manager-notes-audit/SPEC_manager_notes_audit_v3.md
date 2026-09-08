@@ -921,6 +921,13 @@ those 90 carry a figure.** Running the whole year, 2025-09-08 to 2026-09-04. If 
 **money moved outside the system of record — invisible to this audit and to payroll controls alike**,
 and a zero-amount note is the only trace it leaves.
 
+**0. 🟢 N_A — system-generated markers.** *(Z6)* **81 of the 510 zeros** read *"auto added by the
+system when the housemaid passes upload the e-residency step"*, with variants recording the bonus as
+postponed or explicitly not payable. **Zero is the correct amount and the note is the system working.**
+**These must be excluded from the zero-amount population before any rate is computed** — they are 16%
+of the alarm, and counting them inflated every zero-rate in this report. Detect them by their
+system-authored phrasing, not by amount.
+
 **3. 🟠 Everything else stays AMBER** — 43 cancelled or superseded, 28 adjustments, 22 raised and
 never filled, 2 with no text.
 

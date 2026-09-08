@@ -172,3 +172,61 @@ Across August–September 2026, the 18 maids carry only **five** other notes bet
 **At least 15 of the 18 received nothing at all.** The money did not land under another reason — it
 did not land. This is a defect **and** an unpaid entitlement, and it is the one finding here that can
 be filed today with no further data.
+
+---
+
+# Z6 — the Agent's read. 105 notes explained by shape, 369 hand-written
+
+| Shape family | Notes | Maids | Window |
+|---|---:|---:|---|
+| **One-off phrasings (each unique)** | **369** | 369 | 2025-09-08 → 2027-01-24 |
+| 🟢 **"auto added by the system … e-residency step"** + 5 variants | **81** | 81 | 2025-12-26 → 2028-03-11 |
+| "forgiveness for #-#-#" | 10 | **2** | 2026-04-15 → 2026-07-02 |
+| "forgiveness … // paid manually" | 5 | **1** | 2026-04-04 (one day) |
+| "forgiveness … // not valid and canceled after checking with …" | 3 | **1** | 2026-03-04 (one day) |
+| live-out transportation, "# dhs is paid manually" | 2 | 1 | 2026-08-09 |
+| (no text) | 2 | 1 | Jan 2026 |
+
+## 🟢 81 of them are the system working correctly
+
+**"Auto added by the system when the housemaid passes upload the e-residency step"** — plus variants
+reading *postponed till she completes # months*, *mv to cc … postponed*, *confirmed not to release the
+bonus upon the switch to mv*, *didn't accumulate # months under cc*.
+
+**These are system-generated markers, and zero is the correct amount.** The event happened, the bonus
+is postponed or explicitly not payable, and the note records it. **They are not defects, not missing
+money, and should never have been in a findings population at all.** They are 81 of the 510 — **16% of
+the entire zero-amount alarm** — and the largest single explanation the investigation found.
+
+## The "forgiveness" cluster is 18 notes and 2–3 maids, not a pattern
+
+Ten notes across **two** maids, five more on **one** maid on **one day** marked *paid manually*, three
+on one maid marked *not valid and canceled*. `Forgive Deduction` had 32 zeros; more than half are this
+handful of people. **A payment-type rate of 3% concealed a two-maid story.**
+
+## 🔴 A finding the audit was not looking for: PII in the free-text field
+
+One shape carries a maid's **full name, her passport number, an internal ERP URL and a payment
+instruction** in a note description. **The value is not reproduced here and will not be.** But the
+field is unstructured, unmasked, and read by every downstream consumer of this table — including this
+audit. **Manager-note free text is holding identity-document data.** That is a data-protection matter
+independent of any money finding, and it is raised as such rather than folded into a zero-amount count.
+
+## What the read did and did not settle
+
+- **Settled:** 81 notes are correct-by-design. 18 more are a two-maid forgiveness cluster. 2 are empty.
+- **Not settled:** **369 notes are unique, hand-written, one per maid.** They do not collapse, which is
+  itself the answer — **no classifier was ever going to work on them.**
+- **"Paid manually" is real but small where it is visible:** 7 notes across 2 maids in the shape read.
+  The other ~83 keyword matches sit inside the 369 one-offs.
+
+## ⛔ The Agent stops reading here, and says why
+
+Reading the 369 means reading 369 free-text notes about 369 named people — the highest-exposure act in
+this investigation — to refine a population carrying **AED 0**. **The control finding does not depend
+on the wording.** *Ninety zero-amount notes across eleven payment types and seventy-nine maids indicate
+payment happened outside payroll* is actionable as it stands: the fix is a process one, and reading
+eighty-three more descriptions would not change it.
+
+**Proportionality is a finding-quality rule, not a shortcut.** More reading here buys precision on
+AED 0 and spends the audit's licence to read personal data.
