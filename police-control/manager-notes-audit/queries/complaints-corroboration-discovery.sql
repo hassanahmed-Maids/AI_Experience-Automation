@@ -727,3 +727,65 @@ FROM shaped GROUP BY 1,2 ORDER BY 1,2;
 --   WITH n AS (...same...)
 --   SELECT note_day, COUNT(*) AS notes FROM n
 --   GROUP BY 1 HAVING COUNT(*) > 100 ORDER BY note_day;
+
+
+-- =====================================================================================
+-- 6h. THE HAND-ADDED REVIEW QUEUE (§3m, O48). SELF-CONTAINED. Part A 1 row, Part B ~45.
+--
+--     The finding: the job's amounts ALWAYS resolve to a rule (0 of 3,677 in 30-day
+--     months). Hand-added amounts often do not (15 of 51, 29%). This lists them for all
+--     12 months. The job is its own control group, which is what makes 0.0% a baseline
+--     rather than an assumption.
+--
+--     Batch days are OBSERVED, never assumed: August's batch ran 2026-09-01, not 08-31,
+--     so any LAST_DAY test misfiles the largest batch in the series (§3m).
+--
+--     The rule set is deliberately GENEROUS — a multiple of 50, or a /28 /29 /30 /31
+--     fraction of one. The divisor tracks the period being paid, not the note's month,
+--     so all four are allowed. A note that survives this fits NO derivable rule at all,
+--     which is the point: make it hard to be flagged, then flag what remains.
+--
+--     ⚠️ REQUESTED_BY / APPROVED_BY are staff attribution for segregation-of-duties
+--        (the S1 check). Audit context only — not for an export or a dashboard.
+-- =====================================================================================
+-- A. Sizing + the control-group contrast, in one row. Run first.
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT,
+           NULLIF(TRIM(REQUESTED_BY),'') AS requester,
+           NULLIF(TRIM(APPROVED_BY),'')  AS approver
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON = 'Anti-attrition Incentive'      -- <<< do not drop
+      AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), batch_days AS (
+    SELECT note_day FROM n GROUP BY 1 HAVING COUNT(*) > 100
+), flagged AS (
+    SELECT n.*,
+           IFF(n.note_day IN (SELECT note_day FROM batch_days),'on_batch','off_batch') AS origin,
+           (n.AMOUNT = ROUND(n.AMOUNT) AND MOD(n.AMOUNT,50) = 0)
+           OR (ABS(n.AMOUNT*28 - ROUND(n.AMOUNT*28)) < 0.2 AND MOD(ROUND(n.AMOUNT*28),50) = 0)
+           OR (ABS(n.AMOUNT*29 - ROUND(n.AMOUNT*29)) < 0.2 AND MOD(ROUND(n.AMOUNT*29),50) = 0)
+           OR (ABS(n.AMOUNT*30 - ROUND(n.AMOUNT*30)) < 0.2 AND MOD(ROUND(n.AMOUNT*30),50) = 0)
+           OR (ABS(n.AMOUNT*31 - ROUND(n.AMOUNT*31)) < 0.2 AND MOD(ROUND(n.AMOUNT*31),50) = 0)
+               AS fits_a_rule
+    FROM n
+)
+SELECT COUNT_IF(origin='on_batch')                                        AS job_notes,
+       COUNT_IF(origin='on_batch' AND NOT fits_a_rule)                    AS job_no_rule,
+       COUNT_IF(origin='off_batch')                                       AS hand_added_notes,
+       COUNT_IF(origin='off_batch' AND NOT fits_a_rule)                   AS hand_no_rule,
+       ROUND(100.0*COUNT_IF(origin='off_batch' AND NOT fits_a_rule)
+                  /NULLIF(COUNT_IF(origin='off_batch'),0),1)              AS pct_hand_no_rule,
+       ROUND(SUM(IFF(origin='off_batch' AND NOT fits_a_rule, AMOUNT, 0))) AS aed_hand_no_rule,
+       ROUND(SUM(IFF(origin='off_batch', AMOUNT, 0)))                     AS aed_hand_total
+FROM flagged;
+
+-- B. The queue itself. Same CTEs; final SELECT:
+--   SELECT ID AS note_id, HOUSEMAID_ID AS maid_id, note_day AS note_date, AMOUNT,
+--          requester, approver,
+--          IFF(requester IS NOT NULL AND requester = approver, 'SELF_APPROVED', NULL) AS sod_flag,
+--          ROUND(AMOUNT*31,2) AS x31, ROUND(AMOUNT*30,2) AS x30
+--   FROM flagged
+--   WHERE origin = 'off_batch' AND NOT fits_a_rule
+--   ORDER BY AMOUNT DESC;
