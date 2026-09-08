@@ -1,7 +1,31 @@
 # Manager Notes Audit — developer spec
 
-**Owner** Police & Control · **Rev** 2026-09-05 · **Target** MaidsInsights on Snowflake
+**Owner** Police & Control · **Rev** 2026-09-08 (v3) · **Target** MaidsInsights on Snowflake
 **Mockup** https://claude.ai/code/artifact/75d6c4b8-ee4e-431a-aa8a-b19daa19e051
+
+---
+
+## 0. What changed on 2026-09-08 — read this if you saw the earlier revision
+
+This is the first revision written against **live query results** rather than catalog metadata and
+ERP source. Eleven queries changed the logic in eight places. The five that change what you build:
+
+1. 🔴 **Never reject a future-dated note.** The earlier revision said to. `Airfare Ticket` runs to
+   **2028-06-02** and is **38.1% of all addition money** — the rule would delete the largest type in
+   the audit. Its date is very likely the *travel* date (§4, O69).
+2. 🔴 **`NOTE_DATE` carries a time.** `NOTE_DATE = LAST_DAY(NOTE_DATE)` is false for **every** row and
+   returns a clean, plausible, meaningless result. Always `NOTE_DATE::DATE` (§6).
+3. 🔴 **A job's run days are observed, never assumed.** August's monthly batch ran on **2026-09-01**,
+   not 08-31 — 918 notes, the largest in the series (§6).
+4. 🔴 **Never RED a note for missing attribution off a hardcoded type list.** 850 of the 862
+   unattributed notes are `Bonus`, machine-created by design. Measure origin per type (§7, S1).
+5. 🔴 **`anti_attrition_incentive` has a rule now** — eight tests, six runnable on the grant. Four
+   earlier candidates were tried and closed off by data; they are listed so they are not
+   re-attempted (§8).
+
+Two claims the earlier revision made confidently are **withdrawn**: that anti-attrition amounts hide
+a second payment type (they are prorated, one mechanism), and that hand-typed amounts fitting no rule
+is a usable check (it detects whole-dirham typing, not error).
 
 ---
 
@@ -9,8 +33,12 @@
 
 Every month, managers at maids.cc add money to housemaids' payslips. Flight-home money, loyalty
 payments, referral and signing bonuses, part-month salaries, salary corrections, raffle prizes,
-reimbursing a maid for money she spent herself. Roughly **1,300 additions a month, worth about
-AED 0.5m** — some **AED 6.3m a year across ~16,000 payments**.
+reimbursing a maid for money she spent herself. **Measured 2026-09-08 over 12 months: 25 payment types, 17,566 notes, AED 7,179,262.**
+
+Two types dominate, and **they are different types**: `anti_attrition_incentive` is **9,167 notes —
+52% by count** but AED 1.83m, 25% of the money; `Airfare Ticket` is **AED 2.73m — 38% of the money**
+on 1,654 notes. A count-ranked tile and a money-ranked tile name different types at the top, and both
+are right.
 
 Every one of them is supposed to be justified by whatever rule governs that type of payment.
 **Nobody currently checks.** Police & Control wants a dashboard that does.
@@ -93,6 +121,10 @@ In scope and easy to get wrong: **negative amounts** (clawbacks — reported, ne
 a finding), **both contract types**, **system-generated additions** (`forgive_deduction`,
 `cover_deduction_limit`, `cover_negative_salary` — pending Q3).
 
+🔴 **No future-date predicate either.** Notes dated after the audit month are **normal** for at
+least one payment type — `Airfare Ticket` spans 34 active months inside a 12-month window. Filtering
+them out deletes 38% of the money. They resolve through §4's third branch to AMBER, never dropped.
+
 **No profile predicate in the population.** An unreadable or deleted profile is a *verdict*
 (amber), not an exclusion. Join notes → `HOUSEMAIDS_INFO` as a **LEFT JOIN**. Filtering
 `IS_DELETED <> '01'` drops rows silently — the column is TEXT and nullable, so the comparison
@@ -116,6 +148,17 @@ nor `PAID_ON_PAYROLL_MONTH`. Those are written only for carried-forward *must-be
 `HousemaidPayrollController`'s manual "mark as paid" sets `PAID` **without**
 `PAID_ON_PAYROLL_MONTH`. **Filtering on `PAID = true` drops most of the population and the month
 reports clean.**
+
+🔴 **Cast before any date comparison.** `NOTE_DATE` is a timestamp; `LAST_DAY()` returns midnight,
+so `NOTE_DATE = LAST_DAY(NOTE_DATE)` is false for every row and yields a well-formed, plausible,
+entirely meaningless split — one written this way put **3,728 of 3,728 notes on one side** and looked
+correct. Use `NOTE_DATE::DATE`.
+
+🔴 **Airfare breaks this section and it is not yours to fix (O69).** `Airfare Ticket` carries notes
+dated up to **2028-06-02**, 21 months ahead, and is the largest type by money. If `NOTE_DATE` is the
+travel date rather than the payment date, every one of those notes resolves to a payroll month no
+auditor will ever open. **Resolve `audit_month` per payment type**, and until payroll answers, airfare
+notes whose date exceeds the audit month land AMBER with the reason stated.
 
 `audit_month` is a payroll month as its first day (`DATE`) — same domain as
 `HOUSEMAID_PAYROLL_HISTORY.PAYROLL_MONTH`, so G1 joins on equal keys.
@@ -235,6 +278,11 @@ cannot return red for that type. **A low match rate means unverified, never clea
 | **Parameters** | `PARAMETERS.VALUE` is TEXT and **not effective-dated**. Cast it; snapshot it per run |
 | **Timezone** | `NOTE_DATE` is `TIMESTAMP_NTZ`, zone unstated. Truncate once, centrally; flag notes within 3h of a window edge |
 | **Currency of the note** | D1 has no currency column. AED is an **assumption** — confirm |
+| 🔴 **Uncast date equality** | `NOTE_DATE = LAST_DAY(NOTE_DATE)` is false for **every** row — the timestamp never equals midnight. It returns a clean, plausible split of nothing. Always `NOTE_DATE::DATE` |
+| 🔴 **Assumed batch days** | The monthly job does **not** always run on the last calendar day — August's ran 2026-09-01, 918 notes. Derive run days from the data (`GROUP BY NOTE_DATE::DATE HAVING COUNT(*) > n`), never from the calendar |
+| 🔴 **Two columns, two sources** | `REQUESTED_BY` ← `users.FULL_NAME` (canonical); `APPROVED_BY` is free text, and **43% of approvals are a bare first name**. `LOWER(a) = LOWER(b)` matches by luck. Normalise case **and internal whitespace**, match name forms, and BLOCK where a shared first name makes it unresolvable |
+| 🔴 **Machine origin from a list** | Machine-created notes carry no requester or approver **by design** — 850 of 862 unattributed notes are `Bonus`. Reding them off a hardcoded "human types" list manufactures ~850 findings a year. Measure origin per type: a type's attributed notes are a control group for its unattributed ones |
+| 🔴 **A window test with no chance rate** | *"Is there a related record within N days"* has a hit rate from geometry alone: a 105-day window with a 30-day band gives p=0.286, so at 1.7 records per subject chance produces **40%**. One real test scored 40.3% — **1.00× chance, zero signal** — and would have read "40% corroborated". Publish the chance rate beside the observed one, computed **per subject** |
 
 ## 7. Verdict model
 
@@ -297,7 +345,7 @@ this. Do not code a fixed list of reasons.
 | `ADDITION_REASON_ID` code | Group | Buildable |
 |---|---|---|
 | `airfare_ticket` | **A** Flight home | ✅ |
-| `anti_attrition_incentive` | **B** Loyalty | ✅ **specified** (ELIG · CORR · RECOMP · CEIL · UNIQ) — 4 of 6 tests need only the grant |
+| `anti_attrition_incentive` | **B** Loyalty | ✅ **re-specified 2026-09-08 — 8 tests, 6 need only the grant.** Runnable: B1 enrolled · **B1b enrolled *before* the payment** (new; found a case on its first run) · B2 contract type · B3 active · B6 once per month (review list, not RED, until `CONTRACT_ID`) · **B7 the agent reads the enrolment reason box** — 100% filled, 96% distinct, median 43 chars. Blocked: B4 recompute (needs enrolment **and exit** dates *plus* the divisor rule — 30% of notes are prorated over two divisors, both the job's own), B5 ceiling (`INCENTIVE_AMOUNT`). ⚠️ **Do not re-attempt**: the complaint check scores **1.00× chance — zero signal**; enrolment-exists passes 1,000 in 1,001; `AMOUNT = tier` cannot be written; "the amount fits no rule" detects whole-dirham typing, not error |
 | `bonus` + purpose `referral_bonus` | **C** Referral | partial — event ✅, price needs N11 |
 | `bonus` + other purpose | **C** Signing | partial — price needs N11 |
 | `prorated_salary`, `mv_prorated_salary`, `previously_held_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | **D** Part-month | partial — needs N10 |
@@ -478,8 +526,12 @@ SELECT * FROM BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER LIMIT 50;
 **Q1** M13 confidence floor — start 80%, per payment type. Decides red vs amber on unmatched notes.
 **Q2** T4 tolerance — AED 0.01 is a float guard, not materiality. Want a materiality band?
 **Q3** System-generated additions (group I) in scope or out?
-**Q4** The loyalty rule. `anti_attrition_incentive` has no eligibility or amount rule anywhere in
-the ERP. Either one gets written, or the report states every month that the largest category of
-manager additions cannot be audited.
+**Q4** 🔴 **Narrowed 2026-09-08.** The loyalty payment is no longer unauditable — it has eight tests,
+six runnable (§8), and its justification does exist: a required free-text box on the enrolment record,
+**100% filled and 96% distinct**. What is left for the business is sharper than "write a rule":
+*should enrolment require a **categorised** reason and a linked complaint, as the sibling
+`resignation_retraction` bonus already does?* That mechanism exists next door, on the smaller of the
+two retention payments. Separately: **one approver signs off 34 of the 35 hand-added anti-attrition
+payments** sampled — a single point of approval on the largest type by count.
 **Q5** Salary-bearing rows — band on screen, or full amount?
 **Q6** Write-back in the first release, or read-only status tracked outside the tool?
