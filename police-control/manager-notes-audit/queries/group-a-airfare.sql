@@ -267,3 +267,68 @@ FROM air a
 JOIN tick t ON t.HOUSEMAID_ID = a.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY pairs DESC;
+
+-- A5a/A5b RESULTS 2026-09-08 — 🟢 A REAL CLEARANCE, not an empty-result one.
+--   A5a: HOUSEMAIDS_TICKETS holds 13,818 rows over 10,270 maids, 2016-09-13 to 2026-09-08,
+--        8 ticket types, 1 deleted row. Populated, dated, joinable.
+--   A5b: the populations DO overlap — 361 maids hold both a cash airfare note and a company
+--        ticket — but every overlap is TO_DUBAI (the arrival ticket), median 764 days apart,
+--        closest 262 days. ZERO within 180 days. Plus 2 TO_EXIT and 1 TO_MANILA, all 8+ years
+--        apart. No vacation ticket appears against any cash allowance.
+--   🟢 So: the code has no control preventing cash-plus-ticket, and in twelve months nothing
+--   exploited it. Same shape as V9 — a missing guard with no instances. The clearance is
+--   trustworthy precisely BECAUSE the join returned 364 irrelevant pairs rather than nothing.
+
+-- A7b. 🔴 WHAT BROKE ON 17-24 AUGUST? The airfare amount is a flat per-nationality constant
+--   (tag `ScheduledAnnualVacationAmount`, else parameter `default_ticket_allowance_amount`).
+--   A zero therefore means the tag or the parameter resolved to nothing. The nationality mix
+--   of the 75 zero notes separates the two: ONE nationality => its tag broke; MANY => the
+--   global default broke. The parameter store is not in the warehouse, so this is the only
+--   way to tell from data.
+SELECT COALESCE(h.NATIONALITY, '(unknown)')                      AS nationality,
+       COUNT(*)                                                  AS notes_in_window,
+       COUNT_IF(n.AMOUNT = 0)                                    AS zeros,
+       COUNT_IF(n.AMOUNT > 0)                                    AS non_zeros,
+       ROUND(AVG(IFF(n.AMOUNT > 0, n.AMOUNT, NULL)))             AS avg_when_paid,
+       (SELECT MODE(n2.AMOUNT)
+          FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n2
+          LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h2 ON h2.ID = n2.HOUSEMAID_ID
+         WHERE n2.NOTE_TYPE = 'ADDITION' AND n2.REASON = 'Airfare Ticket' AND n2.AMOUNT > 0
+           AND h2.NATIONALITY IS NOT DISTINCT FROM h.NATIONALITY
+           AND n2.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())) AS this_nationalitys_tier
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket'
+  AND n.NOTE_DATE >= '2026-08-15' AND n.NOTE_DATE < '2026-08-27'
+GROUP BY 1
+ORDER BY zeros DESC;
+
+-- A7c. 🔴 WAS ANYONE PAID AFTERWARDS? 75 maids were entitled to an airfare and received AED 0.
+--   At the modal 2,000 that is roughly AED 150,000 of unpaid entitlement. This asks whether a
+--   correcting note followed — the remediation question, which no other query has asked.
+WITH zeroed AS (
+    SELECT DISTINCT HOUSEMAID_ID, NOTE_DATE::DATE AS zero_day
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Airfare Ticket' AND AMOUNT = 0
+      AND NOTE_DATE >= '2026-08-15' AND NOTE_DATE < '2026-08-27'
+), later AS (
+    SELECT z.HOUSEMAID_ID, z.zero_day,
+           MAX(n.AMOUNT)                                  AS later_amount,
+           MIN(n.NOTE_DATE::DATE)                         AS later_day
+    FROM zeroed z
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+           ON n.HOUSEMAID_ID = z.HOUSEMAID_ID
+          AND n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket'
+          AND n.AMOUNT > 0
+          AND n.NOTE_DATE::DATE > z.zero_day
+    GROUP BY 1, 2
+)
+SELECT CASE WHEN later_amount IS NULL THEN '🔴 never paid an airfare since'
+            ELSE '🟢 a later airfare exists' END          AS outcome,
+       COUNT(*)                                           AS maids,
+       ROUND(SUM(COALESCE(later_amount, 0)))              AS aed_paid_later,
+       MIN(later_day)                                     AS earliest_correction,
+       MAX(later_day)                                     AS latest_correction
+FROM later
+GROUP BY 1
+ORDER BY maids DESC;
