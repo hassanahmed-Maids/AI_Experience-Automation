@@ -350,3 +350,100 @@ LEFT JOIN ref r    ON r.referrer_id  = b.HOUSEMAID_ID
 LEFT JOIN totals t ON t.HOUSEMAID_ID = b.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY verdict;
+
+-- O8/O2/A1 RESULTS 2026-09-08.
+--   O8 (bonus, de-duplicated to one verdict per note — the overlap was real):
+--     1 OVER the referral entitlement ....  28 notes ·  15 maids · AED  20,000 (over by 10,500)
+--     2 no bonus was ever requested ......  110 notes ·  91 maids · AED  70,895
+--     3 paid before the bonus request ....   12 notes ·  12 maids · AED   9,500
+--     4 no referral at all — unresolved ..  407 notes · 352 maids · AED 251,721
+--     5 clean ............................  574 notes · 507 maids · AED 497,200
+--     O6 reported 20 notes / AED 15,000 in category 3; de-duplication moved 8 notes and
+--     AED 5,500 of those into categories 1 and 2. THIS is why O8 existed — the summed figure
+--     would have been overstated by 58%.
+--
+--   A1 (airfare tiers) — 🟢 ESSENTIALLY CLEAN. Across 1,518 notes and 15 nationalities:
+--     Kenyan .... 1 note above tier · AED 500 over (2,000 paid against a 1,500 tier)
+--     every other nationality ... 0 above tier
+--     Tiers are strikingly consistent: 12 of 15 nationalities have exactly ONE distinct
+--     amount. Filipina 2,000, Nepali 1,000, everything else 1,500.
+--     🟢 AED 2.59m of UNGATED airfare money clears on the amount axis for AED 500.
+--
+--   O2 (all 25 types) — the same-day column is the signal, but only where same-day is NOT
+--   the type's native shape. Forgive Deduction, Prorated salary and Medical Assistance have
+--   a MEDIAN repeat gap of 0 days: many lines for one maid on one day is how they work, so
+--   their same-day counts (731 / 39 / 12) are structure, not duplication.
+--   Types with a real monthly cadence AND same-day repeats — the genuine candidates:
+--     Anti-attrition (gap 31) .. 174 same-day · AED 14,906  → already adjudicated to AED 838
+--     🔴 Bonus (gap 31) ........  12 same-day · AED 10,000  → NEW
+--     🔴 Salary Dispute (gap 32)  11 same-day · AED  2,582  → NEW
+--     🔴 Taxi (gap 20) .........  12 same-day · AED    887  → NEW
+--     🔴 Maids.at (gap 24) .....   1 same-day · AED     30  → NEW
+--     🔴 Raffle Prize (gap 86) .   0 same-day, but 17 SAME-AMOUNT repeats inside 31 days,
+--        AED 3,400 — a maid winning the same prize twice in a month. For a random draw that
+--        is the wrong shape, and the raffle tables are not ingested to check it.
+--   ⚠️ `same_amount_within_31d` is USELESS for monthly-cycle types: anti-attrition returns
+--   3,838 notes / AED 926,963, which is simply a maid paid her tier every month. Read that
+--   column only for types whose cadence is longer than 31 days.
+
+-- O9. 🔴 RESOLVE THE AED 251,721. `Bonus` mixes referral and signing bonuses and PURPOSE_ID
+--   is not in the warehouse — but MAIDS_REFERRALS_BONUSES carries PAYROLL_NOTE_DATE,
+--   BONUS_AMOUNT and NOTE_REASON against the REFERRED maid. Walking REFERRED -> REFERRER via
+--   HOUSEMAID_REFERRALS identifies which bonus notes are referral bonuses, from the referral
+--   side, without PURPOSE_ID. Whatever remains unmatched is a signing bonus or unjustified.
+WITH bonus AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), ref_link AS (
+    SELECT REFERRED_MAID_ID, HOUSEMAID_ID AS referrer_id
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE REFERRED_MAID_ID IS NOT NULL AND HOUSEMAID_ID IS NOT NULL
+), rb AS (
+    SELECT l.referrer_id, b.PAYROLL_NOTE_DATE::DATE AS note_day, b.BONUS_AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES b
+    JOIN ref_link l ON l.REFERRED_MAID_ID = b.REFERRED_HOUSEMAID_ID
+    WHERE b.PAYROLL_NOTE_DATE IS NOT NULL
+)
+SELECT CASE
+         WHEN r.referrer_id IS NULL THEN '🔴 not a referral bonus — signing bonus or unjustified'
+         ELSE                            'matched to a referral bonus record'
+       END                              AS reading,
+       COUNT(*)                         AS bonus_notes,
+       COUNT(DISTINCT n.HOUSEMAID_ID)   AS maids,
+       ROUND(SUM(n.AMOUNT))             AS aed
+FROM bonus n
+LEFT JOIN rb r ON r.referrer_id = n.HOUSEMAID_ID
+              AND r.note_day    = n.note_day
+              AND ABS(COALESCE(r.BONUS_AMOUNT,0) - n.AMOUNT) < 0.01
+GROUP BY 1
+ORDER BY aed DESC;
+
+-- O10. Adjudicate the NEW same-day duplicates the way anti-attrition's were: a legitimate
+--   two-contract split sums to ONE entitlement; two full entitlements on one day cannot be a
+--   split. Applied to the four types with a real monthly cadence.
+WITH n AS (
+    SELECT HOUSEMAID_ID, COALESCE(REASON,'(none)') AS payment_type,
+           NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0
+      AND REASON IN ('Bonus','Salary Dispute','Taxi Reimbursement','Maids.at other expenses')
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), ent AS (
+    SELECT HOUSEMAID_ID, payment_type, MAX(AMOUNT) AS best_single
+    FROM n GROUP BY 1, 2
+), same_day AS (
+    SELECT HOUSEMAID_ID, payment_type, note_day, COUNT(*) AS notes, SUM(AMOUNT) AS total
+    FROM n GROUP BY 1, 2, 3 HAVING COUNT(*) > 1
+)
+SELECT s.payment_type,
+       COUNT(*)                                                   AS maid_days,
+       SUM(s.notes)                                               AS notes,
+       ROUND(SUM(s.total))                                        AS aed_on_those_days,
+       COUNT_IF(s.total > e.best_single + 0.01)                   AS OVER_their_best_single,
+       ROUND(SUM(GREATEST(s.total - e.best_single, 0)))           AS aed_OVER
+FROM same_day s
+JOIN ent e ON e.HOUSEMAID_ID = s.HOUSEMAID_ID AND e.payment_type = s.payment_type
+GROUP BY 1
+ORDER BY aed_OVER DESC;
