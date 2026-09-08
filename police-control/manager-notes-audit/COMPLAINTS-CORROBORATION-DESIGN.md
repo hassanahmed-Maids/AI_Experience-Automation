@@ -532,16 +532,55 @@ Most amounts are tier-like: 300, 350, 400, 500. But the queue also contains non-
 | 338.33 | × 30 | 10,150 |
 | 322.58 | × 31 | 10,000 |
 
-**373.33 and 361.29 are the same 11,200 divided by June's 30 days and July's 31.** That is not a tier
-and not a coincidence — it is a day-based computation. And 10,000–11,200 is salary-scale, an order of
-magnitude above a 300–500 incentive, so these amounts are **one day of a monthly salary filed under
-the anti-attrition reason**.
+**373.33 and 361.29 are the same 11,200 divided by June's 30 days and July's 31.** That is not a
+tier and not a coincidence — it is a day-based computation. **6d sizes it.**
 
-Per the deep-dive's own rule, *a MIX inside one payment type means two mechanisms are sharing one
-payment reason, and that is a finding in itself.* It also means B4/B5 (recompute, allowed-amount)
-cannot be written as a tier check even once `INCENTIVE_AMOUNT` is exposed under O23 — the type must
-first be split. **Query 6d sizes the split.** *(486 and 338.33 fit no clean divisor; 6d will say
-whether they are a third mechanism or noise.)*
+## 3j. 🔴 Correction: the amounts are prorated, NOT a second payment type
+
+6d came back and **retracts my salary-scale reading of §3i.** The arithmetic was right; the
+interpretation was not.
+
+| Shape | Notes | % | AED | % | Median implied | Maids |
+|---|---:|---:|---:|---:|---:|---:|
+| 1_TIER_round | 6,144 | 67.0% | 1,515,100 | 82.8% | 6,200 | 1,455 |
+| 2_DAY_PRORATED | 2,725 | 29.7% | 274,379 | 15.0% | **2,400** | 1,784 |
+| 3_UNEXPLAINED | 298 | 3.3% | 40,256 | 2.2% | 3,437 | 281 |
+
+**The buckets reconcile exactly: 9,167 notes and AED 1,829,735** — the known population and the known
+AED 1.83m, to the note and to the dirham. The classification is exhaustive and loses nothing.
+
+**Where I went wrong.** `implied_monthly = AMOUNT × days_in_month` only recovers a *monthly* figure if
+the note represents one day. If a note is instead `tier × days_enrolled ÷ days_in_month` — ordinary
+proration — the same arithmetic recovers `tier × days_enrolled`, which is not a monthly anything. The
+median of 2,400 is a 200–400 tier over 6–12 days, squarely **incentive-scale**. It is not the
+10,000–11,200 salary-scale figure I inferred from two hand-picked rows, and the tier bucket's own
+median implies a ~200 tier, well below the 300–500 range I assumed from the queue sample.
+
+**So there is one mechanism with proration, not two mechanisms sharing a reason.** §3i's
+"day of salary filed under the anti-attrition reason" is withdrawn, and with it the claim that the
+type must be split before B4/B5 can be written. Two rows are an anecdote; 9,167 are the distribution.
+
+### What survives, and it is still a spec change
+
+**30% of anti-attrition notes are prorated (AED 274,379).** B4/B5 therefore cannot be written as
+`AMOUNT = tier` — it must be `AMOUNT = tier × days_enrolled ÷ days_in_month`, which needs the
+enrolment and exit dates, not just `INCENTIVE_AMOUNT`. O23 as scoped would not have been enough to
+write the check, and that gap was invisible while the type looked like a flat tier table.
+
+### Two things 6d surfaced that nobody was looking for
+
+🔴 **`MIN_AMT = 0` in the tier bucket. Anti-attrition notes worth AED 0 exist.** A payment record for
+nothing is either a data defect or a cancelled payment left standing in the ledger, and either way it
+inflates every note count in this audit — including the 9,167 denominator all the lift figures rest
+on. Cheap to size, and it should be sized before anything else here is quoted.
+
+**Tiers run to 900, not 500.** My 300–500 reading came from the visible slice of a 300-row queue. The
+real ceiling is nearly double, so any allowed-amount list built from the sample would have flagged
+legitimate payments.
+
+**The 298 unexplained notes (AED 40,256) are the genuinely anomalous set** — they fit neither a
+multiple of 50 nor any day-fraction of one. Small enough to review by hand, and now the only part of
+the anti-attrition amount space with no explanation at all.
 
 ## 4. The corroboration map — expected complaint types per payment
 
@@ -615,7 +654,10 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 |---|---|---|
 | ~~O33~~ | ~~Run query 3 (coverage)~~ — **done.** It inverted the design (§3b): coverage is 94–100%, so presence can never be a RED. Superseded by **O38** | — |
 | ~~O38~~ | ~~Run query 6a~~ — **done, §3f.** Salary dispute clears chance at 1.46×; anti-attrition sits at 0.89× and is not corroborated at all | the queue |
-| **O40** | Run **6d** — split anti-attrition amounts into tier vs day-prorated vs unexplained. Blocks B4/B5, which cannot be a tier check while two mechanisms share one reason | the anti-attrition amount checks |
+| ~~O40~~ | ~~Run 6d~~ — **done, §3j.** One mechanism with proration, not two. The split claim is withdrawn |  — |
+| **O42** | Size the **AED 0 anti-attrition notes** (6e). They sit inside the 9,167 denominator every lift figure in this document uses | the denominator, and every rate quoted here |
+| **O43** | Review the **298 unexplained amounts** (AED 40,256) by hand — neither tier nor day-fraction | the last unexplained slice of anti-attrition |
+| **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30% of notes are prorated, so the check is `tier × days ÷ days_in_month`. Re-scope O23 | the anti-attrition recompute check |
 | **O41** | Confirm note **184233** (maid 97470): enrolment dated after the payment. Hard RED, needs a human verdict | the ENROLLED_AFTER_PAYMENT rule |
 | ~~O39~~ | ~~Run 6a-iii and 6a-ii~~ — **done, §3g.** Anti-attrition 1.00× chance, salary dispute 2.33×; no proximity spike on anti-attrition. The design question is closed | — |
 | **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |

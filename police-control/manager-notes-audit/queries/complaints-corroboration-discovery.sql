@@ -575,3 +575,47 @@ FROM shaped GROUP BY 1 ORDER BY 1;
 --          ROUND(SUM(AMOUNT)) AS aed, COUNT(DISTINCT HOUSEMAID_ID) AS maids
 --   FROM shaped WHERE shape='2_DAY_PRORATED'
 --   GROUP BY 1 ORDER BY notes DESC LIMIT 25;
+
+
+-- =====================================================================================
+-- 6e. THE ZERO NOTES AND THE UNEXPLAINED TAIL (§3j). SELF-CONTAINED. ~25 rows.
+--     6d showed MIN_AMT = 0 in the tier bucket: anti-attrition notes worth AED 0 exist.
+--     They sit inside the 9,167-note denominator that every rate in this document uses,
+--     so size them BEFORE quoting any of those rates again.
+--     Part B lists the 298 amounts that fit neither a multiple of 50 nor a day-fraction.
+-- =====================================================================================
+-- A. The zero / near-zero notes, and whether they came from the month-end batch.
+SELECT COUNT(*)                                                       AS notes,
+       COUNT_IF(AMOUNT = 0)                                           AS exactly_zero,
+       COUNT_IF(AMOUNT > 0 AND AMOUNT < 10)                           AS under_10_aed,
+       COUNT(DISTINCT IFF(AMOUNT = 0, HOUSEMAID_ID, NULL))            AS maids_with_a_zero,
+       COUNT_IF(AMOUNT = 0 AND NOTE_DATE = LAST_DAY(NOTE_DATE))       AS zero_on_batch_date,
+       COUNT_IF(AMOUNT = 0 AND NOTE_DATE <> LAST_DAY(NOTE_DATE))      AS zero_off_batch,
+       MIN(IFF(AMOUNT = 0, NOTE_DATE, NULL))::DATE                    AS first_zero,
+       MAX(IFF(AMOUNT = 0, NOTE_DATE, NULL))::DATE                    AS last_zero
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+WHERE NOTE_TYPE='ADDITION'
+  AND REASON = 'Anti-attrition Incentive'          -- <<< do not drop
+  AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1;
+
+-- B. The unexplained tail — the 20 most common amounts that fit no rule.
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON = 'Anti-attrition Incentive'      -- <<< do not drop
+      AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+)
+SELECT AMOUNT,
+       COUNT(*)                                                   AS notes,
+       ROUND(SUM(AMOUNT))                                         AS aed,
+       COUNT(DISTINCT HOUSEMAID_ID)                               AS maids,
+       COUNT_IF(NOTE_DATE = LAST_DAY(NOTE_DATE))                  AS on_batch_date,
+       ROUND(AMOUNT * DAY(LAST_DAY(MIN(NOTE_DATE))), 2)           AS amount_x_days
+FROM n
+WHERE NOT (AMOUNT = ROUND(AMOUNT) AND MOD(AMOUNT, 50) = 0)
+  AND NOT (ABS(AMOUNT*DAY(LAST_DAY(NOTE_DATE)) - ROUND(AMOUNT*DAY(LAST_DAY(NOTE_DATE)))) < 0.5
+           AND MOD(ROUND(AMOUNT*DAY(LAST_DAY(NOTE_DATE))), 50) = 0)
+GROUP BY AMOUNT ORDER BY notes DESC, aed DESC LIMIT 20;
