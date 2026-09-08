@@ -222,3 +222,61 @@ SELECT CASE
 FROM calc
 GROUP BY 1
 ORDER BY aed_ABOVE_THE_FORMULA DESC, aed DESC;
+
+-- PS1b/PS3 RESULTS 2026-09-08 — ⚠️ BOTH FORMS OF THE TEST ARE WRONG, IN OPPOSITE DIRECTIONS.
+--   PS1b: eligible 545 notes · AED 85,873 · median 3 days   (69 had a replacement start)
+--         🔴 not eligible 74 notes · AED 12,963 · median **-122 days** (72 had a replacement)
+--   A median of MINUS 122 days means the salary start sits four months AFTER the note. So
+--   REPLACEMENT_SALARY_START_DATE was set LATER, and at write time the code used START_DATE.
+--   PS1 read a stale start (median +682); PS1b reads a future one (median -122). NEITHER is
+--   the value the producing code saw. Same lesson as the MV eligibility question: a
+--   current-state column joined to a dated fact.
+--   PS3: matches within 10% ....... 180 notes · AED 22,087
+--        above the formula >10% ... 125 notes · AED 26,694 · above by AED 5,581
+--        impossible (>25% salary) .  18 notes · AED  5,509 · median EXPECTED 0
+--        below the formula >10% ... 294 notes · AED 44,214
+--   The 18 "impossible" notes have a median expected of ZERO — days_worked computed to 0,
+--   i.e. the same bad salary start. And 48% landing BELOW says the salary model is wrong too:
+--   CC maids prorate over several salary groups, which PRIMARY+ACCOMMODATION does not capture.
+--   🔴 NOTHING FROM PS3 IS A FINDING until both defects are fixed. Reporting 125 notes /
+--   AED 5,581 as an overpayment here would be publishing a modelling error.
+
+-- PS1c. The salary start AS THE CODE SAW IT — latest revision at or before the note date.
+--   HOUSEMAIDS_INFO_REVISION carries START_DATE and REPLACEMENT_SALARY_START_DATE, so this is
+--   the same as-of pattern that took the MV eligibility question from 941 notes to 22.
+--   ⚠️ `resolved`, not `asof`: ASOF is reserved in Snowflake (ASOF JOIN).
+WITH ps AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Prorated salary' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), rev AS (
+    SELECT ID AS maid_id,
+           COALESCE(REPLACEMENT_SALARY_START_DATE, START_DATE)::DATE AS salary_start,
+           LAST_MODIFICATION_DATE::DATE                              AS changed_on
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+    WHERE LAST_MODIFICATION_DATE IS NOT NULL
+      AND COALESCE(REPLACEMENT_SALARY_START_DATE, START_DATE) IS NOT NULL
+), resolved AS (
+    SELECT p.note_id, p.HOUSEMAID_ID, p.note_day, p.AMOUNT, r.salary_start
+    FROM ps p
+    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.changed_on <= p.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.changed_on DESC) = 1
+)
+SELECT CASE
+         WHEN salary_start IS NULL                                    THEN 'BLOCKED — no revision before the note'
+         WHEN salary_start < '1971-01-01'                             THEN 'BLOCKED — epoch-zero salary start (H6)'
+         WHEN DAY(salary_start) >= 27
+              AND DATEDIFF('day', salary_start, note_day) BETWEEN 0 AND 40
+                                                                       THEN '🟢 eligible — started 27th+ of the prior month'
+         WHEN DATEDIFF('day', salary_start, note_day) BETWEEN 0 AND 40 THEN '⚠️ started that month, before the 27th'
+         WHEN DATEDIFF('day', salary_start, note_day) < 0              THEN '🔴 salary start is AFTER the note'
+         ELSE                                                              '🔴 salary start long before the note — not eligible'
+       END                                              AS verdict,
+       COUNT(*)                                         AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)                     AS maids,
+       ROUND(SUM(AMOUNT))                               AS aed,
+       ROUND(MEDIAN(DATEDIFF('day', salary_start, note_day))) AS median_days_start_to_note
+FROM resolved
+GROUP BY 1
+ORDER BY aed DESC;
