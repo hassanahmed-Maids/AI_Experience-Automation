@@ -905,14 +905,18 @@ notes were amber on screen and countable nowhere. Negatives and zeros are **AMBE
 v3 gave every `AMOUNT = 0` note the same verdict: AMBER, *"zero-amount addition"*. **510 such notes
 across 15 payment types say that is three findings wearing one label.**
 
-**1. 🔴 A broken run → RED.** `Abu Dhabi Incentive` is **18 notes, 100% zero, from a single day
-(2026-08-31)** — the entire payment type. `AbuDhabiMaidIncentiveExpenseJob` computes
-`abuDhabiIncentiveOffered × eligibleDays ÷ totalDaysInMonth`; a whole run at zero means the offered
-amount, the eligible days or the write-back failed. **Z5 confirms the money did not go anywhere else:
-across August–September only 5 other notes exist among those 18 maids (4 anti-attrition, AED 794; 1
-accommodation relocation, AED 800), so at least 15 of the 18 received nothing at all.** This is a
-defect *and* an unpaid entitlement. **Rule: when 100% of a payment type's notes in a run are zero,
-that is RED for the run, not AMBER per note** — the per-note verdict cannot see it.
+**1. 🔴 A note no known producer can have made → RED.** `Abu Dhabi Incentive` is **18 notes, 100%
+zero, from a single day (2026-08-31)** — the entire payment type. *(Revised after conv. 46016; the
+first reading, "a broken run", is withdrawn.)* **`MaidIncentiveService` L305-308 returns early when
+the computed amount is zero** — *"Calculated amount is zero — no request created"* — before the
+expense request is built, and `updateProcessedDate` runs only on success, so a maid computing zero is
+re-selected next month rather than skipped. **The documented producer cannot post a zero-amount
+request, so it did not make these 18.** Z5 shows the money did not appear under another reason either
+(five other notes among those 18 maids across August–September). ⚠️ **That is not evidence anyone was
+underpaid** — only that these notes carried no money; whether the 18 were owed anything is unknown,
+and the earlier claim that 15 maids went unpaid is **withdrawn as unsupported**. **The rule survives
+the revision: when 100% of a payment type's notes in a run are zero, that is RED for the run, not
+AMBER per note** — the per-note verdict cannot see it, whatever produced them.
 
 **2. 🔴 Paid outside payroll → RED.** **474 of the 510 zeros stand alone** — no payment to that maid
 that day — and **508 of 510 carry free text, 319 with a figure in it**. Of the standalone ones,
