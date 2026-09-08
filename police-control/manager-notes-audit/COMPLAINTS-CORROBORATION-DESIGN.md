@@ -913,6 +913,57 @@ human-created empirically, instead of trusting a hardcoded list. **Until that ru
 is a mixture of "nobody recorded who did this" and "no human was involved", and only the first is a
 finding.**
 
+## 3r. 🔴 The AED 2.86m is 79% historical — and the missing date filter was the whole story
+
+1d, same definition as S1 but windowed to 12 months:
+
+| | Notes | AED |
+|---|---:|---:|
+| Unattributed, all time (S1) | 7,147 | 2,864,088 |
+| **Unattributed, last 12 months (1d)** | **862** | **613,759** |
+| | **88% older** | **79% older** |
+
+**Eight of the ten payment types have ZERO unattributed notes in the last twelve months.** Taxi
+Reimbursement, Medical Assistance, VIP Bonus, Accommodation Relocation, MOHRE, Maids.at, Passport and
+Lost Luggage all carry a requester or an approver on every recent note. Only Bonus (850) and Salary
+Dispute (12) still produce any.
+
+🔴 **Salary Dispute — which I called the audit's biggest open question one section ago — is 12 notes
+and AED 3,484 in twelve months**, against 4,211 notes and AED 1.29m all-time. It collapses entirely.
+**Attribution was fixed at some point, and S1 has been reporting a legacy backlog as a live control
+failure.**
+
+**The missing date filter was not a comparability nit.** I logged O54 as a tidiness item — "these
+must not appear on one dashboard". It was inflating the headline number **4.7×** and pointing the
+audit at a problem that has largely stopped. A metric with no time window does not merely mislead on
+scale; it misidentifies which findings are still happening, which is the only thing that determines
+whether anyone can act on them.
+
+### The one live block, and the test cannot settle it
+
+Bonus is the only type still generating unattributed notes at volume — 850 in twelve months,
+AED 610,275, 71% of the type.
+
+| Bonus | Active days | Busiest day | Top-12 days | Notes/active day |
+|---|---:|---:|---:|---:|
+| attributed *(known human)* | 115 | 7% | 46% | 3.1 |
+| unattributed | 272 | 3% | **25%** | 3.1 |
+
+**The unattributed notes are LESS concentrated than the human ones**, spread over 272 days. That
+rules out a monthly batch job decisively.
+
+**But it does not prove they are human.** §4 records that the retraction bonus runs through
+`DelighterService.handleRetractDelighterWithOneTimeBonus → addExpenseRequestForHousemaid →
+ManagerNoteService.processExpenseRequestTodo` — an **event-driven** path that fires whenever a
+resignation is retracted, on any day of the year. Event-driven automation spreads exactly like human
+work. **My discriminator separates batch from not-batch; it cannot separate event-driven automation
+from a person**, and Bonus is precisely the type where that distinction matters, because §4 already
+says it has two halves with different origins.
+
+So 1d's verdict for Bonus is **BLOCKED, not GREEN** — and that is the honest reading, not a
+disappointing one. Resolving it needs the expense-request link (`EXPENSES_REQUESTS`, D4) or the
+un-ingested `DELIGHTER_TODO` (O34), not another concentration statistic.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -993,8 +1044,10 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O48~~ | ~~Size the no-rule hand-added notes~~ — **done, §3n.** 35 of 156 (22.4%, AED 8,675) vs 0 of 9,011 job notes. Part B lists them | — |
 | ~~O50~~ | ~~Ship the no-rule check~~ — **withdrawn, §3o.** It detects whole-dirham typing, not error. The note date says the same thing more directly | — |
 | ~~O51~~ | ~~Fix S1's identity comparison~~ — **done, and the premise was wrong (§3q).** The name-form class is empty; the old check was not under-reporting that way | — |
-| **O53** | 🔴 **AED 2.86m of human-type additions have no requester and no approver** (45% of S1's scope). Larger than everything else in this file. Split it first with the §3m batch-day test — some is machine attribution by design | the biggest open question in the audit |
-| **O54** | Add a **12-month window to S1**. It currently spans the whole table while every other figure here is 12-month; the two must not appear on one dashboard | comparability of every S1 number |
+| ~~O53~~ | ~~AED 2.86m unattributed~~ — **79% of it is older than 12 months (§3r).** Live figure is 862 notes / AED 613,759, and 850 of those are Bonus. Salary Dispute collapses from 4,211 notes to 12 | — |
+| **O56** | **Date the fix.** Unattributed share by month per type — when did attribution start being enforced, and is the historical backlog a closed item or an open remediation? | whether AED 2.25m of legacy notes needs a decision |
+| **O57** | Resolve **Bonus's 850 unattributed notes** (AED 610,275) via the expense-request link (`EXPENSES_REQUESTS`, D4) or `DELIGHTER_TODO` (O34). Concentration cannot separate event-driven automation from a person | the only live unattributed block |
+| **O54** | Add a **12-month window to S1** — 🔴 upgraded from tidiness: the missing filter inflated the headline 4.7× and pointed the audit at a problem that has largely stopped (§3r) | every S1 number, and which findings are live |
 | **O55** | Replace S1's hardcoded "human types" list with the **empirical batch-day split** per type. `Bonus` is partly machine-generated, so part of its 58% unattributed is by design | the S1 denominator |
 | **O52** | 🔴 **A single approver signs off the entire manual anti-attrition path** (34 of 35). Raise with the rule owners alongside O37 | the control question on 27% of live addition money |
 | **O49** | 🔴 **Sweep the audit for month-end assumptions.** August's batch ran on 09-01, so any `LAST_DAY` test misfiles 918 notes. Batch days must be observed, never assumed | every batch-vs-manual check in the spec |

@@ -343,3 +343,29 @@ SELECT payment_type, cls,
        ROUND(100.0*SUM(IFF(rn <= 12, notes, 0))/SUM(notes)) AS pct_on_top12_days,
        ROUND(AVG(notes),1)                                 AS avg_notes_per_active_day
 FROM ranked GROUP BY 1,2 ORDER BY payment_type, cls;
+
+
+-- =====================================================================================
+-- 1e. O56 — WHEN DID ATTRIBUTION START BEING ENFORCED? SELF-CONTAINED. ~36 rows.
+--     1d showed 8 of 10 types now carry attribution on every note, and that 79% of the
+--     unattributed money predates the last 12 months. So something changed. Dating it
+--     decides whether the AED 2.25m legacy backlog is a closed item or open remediation.
+--     36 months, the three types with real unattributed history.
+-- =====================================================================================
+WITH n AS (
+    SELECT ID, DATE_TRUNC('month', NOTE_DATE)::DATE AS mth, AMOUNT,
+           COALESCE(REASON,'(none)')     AS payment_type,
+           NULLIF(TRIM(REQUESTED_BY),'') AS requester,
+           NULLIF(TRIM(APPROVED_BY),'')  AS approver
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON IN ('Salary Dispute','Bonus','Taxi Reimbursement')
+      AND NOTE_DATE >= DATEADD('month',-36,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+)
+SELECT payment_type, mth,
+       COUNT(*)                                                          AS notes,
+       COUNT_IF(requester IS NULL AND approver IS NULL)                  AS unattributed,
+       ROUND(100.0*COUNT_IF(requester IS NULL AND approver IS NULL)/COUNT(*)) AS pct_unattributed,
+       ROUND(SUM(IFF(requester IS NULL AND approver IS NULL, AMOUNT, 0))) AS aed_unattributed
+FROM n GROUP BY 1,2 ORDER BY payment_type, mth;
