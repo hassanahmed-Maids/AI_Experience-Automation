@@ -768,3 +768,48 @@ SELECT CASE
 FROM seq
 GROUP BY 1
 ORDER BY notes DESC;
+
+-- F10 RESULTS 2026-09-08 — the batch cycle is real and the monthly rule was double-counting.
+--   28-34 days  (the normal cycle) .... 6,245 notes · 1,615 maids · AED 1,393,732  (76% of money)
+--   first payment to this maid ........ 2,394 notes · 2,394 maids · AED   351,715
+--   35+ days (a gap in payments) ......   207 notes ·   192 maids · AED    36,996
+--   same day (one run counted twice) ..   176 notes ·   157 maids · AED    14,906
+--   21-27 days (short cycle) ..........    62 notes ·    61 maids · AED    14,812
+--   8-20 days (duplicate) .............    46 notes ·    36 maids · AED     9,792
+--   1-7 days  (duplicate) .............    37 notes ·    33 maids · AED     7,783
+--   Duplicate candidates on the batch cycle: 259 notes / AED 32,481 (+62 amber at 21-27 days),
+--   against 516 from the calendar-month rule. Roughly half the old count was the boundary
+--   artefact. The 28-34 day mass confirms the cycle empirically — the window is right.
+
+-- F11. 🔴 The 176 same-day repeats: two contracts, or one double payment?
+--      The job's guard is per CONTRACT, so a maid on two contracts in one month legitimately
+--      gets two PRORATED notes on the same batch day — and the notes view has no CONTRACT_ID.
+--      But proration is decidable from the amounts: a genuine split sums to ONE entitlement,
+--      while two full entitlements on one day is a double payment.
+--      Allowed values: the parameter default 100..350, extended by 400/450/500 seen in data.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), same_day AS (
+    SELECT HOUSEMAID_ID, note_day,
+           COUNT(*)                AS notes,
+           SUM(AMOUNT)             AS total,
+           COUNT_IF(AMOUNT IN (100,150,200,250,300,350,400,450,500)) AS full_entitlements
+    FROM paid
+    GROUP BY 1, 2
+    HAVING COUNT(*) > 1
+)
+SELECT notes                                                         AS notes_on_the_day,
+       COUNT(*)                                                      AS maid_days,
+       ROUND(SUM(total))                                             AS aed,
+       COUNT_IF(total IN (100,150,200,250,300,350,400,450,500))      AS sums_to_one_entitlement,
+       COUNT_IF(full_entitlements = notes)                           AS every_note_a_full_one,
+       ROUND(SUM(IFF(full_entitlements = notes, total, 0)))          AS aed_every_note_full,
+       COUNT_IF(full_entitlements < notes
+                AND total NOT IN (100,150,200,250,300,350,400,450,500)) AS neither_shape
+FROM same_day
+GROUP BY notes
+ORDER BY notes;

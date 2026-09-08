@@ -379,3 +379,42 @@ was grain, as suspected.
 **The monthly duplicate window is the wrong instrument.** F10 replaces it with the batch cycle: a gap
 histogram between consecutive payments to the same maid. The true cycle is 28–32 days; anything much
 shorter is a real duplicate and anything at ~1 day is the same run counted twice.
+
+---
+
+# F10 — the duplicate rule, rebuilt on the batch cycle
+
+| Gap since this maid's previous payment | Notes | Maids | AED |
+|---|---:|---:|---:|
+| **28–34 days — the normal cycle** | **6,245** | 1,615 | **1,393,732** |
+| First payment to this maid | 2,394 | 2,394 | 351,715 |
+| 35+ days — a gap in payments | 207 | 192 | 36,996 |
+| 🔴 **Same day — one run counted twice** | **176** | 157 | **14,906** |
+| ⚠️ 21–27 days — short cycle | 62 | 61 | 14,812 |
+| 🔴 8–20 days — duplicate | 46 | 36 | 9,792 |
+| 🔴 1–7 days — duplicate | 37 | 33 | 7,783 |
+
+**76% of the money sits in a clean 28–34 day rhythm.** That is the cycle asserted from the batch days
+and now confirmed from the payment intervals — the window is right, and the calendar month never was.
+
+**Duplicate candidates: 259 notes, AED 32,481** (plus 62 amber at 21–27 days), against **516** from the
+month-grained rule. **Roughly half the old count was the month-boundary artefact**, exactly as F8
+predicted. The 516 figure in this report is superseded.
+
+## 🔴 The 176 same-day repeats are the sharp end, and are not yet a verdict
+
+A maid paid twice on the same batch day looks like the cleanest duplicate available. It is not, quite:
+**the job's guard is per contract**, so a maid who changed contracts mid-month legitimately receives
+two *prorated* notes on one day — and the notes view carries no `CONTRACT_ID`, which is why this run
+originally called the population indistinguishable.
+
+**Proration is decidable from the amounts, without `CONTRACT_ID`.** A genuine two-contract split sums
+to **one** entitlement, because the two fragments cover one month between them. Two *full* entitlements
+on the same day cannot be a split. F11 asks exactly that of all 176.
+
+- Sums to one allowed value → **the two-contract case. Legitimate, and it clears.**
+- Every note a full allowed value → **a double payment**, with no proration story available.
+- Neither shape → both prorated but not complementary; a review case.
+
+This is the check that turns "indistinguishable without a column we do not have" into a verdict using
+the column we do.
