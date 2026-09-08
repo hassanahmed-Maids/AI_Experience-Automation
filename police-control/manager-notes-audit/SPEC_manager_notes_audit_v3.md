@@ -706,6 +706,24 @@ direct id, per period, and apply M4's confidence-floor treatment to C2.
 `CREATOR` / `LAST_MODIFIER` are staff **full names, not ids**. None may reach the report, the export
 or a mockup — the same rule §1 applies to `HOUSEMAIDS_INFO`.
 
+#### N12 re-priced — 🔴 **what the raffle ingestion actually buys** *(2026-09-08)*
+
+N12 was filed as "group F cannot run at all". Measured, it is sharper than that. **The draw is
+demonstrably not uniform:** 465 winners took 576 prizes, **88 maids won twice or more against 21.5
+expected — 4.09× chance on the tightest defensible pool** (6,738 maids who received any payment), 26×
+for triple-winners, and one maid won five times. On the full roster it is 48×. **The conclusion does
+not depend on which pool is right**, which is what makes it reportable without the tables.
+
+⚠️ **It is not evidence of a rigged draw.** `RaffleDrawParticipant` carries **`points`**, so a
+weighted draw is plausible — and under weighting, repeat winners are the *designed* behaviour.
+
+**So N12 is no longer "unblock a group". It is: distinguish a documented weighting from an
+unexplained one, on AED 180,000 a year.** That is a materially easier request to make and a materially
+easier one to prioritise.
+
+**And one raffle finding needed no ingestion at all:** 15 prizes, AED 3,000, went to maids terminated
+a **median 558 days** before the draw.
+
 #### N23 — 🔴 **Manager-note revision history (Hibernate Envers)** — *new 2026-09-08, and the most valuable ingestion outstanding*
 
 `PayrollManagerNote` is annotated `@org.hibernate.envers.Audited` *(code-verified, conv. 46017)*, so

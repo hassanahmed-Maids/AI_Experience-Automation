@@ -123,3 +123,22 @@ WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Raffle Prize'
   AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- R2/R5 RESULTS 2026-09-08.
+--   R2 — 🔴 THE DRAW IS NOT UNIFORM, AND THE RESULT IS ROBUST TO THE POOL CHOICE.
+--     465 distinct winners took 576 prizes.
+--     won twice or more ..... 88 observed · 21.5 expected on pool A (6,738 paid maids) · 4.09x
+--     won three or more ..... 18 observed · ~0.7 expected                              · ~26x
+--     most wins by one maid .. 5
+--     On the full roster (83,533) it is 48x. Even the SMALLEST, most conservative pool gives
+--     4x, which is why the conclusion does not depend on which pool is right.
+--     ⚠️ NOT EVIDENCE OF A RIGGED DRAW. RaffleDrawParticipant carries a `points` field, so a
+--     WEIGHTED draw is plausible, and under weighting repeat winners are the DESIGNED
+--     behaviour. The audit can show the draw is not uniform; it cannot tell designed weighting
+--     from bias without N12. That is what the ingestion actually buys, on AED 180,000 a year.
+--   R5 — 🔴 15 PRIZES TO MAIDS WHO HAD ALREADY LEFT.
+--     not terminated ................ 503 wins · 404 maids · AED 163,600
+--     terminated on/after the draw ... 58 wins ·  49 maids · AED  13,400 (median -124 days)
+--     🔴 TERMINATED BEFORE THE DRAW ... 15 wins ·  13 maids · AED   3,000 · median 558 DAYS
+--     Eighteen months gone, and still drawn. Unlike R2 this needs no interpretation: a prize
+--     paid to someone who left is money out with nobody entitled to it.
