@@ -165,6 +165,100 @@ AED 270,427 where the maid had *no complaint of any kind* in a 104-day window** 
 be retained. That is not proof of anything, but it is a well-defined, small, high-value queue, and it
 is the natural first batch for the agent.
 
+## 3c. Query 2 settles it: the check is TYPE-MATCH plus TIMING, never presence
+
+Two discriminators, and the second one is decisive.
+
+### Discriminator 1 — lift over the raffle null
+
+Share of a payment type's notes matching a complaint type, divided by the same share for raffle
+winners. `*` marks types outside the raffle top-12, so those lifts are **conservative floors**.
+
+| Payment type | Complaint type | Share | Lift | Days before |
+|---|---|---:|---:|---:|
+| Accommodation Relocation | Switch Maid To Live-out `*` | 77% | **22.3×** | 2.8 |
+| Taxi Reimbursement | Housemaid Arrival & Transportation Check-Ins `*` | 76% | **21.8×** | 26.1 |
+| Accommodation Relocation | Maid cash advance `*` | 69% | **20.0×** | 7.6 |
+| Last Day CC Switch | Client wants to convert to the Visa Only Package `*` | 58% | **16.8×** | 12.5 |
+| Office Work Addition | Document required `*` | 51% | **14.7×** | 21.7 |
+| Forgive Deduction | Missing Salary Inquiry `*` | 41% | **11.9×** | 6.5 |
+| Accommodation Relocation | **Maid Wants To Resign** | 79% | **10.3×** | 5.0 |
+| MV Prorated Salary | **Maid's termination** `*` | 36% | **10.2×** | **0.1** |
+| Salary Dispute | Missing Salary Inquiry `*` | 34% | **9.7×** | 11.4 |
+| Maids.at other expenses | Overseas Employment Certificate `*` | 30% | 8.6× | 29.0 |
+| MV Prorated Salary | MV Retention `*` | 23% | 6.5× | 8.9 |
+| **Medical Assistance** | **Maid is sick or injured** | **51%** | **6.4×** | 20.9 |
+| Airfare Ticket | Follow up for medical appointment | 51% | 5.2× | 13.4 |
+| Airfare Ticket | Visa renewal `*` | 12% | 3.5× | 29.2 |
+| **Anti-attrition Incentive** | **Maid Wants To Resign** | **13%** | **1.8×** | **30.8** |
+
+### Discriminator 2 — temporal coupling, which is the real test
+
+A 90-day lookback with **no** causal link averages ~30–45 days: the window's own midpoint. A complaint
+that actually **drove** a payment sits within days of it.
+
+| Days before the note | Payment · complaint |
+|---:|---|
+| **−1.4** | Accommodation Relocation · Housemaid Arrival & Transportation Check-Ins |
+| **0.1** | MV Prorated Salary · Maid's termination |
+| 0.9 | MV Prorated Salary · Unreachable Maid |
+| 1.2 | MV Prorated Salary · Salary release request |
+| 2.8 | Accommodation Relocation · Switch Maid To Live-out |
+| 5.0 | Accommodation Relocation · Maid Wants To Resign |
+| 6.5 | Forgive Deduction · Missing Salary Inquiry |
+| 11.4 | Salary Dispute · Missing Salary Inquiry |
+| 12.5 | Last Day CC Switch · Client wants to convert to the Visa Only Package |
+| 13.4 | Airfare Ticket · Follow up for medical appointment |
+
+🔴 **Anti-attrition is 30.8, 31.6 and 31.4 days — identical across every complaint type.** That is the
+window's midpoint, which is exactly what a **month-end batch meeting a uniformly-arriving complaint
+stream** produces. **Its complaint association is mechanical, not causal.** The 2.9× density lift from
+query 3 was an artifact of the same thing.
+
+So the retention payment with AED 1.83m a year behind it has:
+- no FK to a complaint *(code)*
+- 1 note in 9,167 referencing one *(query 5)*
+- only **13% carrying a resignation complaint at all**, at **1.8× a random maid** *(query 2)*
+- and **no temporal coupling whatsoever** *(query 2)*
+
+Four independent methods, one conclusion. **Anti-attrition enrolment is not conversation-driven, and
+the only justification that exists is the free-text `notes` box on the enrolment record.**
+
+### 🔴 Correction: Medical Assistance was misread
+
+I called it *"at background — no relationship"* from query 3's density (1.2×, 74% coverage). Query 2
+shows the opposite: **51% carry `Maid is sick or injured`, a 6.4× lift.** Low overall density with
+high type-specificity is the *ideal* corroboration profile — a quiet maid with exactly the right
+complaint. **Density measures noise; type-match measures signal.** The 23 notes with no complaint at
+all remain worth opening, but the type as a whole is well-corroborated.
+
+### What the data revealed that nobody asked
+
+**`Maids.at other expenses` is OWWA/OEC paperwork.** Overseas Employment Certificate 30%, Maid OWWA
+Registration 30%, Client OWWA Registration 27% — Philippine overseas-worker documentation fees. The
+spec has never said what this payment is for. Now it does.
+
+**`Last Day CC Switch Adjustment` validates the code exactly.** 58% carry *Client wants to convert to
+the Visa Only Package* and 40% *Eligible client to switch* — precisely the CC→MaidVisa switch the code
+says triggers it. Two methods, same answer.
+
+## 3d. The rule, stated
+
+**A complaint is never structurally linked to a note, and presence proves nothing. The test is:**
+
+> **Is there a complaint of an expected type for this payment, opened within days of it — more than
+> this maid's own background chatter would produce by chance?**
+
+- **Type-match is mandatory.** A generic `Maid related question` (90,625 complaints) corroborates
+  nothing.
+- **Timing is the strongest single signal.** Under ~15 days is a real link; ~30+ is the window
+  talking to itself.
+- **Normalise per maid.** A maid with 40 open complaints matches any type by chance — score
+  *expected-type ÷ all types in the window*, then compare that ratio across maids.
+- **Never RED on absence** except where lift and coupling are both strong (Accommodation Relocation,
+  MV Prorated Salary, Last Day CC Switch, Medical Assistance, Taxi, Forgive Deduction, Salary
+  Dispute). Everywhere else absence is AMBER at most, and for the machine-generated types it is N_A.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
