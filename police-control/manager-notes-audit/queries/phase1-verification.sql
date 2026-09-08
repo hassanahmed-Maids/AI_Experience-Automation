@@ -286,3 +286,60 @@ LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES f
       AND f.NOTE_DATE BETWEEN DATEADD('day',-90,sd.NOTE_DATE) AND DATEADD('day',30,sd.NOTE_DATE)
 GROUP BY 1,2,3,4,8
 ORDER BY forgive_notes_within_90d, sd.AMOUNT DESC;
+
+
+-- =====================================================================================
+-- 1d. O53 — IS THE UNATTRIBUTED MONEY MACHINE-BY-DESIGN, OR HUMAN WITH NO ATTRIBUTION?
+--     SELF-CONTAINED. ~20 rows (10 types x 2 classes).
+--
+--     S1 found 7,147 notes / AED 2.86m with neither a requester nor an approver. That is
+--     only a finding if a HUMAN made those payments. Machine-created notes carry null
+--     attribution by design, and the "human types" list is an assumption (O55).
+--
+--     NO THRESHOLD TUNING. §3m's batch-day rule used COUNT(*) > 100, which was calibrated
+--     on anti-attrition's ~750-note batches and would misfire on a type with 149 notes in
+--     total. Instead each type carries its OWN control group: the ATTRIBUTED notes of the
+--     same type are known-human, so compare the unattributed notes against them.
+--
+--     READING IT — concentration is the signal, the attributed row is the baseline:
+--       unattributed far MORE concentrated than attributed  -> a batch job. By design.
+--       unattributed spread like the attributed notes       -> human work with the
+--                                                              attribution missing. 🔴
+--     pct_on_top12_days is the sharpest column: twelve days is one per month, the
+--     signature of a monthly job. Human work cannot concentrate that way.
+--
+--     12-month window applied here (O54), so these totals ARE comparable with §3.
+-- =====================================================================================
+WITH n AS (
+    SELECT ID, NOTE_DATE::DATE AS d, AMOUNT,
+           COALESCE(REASON,'(none)')     AS payment_type,
+           NULLIF(TRIM(REQUESTED_BY),'') AS requester,
+           NULLIF(TRIM(APPROVED_BY),'')  AS approver
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), c AS (
+    SELECT *, IFF(requester IS NULL AND approver IS NULL,
+                  'unattributed','attributed') AS cls
+    FROM n
+    WHERE payment_type IN (
+      'Salary Dispute','Bonus','Taxi Reimbursement','Medical Assistance',
+      'Maids.at other expenses','Accommodation Relocation','VIP Bonus',
+      'Passport Assistance','Lost Luggage Compensation','MOHRE requirement additions')
+), byday AS (
+    SELECT payment_type, cls, d, COUNT(*) AS notes, SUM(AMOUNT) AS aed
+    FROM c GROUP BY 1,2,3
+), ranked AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY payment_type, cls ORDER BY notes DESC) AS rn
+    FROM byday
+)
+SELECT payment_type, cls,
+       SUM(notes)                                          AS notes,
+       ROUND(SUM(aed))                                     AS aed,
+       COUNT(*)                                            AS active_days,
+       MAX(notes)                                          AS busiest_day_notes,
+       ROUND(100.0*MAX(notes)/SUM(notes))                  AS pct_on_busiest_day,
+       ROUND(100.0*SUM(IFF(rn <= 12, notes, 0))/SUM(notes)) AS pct_on_top12_days,
+       ROUND(AVG(notes),1)                                 AS avg_notes_per_active_day
+FROM ranked GROUP BY 1,2 ORDER BY payment_type, cls;
