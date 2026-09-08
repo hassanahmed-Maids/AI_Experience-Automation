@@ -123,3 +123,21 @@ WHERE NOTE_TYPE = 'ADDITION' AND REASON IN ('Prorated salary','MV Prorated Salar
   AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
 GROUP BY 1
 ORDER BY notes DESC;
+
+-- MV1/MV2 RESULTS 2026-09-08 — 🟢 MV PRORATED SALARY CLEARS. AED 788,069, both code rules.
+--   MV1, against "terminated maids get no note":
+--     terminated later — fine ....... 424 notes · 423 maids · AED 411,754 (median -10 days)
+--     not terminated — fine ......... 326 notes · 324 maids · AED 354,547
+--     terminated the same day ........ 19 notes ·  19 maids · AED  21,768
+--     🔴 ALREADY TERMINATED .......... 0 notes · 0 maids · AED 0
+--   NOT ONE note went to a maid terminated before it. The 19 same-day cases are the code
+--   working as written — LastMvSalaryMaidServiceJob flips the service to READY_TO_BE_PAID
+--   ON the termination day, so same-day is the designed path, not a boundary risk.
+--   MV2, against "one termination = one payment":
+--     one payment ............... 763 maids · 763 notes · AED 783,791
+--     ⚠️ two payments ...........   3 maids ·   6 notes · AED   4,277 · beyond the first 1,245
+--     178 days apart at the median — plausibly two pre-collected contracts terminating six
+--     months apart. A CANDIDATE, not a finding.
+--   🟢 The 210 MV prorated notes to CC maids that D3 flagged need no query: the code's
+--   eligibility is "MAID_VISA **or MV switched to CC**", so a CC maid holding one is correct.
+--   AED 788,069 — the largest body of money no test had ever touched — comes back clean.

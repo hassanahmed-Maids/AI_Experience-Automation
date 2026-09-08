@@ -43,13 +43,17 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | Raffle: 17 same-amount wins inside 31 days | 3,400 | The raffle tables (N12). **A random draw should not repeat like this** |
 | Raffle Prize | 180,000 | The five raffle tables (N12) — **48 winners every month for 12 months** |
-| MV Prorated + Prorated salary | 886,905 | Effective-dated salary history (N10) |
+| Prorated salary (the non-MV one) | 98,836 | **PS1** — the 27th-of-prior-month eligibility window |
+| MV prorated paid twice to 3 maids | 1,245 | Whether each had two pre-collected contracts terminate |
 
 ## What has been cleared, on evidence
 
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **AED 788,069 of MV Prorated Salary** — against the code's own rule that a terminated maid
+  gets no note: **zero violations in 770 notes**. 763 of 766 maids were paid exactly once. This was
+  the largest body of money in the audit that no test had ever touched (MV1, MV2).
 - 🟢 **AED 642,580 of bonus** — 571 notes matched to a referral-bonus record, plus 296 signing
   bonuses paid a median **six days** after the maid's own start (O9, O11).
 - 🟢 **AED 2.59m of ungated airfare, on the amount axis** — 1,518 notes across 15 nationalities, **one**
