@@ -582,6 +582,60 @@ legitimate payments.
 multiple of 50 nor any day-fraction of one. Small enough to review by hand, and now the only part of
 the anti-attrition amount space with no explanation at all.
 
+## 3k. 🔴 The "unexplained" amounts are prorated over 31 — and only the hand-added ones are
+
+6e part B lists the 20 commonest amounts 6d could not classify. **Every one of them is an exact
+`/31` fraction of a round figure, and none of them is a `/30` fraction — in notes that sit in
+30-day months.**
+
+| Amount | × 31 | × 30 |
+|---:|---:|---:|
+| 25.81 | **800** | 774.30 |
+| 19.35 | **600** | 580.50 |
+| 64.52 | **2,000** | 1,935.60 |
+| 32.26 | **1,000** | 967.80 |
+| 12.90 | **400** | 387.00 |
+| 261.29 | **8,100** | 7,838.70 |
+
+20 of 20 resolve over 31; 0 of 20 over 30.
+
+**So my 6d classifier was wrong, not the data.** It divided by `DAY(LAST_DAY(NOTE_DATE))` — the
+note's own month — on the assumption that proration follows the calendar. These notes prorate over a
+**fixed 31 regardless of the month they fall in**, so every one landed in `3_UNEXPLAINED` by
+construction. The true prorated share is therefore higher than 6d's 29.7%, and `3_UNEXPLAINED` is
+mostly not unexplained at all. *(§3j's headline — one mechanism, not two — is unaffected: these are
+still prorated incentives, not a second payment type.)*
+
+### The part that is a finding: two proration rules, split by who created the note
+
+**`ON_BATCH_DATE = 0` for all 20.** Every amount in the unexplained tail was created off the
+month-end batch date — hand-added, bypassing `MaidIncentiveExperimentJob`. Meanwhile the prorated
+amounts seen *on* batch dates divide by the calendar: note 183010, **373.33 on 2026-06-30**, is
+11,200/**30** — June's actual length.
+
+| Origin | Divisor | Example |
+|---|---|---|
+| Month-end batch (the job) | the month's real length | 373.33 = 11,200/30 on a June note |
+| Hand-added, off-batch | **fixed 31** | 25.81 = 800/31 in a 30-day month |
+
+**One payment type, two proration rules, and which one applies depends on whether a human or the job
+created the record.** In a 30-day month the hand rule yields ~3.2% less per day than the job's. That
+is small per note and systematic across 298+ notes, and — more importantly — it means **there is no
+single correct recompute for B4/B5**. A check written against either rule reports the other as a
+finding.
+
+This also converges with a number already in the file: the unexplained bucket is 298 notes / AED
+40,256, against `anti-attrition-cases.sql`'s hand-added population of 156 notes / AED 37,576. Close
+enough on money to suggest substantially the same set, reached from two unrelated directions —
+**amount shape and note date independently identify the hand-added payments.**
+
+🔴 **The audit question is not the 3.2%.** It is that a hand-entered payment is being computed by a
+rule the job does not use, on a payment type whose enrolment justification is already a free-text box
+(§3). The arithmetic discrepancy is the visible edge of an unguarded manual path.
+
+**6f settles the split across all 9,167 notes** rather than 20, restricted to 30-day months where the
+two divisors actually differ.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -656,8 +710,9 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O38~~ | ~~Run query 6a~~ — **done, §3f.** Salary dispute clears chance at 1.46×; anti-attrition sits at 0.89× and is not corroborated at all | the queue |
 | ~~O40~~ | ~~Run 6d~~ — **done, §3j.** One mechanism with proration, not two. The split claim is withdrawn |  — |
 | **O42** | Size the **AED 0 anti-attrition notes** (6e). They sit inside the 9,167 denominator every lift figure in this document uses | the denominator, and every rate quoted here |
-| **O43** | Review the **298 unexplained amounts** (AED 40,256) by hand — neither tier nor day-fraction | the last unexplained slice of anti-attrition |
-| **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30% of notes are prorated, so the check is `tier × days ÷ days_in_month`. Re-scope O23 | the anti-attrition recompute check |
+| ~~O43~~ | ~~Review the 298 unexplained amounts~~ — **explained, §3k.** They prorate over a fixed 31 and are all hand-added. Superseded by O45 | — |
+| **O45** | Run **6f**: confirm across 9,167 notes that off-batch notes prorate over 31 while batch notes use the calendar month. If it holds, B4/B5 needs TWO recompute rules and the manual path needs a rule owner | the anti-attrition recompute, and a governance question |
+| **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30%+ of notes are prorated, so the check is `tier × days ÷ divisor` — and per §3k the divisor is not the same for both origins. Re-scope O23 | the anti-attrition recompute check |
 | **O41** | Confirm note **184233** (maid 97470): enrolment dated after the payment. Hard RED, needs a human verdict | the ENROLLED_AFTER_PAYMENT rule |
 | ~~O39~~ | ~~Run 6a-iii and 6a-ii~~ — **done, §3g.** Anti-attrition 1.00× chance, salary dispute 2.33×; no proximity spike on anti-attrition. The design question is closed | — |
 | **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |

@@ -585,6 +585,17 @@ FROM shaped GROUP BY 1 ORDER BY 1;
 --     Part B lists the 298 amounts that fit neither a multiple of 50 nor a day-fraction.
 -- =====================================================================================
 -- A. The zero / near-zero notes, and whether they came from the month-end batch.
+--    FIXED: dedup in a CTE. QUALIFY is evaluated after GROUP BY, so ROW_NUMBER() OVER
+--    (PARTITION BY ID) alongside a bare aggregate SELECT fails — "ID is not a valid
+--    group by expression". Dedup first, aggregate second; never both in one block.
+WITH d AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON = 'Anti-attrition Incentive'      -- <<< do not drop
+      AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+)
 SELECT COUNT(*)                                                       AS notes,
        COUNT_IF(AMOUNT = 0)                                           AS exactly_zero,
        COUNT_IF(AMOUNT > 0 AND AMOUNT < 10)                           AS under_10_aed,
@@ -593,11 +604,7 @@ SELECT COUNT(*)                                                       AS notes,
        COUNT_IF(AMOUNT = 0 AND NOTE_DATE <> LAST_DAY(NOTE_DATE))      AS zero_off_batch,
        MIN(IFF(AMOUNT = 0, NOTE_DATE, NULL))::DATE                    AS first_zero,
        MAX(IFF(AMOUNT = 0, NOTE_DATE, NULL))::DATE                    AS last_zero
-FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-WHERE NOTE_TYPE='ADDITION'
-  AND REASON = 'Anti-attrition Incentive'          -- <<< do not drop
-  AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
-QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1;
+FROM d;
 
 -- B. The unexplained tail — the 20 most common amounts that fit no rule.
 WITH n AS (
@@ -619,3 +626,47 @@ WHERE NOT (AMOUNT = ROUND(AMOUNT) AND MOD(AMOUNT, 50) = 0)
   AND NOT (ABS(AMOUNT*DAY(LAST_DAY(NOTE_DATE)) - ROUND(AMOUNT*DAY(LAST_DAY(NOTE_DATE)))) < 0.5
            AND MOD(ROUND(AMOUNT*DAY(LAST_DAY(NOTE_DATE))), 50) = 0)
 GROUP BY AMOUNT ORDER BY notes DESC, aed DESC LIMIT 20;
+
+
+-- =====================================================================================
+-- 6f. TWO PRORATION RULES? (§3k) SELF-CONTAINED. ~10 rows.
+--     6e part B showed the 20 commonest "unexplained" amounts are exact /31 fractions,
+--     0 of 20 are /30 fractions, and 20 of 20 are OFF the month-end batch date. The
+--     prorated amounts seen ON batch dates divide by the calendar month instead
+--     (373.33 = 11,200/30 on a June note).
+--
+--     Restricted to 30-DAY MONTHS, the only case where /30 and /31 disagree. In a
+--     31-day month both rules give the same number and the test cannot discriminate.
+--
+--     If off_batch concentrates in 2_over_31 and on_batch in 3_over_month_length, then
+--     one payment type has two recompute rules chosen by who created the record, and
+--     B4/B5 cannot be written as a single check.
+-- =====================================================================================
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
+           DAY(LAST_DAY(NOTE_DATE)) AS days_in_month,
+           IFF(NOTE_DATE = LAST_DAY(NOTE_DATE), 'on_batch', 'off_batch') AS origin
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON = 'Anti-attrition Incentive'      -- <<< do not drop
+      AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), shaped AS (
+    SELECT origin, AMOUNT,
+           CASE
+             WHEN AMOUNT = 0 THEN '0_zero'
+             WHEN AMOUNT = ROUND(AMOUNT) AND MOD(AMOUNT,50) = 0 THEN '1_flat_tier'
+             WHEN ABS(AMOUNT*31 - ROUND(AMOUNT*31)) < 0.2
+              AND MOD(ROUND(AMOUNT*31),50) = 0                  THEN '2_over_31'
+             WHEN ABS(AMOUNT*days_in_month - ROUND(AMOUNT*days_in_month)) < 0.2
+              AND MOD(ROUND(AMOUNT*days_in_month),50) = 0       THEN '3_over_month_length'
+             ELSE '4_still_unexplained'
+           END AS shape
+    FROM n
+    WHERE days_in_month = 30          -- the only months where the two rules differ
+)
+SELECT origin, shape,
+       COUNT(*)                                                          AS notes,
+       ROUND(SUM(AMOUNT))                                                AS aed,
+       ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (PARTITION BY origin))    AS pct_of_origin
+FROM shaped GROUP BY 1,2 ORDER BY 1,2;
