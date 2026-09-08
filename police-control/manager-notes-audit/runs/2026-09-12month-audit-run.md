@@ -553,3 +553,51 @@ work.**
 **One ask, now priced.** `INCENTIVE_AMOUNT` on `HOUSEMAID_MANAGERACTIONLOGS`: it unblocks B4/B5,
 adjudicates the 52 groups that currently cannot be judged at all (AED 7,083), and removes the floor
 caveat from every entitlement test in this payment type. One column.
+
+---
+
+# The MV eligibility question, closed — 11 notes, AED 2,476
+
+D3 read the current housemaid type and reported **941 notes / AED 172,967** against a code-verified
+CC-only rule. The as-of-payment join cut it to **22 / AED 5,526**. Reading all 22 individually closes
+it at **about half that again**.
+
+⚠️ **My classification query had its `CASE` arms in the wrong order** — it tested the recording date
+before the effective date, so a note whose maid became MV **13 days** before payment was labelled a
+2-day boundary case. Reclassified by effective date first:
+
+| Reading | Notes | AED |
+|---|---:|---:|
+| 🔴 **MV well before payment — a real contradiction** | **11** | **2,476** |
+| ⚠️ Switched within 2 days of the run — selection lag | 11 | 3,050 |
+
+## 🔴 The second half is the code finding, visible in data
+
+Three of the eleven lag cases are notes dated **2026-09-01** — August's batch day — for maids whose MV
+switch took effect **2026-08-31**, the day before. Eight more were recorded MV on the payment day
+itself or within two days of it.
+
+**That is conversation 46017's finding, in the data.** The eligibility `EXISTS` is evaluated **once, at
+selection**, and the note is written two async hops later. A maid who was CC when the job read its page
+and MV by the time the note landed is paid anyway. **The code said it was possible; these eleven notes
+are it happening**, roughly once a month, at AED 3,050 a year.
+
+**It is not a separate finding — it is corroboration**, and it belongs in the same recommendation:
+re-check eligibility at payment, not only at selection.
+
+## Anti-attrition, final
+
+| Finding | Notes | AED |
+|---|---:|---:|
+| Paid before any enrolment record existed (B1b) | 42 | 9,019 |
+| Paid while MV, against a CC-only rule | 11 | 2,476 |
+| Selection-lag payments (corroborating the code) | 11 | 3,050 |
+| **Total, against AED 1,829,736 examined** | **64** | **14,545 — 0.8%** |
+
+Plus the three control findings that apply to all 9,167 notes: enrolment checked once at selection,
+amount validated only at write time with a silent fallback, and a back-fill that sets the amount from
+free text.
+
+**On the evidence this is a well-behaved payment type**, and saying so took eleven queries, two
+ask-the-code conversations and five retractions. The retractions are the reason the 0.8% can be stated
+without hedging.
