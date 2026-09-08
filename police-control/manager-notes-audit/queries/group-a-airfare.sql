@@ -104,3 +104,114 @@ WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Airfare Ticket'
 GROUP BY 1
 HAVING COUNT(*) >= 3
 ORDER BY 1;
+
+-- A3/A7 RESULTS 2026-09-08:
+--   A3 (24-month window, 2,657 airfare notes):
+--     first airfare on file .................. 2,589 notes · 2,589 maids · AED 4,323,500
+--     🔴 RED second airfare within 5 months ..    38 notes ·    35 maids · AED    51,000
+--                                                 min 0 months, max 3
+--     BLOCKED future-dated ...................    15 notes · AED 20,000
+--     GREEN normal cadence (22-24 months) ....    12 notes · AED 17,500
+--     AMBER early (21 months) ................     3 notes · AED  2,000
+--   🔴 Only 68 airfare notes in two years are repeats, and 38 of them - 56% - breach the
+--   explicit 5-month duplicate guard. When a maid gets a second airfare it is MORE LIKELY
+--   THAN NOT to be inside the window the code blocks.
+--   A7: the airfare zeros are a BOUNDED INCIDENT, 17-24 August 2026 - 6/6, 11/12, 11/11,
+--   3/4, 20/21, 6/6, 18/18 = 75 zero notes in eight days. Before 14 Aug and after 27 Aug the
+--   month is zero-free. "Airfare is 7.8% zero" was a rate over an incident.
+--   A0: HOUSEMAIDS_INFO carries NATIONALITY / NATIONALITY_CATEGORY (A1 runnable), and
+--   HOUSEMAIDS_TICKETS carries HOUSEMAID_ID, PURCHASE_DATE, DEPARTURE_DATE, TICKET_TYPE,
+--   ORIGINAL_FARE, BUYER, IS_DELETED, IS_LATEST_HM_TICKET (🔴 A5 runnable).
+--   🔴 No ERP PARAMETERS table is in the warehouse — the airfare caps and the 5/16-month
+--   parameter values are still unreadable, so the code defaults are assumed, not verified.
+
+-- A3c. 🔴 Did the guard FAIL, or was it BYPASSED? The two producers are distinguishable by
+--   the time component. The automatic path sets noteDate = payrollDueDate = currentDate
+--   NORMALISED TO MIDNIGHT. The human expense path sets noteDate = new Date() — a real
+--   timestamp — and does not run isThereMultipleAirFareTickets() at all.
+--   Both notes at midnight  => the automatic guard let a duplicate through.
+--   One not at midnight     => a manual airfare stacked on an automatic one, unguarded.
+WITH air AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE, NOTE_DATE::DATE AS note_day, AMOUNT,
+           IFF(NOTE_DATE = NOTE_DATE::DATE, 'automatic (midnight)', 'manual (timestamped)') AS producer
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Airfare Ticket'
+      AND NOTE_DATE >= DATEADD('month', -24, CURRENT_DATE())
+), seq AS (
+    SELECT a.*,
+           LAG(note_day)  OVER (PARTITION BY HOUSEMAID_ID ORDER BY NOTE_DATE) AS prev_day,
+           LAG(producer)  OVER (PARTITION BY HOUSEMAID_ID ORDER BY NOTE_DATE) AS prev_producer,
+           LAG(AMOUNT)    OVER (PARTITION BY HOUSEMAID_ID ORDER BY NOTE_DATE) AS prev_amount,
+           DATEDIFF('month', LAG(note_day) OVER (PARTITION BY HOUSEMAID_ID ORDER BY NOTE_DATE),
+                    note_day) AS months_since_prev
+    FROM air a
+)
+SELECT prev_producer || '  ->  ' || producer      AS producer_pair,
+       COUNT(*)                                   AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)               AS maids,
+       ROUND(SUM(AMOUNT))                         AS aed,
+       MIN(months_since_prev)                     AS min_months,
+       MAX(months_since_prev)                     AS max_months
+FROM seq
+WHERE months_since_prev IS NOT NULL AND months_since_prev < 5
+  AND note_day <= CURRENT_DATE() AND prev_day <= CURRENT_DATE()
+GROUP BY 1
+ORDER BY notes DESC;
+
+-- A5. 🔴 THE CONTROL THAT DOES NOT EXIST. Code-verified: the cash airfare path never checks
+--   whether the company already bought a ticket, and TicketMatchingLibrary (accounting) has
+--   no link back to the note. HOUSEMAIDS_TICKETS is in the warehouse, so the audit can
+--   measure what no control covers: a cash allowance AND a company ticket in the same window.
+--   Grouped by TICKET_TYPE so the vocabulary and the answer arrive together.
+--   Excludes deleted tickets ('01' — TEXT flag, not boolean; `= TRUE` matches nothing).
+WITH air AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Airfare Ticket'
+      AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND NOTE_DATE <= CURRENT_DATE()
+), tick AS (
+    SELECT HOUSEMAID_ID, COALESCE(TICKET_TYPE, '(none)') AS ticket_type,
+           COALESCE(PURCHASE_DATE, DEPARTURE_DATE::DATE) AS ticket_day,
+           COALESCE(FARE_IN_REF_CURRENCY, ORIGINAL_FARE) AS fare
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS
+    WHERE COALESCE(IS_DELETED, '00') <> '01'
+)
+SELECT t.ticket_type,
+       COUNT(DISTINCT a.note_id)                       AS cash_notes_with_a_ticket,
+       COUNT(DISTINCT a.HOUSEMAID_ID)                  AS maids,
+       ROUND(SUM(DISTINCT a.AMOUNT))                   AS cash_aed,
+       ROUND(AVG(t.fare))                              AS avg_company_fare,
+       MIN(DATEDIFF('day', a.note_day, t.ticket_day))  AS min_days_apart,
+       MAX(DATEDIFF('day', a.note_day, t.ticket_day))  AS max_days_apart
+FROM air a
+JOIN tick t ON t.HOUSEMAID_ID = a.HOUSEMAID_ID
+           AND ABS(DATEDIFF('day', a.note_day, t.ticket_day)) <= 90
+GROUP BY 1
+ORDER BY cash_notes_with_a_ticket DESC;
+
+-- A1. The amount rule: a flat constant per nationality. Recovers the tier table from the data
+--   and flags any maid paid off her nationality's modal amount. The parameter store is not in
+--   the warehouse, so the tiers CANNOT be read from config — only inferred, and a whole
+--   nationality paid the wrong flat rate would look correct here. Stated, not hidden.
+WITH air AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.AMOUNT,
+           COALESCE(h.NATIONALITY, '(unknown)') AS nationality
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), tier AS (
+    SELECT nationality, MODE(AMOUNT) AS modal_amount, COUNT(*) AS notes
+    FROM air GROUP BY 1
+)
+SELECT t.nationality, t.modal_amount AS nationality_tier, t.notes,
+       COUNT_IF(a.AMOUNT <> t.modal_amount)                       AS off_tier_notes,
+       ROUND(SUM(IFF(a.AMOUNT <> t.modal_amount, a.AMOUNT, 0)))   AS off_tier_aed,
+       COUNT(DISTINCT a.AMOUNT)                                   AS distinct_amounts,
+       MIN(a.AMOUNT)                                              AS min_amount,
+       MAX(a.AMOUNT)                                              AS max_amount
+FROM air a JOIN tier t ON t.nationality = a.nationality
+GROUP BY 1, 2, 3
+ORDER BY off_tier_notes DESC, t.notes DESC;
