@@ -25,6 +25,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Anti-attrition to MV maids against a CC-only rule | 2,476 | off-rule | 11 notes, resolved point-in-time |
 | Note exceeds its approved expense request | 1,304 | off-rule | 4 notes of 11,819 linked |
 | Anti-attrition same-day excess over entitlement | 838 | paid twice | 17 groups |
+| Prorated salary paid to maids outside the eligibility window | **2,976** | not deserved | 25 notes — 18 whose salary start predates the note by a median 650 days, 7 whose salary start is *after* it. **Resolved as-of the note date** (PS1c), down from 78 on a current-state read |
 | Airfare paid above its nationality tier | **500** | off-rule | 1 Kenyan note at 2,000 against a 1,500 tier — **the only one in 1,518** |
 
 ### Control violated — a rule broken, the money may still be owed
@@ -43,7 +44,6 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | Raffle: 17 same-amount wins inside 31 days | 3,400 | The raffle tables (N12). **A random draw should not repeat like this** |
 | Raffle Prize | 180,000 | The five raffle tables (N12) — **48 winners every month for 12 months** |
-| Prorated salary (the non-MV one) | 98,836 | **PS1** — the 27th-of-prior-month eligibility window |
 | MV prorated paid twice to 3 maids | 1,245 | Whether each had two pre-collected contracts terminate |
 
 ## What has been cleared, on evidence
@@ -51,6 +51,8 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **AED 95,550 of Prorated salary** — 593 of 619 notes land a median **three days** from the
+  maid's salary start, exactly the window the rule describes (PS1c).
 - 🟢 **AED 788,069 of MV Prorated Salary** — against the code's own rule that a terminated maid
   gets no note: **zero violations in 770 notes**. 763 of 766 maids were paid exactly once. This was
   the largest body of money in the audit that no test had ever touched (MV1, MV2).
@@ -90,3 +92,27 @@ their own start dates, before it was used to convict anything.
 **The one benign reading of the 164 is a third, undocumented bonus type.** The spec knows referral and
 signing (N5). If a third exists, this finding becomes a documentation gap; if it does not, AED 143,965
 was paid at referral rates to maids who referred nobody.
+
+
+---
+
+## Group D — closed 2026-09-08. AED 886,905, and 99.7% of it clears.
+
+| | AED | |
+|---|---:|---|
+| MV Prorated Salary — zero violations of the terminated-maid rule in 770 notes | 788,069 | 🟢 |
+| Prorated salary — 593 notes a median three days from salary start | 95,550 | 🟢 |
+| Prorated salary — outside the eligibility window | 2,976 | 🔴 |
+| MV prorated paid twice to 3 maids | 1,245 | ⚠️ candidate |
+| Prorated salary — started before the 27th | 310 | ⚠️ |
+
+**This was the largest body of money in the audit that no test had ever touched, and it is the
+cleanest type examined.** The reason is visible in the code and worth putting to whoever owns these
+jobs: **`mv_prorated_salary` is the only major producer that checks its eligibility condition at the
+moment it writes the note.** Anti-attrition checks at selection and pays two async hops later;
+airfare's manual route skips its duplicate guard entirely; bonus has no gate at all. The one job that
+validates at write time has zero violations in 770 payments.
+
+⛔ **The amount test (PS3) was not pursued.** Group D is 99.7% cleared and the residue is AED 2,976;
+the test would need the CC salary-group breakdown from ask-the-code to mean anything. **Recorded as a
+decision.**

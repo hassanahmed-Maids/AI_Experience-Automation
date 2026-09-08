@@ -280,3 +280,20 @@ SELECT CASE
 FROM resolved
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- PS1c RESULT 2026-09-08 — 🟢 GROUP D CLOSES. The as-of salary start settles it:
+--   🟢 eligible, started 27th+ of the prior month .. 593 notes · 557 maids · AED 95,550 · median 3 days
+--   🔴 salary start long before the note ...........  18 notes ·  15 maids · AED  2,137 · median 650 days
+--   🔴 salary start is AFTER the note ..............   7 notes ·   7 maids · AED    839 · median -15 days
+--   ⚠️ started that month, before the 27th .........   1 note                · AED    310
+--   96.7% of the money clears at a median of THREE DAYS from salary start to note. The finding
+--   collapses from PS1's 78 and PS1b's 74 to 25 notes / AED 2,976.
+--   Third time the as-of join has rewritten a finding: MV eligibility 941 -> 22 (-97%),
+--   prorated 74 -> 25 (-66%). It is the highest-value technique in this audit.
+--
+-- ⛔ PS3 (the amount test) IS NOT BEING PURSUED, and that is a decision, not an omission.
+--   The corrected salary start would fix its day counts, but its second defect stands: 48% of
+--   notes read BELOW the formula because CC proration sums five salary groups that
+--   PRIMARY+ACCOMMODATION does not capture. Fixing that needs the group breakdown from
+--   ask-the-code. Group D is now 99.7% cleared and the remaining exposure is AED 2,976 —
+--   the precision is not worth the money. Same call as the 369 hand-written zero notes.
