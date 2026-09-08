@@ -18,41 +18,38 @@ running the data.** Eleven queries over the live warehouse produced results that
 in eight places — and, as often, *withdrew* claims the earlier versions made confidently. Every item
 below cites the evidence.
 
-**The three that change what gets reported:**
+**Scope note, 2026-09-08:** this audit tests **whether each payment follows the rule for its payment
+type**. Segregation of duties, self-approval and attribution checks are **out of scope** and have been
+removed — who approved a payment is a separate control question, not part of whether the payment was
+correct.
 
-1. 🔴 **S1's `both NULL → RED` would have manufactured ~850 findings a year.** 862 notes in twelve
-   months carry neither requester nor approver, and **850 of them are `Bonus`** — whose retraction
-   half is machine-created by design. A rule that RED-flags machine attribution fails on its largest
-   block in month one. S1 is rebuilt below: origin measured, not listed; BLOCKED where unresolved.
-2. 🔴 **S1 was un-windowed, and it mattered.** 79% of the unattributed money predates twelve months;
-   Salary Dispute falls from 4,211 notes all-time to **12** in the last year. Every metric now
-   carries `AUDIT_MONTH`, and the historical backlog is scoped separately as remediation.
-3. 🔴 **Group B — 59% of the population by count — had no rule that could run.** All four candidate
+**The changes that alter what gets reported:**
+
+1. 🔴 **Group B — 59% of the population by count — had no rule that could run.** All four candidate
    checks are now closed off by evidence (see group B). Its rule is **Job 1**, and Job 1 is now
    evidenced viable: the enrolment reason box is 100% filled, 96% distinct, median 43 chars.
 
 **The three obligations added to every future check:**
 
-4. **Chance baselines.** A window-based test has a hit rate that owes nothing to the business. A
+2. **Chance baselines.** A window-based test has a hit rate that owes nothing to the business. A
    105-day window with a 30-day proximity band yields **p = 0.286**, so at 1.7 records per subject
    chance alone produces a 40% hit rate — which is exactly what anti-attrition's complaint
    corroboration produced (**1.00× chance: zero signal**), while reading as "40% corroborated".
    Every window test now publishes its chance rate beside its observed rate.
-5. **Trends, not point counts.** `Bonus` attribution ran at 2.2% before 2024-05, 85.4% at peak and
-   **48.2% now**; `Taxi Reimbursement` is 0% across 36 months. A monthly count renders a broken
-   control, a worked-off backlog and a chronic weakness as one number. Control metrics now publish a
-   24-month series.
-6. **Batch days are observed, never assumed.** The anti-attrition batch ran on **2026-09-01**, not
+3. **Trends, not point counts.** A monthly count renders a rule that started failing, a backlog being
+   worked off, and a chronic weakness as the same number — and only the first needs an owner this
+   week. Every finding metric publishes a 24-month series beside its current value.
+4. **Batch days are observed, never assumed.** The anti-attrition batch ran on **2026-09-01**, not
    08-31 — 918 notes, the largest in the series. And `NOTE_DATE` carries a time, so
    `NOTE_DATE = LAST_DAY(NOTE_DATE)` is false for *every* row and returns a well-formed, plausible,
    meaningless split.
 
 **The two withdrawals, recorded because a spec that only accumulates claims cannot be trusted:**
 
-7. **"Anti-attrition amounts hide a second payment type" — withdrawn.** Two hand-picked rows implied
+5. **"Anti-attrition amounts hide a second payment type" — withdrawn.** Two hand-picked rows implied
    a salary-scale figure; across all 9,167 notes it is one mechanism with proration. The buckets
    reconcile to the note and the dirham.
-8. **"Hand-added amounts fit no rule" — withdrawn as a check.** It detects whole-dirham typing, not
+6. **"Hand-added amounts fit no rule" — withdrawn as a check.** It detects whole-dirham typing, not
    error: the widened test that reconciles 34 of 35 accepts **97.2%** of arbitrary amounts, and the
    observed rate is 97.1%. The note date says the same thing more directly.
 
@@ -512,17 +509,19 @@ Run on the last day of the month, `totalMonthDaysTillNow` is the length of the m
 against the data: 99.5% of 9,167 real notes fit `incentiveAmount × days ÷ days-in-month` exactly**
 (6,116 whole-month, 3,051 prorated).
 
-**Who requests and approves it.** `requesterId` from the parameter (default **user 2226**) is stamped
-on the expense, becomes `expenseRequestTodo.requestedBy`, and then the note's creator. `PayrollManagerNote`
-has **no `approvedBy` column at all**, and SALARY expense additions are **auto-confirmed — there is no
-approval gate**. So the "one person requests and approves 7,684 notes" pattern in the data is a
-**batch service account, not a human self-approving**. 🔴 The finding is not a segregation-of-duties
-breach; it is that **AED 1.8m/year passes with no human approval step by design** (new).
+**How the note is stamped.** `requesterId` from the parameter (default **user 2226**) is stamped on
+the expense, becomes `expenseRequestTodo.requestedBy`, and then the note's creator. `PayrollManagerNote`
+has **no `approvedBy` column at all**, and SALARY expense additions are auto-confirmed. *Recorded as
+mechanism, not as a check — approval is out of this audit's scope. It matters here only because it
+explains why these notes carry a service account rather than a person, which a reader would otherwise
+misread as a data gap.*
 
 **Two values still cannot be read from code**, because both are DB config, not source: the
 `AAI - 01` → `anti_attrition_incentive` mapping (accounting `Expense.salaryAdditionType`) and the
 actual monthly schedule (`JobInstance` — the job is registered with a `null` trigger). The data
-settles the schedule empirically: **12 batches, each on the last day of its month**, gaps of 28–32 days.
+settles the schedule empirically: **12 batches, roughly monthly, gaps of 28–32 days**. 🔴 **They are
+not always the last day of the month** — August's ran on **2026-09-01** — so the run days must be
+observed from the data, never inferred from the calendar.
 
 **What this changes.** `anti_attrition_incentive` moves from **UNRULED** to
 **ELIG · CORR · RECOMP · CEIL · UNIQ** — see group B. Q4 ("someone must write the loyalty rule")
@@ -1222,67 +1221,6 @@ negative (D8). Whether `previously_held_salary` ever reverses either is **Q15**.
 > **E4 — cross-type consistency.** A day excluded from a salary-dispute calculation as *"forgiven"*
 > must appear as a `forgive_deduction` note for that maid on that date. Present in one but not the
 > other is a double payment or an under-payment. Runnable today.
->
-> **S1 — segregation of duties. 🔴 Rebuilt in v3; v2's version had three critical defects.**
-> Applies to every human-entered type, not just group E. **Windowed to `AUDIT_MONTH` like every
-> other metric.** Phase 1.
->
-> **Why it was rebuilt.** v2 said: *`LOWER(REQUESTED_BY) = LOWER(APPROVED_BY)` → RED; both NULL on a
-> human-entered type → RED*, citing AED 8,800 and AED 7,518. Measured on live data all three parts
-> fail:
->
-> | v2 | Measured |
-> |---|---|
-> | "AED 8,800 self-approved" | **1,170 notes · AED 244,730** |
-> | "AED 7,518 neither recorded" | **7,147 notes · AED 2,864,088** all-time; **862 · AED 613,759** in 12 months |
-> | `both NULL → RED` | **850 of those 862 are `Bonus`**, whose retraction half is machine-created *by design* |
-> | no time window | **79% of the money predates 12 months.** Salary Dispute: 4,211 notes all-time → **12** in the last year |
->
-> **The verdicts.** Four, never two — a test that could not run is not a test that passed:
->
-> | Verdict | Condition |
-> |---|---|
-> | `R_self_approved_exact` | normalised requester = normalised approver → **RED** |
-> | `R_raised_never_approved` | a requester, no approver, on a measurably-human type → **RED** |
-> | `B_neither_recorded` | neither name → **BLOCKED**, never RED, unless the type is measurably human *(see below)* |
-> | `B_no_requester` | approver only → **BLOCKED** |
-> | `B_same_first_name_unresolvable` | the names match **and** several staff share that first name → **BLOCKED** |
-> | `G_segregated` | the names resolve to two different people |
->
-> **Normalise before comparing.** Lower-case **and collapse internal whitespace** — staff names carry
-> double spaces, and `"Georgina  Wakim"` does not equal `"Georgina Wakim"`. Then match name *forms*:
-> a short form prefixing a full name is the same person.
->
-> ⚠️ **The two columns come from different sources**, which is why an equality between them matches
-> by luck rather than by design. `REQUESTED_BY` ← `mmdb.users.FULL_NAME`, canonical. `APPROVED_BY` is
-> free text — **43% of the approvals that exist are a bare first name**, and the numeric identity
-> column that would settle it is dead (§2.1). *Tested: the name-form miss class currently returns
-> **zero** on every payment type, so this is robustness rather than a live under-count — but one
-> normalisation change upstream would alter the result.*
->
-> ⚠️ **Block narrowly.** A first draft of this fix blocked every single-token approver — 7,804 notes,
-> 43% of all approvals. That is wrong in the opposite direction: **if the bare name does not match the
-> requester's, they are different people under every reading of it.** Ambiguity only bites where the
-> names *do* match. Over-blocking is not the conservative choice — it buries findings and inflates
-> the same denominator the original defect deflated, while feeling cautious.
->
-> 🔴 **`both NULL` is BLOCKED by default, and RED only where the type is *measured* human.** The
-> "human-entered types" list is prose with no source. Determine origin empirically per type: batch
-> run days are observable (`GROUP BY NOTE_DATE::DATE HAVING COUNT(*) > n`), and **a type's attributed
-> notes are a within-type control group for its unattributed ones**. `Bonus` is currently
-> **unresolved** — its unattributed notes are *less* concentrated than its human ones, which rules
-> out a monthly batch but cannot separate event-driven automation from a person. It stays BLOCKED
-> until the `EXPENSES_REQUESTS` link or `DELIGHTER_TODO` resolves it.
->
-> **Publish the rates, not just the counts** — they are what the check is for:
-> **Medical Assistance 47% self-approved · VIP Bonus 39% · Taxi 16% · Salary Dispute 9%.**
->
-> 🔴 **Method correction.** This spec pointed at note 174632 as the most anomalous row in the live set
-> on 9.93σ. It is in fact the best-documented note in the dataset — requested by one person, approved
-> by another, arithmetic exact to the fils. **A statistical outlier is not a finding**; unusual
-> amounts are what legitimate multi-month reconstructions look like. Outlier lists are for looking,
-> never for verdicts, anywhere in this audit.
-
 **Group E — Salary correction.** 🔴 **Conjunctive, not disjunctive.** E1 the expense record proves
 the amount **AND** E2 the stated reason (D5) justifies the payment. v1 wrote "E1 **or** E2", which
 the verdict algebra cannot express and which let a matched correction go green while the test that

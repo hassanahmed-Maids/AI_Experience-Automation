@@ -7,6 +7,11 @@
 
 > ⚠️ **&ldquo;AI Agent&rdquo; in this spec means an automated LLM step, never a maids.cc agent.**
 > Where a person is meant, this document says *auditor*, *reviewer* or *manager*.
+>
+> 🔴 **Scope: this audit tests whether each payment follows the rule for its payment type.**
+> Segregation of duties, self-approval and attribution are **out of scope** — who approved a payment
+> is a separate control question, not part of whether the payment was correct. `REQUESTED_BY` and
+> `APPROVED_BY` are carried for drill-down context only and **must not gate any verdict**.
 
 ## 0. What changed on 2026-09-08 — read this if you saw the earlier revision
 
@@ -22,7 +27,7 @@ ERP source. Eleven queries changed the logic in eight places. The five that chan
    not 08-31 — 918 notes, the largest in the series (the group rules).
 4. 🔴 **Never RED a note for missing attribution off a hardcoded type list.** 850 of the 862
    unattributed notes are `Bonus`, machine-created by design. Measure origin per type (the group rules, S1).
-5. 🔴 **`anti_attrition_incentive` has a rule now** — eight tests, six runnable on the grant. Four
+4. 🔴 **`anti_attrition_incentive` has a rule now** — eight tests, six runnable on the grant. Four
    earlier candidates were tried and closed off by data; they are listed so they are not
    re-attempted (§8).
 
@@ -283,8 +288,6 @@ cannot return red for that type. **A low match rate means unverified, never clea
 | **Currency of the note** | D1 has no currency column. AED is an **assumption** — confirm |
 | 🔴 **Uncast date equality** | `NOTE_DATE = LAST_DAY(NOTE_DATE)` is false for **every** row — the timestamp never equals midnight. It returns a clean, plausible split of nothing. Always `NOTE_DATE::DATE` |
 | 🔴 **Assumed batch days** | The monthly job does **not** always run on the last calendar day — August's ran 2026-09-01, 918 notes. Derive run days from the data (`GROUP BY NOTE_DATE::DATE HAVING COUNT(*) > n`), never from the calendar |
-| 🔴 **Two columns, two sources** | `REQUESTED_BY` ← `users.FULL_NAME` (canonical); `APPROVED_BY` is free text, and **43% of approvals are a bare first name**. `LOWER(a) = LOWER(b)` matches by luck. Normalise case **and internal whitespace**, match name forms, and BLOCK where a shared first name makes it unresolvable |
-| 🔴 **Machine origin from a list** | Machine-created notes carry no requester or approver **by design** — 850 of 862 unattributed notes are `Bonus`. Reding them off a hardcoded "human types" list manufactures ~850 findings a year. Measure origin per type: a type's attributed notes are a control group for its unattributed ones |
 | 🔴 **A window test with no chance rate** | *"Is there a related record within N days"* has a hit rate from geometry alone: a 105-day window with a 30-day band gives p=0.286, so at 1.7 records per subject chance produces **40%**. One real test scored 40.3% — **1.00× chance, zero signal** — and would have read "40% corroborated". Publish the chance rate beside the observed one, computed **per subject** |
 
 ## 7. Verdict model

@@ -3,6 +3,9 @@
 **Issue type:** `Analytic Engineer Task` *(file it as this, not "New Request")*
 **Project:** DNA · **Routing:** Analytics Engineering — Belal Alsayed
 **Summary:** `Manager notes audit — model the ten Police & Control metrics at note grain in silver/gold`
+🔴 **Scope, 2026-09-08:** this audit tests **whether each payment follows the rule for its payment
+type**. Segregation of duties, self-approval and attribution are **out of scope** — `REQUESTED_BY` and
+`APPROVED_BY` are drill-down context only and must not gate a verdict.
 **Revised 2026-09-08** — spec v3. Row-level results now exist for part of this (see *Verification note*),
 and they changed the logic in eight places. Everything below reflects that.
 
@@ -111,8 +114,6 @@ confidently. The facts below are now measured, not inferred:
 | `anti_attrition_incentive` volume | **9,167 notes / 12 months, AED 1,829,735** — ~59% of the audited population by count, 29% by money |
 | Its amount space | 67% flat tier · 30% prorated · **0.4% unexplained**; buckets reconcile to the note and the dirham |
 | Enrolment reason box (`HOUSEMAID_MANAGERACTIONLOGS.NOTES`) | **100% filled, 96% distinct values, median 43 chars** — the group B check is viable |
-| Segregation of duties, 10 human types | **1,170 self-approved (AED 244,730)** · **7,147 with neither name (AED 2,864,088)** all-time, **862 (AED 613,759)** in 12 months |
-| Attribution over time | `Bonus` **2.2% → 85.4% → 48.2%** unattributed; `Taxi Reimbursement` **0% across 36 months** |
 | Batch behaviour | The monthly job's run days are **observable**; August's ran on **2026-09-01**, not 08-31 |
 
 **Still unverified:** everything not in that table — most of §2's column-level claims, freshness, and
@@ -211,9 +212,8 @@ That reports what was added, by category. This audits whether each addition was 
     every deviation is a row in the output, not a rounding note.
 13. **History reaches back to 2024-01-01.**
 14. 🔴 **Every metric is windowed.** No metric spans the whole table while its neighbours are monthly.
-    The segregation check in particular: un-windowed it reports **AED 2.86m**, of which **79% predates
-    twelve months** — a mostly-closed historical backlog rendered as this month's work. Windowed, the
-    same check reports AED 613,759.
+    Un-windowed, a check can report a mostly-closed historical backlog as this month's work — one
+    measured case moved from AED 2.86m to AED 613,759 on adding the window alone.
 15. 🔴 **No date equality against an uncast `NOTE_DATE`.** Zero occurrences of `NOTE_DATE =` where the
     right side is a `DATE`; every such comparison casts `NOTE_DATE::DATE` first.
 16. 🔴 **Machine origin is measured, not listed.** No test reds a note for missing attribution unless
