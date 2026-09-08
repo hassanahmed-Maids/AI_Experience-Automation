@@ -730,6 +730,42 @@ rising every single month without exception. §3i's "run-rate up ~36%" was measu
 understated it. Whatever O37 decides about governance, it decides it for a payment type that has
 doubled in twelve months.
 
+## 3n. 🔴 The check: 0 of 9,011 job payments fail it, 35 of 156 hand-added ones do
+
+| Origin | Notes | Amount fits no derivable rule | AED |
+|---|---:|---:|---:|
+| Created by the job | **9,011** | **0 — 0.0%** | 0 |
+| Hand-added | 156 | **35 — 22.4%** | **8,675** of 37,576 |
+
+**The control group is perfect.** Across 9,011 machine-created payments spanning twelve monthly
+batches, **not one** amount fails a rule set of *multiple of 50, or a /28 /29 /30 /31 fraction of
+one*. That zero is what makes the 22.4% mean anything: the test is not merely generous in principle,
+it is demonstrably satisfiable by every payment the system computes for itself. The rule set is
+complete.
+
+**And it reconciles twice.** 9,011 + 156 = 9,167, the known population. The hand-added total of
+**AED 37,576 matches `anti-attrition-cases.sql` exactly** — a figure reached months earlier by a
+different route, on a different definition of "off batch", now confirmed by observed batch days.
+
+### Why this is the best check in the anti-attrition file
+
+Everything else here needs a judgement. The complaint test is N_A (§3g). The enrolment test passes
+almost always (§3h). The recompute check cannot be written yet (O44). **This one needs no judgement
+at all**: the payment system defines correct behaviour by exhibiting it 9,011 times, and 35 payments
+do something it never does.
+
+It is small money — AED 8,675 — and that is not the point. **A control that the automated path
+satisfies 100% of the time and the manual path violates 22% of the time is a finding about the
+control, not about the amount.** It says the manual path is unguarded, on the payment type whose
+enrolment justification is already a free-text box (§3) and whose volume has doubled in a year (§3m).
+
+### The scope note that matters
+
+35 notes is a hand-reviewable queue, and each one carries `requester` / `approver`, so
+**segregation-of-duties composes with it**: a hand-typed unexplainable amount requested and approved
+by the same person is the strongest single combination available anywhere in this dataset. That
+intersection is the first thing to read off 6h part B.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -807,7 +843,8 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O43~~ | ~~Review the 298 unexplained amounts~~ — **explained, §3k.** They prorate over a fixed 31 and are all hand-added. Superseded by O45 | — |
 | ~~O45~~ | ~~Run 6f~~ — **void, §3l.** The month-end predicate can never be true; the split measured nothing. Superseded by O46 |  — |
 | ~~O46~~ | ~~Run 6g~~ — **done, §3m.** Both divisors are the job's own. The manual path fails differently: 29% of hand-added amounts fit no rule vs 0.0% of the job's | — |
-| **O48** | List the **hand-added notes whose amount fits no rule** (all 12 months, ~40 rows). The cleanest anti-attrition finding in the file: the job never produces one | the hand-added review queue |
+| ~~O48~~ | ~~Size the no-rule hand-added notes~~ — **done, §3n.** 35 of 156 (22.4%, AED 8,675) vs 0 of 9,011 job notes. Part B lists them | — |
+| **O50** | Ship this as a spec check: *hand-added anti-attrition payment whose amount matches no rule the job could produce*. Zero judgement required, control group built in | the anti-attrition dashboard |
 | **O49** | 🔴 **Sweep the audit for month-end assumptions.** August's batch ran on 09-01, so any `LAST_DAY` test misfiles 918 notes. Batch days must be observed, never assumed | every batch-vs-manual check in the spec |
 | ~~O47~~ | ~~Re-check the hand-added population~~ — **checked, §3l.** Both other files cast `::DATE` and define batch days empirically. Unaffected | — |
 | **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30%+ of notes are prorated, so the check is `tier × days ÷ divisor` — and per §3k the divisor is not the same for both origins. Re-scope O23 | the anti-attrition recompute check |
