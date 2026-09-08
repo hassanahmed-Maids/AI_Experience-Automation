@@ -194,3 +194,59 @@ SELECT CASE
 FROM resolved
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- OW2b/OW5 RESULTS 2026-09-08.
+--   🟢 OW2b CONFIRMS THE ARTEFACT AND WITHDRAWS OW2's FINDING. that_month_vs_typical comes
+--   back 0.52 / 0.87 / 0.50 — the flagged notes' payroll months really are about HALF the
+--   maid's typical month. Against her typical month:
+--     within ten days of a typical month .. 70 notes · AED 11,628 · ratio 0.52
+--     over half a typical month ........... 11 notes · AED 10,919 · ratio 0.87 · median 0.71 of a month
+--     over ten days of a typical month ....  7 notes · AED  4,933 · ratio 0.50
+--     BLOCKED — no payroll history ........  4 notes · AED  2,204
+--     🟢 MORE THAN A WHOLE MONTH: ZERO (was 6 on the note's own month).
+--   The amount test does not convict, and it retroactively vindicates leaving FD1b's 43 notes
+--   alone — same signature, same cause.
+--   🔴 OW5: NOT assigned when paid .. 66 notes · 66 maids · AED 24,291 (82% of the type)
+--            assigned ............... 26 notes · 26 maids · AED  5,393 · 5 distinct reasons
+--   ⚠️ NOT YET A FINDING, for the reason anti-attrition taught. The note is written at
+--   month-end by PayrollGroupService for work done DURING the month. If the assignment was
+--   cleared before payroll ran, the maid reads unassigned at the note date and the payment is
+--   perfectly legitimate. A point-in-time read is the wrong instrument for a transient state.
+
+-- OW5b. The assignment as a WINDOW, not a point. Was she assigned at any time in the two
+--   months up to the note? "Never assigned at all" is the only unambiguous bucket, and it is
+--   the one that would be a finding.
+WITH ow AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Office Work Addition' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+), rev AS (
+    SELECT ID AS maid_id, ASSIGNED_OFFICE_WORK_REASON_ID AS assigned,
+           LAST_MODIFICATION_DATE::DATE AS changed_on
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+    WHERE LAST_MODIFICATION_DATE IS NOT NULL
+), flags AS (
+    SELECT o.note_id, o.HOUSEMAID_ID, o.note_day, o.AMOUNT,
+           MAX(IFF(r.assigned IS NOT NULL
+                   AND r.changed_on <= o.note_day
+                   AND r.changed_on >= DATEADD('month', -2, o.note_day), 1, 0)) AS assigned_recently,
+           MAX(IFF(r.assigned IS NOT NULL AND r.changed_on <= o.note_day, 1, 0)) AS assigned_ever_before,
+           MAX(IFF(r.assigned IS NOT NULL, 1, 0))                                AS assigned_ever
+    FROM ow o
+    LEFT JOIN rev r ON r.maid_id = o.HOUSEMAID_ID
+    GROUP BY 1, 2, 3, 4
+)
+SELECT CASE
+         WHEN assigned_recently    = 1 THEN '🟢 assigned within the two months before the note'
+         WHEN assigned_ever_before = 1 THEN '⚠️ assigned earlier, but not recently'
+         WHEN assigned_ever        = 1 THEN '🔴 assigned only AFTER the note'
+         ELSE                               '🔴 NEVER assigned to office work at all'
+       END                              AS verdict,
+       COUNT(*)                         AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)     AS maids,
+       ROUND(SUM(AMOUNT))               AS aed,
+       ROUND(MEDIAN(AMOUNT))            AS median_paid
+FROM flags
+GROUP BY 1
+ORDER BY aed DESC;
