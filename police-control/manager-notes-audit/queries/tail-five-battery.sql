@@ -471,3 +471,186 @@ LEFT JOIN conc c ON c.payment_type = l.payment_type
 GROUP BY 1, 2, 9, 10
 HAVING COUNT(*) >= 20
 ORDER BY pct_self DESC;
+
+
+-- =====================================================================================
+-- ROUND 4 — config did not just close the reference-list ask. It named a control that is
+-- being ROUTED AROUND, and it turned the whole tail into loan money.
+--
+-- TF10 🟢 PART 2A IS CLOSED FROM THE DATABASE. 31 heads declare their own salary addition
+--      type, category, approval method, limit, invoice requirement and loan flag. George
+--      never needed to write the table -- config already had it.
+--
+--      🔴 (a) THE INVOICE CONTROL IS ROUTED AROUND. Exactly three heads set
+--          REQUIRE_INVOICE = TRUE: FT 26 (Medical assistance for housemaids), FT 229 (Taxi
+--          rides - maids), FT 281 (Taxi rides for applicants). TF11 shows ALL THREE carry
+--          ZERO of the 944 tail-five notes. Every dirham of the AED 219,143 flows through a
+--          head with REQUIRE_INVOICE = FALSE. The finding is not "invoices are missing" --
+--          it is that the heads demanding one are unused while their no-invoice twins carry
+--          100% of the money.
+--
+--      🔴 (b) THE TAIL IS LOAN MONEY. ALLOW_TO_ADD_LOAN = TRUE on every head behind all
+--          five types. Medical runs through "PCR Test & medical assistance Loan" and MOHRE
+--          through "WPS Compliance Loan" -- these are ADVANCES, booked to be recovered. If
+--          the loan side was never written, the company gave away money it meant to reclaim.
+--          Up to AED 219,143 is exposed to that question. TF14 answers it.
+--
+--      ⚠️ (c) LIMIT_FOR_APPROVAL IS NOT A CEILING -- read it with APPROVAL_METHOD or it
+--          inverts. It is populated only on APPROVAL_REQUIRED_ON_LIMIT heads, where it is
+--          the threshold ABOVE WHICH approval is needed. Below it, an unapproved request is
+--          CORRECT. Plain APPROVAL_REQUIRED heads leave it null and always need approval.
+--          Taxi's 114 unapproved requests are probably TR 200 (limit 101, avg note 81.5) and
+--          therefore legitimate; Maids.at's 217 sit on OEX (limit 200) and may not be.
+--
+--      🟡 (d) "MOHRE requirement additions" is CODE `WCL`, caption "Salary Mistake", type
+--          "WPS Compliance Loan". The payslip names a regulator; the head names a payroll
+--          error and a loan. Config declares it, so it is not a routing defect -- but the
+--          maid's payslip does not say what the money is.
+--
+-- TF11 🟢 JOIN KEY ESTABLISHED BY EVIDENCE: EXPENSES_REQUESTS.EXPENSE_TYPE matches
+--      EXPENSES_CONFIGURATION.EXPENSE_TYPE on all six observed values. TASK_NAME is empty
+--      throughout and is not a key at all.
+--      🔴 AND IT ISOLATED THE BIGGEST UNTESTED POPULATION IN THE TAIL: 320 notes /
+--      AED 71,850 are "Live-out Transportation Assistance" -- 85% of taxi money by value.
+--      Paid to a maid who was LIVE-IN that day, it is an allowance for a commute she was
+--      not making. TF13 runs it.
+--
+-- TF12 🟡 SELF-APPROVAL AT SOURCE MATCHES THE NOTE'S COPY EXACTLY -- Medical 46.6% / 2
+--      identities, Taxi 25.5% / 1 identity / 100%. So the note is a faithful copy and the
+--      question was never a data-quality one. But it STILL cannot be called: TF10 revealed
+--      APPROVE_HOLDER, and if the requester IS the designated approver for that head, then
+--      self-approval is the design, not a breach. TF15 fetches it before anything is called.
+--      (Airfare's expense route shows 83 notes / AED 147,500 -- the MANUAL path, the one
+--      already carrying the AED 49,500 duplicate finding. 16.9% self-approved on it.)
+-- =====================================================================================
+
+
+-- TF13. 🔴 THE LARGEST UNTESTED MONEY IN THE TAIL — AED 71,850. Live-out Transportation
+--       Assistance paid to a maid who was LIVE-IN on the day. TF5 found the flag, TF11 gave
+--       the isolation key. This is the taxi half of the live-out rule that has been blocked
+--       since the spec was written.
+--       Same as-of machinery as TF7, and the same self-diagnostic: if nothing differs from
+--       today, the join is decorative and the answer is a point read.
+WITH lota AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.AMOUNT > 0
+      AND n.REASON = 'Taxi Reimbursement'
+      AND x.EXPENSE_TYPE = 'Live-out Transportation Assistance'
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND n.NOTE_DATE <= CURRENT_DATE()
+), rev AS (
+    SELECT ID AS maid_id, LIVE_OUT, LAST_MODIFICATION_DATE::DATE AS changed_on
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+    WHERE LIVE_OUT IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL
+), resolved AS (
+    SELECT l.note_id, l.HOUSEMAID_ID, l.AMOUNT, r.LIVE_OUT AS live_out_when_paid
+    FROM lota l
+    LEFT JOIN rev r ON r.maid_id = l.HOUSEMAID_ID AND r.changed_on <= l.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY l.note_id ORDER BY r.changed_on DESC) = 1
+)
+SELECT CASE
+         WHEN a.live_out_when_paid IS NULL THEN 'BLOCKED - no revision before the note'
+         WHEN a.live_out_when_paid = 1     THEN 'GREEN - was live-out when paid'
+         ELSE                                   'RED - live-out transport paid to a LIVE-IN maid'
+       END                                          AS verdict,
+       COUNT(*)                                     AS notes,
+       COUNT(DISTINCT a.HOUSEMAID_ID)               AS maids,
+       ROUND(SUM(a.AMOUNT))                         AS aed,
+       COUNT_IF(a.live_out_when_paid <> h.LIVE_OUT) AS differs_from_today,
+       COUNT_IF(a.live_out_when_paid =  h.LIVE_OUT) AS same_as_today
+FROM resolved a
+LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = a.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY aed DESC;
+
+
+-- TF14. 🔴 THE LOAN THAT WAS NEVER BOOKED. Every head behind the tail five sets
+--       ALLOW_TO_ADD_LOAN = TRUE, and two of them are named "Loan" outright. An advance
+--       paid as an ADDITION with no loan written against it is money the company intended
+--       to recover and then did not. This is the L-group's "0% to 115%" problem, which has
+--       sat unmeasurable since the business-rules request was written.
+--       Run across every linked type so the five are read against the house.
+--       Config is de-duplicated to one row per expense type BEFORE the join -- a head list
+--       is not guaranteed unique on that column and a fan-out would inflate every sum here.
+WITH cfg AS (
+    SELECT EXPENSE_TYPE, ALLOW_TO_ADD_LOAN, LOAN_TYPE, CODE
+    FROM BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION
+    WHERE EXPENSE_TYPE IS NOT NULL
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY EXPENSE_TYPE ORDER BY CODE) = 1
+)
+SELECT COALESCE(n.REASON,'(none)')                              AS payment_type,
+       x.EXPENSE_TYPE                                           AS expense_head,
+       c.ALLOW_TO_ADD_LOAN                                      AS head_allows_loan,
+       COUNT(*)                                                 AS notes,
+       ROUND(SUM(n.AMOUNT))                                     AS aed,
+       COUNT_IF(x.LOAN_AMOUNT IS NULL OR x.LOAN_AMOUNT = 0)     AS NO_LOAN_BOOKED,
+       ROUND(SUM(IFF(x.LOAN_AMOUNT IS NULL OR x.LOAN_AMOUNT = 0,
+                     n.AMOUNT, 0)))                             AS aed_never_recoverable,
+       COUNT_IF(x.LOAN_AMOUNT > 0)                              AS loan_booked,
+       ROUND(SUM(IFF(x.LOAN_AMOUNT > 0, x.LOAN_AMOUNT, 0)))     AS aed_loan_booked,
+       COUNT_IF(x.LOAN_AMOUNT > x.AMOUNT + 0.01)                AS loan_EXCEEDS_advance
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
+LEFT JOIN cfg c ON c.EXPENSE_TYPE = x.EXPENSE_TYPE
+WHERE n.NOTE_TYPE = 'ADDITION' AND n.AMOUNT > 0
+  AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+  AND n.NOTE_DATE <= CURRENT_DATE()
+GROUP BY 1, 2, 3
+HAVING COUNT(*) >= 10
+ORDER BY aed_never_recoverable DESC;
+
+
+-- TF15. 🔴 THE APPROVAL GATE, READ THE WAY CONFIG DEFINES IT — and the query that decides
+--       whether Medical's 46.6% is a finding or a design.
+--       Three verdicts, per head, because one rule does not fit three approval methods:
+--         AUTO_APPROVED               -> no approver expected, absence is CORRECT
+--         APPROVAL_REQUIRED_ON_LIMIT  -> approval needed only ABOVE limit_for_approval
+--         APPROVAL_REQUIRED           -> approval needed on every request, always
+--       APPROVE_HOLDER is carried through: if the requester IS the designated approver for
+--       that head, self-approval is the DESIGN and must not be reported as a breach.
+--       Names are compared and counted, never selected.
+WITH cfg AS (
+    SELECT EXPENSE_TYPE, CODE, APPROVAL_METHOD, LIMIT_FOR_APPROVAL,
+           APPROVE_HOLDER, MANAGER_NAME, REQUESTED_FROM
+    FROM BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION
+    WHERE EXPENSE_TYPE IS NOT NULL
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY EXPENSE_TYPE ORDER BY CODE) = 1
+), j AS (
+    SELECT COALESCE(n.REASON,'(none)') AS payment_type, x.EXPENSE_TYPE AS head,
+           n.AMOUNT, x.AMOUNT AS req_amount,
+           c.APPROVAL_METHOD, c.LIMIT_FOR_APPROVAL, c.APPROVE_HOLDER,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(x.REQUESTED_BY),''), '\\s+',' '))) AS req,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(x.APPROVED_BY),''),  '\\s+',' '))) AS apr,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(c.APPROVE_HOLDER),''),'\\s+',' '))) AS holder
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
+    LEFT JOIN cfg c ON c.EXPENSE_TYPE = x.EXPENSE_TYPE
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND n.NOTE_DATE <= CURRENT_DATE()
+)
+SELECT payment_type, head,
+       COALESCE(APPROVAL_METHOD,'(no head matched)') AS approval_method,
+       LIMIT_FOR_APPROVAL                            AS approval_limit,
+       COUNT(*)                                      AS notes,
+       ROUND(SUM(AMOUNT))                            AS aed,
+       COUNT_IF(APPROVAL_METHOD = 'APPROVAL_REQUIRED' AND apr IS NULL)     AS REQUIRED_but_unapproved,
+       ROUND(SUM(IFF(APPROVAL_METHOD = 'APPROVAL_REQUIRED' AND apr IS NULL,
+                     AMOUNT, 0)))                                          AS aed_required_unapproved,
+       COUNT_IF(APPROVAL_METHOD = 'APPROVAL_REQUIRED_ON_LIMIT'
+                AND req_amount > LIMIT_FOR_APPROVAL AND apr IS NULL)       AS OVER_LIMIT_unapproved,
+       ROUND(SUM(IFF(APPROVAL_METHOD = 'APPROVAL_REQUIRED_ON_LIMIT'
+                     AND req_amount > LIMIT_FOR_APPROVAL AND apr IS NULL,
+                     AMOUNT, 0)))                                          AS aed_over_limit,
+       COUNT_IF(req IS NOT NULL AND apr = req AND holder IS NOT NULL AND holder = req)
+                                                                           AS self_BY_DESIGN,
+       COUNT_IF(req IS NOT NULL AND apr = req AND (holder IS NULL OR holder <> req))
+                                                                           AS self_NOT_the_holder,
+       ROUND(SUM(IFF(req IS NOT NULL AND apr = req AND (holder IS NULL OR holder <> req),
+                     AMOUNT, 0)))                                          AS aed_self_not_holder
+FROM j
+GROUP BY 1, 2, 3, 4
+HAVING COUNT(*) >= 10
+ORDER BY aed_required_unapproved + aed_over_limit + aed_self_not_holder DESC;

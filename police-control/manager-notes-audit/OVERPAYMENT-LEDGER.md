@@ -37,6 +37,16 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 |---|---:|---|
 | Bonus paid before the bonus was requested | 9,500 | 12 notes, de-duplicated from O6's 20 |
 
+### Control violated — the invoice gate is routed around
+
+**Exactly three expense heads set `REQUIRE_INVOICE = TRUE`:** `FT 26` Medical assistance for
+housemaids, `FT 229` Taxi rides – maids, `FT 281` Taxi rides for applicants. **All three carry zero
+of the 944 tail-five notes.** Every dirham of the AED 219,143 flows through a head whose twin
+requires no invoice — Medical through `PT 100` (PCR Test & medical assistance **Loan**), taxi through
+`LOTA` and `TR 200`. The finding is not that invoices are missing. It is that the heads demanding one
+are unused while their no-invoice twins carry 100% of the money. No recovery attaches to this; it is
+a control that exists on paper and is not on the path the money takes.
+
 ## Candidates — real populations, not yet verdicts
 
 | Population | AED | What would settle it |
@@ -48,6 +58,9 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | ⚠️ **Raffle: is the entrant list ~1,400 or ~6,700?** | 180,000 *(the whole type)* | **One number, not an ingestion.** 88 repeat winners is **1.02× chance** for a pool of 1,400 and **4.09×** for 6,738. R3 shows MAID_VISA wins at 0.29× its share and three nationalities never win, so the real pool is far smaller than the paid population. **If the draw enters ~1,400 maids, group F is clean.** *(An earlier version of this row called the draw non-uniform on the 6,738 figure — retracted.)* |
 | Raffle Prize | 180,000 | The five raffle tables (N12) — **48 winners every month for 12 months** |
+| 🔴 **Live-out Transportation Assistance paid to a live-in maid** | **≤71,850** | TF13. 320 notes, **85% of all taxi money**, isolated at last — `EXPENSE_TYPE = 'Live-out Transportation Assistance'`. An allowance for a commute the maid was not making. Blocked since the spec was written; the flag (TF5) and the key (TF11) both landed this session |
+| 🔴 **Advances on loan-enabled heads with no loan booked** | **≤219,143** | TF14. `ALLOW_TO_ADD_LOAN = TRUE` on every head behind all five types, and two are named "Loan" outright — Medical runs through *PCR Test & medical assistance Loan*, MOHRE through *WPS Compliance Loan*. Money advanced as an ADDITION with no loan written against it was never recoverable. The L-group's "0% to 115%" problem, unmeasurable until config was read |
+| 🟡 **Medical self-approval — 46.6%, 2 identities** | 12,266 | TF15. Held twice now. `APPROVAL_METHOD = APPROVAL_REQUIRED` on `PT 100`, so approval is owed on every request — but `APPROVE_HOLDER` decides it: if the requester **is** the designated approver, self-approval is the design, not a breach |
 | MV prorated paid twice to 3 maids | 1,245 | Whether each had two pre-collected contracts terminate |
 
 ## What has been cleared, on evidence
