@@ -184,3 +184,24 @@ SELECT CASE
 FROM j
 GROUP BY 1
 ORDER BY aed_ABOVE_ONE_DAY DESC, aed DESC;
+
+-- FD1b RESULT 2026-09-08 — the as-of salary transforms the picture, then stops short.
+--   🟢 within one day of that month's salary .. 672 notes · 189 maids · AED 32,462 · above 581
+--   ⚠️ one to two days ....................... 195 notes ·  55 maids · AED 12,364 · above 2,897
+--   🔴 more than two days ....................  43 notes ·  12 maids · AED  2,736 · above 1,756
+--   BLOCKED — no payroll row for that month ... 117 notes ·  37 maids · AED  5,726
+--   Using the payroll month's own salary moved 406 notes into "clean" — 672 within one day
+--   against FD1's 266. The as-of fix is worth more than any threshold tuning.
+--   ⚠️ THE 43 ARE NOT A FINDING. Their median one-day figure is 18, implying a monthly salary
+--   near AED 540 — far below a normal maid salary and the signature of a PARTIAL-MONTH payroll
+--   row, which understates the daily rate and manufactures the ratio. Maximum plausible
+--   overpayment across the whole amount test is AED 1,756, on a type where 65% of notes are
+--   demonstrably correct.
+--
+-- ⛔ FORGIVE DEDUCTION CLOSES HERE. The amount test is recorded as inconclusive at
+--   <= AED 1,756, not as a finding. Same call as PS3 and the 369 hand-written zero notes.
+--
+-- 🟢 THE LESSON WORTH KEEPING: FD2 found a real finding (3 maid-months, 15-21 days forgiven,
+--   AED 2,492) and FD1/FD1b did not — because FD2 COUNTS NOTES and the amount tests MEASURE
+--   AGAINST A SALARY MODEL. A count-based test survives a bad salary model; an amount-based
+--   one does not. Where a per-note quantum exists (one note = one day), prefer counting.

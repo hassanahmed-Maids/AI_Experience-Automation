@@ -41,6 +41,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Population | AED | What would settle it |
 |---|---:|---|
 | Bonus with a referral but no bonus request | 70,895 | Whether `IS_REQUESTED_BONUS` is reliably set |
+| Forgive Deduction above one day's salary | ≤1,756 | **Recorded as inconclusive, not a finding.** The 43 notes have a median one-day figure of 18 — the signature of a partial-month payroll row understating the rate |
 | Bonus, 6–12 months into service, no referral | 42,900 | Between the signing profile (avg 500) and the referral one (866) at avg 596 — genuinely ambiguous |
 | Bonus where the referrer has bonuses but none on that date | 16,500 | O9 flagged it; needs the same start-date cut |
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
@@ -53,6 +54,9 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **AED 32,462 of Forgive Deduction** — 672 of 1,027 notes land within one day of the salary
+  that applied in their own payroll month, which is exactly what one note = one day predicts.
+  Both hard ceilings hold: no maid-month has more notes than days, none exceeds a month's pay (FD1b, FD2).
 - 🟢 **AED 95,550 of Prorated salary** — 593 of 619 notes land a median **three days** from the
   maid's salary start, exactly the window the rule describes (PS1c).
 - 🟢 **AED 788,069 of MV Prorated Salary** — against the code's own rule that a terminated maid
