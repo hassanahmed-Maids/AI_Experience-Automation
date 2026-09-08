@@ -166,7 +166,7 @@ group B). Four candidate checks were tried and closed off by data — the compla
 scores **1.00× chance, i.e. zero signal**; the enrolment-exists test passes 1,000 times in 1,001;
 `AMOUNT = tier` cannot be written because 30% of notes are prorated over two divisors. What replaced
 them: **an enrolment must pre-date the payment it justifies** (found a case on its first run), and
-**an agent reads the enrolment reason box** — which is 100% filled and 96% distinct, so it carries
+**an AI Agent reads the enrolment reason box** — which is 100% filled and 96% distinct, so it carries
 real content. What remains for the business is narrower and sharper: *should enrolment require a
 categorised reason, as the sibling retraction bonus already does?*
 

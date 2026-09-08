@@ -1087,11 +1087,13 @@ follows is what survived contact with 9,167 real payments.
   legitimate two-contract month are indistinguishable. **Rank the review list by a second signal** —
   a maid paid twice in one month where one payment is **off-batch** is a far stronger candidate than
   either signal alone (one such case observed). **(UNIQ, set-level)**
-- **B7 — 🔴 the justification, and the only one that exists.** *This is group B's real rule.* An
-  agent reads `HOUSEMAID_MANAGERACTIONLOGS.NOTES` — the required free-text box on the enrolment
+- **B7 — 🔴 the justification, and the only one that exists.** *This is group B's real rule.*
+  ⚠️ **&ldquo;AI Agent&rdquo; throughout this spec means an automated LLM step, never a maids.cc
+  agent.** Where a person is meant, this document says *auditor*, *reviewer* or *manager*. An
+  AI Agent reads `HOUSEMAID_MANAGERACTIONLOGS.NOTES` — the required free-text box on the enrolment
   record — and returns: does it state a retention reason, and in which category (client conflict /
   salary / homesick / family / workload / competing offer / **none stated**)? **RED** where no
-  reason is stated. **Because no categorised field exists anywhere in the ERP, the agent creates the
+  reason is stated. **Because no categorised field exists anywhere in the ERP, the AI Agent creates the
   categorisation, and that is itself a deliverable the business does not have today.**
 
   **Evidenced viable, and this was not the likely outcome** *(live, 12 months, 2,806 records)*:
@@ -1099,7 +1101,7 @@ follows is what survived contact with 9,167 real payments.
   at 60+ chars · 43 records under 10 chars.* A required free-text field usually degenerates into
   boilerplate; this one has not.
 
-  ⚠️ **Calibrate the claim.** 43 characters is one short sentence. The agent can *categorise a
+  ⚠️ **Calibrate the claim.** 43 characters is one short sentence. The AI Agent can *categorise a
   stated reason*; it cannot *verify* one. B7 reports what the enrolling manager wrote, not whether
   it was true, and the spec must not let a dashboard imply otherwise. The 43 sub-10-character
   records are a junk tail to exclude, not to interpret.
@@ -1215,7 +1217,7 @@ negative (D8). Whether `previously_held_salary` ever reverses either is **Q15**.
 > the free text, carrying their own rates and day counts (e.g. AED 3,200/month with a client, AED
 > 1,200/month available, prorated over 31). Note 174632's text re-adds to AED 4,554.84 **exactly**.
 > So group E gains a subset test: **E3 — where the note shows its working, recompute it and confirm
-> the total.** An AI agent parsing the itemised text can do this; where the working is absent the note
+> the total.** An AI Agent parsing the itemised text can do this; where the working is absent the note
 > stays BLOCKED, which makes *"the reviewer did not show their work"* a reportable category.
 >
 > **E4 — cross-type consistency.** A day excluded from a salary-dispute calculation as *"forgiven"*

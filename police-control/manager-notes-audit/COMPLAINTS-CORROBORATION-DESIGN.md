@@ -91,7 +91,7 @@ in a text box, and links to nothing.** That asymmetry is a finding in its own ri
 governance question, not a data gap: the mechanism to do this properly already exists next door.
 
 **What makes it checkable anyway:** `MAIDMANAGERACTIONLOG.NOTES` **is** exposed in the warehouse
-(`BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS.NOTES`). An agent can read it and
+(`BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS.NOTES`). An AI Agent can read it and
 judge whether it states a retention reason — and separately look for a `Maid Wants To Resign` /
 `MV Retention` complaint on that maid as supporting evidence.
 
@@ -163,7 +163,7 @@ this maid's background chatter?"** Three consequences:
 **One residual use for presence:** the 87% coverage on anti-attrition still leaves **1,192 notes and
 AED 270,427 where the maid had *no complaint of any kind* in a 104-day window** — while being paid to
 be retained. That is not proof of anything, but it is a well-defined, small, high-value queue, and it
-is the natural first batch for the agent.
+is the natural first batch for the AI Agent.
 
 ## 3c. Query 2 settles it: the check is TYPE-MATCH plus TIMING, never presence
 
@@ -268,7 +268,7 @@ is the density arriving exactly as predicted — now confirmed on a 3-month wind
 12-month one.
 
 **A `LIMIT` would have been the wrong fix.** Truncating the join cuts a maid's complaint list
-mid-way and hands the agent a queue whose missing evidence is invisible to it — the agent would
+mid-way and hands the AI Agent a queue whose missing evidence is invisible to it — the AI Agent would
 return "no corroborating complaint" for notes whose corroboration was simply below the cut. The
 export shape was the defect: §3d's rule needs three numbers per note (type-match, timing,
 per-maid specificity), and all three are aggregates. They collapse to **one row per note** if
@@ -986,7 +986,7 @@ writing something different each time. **Job 1 is viable, so anti-attrition has 
 after the complaint test came back N_A, the enrolment-exists test came back 99.9% clean, and the
 recompute stayed blocked.
 
-Calibrate expectations: a 43-character median is one short sentence, not a justification. The agent
+Calibrate expectations: a 43-character median is one short sentence, not a justification. The AI Agent
 can categorise a stated reason; it cannot verify one. And 43 records are under 10 characters — a
 small junk tail to exclude, not to interpret.
 
@@ -1092,18 +1092,18 @@ Built from the real taxonomy (query 1b, 18-month volumes) and the code's type co
 **The N_A row matters as much as the others.** Requiring a complaint behind a machine-generated
 payment would produce thousands of false findings on day one.
 
-## 5. What the AI agent should actually do
+## 5. What the AI Agent should actually do
 
 Three jobs, in descending order of value:
 
 **Job 1 — judge the enrolment reason (anti-attrition).** Read `HOUSEMAID_MANAGERACTIONLOGS.NOTES`
 and return: does this state a retention reason? Which category (client conflict / salary / homesick /
-family / workload / competing offer / none stated)? **Because no categorised field exists, the agent
+family / workload / competing offer / none stated)? **Because no categorised field exists, the AI Agent
 *creates* the category** — and that categorisation is itself a deliverable the business does not have
 today.
 
 **Job 2 — verify the arithmetic reviewers wrote down (salary dispute).** Per note 174632, reviewers
-often write the full itemised calculation into the free text. The agent parses it, re-adds it, and
+often write the full itemised calculation into the free text. The AI Agent parses it, re-adds it, and
 confirms the total. Where no working is shown, report *"reviewer did not show their work"* — a
 category the business can act on.
 
@@ -1118,7 +1118,7 @@ model **`gpt-4.1-nano` at temperature 0.9, topP 0.5** (a `gpt-4` variant also ex
 
 🔴 **Do not build a verdict on that summary.** Temperature 0.9 is high for summarisation, and an audit
 finding that traces back to a creative-sampled paraphrase is not defensible. Use it to **triage** —
-to decide which complaints are worth opening — and have the agent read `COMPLAINT_COMMENTS.TEXT`
+to decide which complaints are worth opening — and have the AI Agent read `COMPLAINT_COMMENTS.TEXT`
 (already HTML-stripped, `ITERATION`-ordered) plus `COMPLAINT_DESCRIPTION` for anything that becomes a
 finding.
 
@@ -1134,7 +1134,7 @@ reach today.
 ### The privacy boundary, which is a design constraint not a footnote
 
 Complaint text carries personal circumstances — health, family, disputes — about named individuals.
-**The agent reads it; the audit never republishes it.** The agent returns a verdict, a category and a
+**The AI Agent reads it; the audit never republishes it.** The AI Agent returns a verdict, a category and a
 complaint id. Findings cite the id. No free text reaches an export, a dashboard or an inbox.
 
 ## 6. What is blocked

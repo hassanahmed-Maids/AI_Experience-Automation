@@ -5,6 +5,9 @@
 
 ---
 
+> ⚠️ **&ldquo;AI Agent&rdquo; in this spec means an automated LLM step, never a maids.cc agent.**
+> Where a person is meant, this document says *auditor*, *reviewer* or *manager*.
+
 ## 0. What changed on 2026-09-08 — read this if you saw the earlier revision
 
 This is the first revision written against **live query results** rather than catalog metadata and
@@ -345,7 +348,7 @@ this. Do not code a fixed list of reasons.
 | `ADDITION_REASON_ID` code | Group | Buildable |
 |---|---|---|
 | `airfare_ticket` | **A** Flight home | ✅ |
-| `anti_attrition_incentive` | **B** Loyalty | ✅ **re-specified 2026-09-08 — 8 tests, 6 need only the grant.** Runnable: B1 enrolled · **B1b enrolled *before* the payment** (new; found a case on its first run) · B2 contract type · B3 active · B6 once per month (review list, not RED, until `CONTRACT_ID`) · **B7 the agent reads the enrolment reason box** — 100% filled, 96% distinct, median 43 chars. Blocked: B4 recompute (needs enrolment **and exit** dates *plus* the divisor rule — 30% of notes are prorated over two divisors, both the job's own), B5 ceiling (`INCENTIVE_AMOUNT`). ⚠️ **Do not re-attempt**: the complaint check scores **1.00× chance — zero signal**; enrolment-exists passes 1,000 in 1,001; `AMOUNT = tier` cannot be written; "the amount fits no rule" detects whole-dirham typing, not error |
+| `anti_attrition_incentive` | **B** Loyalty | ✅ **re-specified 2026-09-08 — 8 tests, 6 need only the grant.** Runnable: B1 enrolled · **B1b enrolled *before* the payment** (new; found a case on its first run) · B2 contract type · B3 active · B6 once per month (review list, not RED, until `CONTRACT_ID`) · **B7 the AI Agent reads the enrolment reason box** — 100% filled, 96% distinct, median 43 chars. Blocked: B4 recompute (needs enrolment **and exit** dates *plus* the divisor rule — 30% of notes are prorated over two divisors, both the job's own), B5 ceiling (`INCENTIVE_AMOUNT`). ⚠️ **Do not re-attempt**: the complaint check scores **1.00× chance — zero signal**; enrolment-exists passes 1,000 in 1,001; `AMOUNT = tier` cannot be written; "the amount fits no rule" detects whole-dirham typing, not error |
 | `bonus` + purpose `referral_bonus` | **C** Referral | partial — event ✅, price needs N11 |
 | `bonus` + other purpose | **C** Signing | partial — price needs N11 |
 | `prorated_salary`, `mv_prorated_salary`, `previously_held_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | **D** Part-month | partial — needs N10 |

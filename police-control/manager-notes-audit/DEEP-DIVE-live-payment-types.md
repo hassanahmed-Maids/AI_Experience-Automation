@@ -676,7 +676,7 @@ and this spec should never present one as though it were.
 **1. `salary_dispute` is recomputable for the documented subset.** This spec records it as UNRULED
 with no reconciliation target. That is true of the *system* — but not of the note. Note 174632 carries
 its own target: two daily rates (**AED 3,200/month with a client, AED 1,200/month available**) and the
-day counts. **An agent that parses the itemised text and re-adds it can verify these exactly.** That
+day counts. **An AI Agent that parses the itemised text and re-adds it can verify these exactly.** That
 turns the largest unruled category from "unverifiable" into "verifiable wherever the reviewer showed
 their work" — and, just as usefully, isolates the notes where they did not.
 
