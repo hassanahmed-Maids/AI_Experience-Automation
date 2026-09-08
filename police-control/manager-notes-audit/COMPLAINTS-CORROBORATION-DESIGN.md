@@ -1071,6 +1071,37 @@ Reimbursement` (2), `MV Extra Salary` (1), `Cash Assistance for Cleaner's other 
 `Flight ticket` (1). ⚠️ **`Flight ticket` and `Airfare Ticket` are separate picklist entries.** Two
 names for what may be one business event is the N5 routing hazard arriving in the data.
 
+## 3u. 🔴 Map corrections found by reading the cases, 2026-08 run
+
+Three complaint types appeared in band 3 while plainly belonging to the payment they sat under. They
+are added to §4's map. **Band 3 was overstated by them, and every band-3 figure published before this
+correction is too high.**
+
+| Complaint type | Added to | Why |
+|---|---|---|
+| `Switch Maid To Live-in` | Accommodation Relocation | The map carried only *Switch Maid To Live-out*. A maid moving **into** accommodation is as much a relocation as one moving out — the omission was a direction, not a decision |
+| `Renewal/Resignation Salary Raise` | Salary Dispute | A dispute about a salary raise is a salary dispute |
+| `Request bank details & Refund` | Salary Dispute | A refund request is a money dispute by another name |
+
+**Resolve them to ids before use.** The map joins on `COMPLAINT_TYPE_ID`, never the resolved name —
+N5's routing hazard applies here exactly as it does to payment types, and a renamed complaint type
+would silently drop out of the map.
+
+### 🔴 What was deliberately NOT added
+
+**Four of the seven band-3 Accommodation Relocation cases carry resignation-family complaints**
+(`Maid Wants To Resign`, `Maid does not want to work with client`) rather than accommodation ones.
+The obvious move is to add those types and watch band 3 shrink. **That would be wrong.**
+
+It would make the map confirm a hypothesis the AI Agent invented — *that relocation is used as a
+retention lever* — and the band-3 count would fall for a reason nobody in the business has stated. A
+corroboration map that grows every time a case fails it stops being a test. **It stays an open
+question for payroll: is moving a maid a retention action?** If the answer is yes, the types go in and
+the finding dissolves honestly. If no, these seven are real.
+
+**The general rule this establishes:** add a complaint type to the map when it is *semantically the
+same event* under another label, never when adding it would explain away a finding.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -1080,10 +1111,10 @@ Built from the real taxonomy (query 1b, 18-month volumes) and the code's type co
 | **Anti-attrition Incentive** | 24 `Maid Wants To Resign` (5,058) · 154 same name (48) · 137 `Maid doesn't want to work with the client anymore` (3,023) · 38 `Maid does not want to work with client` (2,368) · 88 `Maid does not want to renew with the company` (129) · 426 `Maid Doesn't Want To Renew` (104) · 284 `Refusal to Work (RTW)` (1,586). **Exclude 257 `MV Retention`** | supporting only — the enrolment `notes` is the primary evidence |
 | **Bonus** — retraction half | 24 `Maid Wants To Resign` **via `DelighterToDo.rbComplaint`** | **hard FK** |
 | **Bonus** — referral half | none. Referrals are never complaints *(code-verified)* | N_A — do not test |
-| **Salary Dispute** | 193 `Missing Salary Inquiry` (3,423) · 320 `Salary release request` (3,174) · 322 `Salary Calculation Issue` (363) · 321 `Maid's last salary with the company` (146) · 330 `Loan Waivers & Deduction Corrections` (93) · 77 `Money Disputes` (2,423) · 323 `Manager note Addition not released` (9) · 156/420 overstay fines (220) | strong — 13% carry an explicit reference |
+| **Salary Dispute** | 193 `Missing Salary Inquiry` (3,423) · 320 `Salary release request` (3,174) · 322 `Salary Calculation Issue` (363) · 321 `Maid's last salary with the company` (146) · 330 `Loan Waivers & Deduction Corrections` (93) · 77 `Money Disputes` (2,423) · 323 `Manager note Addition not released` (9) · 156/420 overstay fines (220) · **`Renewal/Resignation Salary Raise` and `Request bank details & Refund` (added 2026-09-08, ids to resolve)** | strong — 13% carry an explicit reference |
 | **MV Prorated Salary** | **337 `Last MV Salary Disputes` (151)** · 321 `Maid's last salary with the company` (146) | precise — a near-exact semantic match |
 | **Taxi Reimbursement** | 238 `Taxi canceled` (9,490) · **243 `Live-out transportation issues` (842)** · 303 `Housemaid Arrival & Transportation Check-Ins` (12,214). Code: the `transportation` **tag** on `ComplaintType` is the single source of truth | strong |
-| **Accommodation Relocation** | 397 `Satwa Relocation` (25) · 162 `Complaint About Accommodation` (2,119) · 348 `Live-out Maid Staying in Accommodation` (94) · 280 `Switch Maid To Live-out` (432) | strong — and the only check on the unenforced CC live-out rule |
+| **Accommodation Relocation** | 397 `Satwa Relocation` (25) · 162 `Complaint About Accommodation` (2,119) · 348 `Live-out Maid Staying in Accommodation` (94) · 280 `Switch Maid To Live-out` (432) · **`Switch Maid To Live-in` (added 2026-09-08, id to resolve)** | strong — and the only check on the unenforced CC live-out rule |
 | **Medical Assistance** | 57 `Maid is sick or injured` (20,467) · 270 `Follow up for medical appointment` (1,611) · 493 `Maid Health Issue`. Codes: `Work_Injury_Sickness__c`, `Maid_s_Repeat_Medical__c` | strong |
 | **Airfare Ticket** | **336 `Airfare & Vacation Compensation` (35)** · 103 `Vacation Policy` (624) · 177 `Travel assist` (1,018) | weak — it is renewal-driven, not complaint-driven |
 | **Maids.at other expenses** | 339 `Maid cash advance` (2,892) · 119 `Maid related question` (90,625) | weak — too generic to test |
