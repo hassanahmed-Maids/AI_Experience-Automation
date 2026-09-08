@@ -204,3 +204,139 @@ SELECT CASE
 FROM resolved
 GROUP BY 1
 ORDER BY aed DESC;
+
+
+-- =====================================================================================
+-- ROUND 2 — what the first round actually returned.
+--
+-- TF1  GREEN, all five. 944 notes / AED 219,143, 100% linked to a PAID expense request,
+--      zero killed, zero refunded after the note. The approval trail holds.
+--
+-- TF2  🔴 VOID — MY QUERY WAS WRONG, NOT THE DATA. EXPENSE_REQUEST_TASK_NAME returned
+--      'PAYMENT_OBJECT_CREATED' for 100% of all five types. That is a WORKFLOW STATE,
+--      not a category. The census produced nothing and George's Part 2A ask stays open.
+--      New trap, same family as "EXPENSE_ID is not a category": a column named for a TASK
+--      holds where the request GOT TO, not what it was FOR.
+--
+-- TF4  🔴 VOID FOR THE SAME REASON, and this one is dangerous. It matched no config head
+--      on any of the 944 notes -- because it joined on that same task-name column. Zero
+--      matches is NO EVIDENCE, not clean evidence. TF4 must not be reported as green.
+--
+-- TF5  RESOLVED. N19 is HOUSEMAIDS_INFO_REVISION.LIVE_OUT (NUMBER), with a LIVE_OUT_MODIFIED
+--      flag beside it. Blocking since the spec was written; unblocks TF7 below.
+--
+-- TF6  GREEN. 66/66 relocations were CC as of the note date. The MV half of the rule holds.
+-- =====================================================================================
+
+
+-- TF7. 🔴 THE FULL RELOCATION RULE, FINALLY TESTABLE. "CC live-out only" -- TF6 cleared the
+--      CC half, TF5 just handed us the other half. AED 51,600 across 66 notes, and a
+--      relocation allowance paid to a live-IN maid is money for a move she did not make.
+--      LIVE_OUT read AS OF the note date, same machinery as TF6.
+--      The last two columns are a SELF-DIAGNOSTIC: if every note resolves to the same
+--      revision the maid carries today, the as-of join is not actually doing any work and
+--      the result is a point read wearing a costume.
+WITH paid AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Accommodation Relocation'
+      AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND n.NOTE_DATE <= CURRENT_DATE()
+), rev AS (
+    SELECT ID AS maid_id, LIVE_OUT, LAST_MODIFICATION_DATE::DATE AS changed_on
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+    WHERE LIVE_OUT IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL
+), resolved AS (
+    SELECT p.note_id, p.HOUSEMAID_ID, p.AMOUNT, r.LIVE_OUT AS live_out_when_paid
+    FROM paid p
+    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.changed_on <= p.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.changed_on DESC) = 1
+)
+SELECT CASE
+         WHEN a.live_out_when_paid IS NULL THEN 'BLOCKED - no revision before the note'
+         WHEN a.live_out_when_paid = 1     THEN 'GREEN - was live-out when paid'
+         ELSE                                   'RED - relocation paid to a LIVE-IN maid'
+       END                                        AS verdict,
+       COUNT(*)                                   AS notes,
+       COUNT(DISTINCT a.HOUSEMAID_ID)             AS maids,
+       ROUND(SUM(a.AMOUNT))                       AS aed,
+       COUNT_IF(a.live_out_when_paid <> h.LIVE_OUT) AS differs_from_today,
+       COUNT_IF(a.live_out_when_paid =  h.LIVE_OUT) AS same_as_today
+FROM resolved a
+LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = a.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY aed DESC;
+
+
+-- TF8. 🔴 THE ONE THAT DECIDES WHETHER TF3 IS A FINDING. TF3 showed Medical Assistance at
+--      46.6% self-approved and Taxi at 25.5%, against a human-expense-path norm of 2-4%
+--      (Salary Dispute 2.7, Maids.at 2.2, MOHRE 4.3, Relocation 4.5). That reads as 12x and
+--      7x the norm -- AED 27,203 approved by whoever asked for it.
+--
+--      IT IS NOT PUBLISHABLE YET. The same table shows Anti-attrition at 88.4% / AED 1.58m,
+--      and anti-attrition is a BATCH JOB: it stamps one identity into both fields because
+--      no human is in the loop. `MedicalAssistantJob` creates medical notes off the medical
+--      and EID steps, so Medical's 46.6% may be that same signature wearing a person's name.
+--      This session has already retracted one finding built on exactly this mistake
+--      (REQUESTED_BY names a RUN, not a ROUTE).
+--
+--      The discriminator is CONCENTRATION: a job is one identity on hundreds of notes; real
+--      self-approval is many managers each clearing their own. Names are counted, never selected.
+--      MIDNIGHT_PCT is guarded -- the ALL-TYPES column beside it exposes the trap where
+--      NOTE_DATE carries no time at all, in which case that signal is void, not unanimous.
+WITH n AS (
+    SELECT ID, AMOUNT, COALESCE(REASON,'(none)') AS payment_type, NOTE_DATE,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(REQUESTED_BY),''), '\\s+', ' '))) AS requester,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(APPROVED_BY),''),  '\\s+', ' '))) AS approver
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND NOTE_DATE <= CURRENT_DATE()
+), tagged AS (
+    SELECT *, IFF(requester IS NOT NULL AND approver IS NOT NULL
+                  AND requester = approver, 'SELF-APPROVED', 'separate or absent') AS lane
+    FROM n
+    WHERE payment_type IN ('Medical Assistance','Taxi Reimbursement','Anti-attrition Incentive',
+                           'Salary Dispute','Maids.at other expenses')
+), per_person AS (
+    SELECT payment_type, lane, requester, COUNT(*) AS notes_by_this_person
+    FROM tagged WHERE requester IS NOT NULL
+    GROUP BY 1, 2, 3
+), concentration AS (
+    SELECT payment_type, lane,
+           COUNT(*)                        AS distinct_requesters,
+           MAX(notes_by_this_person)       AS biggest_single_requester,
+           SUM(notes_by_this_person)       AS notes_with_a_requester
+    FROM per_person GROUP BY 1, 2
+)
+SELECT t.payment_type, t.lane,
+       COUNT(*)                                                   AS notes,
+       ROUND(SUM(t.AMOUNT))                                       AS aed,
+       c.distinct_requesters,
+       c.biggest_single_requester,
+       ROUND(100.0 * c.biggest_single_requester
+             / NULLIF(c.notes_with_a_requester, 0), 1)            AS pct_held_by_one_identity,
+       ROUND(100.0 * COUNT_IF(HOUR(t.NOTE_DATE) = 0
+                              AND MINUTE(t.NOTE_DATE) = 0) / COUNT(*), 1) AS midnight_pct,
+       (SELECT ROUND(100.0 * COUNT_IF(HOUR(NOTE_DATE) = 0 AND MINUTE(NOTE_DATE) = 0)
+                     / COUNT(*), 1)
+        FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+        WHERE NOTE_TYPE = 'ADDITION'
+          AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()))  AS midnight_pct_ALL_TYPES_guard
+FROM tagged t
+LEFT JOIN concentration c ON c.payment_type = t.payment_type AND c.lane = t.lane
+GROUP BY 1, 2, 5, 6, 7
+ORDER BY t.payment_type, t.lane;
+
+
+-- TF9. 🟡 TF2's REPLACEMENT — find the column that actually holds the expense CATEGORY.
+--      Without it, George's Part 2A ask cannot be closed, TF4 cannot be re-run, and the
+--      taxi half of the live-out test stays blocked (Live-out Transportation Assistance is
+--      69% of taxi money and can only be isolated by category).
+--      Two parts, both small. First: what columns exist on the two expense views at all.
+SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE
+FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'MONEY_CONTROL_SILVER'
+  AND TABLE_NAME IN ('EXPENSES_REQUESTS','EXPENSES_CONFIGURATION')
+ORDER BY TABLE_NAME, ORDINAL_POSITION;
