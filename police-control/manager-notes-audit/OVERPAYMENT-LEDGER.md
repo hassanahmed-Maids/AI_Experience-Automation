@@ -54,6 +54,9 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **AED 13,616 of Last Day CC Switch Adjustment — the entire type, and the cleanest in the
+  audit.** 213 of 213 notes dated month-end as the rule requires, and 213 of 213 matched to a CC→MV
+  switch **on the note date itself** (LD1, LD3).
 - 🟢 **AED 29,684 of Office Work Addition — the entire type.** All 92 notes went to maids holding an
   office-work assignment within the two months before payment (OW5b), and no note exceeds a typical
   month's pay (OW2b).
@@ -125,3 +128,25 @@ validates at write time has zero violations in 770 payments.
 ⛔ **The amount test (PS3) was not pursued.** Group D is 99.7% cleared and the residue is AED 2,976;
 the test would need the CC salary-group breakdown from ask-the-code to mean anything. **Recorded as a
 decision.**
+
+
+---
+
+## The observation the whole audit converges on
+
+**The newer the producer, the cleaner the money — and the mechanism is visible in the code.**
+
+| Producer | Age | Result |
+|---|---|---|
+| Last Day CC Switch Adjustment | first notes 2026-06-30 | **213/213 correct. Zero findings** |
+| MV Prorated Salary | recent | **770 notes, zero eligibility violations** |
+| Office Work Addition | — | **92/92 assigned. Zero findings** |
+| Anti-attrition | older | Checks eligibility at **selection**, pays two async hops later → AED 14,545 |
+| Airfare, manual route | legacy expense path | **Skips its duplicate guard entirely** → AED 49,500 |
+| Bonus | — | **No gate at all** → AED 143,965 |
+
+**Every one of the newest three validates its condition at the moment it writes the note. Every finding
+in this ledger comes from a producer that does not.**
+
+That is a design recommendation the audit earned rather than asserted, and it is worth more than the
+AED 232,500: **the fix is not thirteen separate patches, it is one rule — validate at write time.**

@@ -139,3 +139,26 @@ SELECT CASE
 FROM ld l LEFT JOIN typical t ON t.HOUSEMAID_ID = l.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY aed_ABOVE_ONE_DAY DESC, aed DESC;
+
+-- LD1/LD3 RESULTS 2026-09-08 — 🟢 LAST DAY CC SWITCH CLOSES AT ZERO FINDINGS.
+--   LD1: 213 of 213 notes dated the last day of the month. 3 distinct days (2026-06-30,
+--        07-31, 08-31), 213 distinct maids, none at midnight (real timestamps, consistent
+--        with the audit-todo job writing them).
+--   LD3: 213 of 213 switched CC->MV **on the note date itself**. Not "within a month" — on
+--        the exact day. Median amount 65, which is one day of a ~2,000 salary over 30 days.
+--   LD2 is clean by construction: 213 notes across 213 maids is one adjustment each.
+--   🟢 The cleanest type in the audit. Every note produced by the rule as written, on the date
+--   the rule specifies, for a switch that actually happened that day.
+--
+-- 🔴 THE PATTERN THIS COMPLETES, and it is the audit's most useful single observation:
+--   THE NEWER THE PRODUCER, THE CLEANER THE MONEY.
+--     Last Day CC Switch (first notes 2026-06-30) .. 213/213 correct · zero findings
+--     MV Prorated Salary (recent feature) .......... 770 notes · zero eligibility violations
+--     Office Work Addition ......................... 92/92 assigned · zero findings
+--     Anti-attrition (older) ....................... checks eligibility at SELECTION, pays two
+--                                                    async hops later -> 64 notes / AED 14,545
+--     Airfare's manual route (legacy expense path) . skips the duplicate guard entirely
+--                                                    -> 29 notes / AED 49,500
+--     Bonus ........................................ no gate at all -> AED 143,965
+--   Every one of the newest three validates its condition AT THE MOMENT IT WRITES THE NOTE.
+--   Every finding in the ledger comes from a producer that does not.
