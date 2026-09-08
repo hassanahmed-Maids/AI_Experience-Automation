@@ -200,3 +200,21 @@ one changed later, and not.
 It also hands group A its missing piece: **the as-of-payment type join (E5b) is N17**, the
 contract-type timeline. Group A was blocked on a business answer that turns out to be a revision table
 nobody had looked in.
+
+
+## 🟢 N17 is resolved and proven, and it corrected a finding by 97%
+
+The as-of-payment join (E5b) ran clean: **zero notes fell into BLOCKED**, so
+`HOUSEMAIDS_INFO_REVISION` covers the whole audit window.
+
+**It also demonstrated why the join matters.** Read against current state, anti-attrition showed
+**941 notes / AED 172,967** contradicting the code-verified CC-only rule. Read as of the payment date,
+it is **22 notes / AED 5,526** — 915 of the 941 were maids who switched type *after* being paid.
+
+**That is a 97% overstatement, and it would have been the audit's largest published finding.** The
+same hazard applies to every changeable attribute the group rules depend on: salary, status,
+live-out, contract type. Recorded as a dev-spec trap.
+
+**Group A is unblocked.** N17 was filed as a business ask waiting for someone to define a
+contract-type timeline; it is a revision table that was already in the warehouse, and the join is now
+written and proven.

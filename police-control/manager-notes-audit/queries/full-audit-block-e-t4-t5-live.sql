@@ -175,3 +175,49 @@ WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Abu Dhabi Incentive'
   AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
 GROUP BY 1
 ORDER BY notes DESC;
+
+-- E5 RESULT 2026-09-08 — 🔴 THE POINT-IN-TIME TEST CUT THE FINDING BY 97%.
+--   GREEN, was CC when paid ...... 9,145 notes · 2,391 maids · AED 1,824,210
+--   🔴 RED, PAID WHILE MV ........     22 notes ·    22 maids · AED     5,526
+--   BLOCKED, no revision .........      0   <- the revision table covers the whole window
+--   The current-state read said 941 notes / AED 172,967. 774 of those were 'Normal' when paid
+--   and are MAID_VISA now (278 maids), plus 141 FREEDOM_OPERATOR -> MAID_VISA. They switched
+--   AFTER being paid. 🟢 N17 is resolved and PROVEN: group A can now use the same as-of join.
+
+-- E5c. The last question on the 22: are they a control failure or a recording boundary?
+--   Each of the 22 is a different maid, so this is not a repeated pattern. A maid whose switch
+--   was RECORDED before the batch ran but took effect after would be a false RED.
+--   ⚠️ Report BOTH dates and do not pick one. LAST_MODIFICATION_DATE is when the revision was
+--   written; SWITCH_HOUSEMAID_TYPE_DATE is a business date — and this project has already been
+--   burned once by treating a user-editable business date as a timestamp (ACTION_DATE, N13).
+WITH paid AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Anti-attrition Incentive'
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), rev AS (
+    SELECT ID AS maid_id, HOUSEMAID_TYPE, SWITCH_HOUSEMAID_TYPE_DATE AS switch_business_date,
+           LAST_MODIFICATION_DATE::DATE AS changed_on
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+    WHERE HOUSEMAID_TYPE IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL
+), resolved AS (
+    SELECT p.note_id, p.HOUSEMAID_ID, p.note_day, p.AMOUNT,
+           r.HOUSEMAID_TYPE AS type_when_paid, r.changed_on, r.switch_business_date
+    FROM paid p
+    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.changed_on <= p.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.changed_on DESC) = 1
+)
+SELECT note_id, HOUSEMAID_ID AS maid_id, note_day, ROUND(AMOUNT) AS aed,
+       changed_on                                     AS mv_recorded_on,
+       switch_business_date                           AS mv_effective_on,
+       DATEDIFF('day', changed_on, note_day)          AS days_recorded_before_payment,
+       DATEDIFF('day', switch_business_date, note_day) AS days_effective_before_payment,
+       CASE
+         WHEN switch_business_date IS NULL              THEN 'no business switch date'
+         WHEN switch_business_date > note_day           THEN 'FALSE RED - not MV yet on the business date'
+         WHEN DATEDIFF('day', changed_on, note_day) <= 2 THEN 'boundary - recorded within 2 days of the run'
+         ELSE                                                'REAL - MV well before the payment'
+       END                                            AS reading
+FROM resolved
+WHERE type_when_paid = 'MAID_VISA'
+ORDER BY days_recorded_before_payment DESC;
