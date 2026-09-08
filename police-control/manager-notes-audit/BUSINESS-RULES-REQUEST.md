@@ -26,34 +26,43 @@ Each of these goes from *unverifiable* to *fully checked* the moment somebody an
 
 **What we need:** the list of winners for each draw.
 
-**Why we can't work it out:** the ERP runs the draw and writes the payment automatically, but no
-record of *who won* has ever been brought into the warehouse. Searching the entire warehouse for
-anything raffle-related returns nothing.
+**Why we can't work it out — and this turned out to be worse than we thought.** We checked the ERP
+code. **There is no raffle job, no draw record and no winners table anywhere in the payroll system.**
+"Raffle prize" is only a label on a dropdown. The payment is typed in by hand, and the only two
+places the system mentions it are the payslip wording (*"You won a raffle prize on…"*) and a rule
+that excludes it from final settlements.
 
-**The answer we need:** who owns the draw, and where the winners are recorded — a spreadsheet, a
-system, a person's inbox. Any of those is workable.
+**So this is not a missing data feed. There is nothing recording who won.**
 
-> *For the data team, in parallel:* one question to the ERP code about what `RafflePerformerJob`
-> reads to pick winners would likely name the table directly. Worth asking before the business
-> chases a spreadsheet.
+**The questions:**
+- **Who runs the draw**, and how are winners chosen?
+- **Where are the winners written down** — a spreadsheet, a chat, somebody's notes? Any of those is
+  workable; we just need to know it exists.
+- **Is there a fixed prize amount**, or does it vary by draw?
 
-**This is the cheapest fix on the page** — the rule is a single line ("is she on the winners list"),
-and it is the only test needed.
+**Why it matters most:** every other payment on this page has *a rule nobody wrote down*. This one
+has **no record that the event even happened**. Money is being paid against a prize with no evidence
+attached to it.
 
 ---
 
-### 2. Google review payment — `recommendation_from_client`
+### 2. Google review payment — `recommendation_from_client` ✅ **ANSWERED — no question needed**
 
-**What we need:** the amount, and the condition.
+We found this in the ERP code, so nothing is needed from you:
 
-**Questions:**
-- Is it a **fixed amount**? If so, what, and has it ever changed?
-- What has to happen for it to be owed — a review posted, a review naming the maid, a review of a
-  certain rating?
-- Is the review itself recorded anywhere we can check against, or is it taken on trust?
+- **The amount is set centrally**, not typed in: parameter `GOOGLE_REVIEW_GIFT_VALUE`, **default
+  AED 50**, described as *"the gift value we give to maid after the client adds a 5-star Google
+  review to her"*.
+- **The condition:** a screenshot of the 5-star review is uploaded, the system creates the addition
+  automatically, and a payroll auditor approves it. If the auditor rejects it, the note is deleted.
+- **The review is recorded** in a `ClientGoogleReview` table, with the screenshot and duplicate-guard
+  flags — so we can check both that the review exists and that it was only paid once.
 
-**Why it matters:** without the amount we cannot tell a correct payment from a generous one. Without
-the condition we cannot tell a real one from an invented one.
+**One small thing needed from the data team, not from you:** `ClientGoogleReview` lives in Client
+Management and has not been brought into the warehouse. It is a small ingestion.
+
+**Please still confirm one thing:** has the AED 50 ever changed? The parameter is not date-stamped,
+so if it moved, older payments would look wrong against today's value.
 
 ---
 
@@ -92,16 +101,23 @@ away) to **115%** (the maid repaying more than she received).
 
 ---
 
-### 7. Live-out transport allowance — `Live-out Transportation Assistance`
+### 7. Live-out transport allowance — ⚠️ **may not be a real payment type**
 
-**What we need:** the rate.
+We checked the code, and **"Live-out Transportation Assistance" does not exist as a payment reason in
+the ERP.** There is no such option, no rate and no rule. The only live-out transportation thing in
+the system is a *complaint ticket* raised after a mediator visit, which pays nothing.
 
-**Questions:**
-- Is it a **fixed monthly amount**, or does it vary — by distance, by contract, by area?
-- Does every live-out maid get it, or only some?
-- Has the amount changed, and if so from when?
+It appears as a **category in a reporting view**, which is not the same as a payment type — that
+view groups payments under labels of its own.
 
-**We can already confirm she is live-out.** We cannot confirm the amount is right.
+**The question:** when someone books transport money for a live-out maid, **what do they actually
+record it as** — a taxi reimbursement, or something else? And is there a rate at all, or is every
+amount decided case by case?
+
+**Why it matters:** if the reporting label doesn't correspond to a real payment type, we have been
+counting a category that doesn't exist — and the same doubt now applies to the sim card, WPS
+compliance, PCR and NOL card categories in Part 1 items 4–6. **We are checking those before asking
+you to define rules for payments that may not be separate payments at all.**
 
 ---
 
@@ -182,6 +198,21 @@ held prorated salary — or just a working copy?
 
 **Why it matters:** if it is a working copy, the audit must report those cases as unverifiable rather
 than checking against it.
+
+### 3b. Held salary — what the code told us, and the one thing it changes
+
+We found the original rule: this payment used to be **generated automatically**, releasing a **whole
+month's salary** that had not been transferred **because the maid was on vacation** — and only for
+MaidVisa maids. The amount was calculated by the system from the unpaid payslip.
+
+**All of that automation has since been switched off.** Every piece of it is commented out or marked
+"not used anymore". **So today this payment is typed in by hand, with the amount typed in too.**
+
+**Please confirm:**
+- Is it still meant to be **on-vacation holds only**, or is it now used for any withheld salary?
+- Is it still **MaidVisa only**? Nothing enforces that any more.
+- Should it go back to being calculated automatically? The calculation still exists in the system —
+  a live payroll exceptions report already compares the held amount against the unpaid payslip.
 
 ### 3. Does `previously_held_salary` ever release something that was never "held"?
 

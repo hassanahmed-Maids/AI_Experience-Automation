@@ -340,11 +340,23 @@ from `payrollmanagernotes` itself**, filtered `AMOUNT != 0 AND AMOUNT IS NOT NUL
 as a price source and its filter deletes exactly the notes T3 exists to flag. Use it for the paid
 amount, never as the authority.
 
-#### N12 — Raffle winners
-*(code-verified)* A `RafflePerformerJob` exists and writes `raffle_prize` additions, so the draw
-is executed in the ERP and a winners record plausibly exists there. `SHOW OBJECTS LIKE '%RAFFLE%'
-IN ACCOUNT` returns **zero rows**, so nothing has been brought across. One Ask the Code follow-up
-on `RafflePerformerJob` would name the table — O3.
+#### N12 — Raffle winners — 🔴 **v2's claim here was wrong; corrected 2026-09-08**
+**There is no `RafflePerformerJob`, no draw table and no winners table.** *(code-verified,
+conversation 45929, payroll module.)* v2 asserted the job existed and that a winners record
+"plausibly exists" in the ERP. It does not. `raffle_prize` is **only a picklist item** on
+`AdditionReasons`, and none of the payroll module's 28 scheduled jobs creates, draws or selects
+winners.
+
+Its only two references anywhere in the module are downstream consumers of a note that already
+carries the reason: the payslip translation services, which render *"You won a raffle prize on …"*,
+and `PayrollHousemaidFinalSettlementController.calculateAdditionsWithoutRaffleAndReferral(...)`,
+which **excludes** raffle additions from a final settlement.
+
+**So a raffle prize is a hand-entered addition with no draw record behind it.** That is a stronger
+finding than "the winners list has not been ingested": there is nothing to ingest. Either the
+selection happens outside the payroll repository — ⚠️ the interrogation was scoped to
+`erp/magnamedia-payroll-management`, so **re-ask across all modules before treating this as final** —
+or it happens outside the ERP altogether, in which case the list has an owner and no system.
 
 #### N13 — The loyalty rule
 The loyalty payment maps to addition reason **`anti_attrition_incentive`**. *(code-verified)* its
@@ -660,7 +672,7 @@ payment type is:
 | Accommodation Relocation | ELIG · PAIR |
 | Sim card / WPS Compliance / PCR & medical Loan | PAIR · UNRULED |
 | Live-out Transportation Assistance | ELIG · CEIL |
-| `recommendation_from_client` | ROSTER · CEIL |
+| `recommendation_from_client` | **CEIL · CORR · UNIQ** — 🔴 *fully specified 2026-09-08, no longer UNRULED* |
 | `pay_vacation_days` | RECOMP |
 | `renewal_bonus`, `low_exchange_rate_compensation`, `AR-1` | UNRULED |
 | `office_work_addition`, `refund` | RECON only — named lines in the tie-out |
@@ -838,7 +850,7 @@ history at all.
 ```
 candidates for a previously_held_salary note =
   (a) earlier payslip rows for that maid with IS_TRANSFERRED = 'NO' (D9)
-      AND a non-null exclusion reason (D10)          → held amount = that month's NET_SALARY (D10b)
+      AND STATUS = 'ON_VACATION' (D10)               → held amount = that month's NET_SALARY (D10b)
   (b) a final-settlement row carrying
       "Prorated Salary kept on hold (FS Collected)"  → held amount = that value, cast (D10c)
 
@@ -847,6 +859,28 @@ exactly 1 candidate and released <> held   → RED (F1), by the difference
 no candidate anywhere                      → RED (F4) — money released that was never held
 more than 1                                → BLOCKED, "multiple candidate hold records"
 ```
+
+🔴 **What the code says this reason meant** *(code-verified 2026-09-08, conversation 45927).*
+The historical automatic writer summed `HousemaidPayrollLog.totalSalary` where
+`transferred = false` **and** `housemaidUnpaidStatus = ON_VACATION`, per housemaid, and wrote the
+rounded total to the note. So branch (a) is **specifically the on-vacation hold**, not any exclusion
+reason — `housemaidUnpaidStatus` is the source of the warehouse's `STATUS` column, and `ON_VACATION`
+is one of its 20 values. The guards also required **`HousemaidType.MAID_VISA`** and that she was no
+longer on vacation.
+
+🔴 **And every automatic writer is now switched off.** `_ProratedSalariesTransaction.calculate`,
+`ProRatedSalariesService.processProRatedSalaries` and the `AsyncService` reconciliation block are all
+**commented out**; `HousemaidPayrollInitializer.preparePreviouslyHeldSalaries` is
+`@Deprecated //not used anymore`; `PayrollGenerationHelperService.getPreviouslyHeldSalariesByHousemaid`
+is commented out *"due to PAY-2759"*. **Every `previously_held_salary` note created today is typed in
+by hand, with the amount typed in rather than derived.** A payment that used to be computed from a
+stored held amount and is now free-entry is exactly what this audit exists to check — and it raises
+Q16: is the MAID_VISA-only guard still the intent, now that nothing enforces it?
+
+One live consumer still reads these notes and is worth borrowing from:
+`PayrollExceptionsReportService.getMaidsWereOnVacation(...)` already joins the note amount as
+`heldSalary` against `HousemaidPayrollLog.totalSalary`. **That is this check, already written, on the
+ERP side.**
 
 ⚠️ **Two mechanisms, two shapes.** (a) is whole-payslip and binary — `IS_TRANSFERRED` is
 `IFF(TRANSFERRED=1,'YES','NO')` with no partial-transfer amount anywhere on the table, so at that
@@ -883,8 +917,22 @@ value list is itself **truncated**, so more exist.
   been recoverable → **RED (F4)**. Amounts unequal → **RED (F1)**. Not CC live-out → **RED (F3)**.
 - **L2 — Sim card Loan · WPS Compliance Loan · PCR Test & medical assistance Loan.** Same
   addition-equals-loan pairing; no eligibility rule recovered, so that half is **BLOCKED**.
-- **L3 — Live-out Transportation Assistance.** Live-out status is testable (N19); no rate has been
-  recovered → **BLOCKED**.
+- 🔴 **L3 — Live-out Transportation Assistance does not exist as an ERP addition reason.**
+  *(code-verified 2026-09-08, conversation 45930.)* There is no such picklist item, no parameter and
+  no constant. The only "live-out transportation" concept in the ERP is
+  `TAG_LIVE_OUT_TRANSPORTATION_CHECK_IN`, a complaint/check-in tag raised after a mediator visit,
+  which pays nothing. Transportation money to a maid is a hand-entered `taxi_reimbursement` note.
+  (`EXPAT_TRANSPORTATION_PERCENTAGE` is office-staff salary structure, and
+  `TRANSPORTATION_ALLOWANCE_LOAN` is a loan type — neither is this.)
+
+  🔴 **This forces a correction to the whole of group L.** `ADDITION_CATEGORY` in
+  `BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY` is a **warehouse-side grouping, not
+  the ERP's addition-reason list** — at least one of its values maps to no ERP reason at all. Before
+  treating the other unlisted categories (Sim card Loan, WPS Compliance Loan, PCR & medical Loan,
+  NOL Card) as payment types, **each must be traced back to the reason or reasons it actually
+  groups**. Some may be genuine missing reasons; some may be labels over reasons the list already
+  has. **O2 — reading the picklist — is what settles this**, and it is now the single most important
+  open item in §6.
 - **L4 — Part-Time Cleaners Expenses** (NOL Card, Accommodation Relocation, Other Purpose Cash
   Advance). A **different population** from housemaids — scope decision **Q11** before any test runs.
 
@@ -895,6 +943,25 @@ type × payment method × category), so it scopes and ties out but cannot produc
 `SUBJECT_MONTH` starts **2026-01-01**; and its `MAID_TYPE` is only CC/MV with **no live-out split**,
 so it cannot test L1's first condition. It is a sibling of the view carrying the X1 join defect —
 verify it does not inherit it before trusting its totals.
+
+🔴 **Group J — Google review (`recommendation_from_client`) is now fully specified.**
+*(code-verified 2026-09-08, conversation 45928 — v2 had this as "no rule found".)*
+- **J1 — amount.** `AMOUNT = PARAMETERS['GOOGLE_REVIEW_GIFT_VALUE']`, **default 50**, read live and
+  never typed in: the note-creation hook parses the parameter into `amount`. Same TEXT-cast and
+  no-effective-dating cautions as N8's airfare caps. A deviation is **RED (F1)**.
+- **J2 — the review exists.** A `ClientGoogleReview` row must exist for that client × housemaid with
+  the screenshot uploaded. The note is created on that record's after-update hook **only when**
+  `(spouseScreenShotUploaded && !spouseManagerNoteAdded)` or
+  `(clientScreenShotUploaded && !clientManagerNoteAdded)`. No row, or no screenshot → **RED (F4)**.
+- **J3 — not duplicated.** The `managerNoteAdded` / `spouseManagerNoteAdded` flags are the ERP's own
+  duplicate guard. Two notes against one review → **RED (F2)**.
+- ⚠️ **`ClientGoogleReview` is in Client Management and is not yet in this spec's data points** —
+  it needs a warehouse view before J2 and J3 can run. That is a new ingestion ask (**N21**), and it
+  is small.
+- ⚠️ **Interaction with G9.** The payment gate is auditor approval within the payroll window, and a
+  **rejected note is deleted**. So surviving notes were approved — which means this population is
+  pre-filtered by exactly the flag G9 forbids us from reading. We do not read it; we simply cannot
+  see what was deleted. State that limit on the face of the report.
 
 **Groups H–K.** No rule found in code or business. BLOCKED → amber, reason named.
 
