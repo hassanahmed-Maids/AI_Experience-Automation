@@ -67,3 +67,80 @@ SELECT CASE
 FROM day_shape
 GROUP BY 1
 ORDER BY zero_notes DESC;
+
+-- Z1-Z3 RESULTS 2026-09-08 — 510 zero notes / 15 payment types (supersedes 500 / 14).
+--   Z3: 474 of 510 (93%) stand ALONE - no payment to that maid that day. The "zero is an
+--       annotation beside a real payment" hypothesis is dead for the bulk.
+--   Z1: 508 of 510 carry free text (2 blank). 319 (62.5%) carry a NUMBER in that text.
+--       Forgive Deduction 32/32, Abu Dhabi 18/18, Maids.at other expenses 65/69.
+--   🔴 Abu Dhabi Incentive: 18 of 18 notes, 100% zero, ONE day (2026-08-31), all with a
+--       number in the text. An entire payment type worth nothing, from a single run.
+--   🟢 MOHRE requirement additions: 43.9% zero, but the window CLOSED 2026-01-10. The rate
+--       this report led with is a closed incident. (Trap 23: a rate without its window.)
+--   Z2: a persistent 0.8-3.5% floor every month, spiking to 13.3% in Aug 2026 (120 notes,
+--       8 types, 23 days) - 96 of those are airfare (78) + Abu Dhabi (18).
+
+-- Z4. What do the 474 standalone zeros SAY? Keyword classes, counts only — no text is
+--     returned. Separates money-moved-elsewhere from cancelled from never-filled.
+--     ⚠️ Keyword classes are an INDICATOR. A note matching 'manual' is a candidate for
+--     off-payroll payment, not proof of one.
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REASON,
+           LOWER(COALESCE(NOTE_REASON, '')) AS txt
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), day_shape AS (
+    SELECT HOUSEMAID_ID, note_day, COUNT_IF(AMOUNT > 0) AS non_zeros
+    FROM n GROUP BY 1, 2
+), standalone AS (
+    SELECT n.* FROM n
+    JOIN day_shape d ON d.HOUSEMAID_ID = n.HOUSEMAID_ID AND d.note_day = n.note_day
+    WHERE n.AMOUNT = 0 AND d.non_zeros = 0
+)
+SELECT CASE
+         WHEN txt RLIKE '.*(manual|cash|already paid|paid by|paid outside|hand).*'
+                                                        THEN '1 money moved elsewhere'
+         WHEN txt RLIKE '.*(cancel|void|mistake|wrong|error|duplicate|ignore|not valid).*'
+                                                        THEN '2 cancelled or superseded'
+         WHEN txt RLIKE '.*(pending|to be|tbd|awaiting|will be|follow up|confirm).*'
+                                                        THEN '3 raised, never filled'
+         WHEN txt RLIKE '.*(deduct|adjust|correct|reverse|settle).*'
+                                                        THEN '4 an adjustment'
+         WHEN NULLIF(TRIM(txt), '') IS NULL             THEN '5 no text at all'
+         ELSE                                                '6 none of the above'
+       END                                              AS class,
+       COUNT(*)                                         AS zero_notes,
+       COUNT(DISTINCT REASON)                           AS payment_types,
+       COUNT(DISTINCT HOUSEMAID_ID)                     AS maids,
+       COUNT_IF(txt RLIKE '.*[0-9]{2,}.*')              AS carry_a_number,
+       MIN(note_day)                                    AS first_seen,
+       MAX(note_day)                                    AS last_seen
+FROM standalone
+GROUP BY 1
+ORDER BY zero_notes DESC;
+
+-- Z5. Abu Dhabi Incentive, the one broken run. Did those 18 maids get paid anything else
+--     around 2026-08-31 — i.e. did the money land under another reason, or not at all?
+--     Counts only.
+WITH ad AS (
+    SELECT DISTINCT HOUSEMAID_ID
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Abu Dhabi Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), other AS (
+    SELECT n.HOUSEMAID_ID, n.REASON, n.AMOUNT, n.NOTE_DATE::DATE AS note_day
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    JOIN ad ON ad.HOUSEMAID_ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION'
+      AND n.NOTE_DATE::DATE BETWEEN '2026-08-01' AND '2026-09-30'
+      AND n.REASON <> 'Abu Dhabi Incentive'
+)
+SELECT COALESCE(REASON, '(none)')      AS other_payment_type,
+       COUNT(*)                        AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)    AS maids_of_the_18,
+       ROUND(SUM(AMOUNT))              AS aed,
+       COUNT_IF(AMOUNT = 0)            AS also_zero
+FROM other
+GROUP BY 1
+ORDER BY notes DESC;

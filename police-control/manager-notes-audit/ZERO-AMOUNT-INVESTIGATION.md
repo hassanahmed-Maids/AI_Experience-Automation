@@ -51,3 +51,82 @@ trusting it is not.)*
 
 Run in that order. Z1 says which types to care about, Z2 says whether it is an incident, Z3 says
 whether the zeros are payments at all.
+
+---
+
+# Z1–Z3 results, 2026-09-08
+
+**510 zero-amount notes across 15 payment types**, not 500 across 14 — the earlier figure came from
+the assumed type list and is superseded.
+
+## 🔴 Z3 first, because it eliminates a hypothesis
+
+| Shape | Maid-days | Zero notes | AED paid those days |
+|---|---:|---:|---:|
+| **Zeros ALONE — nothing else paid that maid that day** | **453** | **474** | **0** |
+| Zero beside a paid note of the same type | 25 | 36 | 15,870 |
+
+**93% of zero notes stand alone.** Hypothesis 2 in its simple form — *the zero is an annotation
+attached to a real payment* — is **dead for the bulk**. These are not companion rows. They are
+standalone events on days when the maid was paid nothing at all.
+
+## 🔴 And they are not empty rows either
+
+**508 of 510 carry free text** (only 2 are blank, both anti-attrition). **319 of 510 — 62.5% — carry a
+number in that text.** Three types are near-total: `Forgive Deduction` **32 of 32**, `Abu Dhabi
+Incentive` **18 of 18**, `Maids.at other expenses` **65 of 69**.
+
+So the dominant shape is: **a note was raised, someone wrote a description containing a figure, and
+nothing was paid.** Note 185724 — a real AED 1,419 marked *"paid manually"* — is not an outlier any
+more; it is a specimen of the largest group.
+
+## 🔴 Abu Dhabi Incentive is 100% zero, on one day
+
+| | |
+|---|---|
+| Notes | **18 of 18 — the entire payment type** |
+| Zero | **18 (100%)** |
+| Days | **1 — 2026-08-31** |
+| With a number in the text | **18 (100%)** |
+
+**Every note this payment type has ever produced in twelve months is worth nothing**, from a single
+run. This is `AbuDhabiMaidIncentiveExpenseJob`, whose amount is
+`abuDhabiIncentiveOffered × eligibleDays ÷ totalDaysInMonth` *(code-verified, conversation 46015)*.
+A whole run returning zero means the offered amount, the eligible days, or the write-back is broken.
+**This is the cleanest defect in the investigation and needs no further data to file.**
+
+## The other types split three ways
+
+| Type | Zeros | % | Days | Window | Shape |
+|---|---:|---:|---:|---|---|
+| Airfare Ticket | 129 | 7.8 | 51 | 2025-09-08 → 2028-03-11 | baseline **plus** the August spike |
+| Salary Dispute | 104 | 9.6 | 61 | full year | **steady process** |
+| Bonus | 70 | 5.8 | 50 | full year | steady process |
+| `Maids.at other expenses` | 69 | 20.2 | 40 | 2026-01-14 → 2026-09-02 | steady, high rate, 94% carry a figure |
+| **MOHRE requirement additions** | 36 | **43.9** | 14 | **2025-11-05 → 2026-01-10** | 🟢 **a closed incident** |
+| Forgive Deduction | 32 | 3.0 | 8 | 2026-01-03 → 2026-08-06 | few days, **100%** carry a figure |
+| Abu Dhabi Incentive | 18 | **100** | **1** | 2026-08-31 | 🔴 **one broken run** |
+
+**MOHRE's 44% is the number this report led with, and it is the least urgent of them.** Its window
+closed on 2026-01-10 — eight months ago, nothing since. **A rate quoted without its window reads as
+ongoing when it is over.** That is trap 23.
+
+## Z2 — a persistent floor with one spike on top
+
+Zeros run **0.8%–3.5% every month** and hit **13.3% in August 2026** (120 of 902 notes, 8 types,
+23 days). The August spike is not one bad day: 96 of the 120 are airfare (78) and Abu Dhabi (18), and
+the remaining 24 are spread across six other types on many days.
+
+**So there are two phenomena, and the spec's single AMBER verdict covers both:** a steady ~2–3% floor
+across many types, and an August event. Neither is a lost-amount data defect in the way hypothesis 1
+predicted — that would not leave 62.5% of the notes carrying a figure in prose.
+
+## What is left to decide
+
+The 474 standalone zeros are one of:
+- **money that moved outside payroll** (the "paid manually" reading — invisible to this audit *and* to
+  payroll controls, and the most serious possibility);
+- **cancelled or superseded requests** left in place rather than deleted;
+- **raised-and-never-filled** requests, a workflow that never closes.
+
+**Z4 separates them by keyword class, counts only.** That is the last query this needs.
