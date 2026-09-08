@@ -964,6 +964,60 @@ So 1d's verdict for Bonus is **BLOCKED, not GREEN** — and that is the honest r
 disappointing one. Resolving it needs the expense-request link (`EXPENSES_REQUESTS`, D4) or the
 un-ingested `DELIGHTER_TODO` (O34), not another concentration statistic.
 
+## 3s. O36 clears the anti-attrition check; O56 shows Bonus is BREAKING, not legacy
+
+### 🟢 O36 — the enrolment box is usable, and the largest payment type has a check after all
+
+`ACTION_TYPE = 'Maid Incentive Experiment'` confirmed (3,755 records, 2,982 maids, since
+2024-03-23). Over 12 months, 2,806 enrolment records:
+
+| | |
+|---|---:|
+| Filled | **100%** — zero empty |
+| Distinct values | 2,693 of 2,806 = **96%** |
+| Share on the single commonest value | **1%** |
+| Median length | 43 chars |
+| ≥ 60 chars | 568 (20%) |
+| ≤ 10 chars | 43 (1.5%) |
+
+**This is the good outcome and it was not the likely one.** A required free-text field usually
+degenerates into boilerplate — 96% distinct and 1% on the commonest value says people are actually
+writing something different each time. **Job 1 is viable, so anti-attrition has a working check**
+after the complaint test came back N_A, the enrolment-exists test came back 99.9% clean, and the
+recompute stayed blocked.
+
+Calibrate expectations: a 43-character median is one short sentence, not a justification. The agent
+can categorise a stated reason; it cannot verify one. And 43 records are under 10 characters — a
+small junk tail to exclude, not to interpret.
+
+### 🔴 O56 — I was wrong that "attribution got fixed". It got fixed for two types and broke for Bonus
+
+| Bonus era | Unattributed |
+|---|---:|
+| 2023-09 .. 2024-04 | 9 / 412 = **2.2%** |
+| 2024-05 .. 2025-03 | 159 / 649 = **24.5%** |
+| 2025-04 .. 2026-03 | 982 / 1,150 = **85.4%** |
+| 2026-04 .. 2026-09 | 239 / 496 = **48.2%** |
+
+**Bonus attribution did not decay from a legacy state — it broke.** It ran at 2% for the first eight
+months, began failing around 2024-05, escalated to a 98% peak in 2025-10, and still runs at 48%.
+**This is an active, worsening control failure, not a backlog**, and §3r called it historical because
+a 12-month window cannot see a change that happened 28 months ago. *(A time window fixes one error
+and hides another; the trend is what separates them.)*
+
+**Taxi Reimbursement: 0 unattributed in all 36 months.** A perfect control, and proof the field can be
+populated reliably — which makes Bonus's 48% a choice somewhere in the code, not a platform limit.
+
+🔴 **Salary Dispute's story is a single bulk event.** 542 unattributed across 36 months, of which
+**424 fall in 2025-05 alone** (70% of that month, AED 50,381) — in a month carrying 610 notes against
+a 100–200 norm. That is a migration or a mass correction run, not day-to-day behaviour. The
+remaining ~3,669 of S1's 4,211 predate 2023-09 entirely. So Salary Dispute is: clean now, one
+anomalous month to explain, and an old backlog to scope out.
+
+🔴 **A manager note is dated 2026-10 — the future.** One Bonus note falls in a month that has not
+happened. Trivial in money, but a future-dated payment record breaks any period-based check that
+assumes notes are historical, and nothing in the audit currently rejects it.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -1045,7 +1099,10 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O50~~ | ~~Ship the no-rule check~~ — **withdrawn, §3o.** It detects whole-dirham typing, not error. The note date says the same thing more directly | — |
 | ~~O51~~ | ~~Fix S1's identity comparison~~ — **done, and the premise was wrong (§3q).** The name-form class is empty; the old check was not under-reporting that way | — |
 | ~~O53~~ | ~~AED 2.86m unattributed~~ — **79% of it is older than 12 months (§3r).** Live figure is 862 notes / AED 613,759, and 850 of those are Bonus. Salary Dispute collapses from 4,211 notes to 12 | — |
-| **O56** | **Date the fix.** Unattributed share by month per type — when did attribution start being enforced, and is the historical backlog a closed item or an open remediation? | whether AED 2.25m of legacy notes needs a decision |
+| ~~O56~~ | ~~Date the fix~~ — **done, §3s, and it inverted §3r.** Bonus attribution BROKE in 2024-05 and still runs 48%; Taxi is perfect; Salary Dispute is one bulk month (2025-05) plus a pre-2023 backlog | — |
+| **O58** | 🔴 **Bonus attribution is an active failure, not legacy** — 2% → 85% → 48%. Find what changed around 2024-05. This is the live control finding in the file | the only worsening control in the audit |
+| **O59** | Explain **2025-05 Salary Dispute**: 610 notes in a 100–200 month, 424 unattributed, AED 50,381. Bulk load or mass correction — either way it needs an owner | scoping the legacy backlog |
+| **O60** | Reject **future-dated notes**. One Bonus note is dated 2026-10; no check currently rejects it | any period-based check |
 | **O57** | Resolve **Bonus's 850 unattributed notes** (AED 610,275) via the expense-request link (`EXPENSES_REQUESTS`, D4) or `DELIGHTER_TODO` (O34). Concentration cannot separate event-driven automation from a person | the only live unattributed block |
 | **O54** | Add a **12-month window to S1** — 🔴 upgraded from tidiness: the missing filter inflated the headline 4.7× and pointed the audit at a problem that has largely stopped (§3r) | every S1 number, and which findings are live |
 | **O55** | Replace S1's hardcoded "human types" list with the **empirical batch-day split** per type. `Bonus` is partly machine-generated, so part of its 58% unattributed is by design | the S1 denominator |
@@ -1057,5 +1114,5 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O39~~ | ~~Run 6a-iii and 6a-ii~~ — **done, §3g.** Anti-attrition 1.00× chance, salary dispute 2.33×; no proximity spike on anti-attrition. The design question is closed | — |
 | **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |
 | **O35** | Expose the `ComplaintType` **`tags`** join (`COMPLAINT_TYPES_TAGS`) — the code says the `transportation` tag, not the type name, is the single source of truth | taxi corroboration done the way the ERP does it |
-| **O36** | Confirm `HOUSEMAID_MANAGERACTIONLOGS.NOTES` is populated and readable at volume | anti-attrition Job 1 |
+| ~~O36~~ | ~~Confirm the enrolment NOTES box~~ — **done, §3s. 🟢 100% filled, 96% distinct, median 43 chars.** Job 1 is viable and anti-attrition has a working check | — |
 | **O37** | **Governance:** should `anti_attrition_incentive` enrolment require a linked complaint and a categorised reason, as `resignation_retraction` already does? Not a data question | 27% of live addition money |
