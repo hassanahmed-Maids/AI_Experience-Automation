@@ -101,29 +101,30 @@ ORDER BY notes DESC;
 --     HOUSEMAID_TYPE is CURRENT, so a maid paid as CC who later switched looks identical.
 --     HOUSEMAIDS_INFO_REVISION is an Envers revision table (ID + REVISION + *_MODIFIED
 --     flags), so the as-of-payment type is recoverable. Its key is ID, not HOUSEMAID_ID —
---     the first version of this query guessed otherwise and failed to compile.
+--     the first version guessed otherwise; the second named a CTE `asof`, which is RESERVED
+--     in Snowflake (ASOF JOIN), so `FROM asof a` parsed the name as a join keyword.
 WITH paid AS (
     SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
     WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Anti-attrition Incentive'
       AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
 ), rev AS (
-    SELECT ID AS maid_id, HOUSEMAID_TYPE, LAST_MODIFICATION_DATE::DATE AS as_of
+    SELECT ID AS maid_id, HOUSEMAID_TYPE, LAST_MODIFICATION_DATE::DATE AS changed_on
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
     WHERE HOUSEMAID_TYPE IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL
-), asof AS (
+), resolved AS (
     SELECT p.note_id, p.HOUSEMAID_ID, p.note_day, p.AMOUNT,
            r.HOUSEMAID_TYPE AS type_when_paid
     FROM paid p
-    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.as_of <= p.note_day
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.as_of DESC) = 1
+    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.changed_on <= p.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.changed_on DESC) = 1
 )
 SELECT COALESCE(a.type_when_paid, '(no revision before the note)') AS type_when_paid,
        COALESCE(h.HOUSEMAID_TYPE, '(unknown)')                     AS type_now,
        COUNT(*)                                                    AS notes,
        COUNT(DISTINCT a.HOUSEMAID_ID)                              AS maids,
        ROUND(SUM(a.AMOUNT))                                        AS aed
-FROM asof a
+FROM resolved a
 LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = a.HOUSEMAID_ID
 GROUP BY 1, 2
 ORDER BY notes DESC;
@@ -138,14 +139,14 @@ WITH paid AS (
     WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Anti-attrition Incentive'
       AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
 ), rev AS (
-    SELECT ID AS maid_id, HOUSEMAID_TYPE, LAST_MODIFICATION_DATE::DATE AS as_of
+    SELECT ID AS maid_id, HOUSEMAID_TYPE, LAST_MODIFICATION_DATE::DATE AS changed_on
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
     WHERE HOUSEMAID_TYPE IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL
-), asof AS (
+), resolved AS (
     SELECT p.note_id, p.HOUSEMAID_ID, p.note_day, p.AMOUNT, r.HOUSEMAID_TYPE AS type_when_paid
     FROM paid p
-    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.as_of <= p.note_day
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.as_of DESC) = 1
+    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.changed_on <= p.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.changed_on DESC) = 1
 )
 SELECT CASE
          WHEN type_when_paid IS NULL          THEN 'BLOCKED - no revision before the note'
@@ -155,7 +156,7 @@ SELECT CASE
        COUNT(*)                       AS notes,
        COUNT(DISTINCT HOUSEMAID_ID)   AS maids,
        ROUND(SUM(AMOUNT))             AS aed
-FROM asof
+FROM resolved
 GROUP BY 1
 ORDER BY notes DESC;
 
