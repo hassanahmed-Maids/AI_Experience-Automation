@@ -103,3 +103,94 @@ WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Office Work Addition' AND n.AMOUN
   AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- OW1/OW2 RESULTS 2026-09-08.
+--   🟢 OW1 UNLOCKS THE ENTITLEMENT TEST: ASSIGNED_OFFICE_WORK_REASON_ID exists on
+--   HOUSEMAIDS_INFO **and on HOUSEMAIDS_INFO_REVISION with a MODIFIED flag**, so "was she
+--   assigned to office work when she was paid?" is answerable AS OF the note date — and it is
+--   existence-based, not amount-based, which is the kind that has worked every time.
+--   OW2 (92 notes with a payroll row):
+--     🔴 more than a whole month of pay ...  6 notes · AED 6,539 · median 46.4 DAYS of pay
+--     🔴 over half a month ............... 13 notes · AED 9,417 · median 21.1 days
+--     ⚠️ more than ten days .............. 10 notes · AED 3,241 · median 12.2 days
+--     🟢 within ten days ................. 54 notes · AED 7,510 · median  4.1 days
+--     BLOCKED — no payroll row ...........  9 notes · AED 2,977
+--   ⚠️ The flagged groups have systematically LOWER recorded salaries — 654 and 525 against
+--   969 for the clean group. That is the partial-month payroll signature that already cost
+--   FD1b's 43 notes. OW2b removes it before any of this is called a finding.
+
+-- OW2b. The ceiling on the maid's OWN TYPICAL month, not the note's month. A partial-month
+--   payroll row understates the rate and manufactures a large multiple; the median across all
+--   her months does not. This also retro-fixes FD1b's 43 notes if applied there.
+WITH ow AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT,
+           DATE_TRUNC('month', n.NOTE_DATE)::DATE AS mth
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Office Work Addition' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+), typical AS (
+    SELECT HOUSEMAID_ID,
+           MEDIAN(TOTAL_SALARY) AS typical_month,
+           MAX(TOTAL_SALARY)    AS best_month,
+           COUNT(*)             AS payroll_months
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY
+    WHERE TOTAL_SALARY > 0
+    GROUP BY 1
+), thismonth AS (
+    SELECT HOUSEMAID_ID, DATE_TRUNC('month', PAYROLL_MONTH)::DATE AS mth,
+           MAX(TOTAL_SALARY) AS this_month
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY
+    WHERE TOTAL_SALARY > 0 GROUP BY 1, 2
+)
+SELECT CASE
+         WHEN t.typical_month IS NULL                     THEN 'BLOCKED — no payroll history at all'
+         WHEN o.AMOUNT > t.typical_month                  THEN '🔴 MORE THAN A TYPICAL MONTH OF PAY'
+         WHEN o.AMOUNT > t.typical_month * 0.5            THEN '🔴 over half a typical month'
+         WHEN o.AMOUNT > t.typical_month / 3              THEN '⚠️ over ten days of a typical month'
+         ELSE                                                  '🟢 within ten days of a typical month'
+       END                                          AS verdict,
+       COUNT(*)                                     AS notes,
+       COUNT(DISTINCT o.HOUSEMAID_ID)               AS maids,
+       ROUND(SUM(o.AMOUNT))                         AS aed,
+       ROUND(MEDIAN(o.AMOUNT))                      AS median_paid,
+       ROUND(MEDIAN(t.typical_month))               AS median_typical_month,
+       ROUND(MEDIAN(m.this_month))                  AS median_that_month,
+       ROUND(MEDIAN(m.this_month / NULLIF(t.typical_month,0)), 2) AS that_month_vs_typical
+FROM ow o
+LEFT JOIN typical   t ON t.HOUSEMAID_ID = o.HOUSEMAID_ID
+LEFT JOIN thismonth m ON m.HOUSEMAID_ID = o.HOUSEMAID_ID AND m.mth = o.mth
+GROUP BY 1
+ORDER BY aed DESC;
+
+-- OW5. 🔴 THE ENTITLEMENT TEST, now that OW1 has found the column. Was the maid assigned to
+--   office work AS OF the note date? Existence-based, so no salary model can spoil it — and
+--   as-of, because a current-state read has been wrong in both directions four times today.
+WITH ow AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Office Work Addition' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+), rev AS (
+    SELECT ID AS maid_id, ASSIGNED_OFFICE_WORK_REASON_ID AS assigned,
+           LAST_MODIFICATION_DATE::DATE AS changed_on
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+    WHERE LAST_MODIFICATION_DATE IS NOT NULL
+), resolved AS (
+    SELECT o.note_id, o.HOUSEMAID_ID, o.note_day, o.AMOUNT, r.assigned
+    FROM ow o
+    LEFT JOIN rev r ON r.maid_id = o.HOUSEMAID_ID AND r.changed_on <= o.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY o.note_id ORDER BY r.changed_on DESC) = 1
+)
+SELECT CASE
+         WHEN assigned IS NULL      THEN '🔴 NOT assigned to office work when paid'
+         WHEN assigned = 0          THEN '🔴 assignment reason is zero when paid'
+         ELSE                            '🟢 assigned to office work'
+       END                              AS verdict,
+       COUNT(*)                         AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)     AS maids,
+       ROUND(SUM(AMOUNT))               AS aed,
+       ROUND(MEDIAN(AMOUNT))            AS median_paid,
+       COUNT(DISTINCT assigned)         AS distinct_reasons
+FROM resolved
+GROUP BY 1
+ORDER BY aed DESC;
