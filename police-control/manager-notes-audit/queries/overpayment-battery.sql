@@ -207,3 +207,92 @@ SELECT CASE
 FROM bonus b LEFT JOIN refs r ON r.maid_id = b.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- O5 RESULT 2026-09-08 — 🔴 ABU DHABI IS A RECONCILIATION BREAK, NOT A MISSED PAYMENT.
+--   18 notes · 18 maids · AED APPROVED 4,200 · AED PAID 0 · lost between the two: 4,200
+--   Smallest approved 200, largest 350. REQUEST_STATUS = 'PAID' on ALL EIGHTEEN.
+--   Accounting approved the money, marked every request PAID, and the payroll notes carry
+--   zero. The books say settled and the maids received nothing. (Estimate was 4,250.)
+
+-- O3b RESULT 2026-09-08 — bonus, AED 849,716 over 1,131 notes:
+--   a referral joined before the bonus ....... 614 notes · 536 maids · AED 528,200
+--   no referral on record .................... 407 notes · 352 maids · AED 251,721
+--   referral exists, no joining date ......... 100 notes ·  81 maids · AED  63,895
+--   🔴 paid BEFORE any referred maid joined ..  10 notes ·  10 maids · AED   5,500
+--   The 407 are confounded by signing bonuses (PURPOSE_ID is not exposed) — O6 resolves it
+--   from the referral side instead.
+
+-- O6. 🔴 THE REAL REFERRAL-BONUS TEST. O3a found the right key: HOUSEMAID_REFERRALS carries
+--   HOUSEMAID_ID (the REFERRER), REFERRED_MAID_ID, and — decisively — IS_CANCELLED,
+--   IS_REQUESTED_BONUS, BONUS_REQUEST_DATE and AMOUNT. So the entitlement is readable from
+--   the referral itself rather than inferred from a joining date.
+--   Three overpayment archetypes at once:
+--     bonus paid where the referral was CANCELLED        -> not deserved
+--     bonus paid where no bonus was ever REQUESTED       -> not corroborated
+--     bonus paid before the bonus request date           -> off-rule
+WITH bonus AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), ref AS (
+    SELECT HOUSEMAID_ID                                   AS referrer_id,
+           COUNT(*)                                       AS referrals,
+           COUNT_IF(COALESCE(IS_CANCELLED,0) = 1)         AS cancelled,
+           COUNT_IF(COALESCE(IS_REQUESTED_BONUS,0) = 1)   AS bonus_requested,
+           MIN(IFF(COALESCE(IS_REQUESTED_BONUS,0) = 1, BONUS_REQUEST_DATE::DATE, NULL))
+                                                          AS first_bonus_request,
+           SUM(AMOUNT)                                    AS referral_amount_on_file
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL
+    GROUP BY 1
+)
+SELECT CASE
+         WHEN r.referrer_id IS NULL                       THEN 'no referral at all — signing bonus or unjustified'
+         WHEN r.bonus_requested = 0                       THEN '🔴 referral exists but NO bonus was ever requested'
+         WHEN r.referrals = r.cancelled                   THEN '🔴 every referral behind it is CANCELLED'
+         WHEN b.note_day < r.first_bonus_request          THEN '🔴 paid BEFORE the bonus was requested'
+         ELSE                                                  'requested, not cancelled, paid after'
+       END                              AS reading,
+       COUNT(*)                         AS bonus_notes,
+       COUNT(DISTINCT b.HOUSEMAID_ID)   AS maids,
+       ROUND(SUM(b.AMOUNT))             AS aed,
+       ROUND(AVG(b.AMOUNT))             AS avg_bonus
+FROM bonus b LEFT JOIN ref r ON r.referrer_id = b.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY aed DESC;
+
+-- O7. 🔴 O-D — DOES THE BONUS MATCH THE REFERRAL'S OWN AMOUNT? HOUSEMAID_REFERRALS.AMOUNT is
+--   the entitlement recorded against the referral. A note paying MORE than the referral says
+--   is money above the entitlement — the cleanest overpayment shape there is.
+--   Only referrers whose every referral was bonus-requested and uncancelled are compared, so
+--   a signing bonus cannot contaminate the result.
+WITH bonus AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), ref AS (
+    SELECT HOUSEMAID_ID AS referrer_id, SUM(AMOUNT) AS entitled, COUNT(*) AS referrals
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL
+      AND COALESCE(IS_CANCELLED,0) = 0 AND COALESCE(IS_REQUESTED_BONUS,0) = 1
+      AND AMOUNT > 0
+    GROUP BY 1
+), paid AS (
+    SELECT b.HOUSEMAID_ID, SUM(b.AMOUNT) AS bonus_paid, COUNT(*) AS notes
+    FROM bonus b GROUP BY 1
+)
+SELECT CASE
+         WHEN p.bonus_paid > r.entitled + 0.01 THEN '🔴 PAID MORE than the referrals entitle'
+         WHEN p.bonus_paid < r.entitled - 0.01 THEN 'paid less than entitled'
+         ELSE                                       'matches'
+       END                                    AS reading,
+       COUNT(*)                               AS maids,
+       SUM(p.notes)                           AS bonus_notes,
+       ROUND(SUM(p.bonus_paid))               AS aed_paid,
+       ROUND(SUM(r.entitled))                 AS aed_entitled,
+       ROUND(SUM(GREATEST(p.bonus_paid - r.entitled, 0))) AS aed_OVER_ENTITLEMENT
+FROM paid p JOIN ref r ON r.referrer_id = p.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY aed_OVER_ENTITLEMENT DESC;
