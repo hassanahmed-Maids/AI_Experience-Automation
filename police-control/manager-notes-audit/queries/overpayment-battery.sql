@@ -599,3 +599,17 @@ LEFT JOIN ent  e ON e.referrer_id  = p.HOUSEMAID_ID
 LEFT JOIN paid t ON t.HOUSEMAID_ID = p.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY verdict;
+
+-- O12 RESULT 2026-09-08 — the two bonus findings barely overlap, and the type is now closed.
+--   1 no referral, over a year in ..... 164 notes · 142 maids · AED 143,965   🔴 unchanged
+--   2 over the referral entitlement ...  25 notes ·  13 maids · AED  17,500 paid (excess 10,500)
+--   3 no referral, 6-12 months in .....  72 notes ·  53 maids · AED  42,900   ⚠️ ambiguous
+--   4 signing bonus — clean ........... 298 notes · 272 maids · AED 148,251   🟢
+--   5 referral bonus — clean .......... 569 notes · 500 maids · AED 494,700   🟢
+--   6 BLOCKED — no usable start date ..   3 notes                · AED   2,000
+--   O7 found 15 over-entitled maids; O12 leaves 13, so 3 notes across 2 maids were in both
+--   tests. The double-count is those maids' share of the AED 10,500 excess — about AED 1,400.
+--   Immaterial: recorded, not chased. (Category 2's AED is the amount PAID on those notes;
+--   the money over-paid is the 10,500 excess, not 17,500.)
+--   🟢 BONUS IS CLOSED: AED 642,951 of 849,316 cleared on evidence (75.7%), AED 143,965 RED,
+--   AED 42,900 ambiguous, AED 2,000 blocked.

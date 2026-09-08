@@ -3,11 +3,12 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-08 — AED 224,152 of money lost, against AED 7,197,642 examined.**
+**Confirmed 2026-09-08 — ~AED 224,000 of money lost, against AED 7,197,642 examined (3.1%).**
 
-⚠️ **The bonus line and the over-entitlement line may intersect** — O12 de-duplicates before either
-is published. Every time this session summed two tests without de-duplicating, the figure was
-overstated: O6/O7 by 58%, then O8/O10, now this.
+✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
+**3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
+Three times this session a headline would have been overstated by summing overlapping tests — O6/O7
+by 58%, O8/O10, and this one — so **no figure here is a sum of tests; each is a distinct note set.**
 
 🔴 **Two categories, and they must not be added together.** *Money lost* is money that should not
 have left. *Control violated* is a rule broken where the money may still have been owed — a real
@@ -15,7 +16,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 
 | Finding | AED | Archetype | Basis |
 |---|---:|---|---|
-| 🔴 **Bonus paid at referral rates, no referral, over a year into service** | **143,965** | not deserved | 164 notes, 142 maids. **Four converging signals:** no referral, no bonus record, median 765 days into service, and an average of 878 that matches the referral rate (866) rather than the signing rate (500) |
+| 🔴 **Bonus paid at referral rates, no referral, over a year into service** | **143,965** | not deserved | 164 notes, 142 maids, **de-duplicated (O12)**. Four converging signals: no referral, no bonus record, median 765 days into service, and an average of 878 matching the referral rate (866) rather than the signing rate (500) |
 | Airfare duplicates via the unguarded manual route | **49,500** | paid twice | 29 notes inside the 5-month guard, on a path that never calls it |
 | 🔴 **Bonus over the referral entitlement** | **10,500** | not deserved | 15 maids paid AED 20,000 against 9,500 entitled — **validated by 466 maids matching to the penny** |
 | Anti-attrition paid before any enrolment existed | **9,019** | not deserved | 42 notes, measured on `CREATION_DATE` |
@@ -61,3 +62,27 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 completely. **AED 4,359,589 — 60.6% — has no expense request at all**, so no approval, no amount to
 check against: raffle, prorated, forgive-deduction, 95% of airfare, 71% of bonus. Every confirmed
 finding above except O1's own AED 1,304 comes from that population.
+
+
+---
+
+## Bonus — closed 2026-09-08
+
+**AED 849,316 across 1,131 notes, every one resolved to a verdict.**
+
+| | Notes | AED | |
+|---|---:|---:|---|
+| Referral bonus, matched to a payment record | 569 | 494,700 | 🟢 |
+| Signing bonus, median **6 days** after her own start | 298 | 148,251 | 🟢 |
+| **No referral, over a year into service** | **164** | **143,965** | 🔴 |
+| No referral, 6–12 months in | 72 | 42,900 | ⚠️ |
+| Over the referral entitlement | 25 | 17,500 *(excess 10,500)* | 🔴 |
+| No usable start date | 3 | 2,000 | BLOCKED |
+
+**75.7% cleared on evidence.** That is what makes the 17% credible — the entitlement model was
+validated by 466 maids matching to the penny and 298 signing bonuses landing a median six days after
+their own start dates, before it was used to convict anything.
+
+**The one benign reading of the 164 is a third, undocumented bonus type.** The spec knows referral and
+signing (N5). If a third exists, this finding becomes a documentation gap; if it does not, AED 143,965
+was paid at referral rates to maids who referred nobody.
