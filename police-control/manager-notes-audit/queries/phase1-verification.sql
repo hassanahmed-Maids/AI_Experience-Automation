@@ -19,8 +19,15 @@
 --    an identity. The old check called every one of those GREEN.
 --
 --    THE RULE (plugin check #1): a test that could not run is not a test that passed.
---    Where the approver cannot be resolved to a person, the verdict is BLOCKED — never
---    segregated. S1's self-approval count is a FLOOR, and this version says by how much.
+--    S1's self-approval count is a FLOOR, and this version says by how much.
+--
+--    ⚠️ BLOCK NARROWLY. A first draft of this fix blocked every single-token approver —
+--    ~7,800 notes, 43% of all approvals — which is wrong in the opposite direction. If
+--    the bare name does NOT match the requester's first name, they are different people
+--    under every reading of it, however ambiguous the name is: "Manale" approving a
+--    request by "Gurmu Ejeta" is segregated whichever Manale it is. Ambiguity only bites
+--    where the names DO match, so that is the only place it blocks. Over-blocking is not
+--    the safe direction — it buries the findings and inflates the same denominator.
 --
 --    ⚠️ Only meaningful where a HUMAN is the requester. Machine types (airfare, raffle,
 --       prorated, forgive, office work, last-day CC) have a null/service requester by
@@ -82,15 +89,17 @@ WITH n AS (
              -- same person, different name FORM: "manale" vs "manale hamasny"
              WHEN h.requester LIKE h.approver || ' %'
                OR h.approver  LIKE h.requester || ' %'
-               OR h.approver  = SPLIT_PART(h.requester,' ',1) THEN 'R_self_approved_name_form'
-             -- a bare first name that several staff share cannot be ruled OUT as the
-             -- requester, so it cannot be cleared either
-             WHEN ARRAY_SIZE(SPLIT(h.approver,' ')) = 1
-              AND COALESCE(t.people_sharing_it,0) <> 1        THEN 'B_approver_not_identifiable'
+               OR h.approver  = SPLIT_PART(h.requester,' ',1)
+                  THEN IFF(COALESCE(t.people_sharing_it,1) > 1,
+                           'B_same_first_name_unresolvable',   -- may be a DIFFERENT person
+                           'R_self_approved_name_form')
+             -- a bare first name that does NOT match the requester's first name is a
+             -- different person under every reading, however ambiguous the name is
              ELSE 'G_segregated'
            END AS verdict
     FROM human h
-    LEFT JOIN token_map t ON t.first_token = h.approver
+    -- the question is whether the REQUESTER's first name is unique, not the approver's
+    LEFT JOIN token_map t ON t.first_token = SPLIT_PART(h.requester,' ',1)
 )
 SELECT payment_type, verdict,
        COUNT(*)                                                       AS notes,
@@ -100,9 +109,10 @@ FROM judged GROUP BY 1,2 ORDER BY payment_type, verdict;
 
 -- Reading it (plugin check #1 — a clearance is not a finding's opposite):
 --   R_*  = findings. R_self_approved_name_form is the class the old S1 missed entirely.
---   B_*  = BLOCKED. The test could not run. These are NOT clean and must not be counted
---          as segregated in any tile, filter or denominator.
---   G_   = segregated, and only where the approver resolves to exactly one known person.
+--   B_same_first_name_unresolvable = the approver's name matches the requester's, but
+--          several staff share that first name, so it cannot be called either way.
+--          NOT clean; must not be counted as segregated in any tile, filter or denominator.
+--   G_   = segregated: the names do not match, so it is a different person.
 
 
 -- 1b. The row list — every finding AND every blocked row, worst first.
@@ -134,12 +144,13 @@ SELECT n.ID AS note_id, n.payment_type, n.HOUSEMAID_ID AS maid_id,
          WHEN n.requester = n.approver                   THEN 'R_self_approved_exact'
          WHEN n.requester LIKE n.approver || ' %'
            OR n.approver  LIKE n.requester || ' %'
-           OR n.approver  = SPLIT_PART(n.requester,' ',1) THEN 'R_self_approved_name_form'
-         WHEN ARRAY_SIZE(SPLIT(n.approver,' ')) = 1
-          AND COALESCE(t.people_sharing_it,0) <> 1        THEN 'B_approver_not_identifiable'
+           OR n.approver  = SPLIT_PART(n.requester,' ',1)
+              THEN IFF(COALESCE(t.people_sharing_it,1) > 1,
+                       'B_same_first_name_unresolvable',
+                       'R_self_approved_name_form')
          ELSE 'G_segregated'
        END AS verdict
-FROM n LEFT JOIN token_map t ON t.first_token = n.approver
+FROM n LEFT JOIN token_map t ON t.first_token = SPLIT_PART(n.requester,' ',1)
 WHERE n.payment_type IN ('Salary Dispute','Bonus','Taxi Reimbursement','Medical Assistance',
       'Maids.at other expenses','Accommodation Relocation','VIP Bonus','Passport Assistance',
       'Lost Luggage Compensation','MOHRE requirement additions')

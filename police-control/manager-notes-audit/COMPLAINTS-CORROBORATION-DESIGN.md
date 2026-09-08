@@ -820,6 +820,45 @@ anything.
 the set. Since 2.8% of arbitrary amounts fail by chance, one in 35 is exactly expected. Not evidence
 of anything on its own.)*
 
+## 3p. S1's diagnostic: 58% of additions were never approved by anyone
+
+1c, across all 44,169 addition notes:
+
+| | Notes | Share |
+|---|---:|---:|
+| **No approver recorded** | **25,855** | **58.5%** |
+| No requester recorded | 24,618 | 55.7% |
+| Have an approver | 18,314 | 41.5% |
+| — of those, approver is a bare first name | **7,804** | **42.6% of approvals** |
+
+171 distinct requesters, 65 distinct approvers, 24 of those a bare first name. Approval concentrates
+about 2.6× relative to raising.
+
+🔴 **The headline is not the name forms — it is that most additions carry no approver at all.**
+Machine-generated types have a null approver by design and belong outside S1's scope, so the honest
+figure is the per-type breakdown S1 proper returns, not this 58.5%. But 58.5% is large enough that
+**the segregation question is secondary to an approval-existence question** nobody has asked yet: a
+payment nobody approved cannot fail a segregation test, and the old S1 counted it under
+`raised_never_approved` while the headline metric stayed self-approval.
+
+**43% of the approvals that do exist carry a bare first name.** That is the scale of the identity
+problem §3o found in one 35-row sample, confirmed across the whole table.
+
+### 🔴 My first fix over-corrected, and that is its own trap
+
+The rewrite blocked *every* single-token approver — all 7,804. That is wrong in the opposite
+direction to the bug it fixed. **If the bare name does not match the requester's first name, they are
+different people under every reading of it**: "Manale" approving a request raised by "Gurmu Ejeta" is
+segregated whichever Manale it is. Ambiguity only bites where the names *do* match.
+
+Blocking 43% of approvals would have buried the real findings under a wall of unresolvable rows and
+inflated the same denominator the original bug deflated. **Over-blocking is not the safe direction.**
+It is the same defect — a verdict that does not reflect what the evidence supports — wearing the
+opposite sign, and it is more insidious because it feels conservative.
+
+The narrowed rule blocks in exactly one place: the approver's name matches the requester's, *and*
+several staff share that first name, so it cannot be called either way. Everything else resolves.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.

@@ -279,3 +279,11 @@ Four requirements:
 The general form: before comparing two columns, ask what populates each. Two columns holding
 "a person's name" may be two different kinds of thing, and an equality between them is then a
 coincidence detector wearing the clothes of a control.
+
+**And block narrowly.** The first fix for this defect blocked every unresolvable identity — 43% of
+all approvals — which is wrong in the opposite direction. An ambiguous name only matters where it
+could change the verdict: if the approver's name does not match the requester's, they are different
+people under every reading of it, however ambiguous. **Over-blocking is not the conservative
+choice.** It buries real findings, inflates the same denominator the original bug deflated, and it
+is harder to spot because it feels cautious. Scope BLOCKED to the rows where the ambiguity is
+load-bearing, and nowhere else.
