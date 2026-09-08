@@ -1047,6 +1047,29 @@ treatment like every other keyless match in the design.
 reverses: `DEDUCTIONS` (D10b, 0–2,800) reduces the net without a hold, and `ADDITIONS` can be
 negative (D8). Whether `previously_held_salary` ever reverses either is **Q15**.
 
+> 🟢 **Amended 2026-09-08 from a worked case (note 174632).** `salary_dispute` is UNRULED *in the
+> system* — but not always in the note. Reviewers frequently write the full itemised calculation into
+> the free text, carrying their own rates and day counts (e.g. AED 3,200/month with a client, AED
+> 1,200/month available, prorated over 31). Note 174632's text re-adds to AED 4,554.84 **exactly**.
+> So group E gains a subset test: **E3 — where the note shows its working, recompute it and confirm
+> the total.** An AI agent parsing the itemised text can do this; where the working is absent the note
+> stays BLOCKED, which makes *"the reviewer did not show their work"* a reportable category.
+>
+> **E4 — cross-type consistency.** A day excluded from a salary-dispute calculation as *"forgiven"*
+> must appear as a `forgive_deduction` note for that maid on that date. Present in one but not the
+> other is a double payment or an under-payment. Runnable today.
+>
+> **S1 — segregation. Applies to every human-entered type, not just group E.**
+> `LOWER(REQUESTED_BY) = LOWER(APPROVED_BY)` → **RED**; both NULL on a human-entered type → **RED**.
+> Runs on columns already granted, and catches the two largest salary disputes ever written
+> (AED 8,800 self-approved; AED 7,518 with neither name recorded). **Phase 1.**
+>
+> 🔴 **Method correction.** This spec pointed at note 174632 as the most anomalous row in the live set
+> on 9.93σ. It is in fact the best-documented note in the dataset — requested by one person, approved
+> by another, arithmetic exact to the fils. **A statistical outlier is not a finding**; unusual
+> amounts are what legitimate multi-month reconstructions look like. Outlier lists are for looking,
+> never for verdicts, anywhere in this audit.
+
 **Group E — Salary correction.** 🔴 **Conjunctive, not disjunctive.** E1 the expense record proves
 the amount **AND** E2 the stated reason (D5) justifies the payment. v1 wrote "E1 **or** E2", which
 the verdict algebra cannot express and which let a matched correction go green while the test that
