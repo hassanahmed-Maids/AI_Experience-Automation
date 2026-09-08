@@ -149,17 +149,22 @@ cases one at a time. A second person reviews before anything is acted on — mak
 means money went out above what was allowed, or with nothing behind it. Amber means the check
 could not reach a conclusion, and always says why. Green means a rule actually ran and cleared it.
 
-**What the population actually looks like** *(live data, 12 months, 2026-09-08)*. One payment type
-dominates by count and a different picture dominates by money: **`anti_attrition_incentive` is 9,167
-notes a year — roughly 59% of the audited population — but AED 1.83m, about 29% of the money.** A
+**What the population actually looks like** *(live census, 12 months, 2026-09-08)*. **25 payment
+types carry activity: 17,566 notes, AED 7,179,262.** One type dominates by count and a different one
+by money — **`anti_attrition_incentive` is 9,167 notes, 52% of the population by count but 25% of the
+money; `Airfare Ticket` is AED 2.73m, 38% of the money on 1,654 notes.** A count-ranked tile and a
+money-ranked tile therefore name different types at the top, and both are correct. A
 reader who does not know this will misread every count-based tile on the dashboard. Its volume is
 also growing fast: 409 payments in the first monthly batch of the series, **918 in the twelfth**.
 
-**Future-dated notes are a data defect, not an unverifiable case.** At least one note carries a
-`NOTE_DATE` in a month that has not happened. M0 branch 3 would amber it as *"paid month cannot be
-established"*, which is the right destination reached by accident. State the rule: `NOTE_DATE >`
-the end of the audit month → **BLOCKED**, reason *"note dated in the future"*, and list it as a
-feed defect rather than a case to work.
+🔴 **Future-dated notes are normal for at least one payment type and must NOT be filtered out.**
+An earlier draft of this paragraph called them a feed defect and said to reject them. That was wrong,
+and dangerously so: **`Airfare Ticket` — AED 2,733,500, the largest type by money — carries notes
+dated up to 2028-06-02**, 21 months ahead, spanning 34 active months inside a 12-month window. Its
+note date is almost certainly the *travel* date, not the payment date. A rule rejecting notes dated
+after the audit month would delete 38% of the money this report exists to examine — a scope filter
+that removes the evidence. Such notes land **AMBER** through M0 branch 3 with the reason *"paid month
+cannot be established"*, and resolving the date semantics **per payment type** is O69.
 
 **Grain.** **One row per manager note.** Not per maid, not per month, not per payment type. A maid
 who received four additions in a month is four separate cases, judged separately. Edits do not

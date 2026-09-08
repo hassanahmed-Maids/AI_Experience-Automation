@@ -1018,6 +1018,59 @@ anomalous month to explain, and an old backlog to scope out.
 happened. Trivial in money, but a future-dated payment record breaks any period-based check that
 assumes notes are historical, and nothing in the audit currently rejects it.
 
+## 3t. 🔴 The active-type census: 25 types, not 18 — and it retracts my future-date rule
+
+Enumerating every `REASON` with activity in the last twelve months, rather than trusting either the
+live/dead triage or the segregation check's hardcoded list:
+
+**25 types are active · 17,566 notes · AED 7,179,262.** The payment-types page listed 18.
+
+### 🔴 The retraction: "reject future-dated notes" would delete the largest money type
+
+I recommended it twice — as O67, and as acceptance criterion 19 on the AE ticket. **It is wrong.**
+
+**`Airfare Ticket` spans 34 active months inside a 12-month window, with its last note dated
+2028-06-02 — 21 months in the future.** And airfare is **AED 2,733,500, 38.1% of all addition
+money: the largest type by money in the entire audit**, ahead of anti-attrition's 25.5%.
+
+A rule that rejects notes dated after the audit month deletes most of it. **That is trap #3 exactly
+— a scope filter that removes the evidence the report exists to examine** — and I wrote it into a
+ticket as an acceptance criterion, from a sample of one stray `Bonus` note.
+
+The business reading is almost certainly that an airfare note carries the **travel date**, not the
+payment date, which is a legitimate pattern and a real problem for M0: a note dated 2028-06 would be
+assigned to June 2028's payslip and never appear in any month an auditor works. **The correct rule is
+per payment type, and it is a question for payroll, not a filter to write:** for airfare, does the
+payslip that pays it correspond to `NOTE_DATE`, or to something else entirely?
+
+### 🔴 Eight notes have no payment type at all
+
+`(none)` — **8 notes, AED 3,900, dated 2026-08-27 to 2026-09-04.** These are live **T2 REDs** (*no
+payment type recorded* → F4) sitting in the current month, found by a census query rather than by a
+check. They are the first confirmed findings this audit has produced against live data.
+
+### A new payment type appeared last month, and it is the safety property's first live test
+
+**`Abu Dhabi Incentive` — 18 notes, AED 0, every one dated 2026-08-31.** A type that did not exist
+before, carrying no money, created in a single batch. Under the spec's safety property an unmapped
+type yields an empty check plan and lands **AMBER with a named reason, never a silent green**. This
+is the first chance to confirm that holds in production rather than on paper — and the AED 0 makes
+it a setup or test batch, which is itself worth a question.
+
+### Corrections to figures already published
+
+| Claim | Corrected |
+|---|---|
+| "18 active payment types" | **25** |
+| "anti-attrition is 59% of notes" | **52.2%** (the denominator was short by 7 types) |
+| "AED 6.76m across 12 months" | **AED 7,179,262** — the 6.76m was the 14 live types only |
+| "anti-attrition is the largest type" | **by count, yes. By money it is second** — airfare is 38.1% |
+
+Five more types are trivial but real: `Sim card` (3 notes, AED 5), `Transportation Fare
+Reimbursement` (2), `MV Extra Salary` (1), `Cash Assistance for Cleaner's other facilities` (1),
+`Flight ticket` (1). ⚠️ **`Flight ticket` and `Airfare Ticket` are separate picklist entries.** Two
+names for what may be one business event is the N5 routing hazard arriving in the data.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.

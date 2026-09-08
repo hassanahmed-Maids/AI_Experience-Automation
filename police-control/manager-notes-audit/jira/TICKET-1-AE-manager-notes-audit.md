@@ -257,5 +257,14 @@ That reports what was added, by category. This audits whether each addition was 
     renders a control that broke (`Bonus`, 2.2% → 85.4% → 48.2%), a backlog being worked off
     (`Salary Dispute`, 4,211 all-time → 12 in twelve months) and one that holds (`Taxi`, 0% across 36
     months) as the same number — and only the first needs an owner this week.
-19. **Future-dated notes are rejected as a feed defect**, not carried as unverifiable cases. At least
-    one exists today.
+19. 🔴 **Future-dated notes are NOT rejected — this criterion previously said the opposite and was
+    wrong.** `Airfare Ticket` spans 34 active months inside a 12-month window, last note
+    **2028-06-02**, and is **AED 2,733,500 — 38.1% of all addition money, the largest type**. Its
+    date is very likely the travel date. Rejecting notes dated after the audit month would delete
+    the largest money type in the audit. **Resolve the audit month per payment type**; a note whose
+    date cannot be tied to a payslip lands AMBER with a stated reason, never dropped.
+20. **The active-type list is measured, not assumed.** **25 types carry activity in a 12-month
+    window** — the earlier list of 18 was the live/dead triage plus whichever types the segregation
+    check happened to name. Among the seven it missed: **8 notes with no payment type at all**
+    (AED 3,900, live T2 REDs), and **`Abu Dhabi Incentive`**, a type that first appeared 2026-08-31
+    with 18 notes at AED 0 — the first live test of the unmapped-type safety property.
