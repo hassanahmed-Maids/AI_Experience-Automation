@@ -1375,6 +1375,33 @@ verify it does not inherit it before trusting its totals.
 repeated-additions rule excludes the latter two *(code-verified)*. Whether a discretionary-payment
 audit should judge them is **Q3**. Until answered: in scope, BLOCKED, amber.
 
+
+#### 🔴 Tiering — added 2026-09-08, and it is a scope decision, not an optimisation
+
+**Not every payment type earns a bespoke rule.** The live census found 25 types in use over 12
+months; thirteen of them carry **99.7% of the money**. The rest are three to eighty notes a year.
+
+| Tier | Types | Treatment |
+|---|---|---|
+| **1 — full battery** | `anti_attrition_incentive`, `airfare_ticket`, `bonus` (both halves), `salary_dispute`, `forgive_deduction`, `mv_prorated_salary`, `prorated_salary`, `raffle_prize`, `taxi_reimbursement`, `Maids_at_other_expenses`, `last_day_cc_switch_adjustment`, `medical_assistant`, `Accommodation Relocation` | Its own group rule, plus the cross-cutting tests |
+| **2 — baseline + review** | everything else, **and every type that appears in future** | The cross-cutting tests only (T1–T7 / S1). **No group rule, no reference list, no ingestion ask.** |
+
+**A tier-2 note is never counted as cleared.** If the cross-cutting tests all pass it does **not**
+join M9. It lands on a `RARE_TYPE_REVIEW` list carrying the reason *"no rule exists for this payment
+type — human review"*, and its money sits in M8, not M9. This is check #1 applied to a scope
+decision: **a payment type nobody wrote a rule for has not been cleared by anything**, and letting it
+green because the generic tests passed is exactly the clearance defect wearing a different hat.
+
+**Why this is worth stating rather than just doing.** Writing bespoke logic for a type with three
+notes a year costs more than it can ever catch, and each such rule brings a reference list somebody
+has to maintain forever. Tier 2 also means the audit **degrades safely**: `Abu Dhabi Incentive`
+appeared on 2026-08-31 and needs no code change to be handled — it is picked up, checked generically,
+and put in front of a person.
+
+**Promotion is a data question, not a judgement.** Re-run the type census each quarter; any tier-2
+type that crosses ~1% of notes or ~1% of money moves to tier 1. `Last Day CC Switch Adjustment` is
+the live example — 213 notes in three months, from nothing.
+
 ### M7 — Findings (red)
 
 `M7.count = COUNT(*) WHERE AUDIT_VERDICT='RED'` · `M7.amount = SUM(AMOUNT)` likewise.

@@ -1,0 +1,236 @@
+<title>How Each Payment Is Checked</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+:root{
+  --ink:#15181D; --ink-2:#454D58; --ink-3:#727C8A;
+  --bg:#FCFCFB; --panel:#FFFFFF; --panel-2:#F4F5F3; --line:#E3E5E1; --line-2:#CBD0C9;
+  --red:#A32118; --amber:#B07F09; --green:#0A7245; --accent:#3538CD; --slate:#5B6472;
+  --red-wash:#FBEDEB; --amber-wash:#FBF3E0; --green-wash:#E9F4EE; --accent-wash:#EDEEFB;
+  --code-bg:#F2F3F0;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+  --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF; --slate:#9AA3AE;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --code-bg:#202320;
+}}
+:root[data-theme="dark"]{
+  --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+  --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF; --slate:#9AA3AE;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --code-bg:#202320;
+}
+*{box-sizing:border-box}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:2px}
+.wrap{max-width:1180px; margin:0 auto; padding:34px 22px 80px}
+.eyebrow{font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600}
+h1{font-size:29px; line-height:1.14; letter-spacing:-.02em; margin:7px 0 0; font-weight:700;
+  text-wrap:balance}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:16.5px; line-height:1.6;
+  color:var(--ink-2); margin:12px 0 0; max-width:66ch}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.pill{display:inline-block; font-size:11px; font-weight:600; letter-spacing:.02em;
+  padding:3px 8px; border-radius:3px; white-space:nowrap; border:1px solid transparent}
+.p-red{color:var(--red); background:var(--red-wash); border-color:color-mix(in srgb,var(--red) 30%,transparent)}
+.p-amb{color:var(--amber); background:var(--amber-wash); border-color:color-mix(in srgb,var(--amber) 32%,transparent)}
+.p-grn{color:var(--green); background:var(--green-wash); border-color:color-mix(in srgb,var(--green) 30%,transparent)}
+.p-acc{color:var(--accent); background:var(--accent-wash); border-color:color-mix(in srgb,var(--accent) 28%,transparent)}
+.p-mut{color:var(--ink-3); background:var(--panel-2); border-color:var(--line)}
+.band{display:grid; gap:13px; grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+  margin:26px 0 0; padding:20px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line)}
+.kpi b{display:block; font-family:"IBM Plex Mono",monospace; font-size:24px; line-height:1.1;
+  letter-spacing:-.02em; font-weight:600; font-variant-numeric:tabular-nums}
+.kpi span{display:block; font-size:11.5px; line-height:1.4; color:var(--ink-3); margin-top:4px}
+.kpi{border-left:2px solid var(--line-2); padding-left:12px}
+.kpi.r{border-left-color:var(--red)} .kpi.a{border-left-color:var(--amber)}
+.kpi.g{border-left-color:var(--green)} .kpi.c{border-left-color:var(--accent)}
+h2{font-size:19px; letter-spacing:-.01em; margin:42px 0 3px; font-weight:700}
+h2 + p{margin:0 0 16px; color:var(--ink-2); max-width:70ch}
+footer{margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
+  color:var(--ink-3); font-size:12.5px; max-width:78ch}
+code{font-family:"IBM Plex Mono",monospace; font-size:.87em; background:var(--code-bg);
+  border:1px solid var(--line); border-radius:3px; padding:1px 4px}
+</style>
+
+<style>
+.t{border-left:2px solid var(--line-2); padding:2px 0 2px 18px; margin:0 0 30px}
+.t.s-red{border-left-color:var(--red)} .t.s-amber{border-left-color:var(--amber)}
+.t.s-green{border-left-color:var(--green)}
+.t header{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px}
+.t h3{font-size:18px; margin:0; font-weight:700; letter-spacing:-.01em}
+.vol{font-size:12px; color:var(--ink-3); margin-left:auto}
+.cols{display:grid; gap:22px; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); margin-top:8px}
+.t h4{font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3);
+  margin:12px 0 3px; font-weight:600}
+.t h4:first-child{margin-top:0}
+.t p{margin:0; font-family:"IBM Plex Serif",Georgia,serif; font-size:15px; line-height:1.6; color:var(--ink-2)}
+.t ol{margin:0; padding-left:19px; font-size:14px; line-height:1.6}
+.t ol li{margin:6px 0; color:var(--ink-2)}
+.nb{margin-top:14px!important; padding:11px 15px; background:var(--panel-2); border-radius:4px;
+  font-size:14px!important}
+.t.s-red .nb{background:var(--red-wash)} .t.s-green .nb{background:var(--green-wash)}
+.cross{background:var(--panel-2); border-radius:6px; padding:20px 22px; margin-top:10px}
+.cross ol{margin:10px 0 0; padding-left:20px} .cross li{margin:8px 0; color:var(--ink-2)}
+</style>
+<div class="wrap">
+<div class="eyebrow">Police &amp; Control &middot; Manager Notes Audit</div>
+<h1>How each payment is checked, in plain English</h1>
+<p class="lede">Every month managers add money to housemaids&rsquo; payslips. Each kind of payment has
+its own rule &mdash; some written down, some only in code, one or two nowhere at all. This is what
+each payment is for, what is supposed to govern it, and how the audit tests it. No SQL, no column
+names.</p>
+
+<div class="band">
+  <div class="kpi c"><b>25</b><span>payment types in use over 12 months</span></div>
+  <div class="kpi r"><b>13 / 9</b><span>get a full rule · get baseline checks and a human</span></div>
+  <div class="kpi a"><b>AED 7.18m</b><span>added to payslips in 12 months</span></div>
+  <div class="kpi g"><b>99.7%</b><span>of the money sits in the thirteen</span></div>
+</div>
+
+<h2>Four checks that apply to every payment</h2>
+<p>Before its own rule runs, every addition faces the same four questions.</p>
+<div class="cross"><ol>
+<li><b>Did one person both request and approve it?</b> Money that one person moved on their own
+authority. Measured: 1,170 payments, AED 244,730 &mdash; and on some types it is nearly half of them.</li>
+<li><b>Is there an expense record authorising it, and does the amount match?</b> An addition matched
+to a cancelled or rejected request authorises nothing, and that is a finding, not a pass.</li>
+<li><b>Has this already been paid?</b> The same entitlement paid twice.</li>
+<li><b>Is this maid even eligible for this kind of payment?</b> Some payments apply only to
+company-contract maids, others only to MaidVisa.</li>
+</ol></div>
+
+<h2>Two tiers, deliberately</h2>
+<p>Not every payment type earns a bespoke rule.</p>
+<div class="cross"><ol>
+<li><b>Thirteen types get the full treatment</b> &mdash; their own rule, recomputed or corroborated
+against a record. They carry <b>99.7% of the money</b>, so this is where the effort belongs.</li>
+<li><b>Everything else gets the four cross-cutting checks and nothing more</b>, and is
+<b>raised for a person to look at</b> rather than judged by a rule written for a handful of notes.
+Writing bespoke logic for a payment type with three notes a year costs more than it can ever catch.</li>
+</ol>
+<p style="margin-top:12px"><b>A rare type is never counted as cleared.</b> If the four cross-cutting
+checks pass, it does not join the clean pile &mdash; it goes on a short review list saying
+<i>&ldquo;no rule exists for this payment type; a person should look&rdquo;</i>. That distinction is the
+whole point: a check that could not run is not a check that passed, and a payment nobody wrote a rule
+for has not been cleared by anything.</p></div>
+
+<h2>The thirteen, in detail</h2>
+<p>Ordered by how much of the audit they represent. A <span class="pill p-red">red</span> tag means
+something is wrong today; <span class="pill p-amb">amber</span> means the check cannot yet reach a
+conclusion; <span class="pill p-grn">green</span> means it works.</p>
+<article class="t s-red">
+<header><h3>Anti-attrition Incentive</h3><span class="pill p-red">Largest by count</span><span class="vol mono">9,167 notes · AED 1,829,736</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>A monthly payment to a maid the company is trying to stop from leaving.</p><h4>The rule</h4><p>A manager enrols her in the retention scheme, recording an amount and a written reason. A month-end job then pays that amount every month she stays — prorated if she was only enrolled for part of the month, once per contract per month, and only for maids on the company contract.</p></div>
+  <div><h4>How we check it</h4><ol><li>Was she enrolled at all? A payment with no enrolment record did not come from the job.</li><li>Was the enrolment recorded <b>before</b> the payment it justifies? Checking only that a record exists <i>ever</i> misses this — and it found a real case on its first run.</li><li>Is she on the company contract rather than MaidVisa? The job cannot pay a MaidVisa maid.</li><li>Was she paid twice in the same month? A review list rather than a verdict, until we can tell a double payment from a legitimate second contract.</li><li>🔴 <b>An agent reads the written reason and judges whether it actually states a retention reason</b> — and puts it in a category. No categorised field exists anywhere in the system, so the categories are themselves new information.</li></ol></div>
+</div><p class="nb">We tested whether these maids had complained about wanting to leave. <b>They do so no more often than a maid picked at random.</b> So the complaint record proves nothing here and is not used. We also cannot yet check the amount: 30% are prorated, over two different divisors, and the recompute needs her enrolment and exit dates.</p></article><article class="t s-red">
+<header><h3>Airfare Ticket</h3><span class="pill p-red">Largest by money</span><span class="vol mono">1,654 notes · AED 2,733,500</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Her flight home — for annual vacation, or at the end of her contract.</p><h4>The rule</h4><p>The company pays up to a cap that depends on her nationality: one cap for Filipina maids, another for everyone else. Both are settings in the system, not fixed numbers, and they can be changed at any time.</p></div>
+  <div><h4>How we check it</h4><ol><li>Is the amount within her nationality's cap? Read the cap live — never the value written in the code.</li><li>Has she served long enough to be due a flight?</li><li>Did she already get one this cycle, or was a ticket also bought for her separately? Paying twice for one journey is the failure this catches.</li></ol></div>
+</div><p class="nb">🔴 <b>Something here does not add up yet.</b> Airfare notes carry dates up to June 2028 — nearly two years ahead. That is almost certainly the travel date rather than the payment date, but the audit assigns a note to a payslip month by its date, so as things stand AED 2.7m would be filed against payslips nobody will ever open. Payroll has to say what an airfare note's date means before this type can be audited by month.</p></article><article class="t s-red">
+<header><h3>Bonus</h3><span class="pill p-red">Attribution failing</span><span class="vol mono">1,205 notes · AED 852,316</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Two completely different payments sharing one label. A <b>referral bonus</b> for introducing a maid who went on to join, and a <b>retention bonus</b> for a maid who withdrew her resignation.</p><h4>The rule</h4><p>The referral pays a set price per successful referral. The retention bonus is paid once, when someone talks a maid out of resigning.</p></div>
+  <div><h4>How we check it</h4><ol><li>Tell the two apart by the purpose field, never by the label — routing on the label applies the referral rule to retention payments and the other way round.</li><li>Judge a referral <b>per referral, not per payment</b>: one referral can produce two notes, and they are checked together against the scheme price.</li><li>The retention half has a genuine link back to the complaint that started it, so it can be traced end to end.</li></ol></div>
+</div><p class="nb">🔴 <b>Nobody is named on nearly half of these.</b> Notes with no requester and no approver ran at 2% before May 2024, peaked at 98%, and still sit at 48%. That is a control that broke and has not been fixed — and it matters that Taxi Reimbursement has 0% over the same period, which proves the field can be filled in reliably.</p></article><article class="t s-amber">
+<header><h3>Salary Dispute</h3><span class="pill p-amb">Corroboration works here</span><span class="vol mono">1,084 notes · AED 385,984</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>A correction when a maid says she was paid the wrong amount.</p><h4>The rule</h4><p>There is no written rule. It is a person working out what she was owed and paying the difference.</p></div>
+  <div><h4>How we check it</h4><ol><li>Where the reviewer wrote their arithmetic into the note — and they often do, line by line — <b>re-add it and confirm the total</b>.</li><li>Where they did not, report exactly that: <i>the reviewer did not show their work</i>. That is a category the business can act on.</li><li>Is there a complaint about missing or miscalculated salary close to the payment? <b>Here that test genuinely works</b> — such a complaint appears more than twice as often as chance would produce, and usually within days.</li><li>A day excluded from the calculation as <i>forgiven</i> must exist as a Forgive Deduction note. In one or neither, never both.</li></ol></div>
+</div></article><article class="t s-amber">
+<header><h3>MV Prorated Salary · Prorated salary</h3><span class="pill p-amb">Recompute blocked</span><span class="vol mono">1,381 notes · AED 870,725</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Part of a month's salary — when a maid starts, leaves, or switches mid-month.</p><h4>The rule</h4><p>Her monthly rate, divided by the days in the month, times the days she actually worked.</p></div>
+  <div><h4>How we check it</h4><ol><li>Recompute it from her rate and the dates, and compare.</li><li>Check the dates that drive it are real — several date fields in the system fall back to 1 January 1970 when the true date is unknown, and arithmetic on that returns a confident wrong answer.</li></ol></div>
+</div><p class="nb">Blocked on one thing: her salary <b>as it was in that month</b>. The system stores only her current salary, so a part-month payment from six months ago cannot be recomputed from it.</p></article><article class="t s-amber">
+<header><h3>Forgive Deduction</h3><span class="pill p-amb">Pairs with salary dispute</span><span class="vol mono">1,060 notes · AED 53,325</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Cancelling a deduction she would otherwise have had taken off her pay.</p><h4>The rule</h4><p>Written automatically from payroll state rather than by a person.</p></div>
+  <div><h4>How we check it</h4><ol><li>Pair it: a day forgiven here must match a day excluded from a salary-dispute calculation. Present on one side only is either a double payment or a shortfall.</li></ol></div>
+</div></article><article class="t s-green">
+<header><h3>Raffle Prize</h3><span class="pill p-grn">The audit's control group</span><span class="vol mono">576 notes · AED 180,000</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>A prize from a staff draw. Winners are picked at random, weighted only by how many tickets a maid has earned.</p><h4>The rule</h4><p>Win the draw, receive an allowed prize amount, once.</p></div>
+  <div><h4>How we check it</h4><ol><li>Was she actually on the winners list?</li><li>Is the amount one of the allowed prize values?</li><li>Paid only once for one draw?</li></ol></div>
+</div><p class="nb">🟢 <b>This type does a second job for the whole audit.</b> Because winning is random and has nothing to do with a maid's situation, raffle winners are a fair sample of maids in general. Every &ldquo;is there a complaint behind this payment&rdquo; figure elsewhere is measured against them — without that baseline, a payment type could look 90% corroborated when 90% is simply what any maid looks like.</p></article><article class="t s-green">
+<header><h3>Taxi Reimbursement</h3><span class="pill p-grn">Best-attributed type</span><span class="vol mono">502 notes · AED 84,394</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Paying her back for a taxi she took and paid for herself.</p><h4>The rule</h4><p>Approved transport costs are reimbursed.</p></div>
+  <div><h4>How we check it</h4><ol><li>Is there an expense record authorising it, and does the amount agree?</li><li>Is there a transport complaint or an arrival check-in near the date? Such records appear more than five times as often as chance around these payments.</li></ol></div>
+</div><p class="nb">🟢 <b>Zero notes missing a name in 36 months.</b> The cleanest attribution record in the audit, and the reason we know the other types' gaps are a choice somewhere in the system rather than a limitation.</p></article><article class="t s-amber">
+<header><h3>Maids.at other expenses</h3><span class="pill p-amb">Purpose discovered from data</span><span class="vol mono">342 notes · AED 51,260</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>The audit did not know what this was for. The complaint records answered it: <b>Philippine overseas-worker paperwork</b> — OWWA registration and Overseas Employment Certificates.</p><h4>The rule</h4><p>Documented, approved paperwork costs are reimbursed.</p></div>
+  <div><h4>How we check it</h4><ol><li>Match to the authorising expense record.</li><li>⚠️ 68% were raised by someone and never approved by anyone.</li></ol></div>
+</div></article><article class="t s-red">
+<header><h3>Medical Assistance</h3><span class="pill p-red">Worst self-approval rate</span><span class="vol mono">89 notes · AED 21,882</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Help with a medical cost she has incurred.</p><h4>The rule</h4><p>Approved medical costs are covered.</p></div>
+  <div><h4>How we check it</h4><ol><li>Is there a sickness or medical-appointment complaint near the payment? Half of them carry exactly that, six times more often than chance.</li><li>🔴 Does the same person appear as both requester and approver?</li></ol></div>
+</div><p class="nb">🔴 <b>47% are approved by the person who requested them</b> — the highest rate of any payment type. Small money, but as a control failure it is the worst in the audit. Counted by money alone it would never surface.</p></article><article class="t s-amber">
+<header><h3>Accommodation Relocation</h3><span class="pill p-amb">Strongest corroboration</span><span class="vol mono">69 notes · AED 51,600</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Moving a maid from one accommodation to another.</p><h4>The rule</h4><p>Approved relocation costs are covered.</p></div>
+  <div><h4>How we check it</h4><ol><li>Is there an accommodation or live-out complaint near it? The strongest association measured anywhere in this audit — more than seven times the background rate, usually within days.</li></ol></div>
+</div><p class="nb">It is also the only check anywhere on the live-out accommodation rule, which nothing currently enforces.</p></article><article class="t s-amber">
+<header><h3>Last Day CC Switch Adjustment</h3><span class="pill p-amb">Trigger validated</span><span class="vol mono">213 notes · AED 13,616</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>An adjustment on a maid's last day, when a client converts from the company contract to MaidVisa.</p><h4>The rule</h4><p>Recompute from the switch date and her rate.</p></div>
+  <div><h4>How we check it</h4><ol><li>Recompute the adjustment.</li><li>🟢 The complaint record confirms the trigger precisely — 58% carry a client request to convert to the visa-only package, which is exactly what the code says causes it. Two independent methods, the same answer.</li></ol></div>
+</div></article><article class="t s-red">
+<header><h3>No payment type recorded</h3><span class="pill p-red">Live finding</span><span class="vol mono">8 notes · AED 3,900</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>Nothing. These notes carry no payment type at all.</p><h4>The rule</h4><p>Every addition must record what kind of payment it is.</p></div>
+  <div><h4>How we check it</h4><ol><li>🔴 <b>This is already a finding, today.</b> Eight notes dated between 27 August and 4 September carry no payment type, so no rule can possibly apply to them and nobody can say what the money was for.</li></ol></div>
+</div><p class="nb">Found by counting payment types, not by a check — which is itself the lesson. Nobody had listed what types are actually in use.</p></article><article class="t s-amber">
+<header><h3>Abu Dhabi Incentive</h3><span class="pill p-amb">New type, no rule</span><span class="vol mono">18 notes · AED 0</span></header>
+<div class="cols">
+  <div><h4>What it is</h4><p>A payment type that did not exist before 31 August 2026.</p><h4>The rule</h4><p>Unknown — nothing has been written for it.</p></div>
+  <div><h4>How we check it</h4><ol><li>Under the audit's safety rule, a payment type nobody has mapped produces an <b>empty set of checks</b>, and an empty set cannot satisfy &ldquo;every check ran and passed&rdquo;. So it arrives as <b>unverifiable with a named reason</b>, never as a silent pass.</li></ol></div>
+</div><p class="nb">🟢 This is the first live test of that safety rule — and worth a question on its own, because all 18 notes are for <b>AED 0</b>.</p></article>
+
+<h2>The rare ones &mdash; baseline checks and a human</h2>
+<p>Nine types are in use but tiny: <b>MOHRE requirement additions, VIP Bonus, Passport Assistance,
+Lost Luggage Compensation, Sim card, Transportation Fare Reimbursement, MV Extra Salary, Cash
+Assistance, and a separate Flight ticket entry.</b> Together about <b>100 notes and AED 22,000
+a year</b> &mdash; three tenths of one percent of the money.</p>
+<p>They get the four cross-cutting checks and go on the review list. No bespoke rule, no ingestion
+request, no reference list to maintain. <b>The same treatment applies automatically to any payment
+type that appears in future</b>, which is the useful part: <i>Abu Dhabi Incentive</i> did not exist
+five weeks ago, and it will be picked up without anyone changing anything.</p>
+<p>Two of them are worth a look despite the size, and the baseline checks are what surface them:
+<b>VIP Bonus is 39% self-approved</b>, and <b>&ldquo;Flight ticket&rdquo; and &ldquo;Airfare
+Ticket&rdquo; are two separate entries</b> &mdash; if they are one journey under two names, the
+airfare cap is being applied to some of them and not others.</p>
+
+<footer><strong>Measured 2026-09-08</strong> over the twelve months to that date. Where this page
+says a check &ldquo;works&rdquo; or &ldquo;proves nothing&rdquo;, it means the result was compared
+against what pure chance would produce for that payment type &mdash; a corroborating record found
+within a wide date window is not evidence unless it appears more often than coincidence explains.
+Office work additions and refunds are excluded: a separate check owns them.</footer>
+</div>
+<script>
+(function(){
+  var d=document.documentElement;
+  function dark(){var s=d.getAttribute('data-theme');
+    return s ? s==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;}
+  var b=document.createElement('button');
+  b.style.cssText='position:fixed;right:16px;bottom:16px;font:inherit;font-size:12.5px;'+
+    'padding:6px 13px;border-radius:999px;border:1px solid var(--line-2);background:var(--panel);'+
+    'color:var(--ink-2);cursor:pointer';
+  function sync(){b.textContent=dark()?'Light':'Dark';}
+  sync();
+  b.addEventListener('click',function(){d.setAttribute('data-theme',dark()?'light':'dark'); sync();});
+  document.body.appendChild(b);
+})();
+</script>
