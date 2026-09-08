@@ -54,6 +54,9 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **AED 29,684 of Office Work Addition — the entire type.** All 92 notes went to maids holding an
+  office-work assignment within the two months before payment (OW5b), and no note exceeds a typical
+  month's pay (OW2b).
 - 🟢 **AED 32,462 of Forgive Deduction** — 672 of 1,027 notes land within one day of the salary
   that applied in their own payroll month, which is exactly what one note = one day predicts.
   Both hard ceilings hold: no maid-month has more notes than days, none exceeds a month's pay (FD1b, FD2).

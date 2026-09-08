@@ -955,6 +955,23 @@ owners:
 sparkline per finding class. Without it the dashboard reports a mostly-closed historical problem and
 a live one as the same number, and the auditor cannot tell which month's work is theirs.
 
+### M3b-pre — 🔴 The three questions to ask BEFORE a test is run, not after
+*Added 2026-09-08. Office Work Addition produced two findings and withdrew both — AED 6,539 and
+AED 24,291 — and neither failure mode was new. Both had been diagnosed earlier the same day on other
+payment types. They were re-discovered by publishing first and checking after.*
+
+**Before any test is reported, answer these three. Each one has already cost this audit a retracted
+finding.**
+
+| | Ask | Because |
+|---|---|---|
+| **1** | **Does this test read a value that can CHANGE? If so, am I reading it as of the note date?** | A current-state join to a dated fact has been wrong **four times**, and in **both directions**: a housemaid type that changed *after* the note (941 notes → 22), a salary start set *after* it (74 → 25), an office-work assignment cleared *before* payroll ran (66 → 0) |
+| **2** | **Does this test divide by a salary? If so, is the denominator the maid's TYPICAL month?** | A partial-month payroll row halves the denominator and doubles the apparent multiple. Confirmed directly: the flagged months ran at **0.50–0.87 of typical**. It cost a finding in Forgive Deduction and another in Office Work |
+| **3** | **Does the rule define a per-note quantum? If so, can I COUNT instead of MEASURE?** | Forgive Deduction's count test found a real finding; two attempts at its amount test found nothing usable. **A count survives a bad salary model; an amount does not** |
+
+**A test that fails any of these is not reportable.** It may still be worth running — as a screen, to size a
+population — but its output is a candidate list, never a verdict, and the report must say which.
+
 ### M3c — Population-level tests 🔴 *new in v3, added 2026-09-08 from the live runs*
 
 **Every test in M3 and M6 judges one note. A whole class of defect is invisible to all of them.**

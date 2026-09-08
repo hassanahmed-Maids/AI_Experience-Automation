@@ -250,3 +250,15 @@ SELECT CASE
 FROM flags
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- OW5b RESULT 2026-09-08 — 🟢 OFFICE WORK ADDITION CLOSES AT ZERO FINDINGS.
+--   assigned within the two months before the note .. 92 notes · 92 maids · AED 29,684 · 100%
+--   No other bucket returned a single row. Every note went to a maid who held an office-work
+--   assignment in the window. OW5's 66 "not assigned" were entirely the point-in-time artefact.
+--
+-- 🔴 THIS TYPE PRODUCED TWO FINDINGS AND WITHDREW BOTH:
+--     OW2  AED  6,539 "more than a whole month of pay"  -> partial-month denominator
+--     OW5  AED 24,291 "not assigned when paid"          -> point read of a transient state
+--   Both failure modes were already documented earlier the same day — the partial-month
+--   artefact in Forgive Deduction, the transient-state problem in anti-attrition. Neither was
+--   NEW; both were re-discovered by publishing first and checking after.
