@@ -1120,6 +1120,79 @@ carried resignation complaints, so adding that family would have taken band 3 fr
 **70% collapse** — while the honest fix moved **one** note. A map change that erases most of a
 finding is not a correction, and the size of the move is how you tell the two apart.
 
+## 3v. 🔴 The unsupervised scan: three types the map wrote off actually have corroborators
+
+Every payment type against every complaint type, 12 months, minimum support on both sides, lift
+measured against the raffle null. ~10,600 candidate pairs; 39 cleared the support floor. **Timing
+decided almost all of it** — a pair earns a place only with high lift **and** a real share **and**
+coupling inside ~15 days.
+
+### The map was wrong about three payment types, and this time it said "none expected"
+
+| Payment type | Corroborator found | Share | Days | Lift | Map said |
+|---|---|---:|---:|---:|---|
+| **Last Day CC Switch Adjustment** | `Client wants to convert to the Visa Only Package` | 58% | **13** | 30.5× | *none expected — machine-generated* |
+| **Prorated salary** | `Intro Call` · `Housemaid Arrival & Transportation Check-Ins` | 41% · 24% | **6 · 5** | 7.6× · 8.5× | *none expected — machine-generated* |
+| **MV Prorated Salary** | `MV Retention` · `Peekaboo lead` · `VOP-to-VOP Sale Follow Up` | 23% · 18% · 16% | **9 · 9 · 9** | 43.6× · 105× · 91× | only two salary types |
+
+**Machine-generated does not mean uncorroborated.** The map assumed that a payment written by a job
+has no conversation behind it. These three are written by jobs *and* sit days away from the business
+event that caused them — a client converting to visa-only, a maid arriving mid-month, a maid moving
+to MV. The job is the *mechanism*; the complaint is the *trigger*, and it is recorded.
+
+**The prorated-salary pair is a new-starter cluster**: `Intro Call` at 6 days and an arrival check-in
+at 5 days is a maid who started mid-month. That is exactly what a prorated salary is. The map had
+nothing for the type at all.
+
+### 🟢 Anti-attrition survives a third, independent test
+
+Given free rein over 424 complaint types, the scan's best three for anti-attrition are at **29, 34
+and 35 days** — the 105-day window's own midpoint — despite lifts of 6.7×, 4.1× and 3.9×. **An
+unsupervised search found nothing time-coupled.** Four methods now agree, the last one having been
+given every chance to find something.
+
+### 🟢 It also diagnosed taxi without being asked
+
+All three taxi pairs sit at **20–28 days**, including one at 76% share and 27× lift. That *is* the
+1.06× coupling result, arrived at independently: taxi complaints are abundant and untimed, so
+presence is near-certain and tells you nothing.
+
+### ⚠️ One complaint type, opposite verdicts — why lift alone is worthless
+
+`Housemaid Arrival & Transportation Check-Ins` appears against five payment types at similar lifts:
+
+| Payment | Days | Verdict |
+|---|---:|---|
+| Office Work Addition | 5 | **real** |
+| Prorated salary | 5 | **real** |
+| Taxi Reimbursement | 28 | noise |
+| Salary Dispute | 36 | noise |
+| MOHRE additions | 36 | noise |
+
+Same complaint type, same order of lift, and the meaning inverts on timing alone. **Any map built
+from co-occurrence without timing would have added all five.**
+
+### ⚠️ Rejected: `Maid cash advance`, the generic companion
+
+It clears every numeric threshold on three separate payment types — Accommodation 69% at 12 days
+(57×), Taxi 41%, Forgive Deduction 16% at 15 days. **It is still rejected.** A maid receiving any
+payment also asks for a cash advance; it is a co-occurring *need*, not the same event. Admitting it
+would corroborate almost anything and quietly destroy the map's power to discriminate — the same
+failure as adding the resignation family to accommodation, arriving through a number instead of a
+hunch.
+
+### 🔴 The 15-day rule is wrong for slow processes
+
+`Maids.at other expenses` pairs with `Client OWWA Registration` (77×), `Overseas Employment
+Certificate` (43×) and `Maid OWWA Registration` (28×) — **semantically identical events**, the deep
+dive already established the type *is* Philippine overseas-worker paperwork. But all three sit at
+**24–30 days**, so the 15-day test rejects them.
+
+**They are not noise; the window is wrong.** Paperwork runs over weeks, not days. **Coupling windows
+must be per payment type**, exactly as duplicate entitlement windows must be — a fast event and a
+slow process cannot share one threshold. Until that exists, this type is BLOCKED rather than judged
+against a rule built for same-week events.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -1136,7 +1209,10 @@ Built from the real taxonomy (query 1b, 18-month volumes) and the code's type co
 | **Medical Assistance** | 57 `Maid is sick or injured` (20,467) · 270 `Follow up for medical appointment` (1,611) · 493 `Maid Health Issue`. Codes: `Work_Injury_Sickness__c`, `Maid_s_Repeat_Medical__c` | strong |
 | **Airfare Ticket** | **336 `Airfare & Vacation Compensation` (35)** · 103 `Vacation Policy` (624) · 177 `Travel assist` (1,018) | weak — it is renewal-driven, not complaint-driven |
 | **Maids.at other expenses** | 339 `Maid cash advance` (2,892) · 119 `Maid related question` (90,625) | weak — too generic to test |
-| **Raffle · Prorated salary · Forgive Deduction · Office Work · Last Day CC Switch** | none expected — all machine-generated from payroll state | **N_A — never test** |
+| **Prorated salary** | **`Intro Call` · `Housemaid Arrival & Transportation Check-Ins`** *(added 2026-09-08 from the scan; ids to resolve)* — the new-starter cluster, 5–6 days | strong |
+| **Last Day CC Switch Adjustment** | **`Client wants to convert to the Visa Only Package`** *(added 2026-09-08; id to resolve)* — 58% at 13 days | strong |
+| **MV Prorated Salary** *(extends the row above)* | **`MV Retention` · `Peekaboo lead` · `VOP-to-VOP Sale Follow Up`** *(added 2026-09-08; ids to resolve)* — all at 9 days | strong |
+| **Raffle · Forgive Deduction · Office Work** | none expected — machine-generated from payroll state | **N_A — never test** |
 
 **The N_A row matters as much as the others.** Requiring a complaint behind a machine-generated
 payment would produce thousands of false findings on day one.
