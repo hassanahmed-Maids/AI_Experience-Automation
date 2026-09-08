@@ -1,128 +1,121 @@
 # Audit run — August 2026
 
-**Run 2026-09-08 · adjudicated by the AI Agent · 899 notes · AED 426,376**
+**Run 2026-09-08 · adjudicated by the AI Agent · 899 notes · AED 426,377 · logic only**
 
-First live pass of the spec against real data. The population is August 2026 by note date, excluding
-office-work additions and refunds. Nothing returns GREEN by design: T4, T5 and T7 are blocked on the
-expense grant and the three reference lists, so a note that survives every runnable test is
-**AMBER — "no runnable test failed, blocked tests outstanding"**, not cleared.
+This run tests **whether each payment followed the rule for its payment type**. Segregation of duties
+and attribution are out of scope. Nothing returns GREEN: T4, T5 and T7 are blocked, so a note that
+survives every runnable rule is AMBER, not cleared.
 
----
+| Class | Notes | % | AED |
+|---|---:|---:|---:|
+| No runnable rule failed (blocked tests outstanding) | 590 | 65.6% | 394,373 |
+| BLOCKED — duplicate rule needs an entitlement window | 144 | 16.0% | 12,164 |
+| Zero amount | 120 | 13.3% | 0 |
+| Duplicate candidate | 41 | 4.6% | 18,590 |
+| **RED — no payment type recorded** | **4** | 0.4% | **1,250** |
 
-## 🔴 The month is not representative, and that has to be said first
-
-**Anti-attrition contributes 18 notes.** It normally contributes ~760 a month and is 52% of the
-population by count. Its August batch ran on **2026-09-01**, outside a calendar-August window, so it
-will appear in September's run instead. **Every rate below is computed without the largest payment
-type in the audit.** Do not read August's mix as typical, and do not compare it to a September run
-that will carry two anti-attrition batches unless that is stated on the page.
-
----
-
-## What the run found
-
-| Class | Notes | % | AED | % of money |
-|---|---:|---:|---:|---:|
-| Nobody recorded | 351 | 39.0% | 291,071 | **68.3%** |
-| No runnable test failed | 186 | 20.7% | 93,792 | 22.0% |
-| Duplicate candidate | 154 | 17.1% | 22,203 | 5.2% |
-| Zero amount | 120 | 13.3% | 0 | 0% |
-| Raised, never approved | 58 | 6.5% | 5,315 | 1.2% |
-| **Self-approved** | **26** | 2.9% | **12,745** | 3.0% |
-| **No payment type recorded** | **4** | 0.4% | **1,250** | 0.3% |
-
-**Actionable red is AED 13,995 across 30 notes.** The rest is either blocked, by design, or an
-artifact of my own checks — separated below, because presenting 899 amber rows as an audit result
-would be worse than presenting none.
+⚠️ **Anti-attrition contributed 17 notes, not its usual ~760** — its August batch ran 2026-09-01.
+The largest payment type is effectively absent from this month.
 
 ---
 
-## 🔴 Finding 1 — half of August's airfare notes are worth nothing
+## 🔴 Finding 1 — three salary-dispute notes whose own numbers do not hold
 
-**78 of 163 Airfare Ticket notes are AED 0 — 48%.**
+The AI Agent re-added every itemised calculation the reviewers wrote into the free text. **Nine of
+twelve reconcile to within one fils.** Three do not, and each fails differently.
 
-A flight-home payment of zero dirhams is not a payment. Three readings, and the data cannot yet
-separate them: placeholder rows created ahead of a booking, cancelled bookings left standing, or a
-feed defect. Whichever it is, it has two consequences that are not hypothetical:
+**Note 185667 · maid 127702 · AED 347.35 — the reviewer's own figures contradict their own answer.**
+> *"Generated salary for July: AED 0 · Correct salary: AED 541 · Difference to be added: AED 347.35"*
 
-- **It inflates the note count of the largest money type by roughly half.** Any count-based rate in
-  this audit that includes airfare is distorted by it — including the ones in this report.
-- **Cross-check against the twelve-month profile: 123 zero-amount airfare notes in a year, and 78 of
-  them in August alone.** Either August is exceptional or the pattern is accelerating sharply. That
-  is a dated, checkable claim and it should be checked before anything is built on airfare volume.
+**541 − 0 = 541, not 347.35.** A gap of **AED 193.65** with nothing in the note to explain it. Either
+a deduction was applied and not written down, or the amount is wrong. **This is the finding of the
+month: it needs no data we do not have, and no judgement — the note refutes itself.**
 
-**The largest single anomaly in the month, and it is not in the red column.**
+**Note 185497 · maid 90545 · AED 55.00 — the note disagrees with its own expense line.**
+Its text carries `/64.50/AED/` while the note pays **55.00**. A gap of **AED 9.50**. The same maid
+also received AED 139 on the same day under the same payment type *(note 185722)*.
 
----
+**Note 185724 · maid 137097 · AED 0.00 — a zero-value note recording a real AED 1,419 entitlement.**
+The text works the figure correctly (`2000/31 × 22 days`), then ends: *"Amount is paid manually"*.
+🔴 **So a zero-amount note can conceal a real payment made outside the note system entirely.** That
+changes what a zero means: not a placeholder, but a payment this audit cannot see. Every zero-amount
+note in the month now needs re-reading with that possibility in mind.
 
-## 🔴 Finding 2 — self-approval, and salary dispute is the concentration
+### Two the reviewers left unshowable
 
-**26 notes, AED 12,745.** The cleanest finding class here: no interpretation needed, the same person
-requested and approved.
+**186123 · AED 184** — a URL and nothing else. **185685 · AED 387** — a sentence, no working; it
+reconciles to `2000/31 × 6 days` but only because the AI Agent inferred the formula. *"The reviewer
+did not show their work"* is the reportable category, and these are it.
 
-| Type | Self-approved | of that type |
-|---|---:|---:|
-| **Salary Dispute** | **14** | **23%** |
-| Maids.at other expenses | 5 | 7% |
-| Accommodation Relocation | 3 | 4% |
-| Airfare Ticket | 3 | 2% |
-| Taxi Reimbursement | 1 | 1% |
+### Three worth a human's eye, none of them an error
 
-**Nearly a quarter of August's salary disputes were approved by the person who raised them** — on the
-one payment type with no written rule at all, where the amount is a human judgement. That combination
-is the finding: unruled *and* unreviewed.
-
----
-
-## 🔴 Finding 3 — four payments with no payment type
-
-**4 notes, AED 1,250.** No rule can apply to a note that does not say what kind of payment it is, and
-nobody can state what the money was for. A hard RED requiring no judgement.
+- **186148** corrects **May's** salary in an **August** note — a retroactive change to a closed period.
+- **185722** states its reason plainly: *"Resolvers requested to pay full amount even on her SL days
+  as client is escalating."* A deliberate policy override, correctly computed. It should be visible
+  as a decision, not buried as arithmetic.
+- **185721** says *"July 11 already forgiven through forgiveness page ~ AED 103"*. **That is the E4
+  cross-check, live**: a Forgive Deduction note for maid 29850 covering July 11 at AED 103 must exist.
+  If it does not, the day was deducted twice.
 
 ---
 
-## ⚠️ My duplicate check is wrong, and most of its 154 hits are my fault
+## 🔴 Finding 2 — the airfare zeros are an August incident, not a trend
 
-`Forgive Deduction` returns **91% duplicate candidates**; `Prorated salary` returns **70%**.
+| | Zero-amount airfare |
+|---|---|
+| Baseline, 12 months excluding August | **49 of 1,298 — 3.8%** |
+| **August 2026** | **78 of 163 — 47.9%, thirteen times the baseline** |
+| September (partial) | 5 of 96 — 5.2%, back to normal |
 
-Those are not duplicates. The rule I ran — *same maid, same payment type, same month* — flags
-legitimate behaviour on both: a maid can have several separate days forgiven, and prorated salary can
-carry more than one legitimate entry in a month. **121 of the 154 are this artifact.**
+**This is a bounded event, which is far more actionable than a trend.** Roughly **72 excess notes**,
+all of them unattributed, spread across **9 distinct days** — so not one bad batch run, but something
+that ran repeatedly through August and stopped. It has a start, an end, and a shape.
 
-**The real duplicate queue is 33 notes**, in the types where one payment per month is the expectation:
-Taxi 15, Salary Dispute 6, Maids.at 5, Medical 4, Airfare 3.
+Read alongside note 185724, the question sharpens: are these placeholders, or are they payments made
+manually with a zero-value note left behind? **Those are opposite answers and only one of them is
+harmless.**
 
-**The fix is in the spec already and I did not apply it:** duplicate detection needs an *entitlement
-window per payment type*, not a calendar month. Until that exists, this check must return **BLOCKED
-for `Forgive Deduction` and `Prorated salary`**, never a candidate list. Reporting 84 forgive-deduction
-"duplicates" to an auditor would burn the report's credibility in its first month.
+### The same query settled the future-dating question
 
----
-
-## ⚠️ 68% of the money is "nobody recorded" and most of it is not a finding
-
-| Type | No attribution | Reading |
-|---|---:|---|
-| MV Prorated Salary | 101 notes, AED 111,512 — **100%** | Machine-generated. Null attribution by design |
-| Last Day CC Switch | 66 notes — **100%** | Machine-generated |
-| Raffle Prize | 48 notes, AED 15,000 | Drawn by a job |
-| Bonus | 39 notes, AED 28,500 — 66% | The known broken control — real, and worsening |
-| **Airfare Ticket** | **74 notes, AED 129,500 — 45%** | **Unresolved. The largest money bucket in the month** |
-
-Airfare is the one to settle. It shows 45% with no name *and* 48% at zero — so it is plainly two
-populations sharing one payment type, and neither is currently identified. Until the split is
-measured, AED 129,500 sits in the largest bucket of the month with no reading attached to it.
+Airfare notes dated 2026-10 through 2028-06 carry **almost no zeros**, and their volume decays
+smoothly — 32, 16, 13, 11, 9, 8, 5, 4, 3, 1. **That is a booking forward-curve.** It supports the
+reading that an airfare `NOTE_DATE` is the **travel date**, and it means those notes are real
+bookings with real amounts, not defects. The audit-month rule must handle them per payment type.
 
 ---
 
-## The auditor's queue, in order
+## 🔴 Finding 3 — the four unclassified notes are overstay fines
 
-1. **4 notes** — no payment type recorded. Hard RED, AED 1,250.
-2. **14 notes** — self-approved salary disputes, AED 3,295. Unruled and unreviewed.
-3. **12 notes** — self-approved elsewhere, AED 9,450.
-4. **78 notes** — zero-amount airfare. Not a red; the largest anomaly and the most likely to be a
-   systemic defect.
-5. **33 notes** — genuine duplicate candidates, after excluding the two types my rule mishandles.
+All four carry the expense category in their own text: `Ex168153/Overstay Fines/…`, and all four were
+raised in the last five days of August.
 
-**Everything else is blocked, machine-generated, or an artifact.** Stating which is which is the
-report's actual output this month — a list of 899 amber rows would not have been.
+**So this is not a mystery, it is an unmapped category.** The expense side knows what they are; the
+note side has no payment type for them. **AED 1,250, four notes, and a fix that is a mapping row
+rather than an investigation.**
+
+---
+
+## ⚠️ What this run deliberately does not claim
+
+**144 notes are BLOCKED, not cleared.** The previous run reported 84 `Forgive Deduction` and 37
+`Prorated salary` notes as duplicate candidates. They are not: several forgiven days or several
+prorated entries in one month is normal on both. The rule needed an entitlement window per payment
+type, so it now returns BLOCKED for those two rather than a false queue. **The real duplicate queue is
+41 notes, not 154.**
+
+**590 notes passed every rule that can currently run.** That is not a pass. T4, T5 and T7 are blocked
+on the expense grant and the three reference lists, so AED 394,373 — 92% of the month's money — has
+not actually been examined against a rule. **The honest headline for August is that the audit
+examined 8% of the money.**
+
+---
+
+## The queue, in order
+
+1. **185667** — AED 347.35 salary dispute whose own figures give 541. No judgement needed.
+2. **185724** — AED 0 note carrying a real AED 1,419 payment made manually. Then re-read all 120 zeros.
+3. **185497** — note pays 55.00 against its own 64.50 expense line.
+4. **4 notes** — overstay fines with no payment type. A mapping fix.
+5. **78 notes** — August's airfare zeros. Bounded, dated, and worth a root cause.
+6. **185721** — confirm the AED 103 forgive-deduction note exists for July 11.
+7. **41 notes** — genuine duplicate candidates.
