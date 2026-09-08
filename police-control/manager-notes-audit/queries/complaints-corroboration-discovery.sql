@@ -393,10 +393,21 @@ GROUP BY 1,2 ORDER BY 1,2;
 
 
 -- =====================================================================================
--- 6b. THE WORK QUEUE. One row per note — the fan-out collapsed by QUALIFY picking the
---     single best-matching complaint (expected type first, then nearest in time).
---     NO free text: ids, dates, amounts and scores only, so this one is safe to move.
---     Cap it. 300 notes worst-money-first is a batch; the whole 3 months is not.
+-- 6b. THE WORK QUEUE — SELF-CONTAINED. Do not assemble this from other blocks; the
+--     payment-type filter lives in n and dropping it silently widens the queue to all
+--     14 live types (observed 2026-09-08: a queue run this way returned Airfare Ticket,
+--     MV Prorated Salary, Raffle Prize and Bonus, none of which are in scope here).
+--
+--     ⚠️ FIXED 2026-09-08: the previous version joined COMPLAINTS a SECOND time in the
+--     final SELECT with no date predicate, so the complaint-type list showed the maid's
+--     ENTIRE history rather than the 104-day window. Symptom: notes with
+--     complaints_any = 1 listing six complaint types. The LISTAGG now lives in w, beside
+--     the windowed join, and cannot drift from the counts again.
+--
+--     Filtered to band 3 (complaints present, none of the expected type). For
+--     ANTI-ATTRITION this is a Job-1 queue, NOT a finding list: §3g measured the
+--     complaint test at 1.00x chance there, so absence means nothing and the verdict is
+--     N_A. For SALARY DISPUTE (2.33x) an absent expected complaint is a real AMBER.
 -- =====================================================================================
 WITH map AS (
     SELECT * FROM VALUES
@@ -413,13 +424,15 @@ WITH map AS (
            COALESCE(REASON,'(none)') AS payment_type
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
     WHERE NOTE_TYPE='ADDITION'
-      AND REASON IN ('Anti-attrition Incentive','Salary Dispute')
+      AND REASON IN ('Anti-attrition Incentive','Salary Dispute')   -- <<< do not drop
       AND NOTE_DATE BETWEEN DATEADD('month',-3,CURRENT_DATE()) AND CURRENT_DATE()
+      AND NOTE_DATE <= DATEADD('day',-14,CURRENT_DATE())  -- §3f: forward window elapsed
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
-), density AS (      -- per-note counts over ALL complaints, before we pick a winner
-    SELECT n.ID,
-           COUNT(c.ID)                               AS complaints_any,
-           COUNT_IF(m.complaint_type_id IS NOT NULL) AS complaints_expected
+), w AS (       -- ONE row per note. Counts AND the type list share the windowed join.
+    SELECT n.ID, n.payment_type, n.HOUSEMAID_ID, n.NOTE_DATE, n.AMOUNT,
+           COUNT(c.ID)                                            AS complaints_any,
+           COUNT_IF(m.complaint_type_id IS NOT NULL)              AS complaints_expected,
+           LEFT(LISTAGG(DISTINCT c.COMPLAINT_TYPE, ' | '), 200)   AS types_in_window
     FROM n
     LEFT JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
            ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
@@ -428,52 +441,39 @@ WITH map AS (
     LEFT JOIN map m
            ON m.payment_type = n.payment_type
           AND m.complaint_type_id = c.COMPLAINT_TYPE_ID
+    GROUP BY 1,2,3,4,5
+), enrol AS (
+    SELECT HOUSEMAID_ID, MIN(ACTION_DATE) AS enrolled_on
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'   -- picklist name still UNCONFIRMED
     GROUP BY 1
-), best AS (         -- the ONE complaint the agent should read first, per note
-    SELECT n.ID AS note_id, n.payment_type, n.HOUSEMAID_ID AS maid_id,
-           n.NOTE_DATE::DATE AS note_date, n.AMOUNT,
-           c.ID AS complaint_id, c.COMPLAINT_TYPE, c.COMPLAINT_TYPE_ID, c.STATUS,
-           c.CREATION_DATE::DATE AS complaint_opened,
-           DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE) AS days_before_note,
-           IFF(m.complaint_type_id IS NOT NULL, TRUE, FALSE) AS is_expected_type
-    FROM n
-    LEFT JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
-           ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
-          AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE)
-                                  AND DATEADD('day', 14,n.NOTE_DATE)
-    LEFT JOIN map m
-           ON m.payment_type = n.payment_type
-          AND m.complaint_type_id = c.COMPLAINT_TYPE_ID
-    QUALIFY ROW_NUMBER() OVER (
-        PARTITION BY n.ID
-        ORDER BY IFF(m.complaint_type_id IS NOT NULL,0,1),          -- expected type wins
-                 ABS(DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE)) -- then nearest in time
-    ) = 1
 )
-SELECT b.note_id, b.payment_type, b.maid_id, b.note_date, b.AMOUNT,
-       d.complaints_any, d.complaints_expected,
-       ROUND(d.complaints_expected/NULLIF(d.complaints_any,0),3) AS specificity,
-       b.complaint_id, b.COMPLAINT_TYPE, b.STATUS, b.complaint_opened,
-       b.days_before_note, b.is_expected_type,
+SELECT w.ID                AS note_id,
+       w.payment_type,
+       w.HOUSEMAID_ID      AS maid_id,
+       w.NOTE_DATE::DATE   AS note_date,
+       w.AMOUNT,
+       w.complaints_any,
+       w.types_in_window,                     -- taxonomy names only, no personal text
+       -- enrolment is an anti-attrition concept; NULL elsewhere rather than false noise
+       IFF(w.payment_type <> 'Anti-attrition Incentive', NULL,
+           CASE WHEN e.enrolled_on IS NULL           THEN 'NO_ENROLMENT_RECORD'
+                WHEN e.enrolled_on > w.NOTE_DATE     THEN 'ENROLLED_AFTER_PAYMENT'
+                ELSE 'enrolled' END)          AS enrolment_check,
        CASE
-         WHEN d.complaints_any = 0                            THEN '4_NO_COMPLAINT_AT_ALL'
-         WHEN d.complaints_expected = 0                       THEN '3_NO_TYPE_MATCH'
-         WHEN b.is_expected_type AND ABS(b.days_before_note) <= 15 THEN '1_CORROBORATED_coupled'
-         ELSE                                                      '2_TYPE_MATCH_but_window_noise'
-       END AS band
-FROM best b JOIN density d ON d.ID = b.note_id
-ORDER BY band DESC, b.AMOUNT DESC
+         WHEN w.payment_type = 'Anti-attrition Incentive' AND e.enrolled_on IS NULL
+              THEN 'RED_no_enrolment_record'
+         WHEN w.payment_type = 'Anti-attrition Incentive' AND e.enrolled_on > w.NOTE_DATE
+              THEN 'RED_enrolled_after_payment'
+         WHEN w.payment_type = 'Anti-attrition Incentive'
+              THEN 'JOB1_read_enrolment_notes (complaint test is N_A here)'
+         ELSE 'AMBER_expected_complaint_absent'
+       END AS action
+FROM w
+LEFT JOIN enrol e ON e.HOUSEMAID_ID = w.HOUSEMAID_ID
+WHERE w.complaints_any > 0 AND w.complaints_expected = 0
+ORDER BY w.AMOUNT DESC
 LIMIT 300;
-
--- 6b-i. ⚠️ EXCLUDE NOTES NEWER THAN 14 DAYS from any band-3 / band-4 queue (§3f). Their
---       +14-day forward window has not elapsed, so their complaint counts are truncated
---       and they fall into "no complaint" artificially. Add to n:
---         AND NOTE_DATE <= DATEADD('day',-14,CURRENT_DATE())
---
--- 6b-ii. The real anti-attrition batch is band 3, not band 4 (§3f): 1,484 notes and
---        AED 339,084 in ONE quarter where the maid is talking constantly — 10.3
---        complaints per note — but never about leaving. Four times band 4's volume.
---        Add:  WHERE band = '3_NO_TYPE_MATCH'
 
 
 -- =====================================================================================

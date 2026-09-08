@@ -435,6 +435,57 @@ one. That closes the design question; what remains is O37, which is governance, 
 The complaint check ships for salary dispute (and the §4 types that behave like it) and is **N_A for
 anti-attrition** — not AMBER, not "absent evidence". Testing it there would score noise.
 
+## 3h. The band-3 queue, and two defects the run exposed
+
+**Sizing, with the §3f 14-day exclusion applied:**
+
+| Payment type | Band 3 notes | AED | Avg complaints present | No enrolment record |
+|---|---:|---:|---:|---:|
+| Anti-attrition Incentive | 1,001 | 228,115 | 8.5 | **1** |
+| Salary Dispute | 141 | 49,865 | 14.1 | *n/a* |
+
+🔴 **The B1 enrolment check is essentially clean: 1 note out of 1,001.** The enrolment record almost
+always exists. That sharpens §3 rather than softening it — the failure is not that anti-attrition
+payments bypass the enrolment step, it is that **the step records its reason in a free-text box and
+nothing validates it**. A control that always fires is not evidence that the thing it guards is
+sound. Job 1 (read the `notes` box) is therefore the whole of the anti-attrition check, not a
+supplement to a structural test.
+
+*(The enrolment lookup is unbounded in time and the `ACTION_TYPE ILIKE '%Incentive%Experiment%'`
+picklist name is still unconfirmed, so "has an enrolment record" is a weak pass. `ENROLLED_AFTER_PAYMENT`
+is now checked too — an enrolment dated after the payment it justifies would be a hard RED.)*
+
+**§3f's edge artifact was bigger than estimated.** Band 3 for anti-attrition falls from 1,484 to
+1,001 once notes newer than 14 days are excluded — a **33% drop from removing ~15% of notes**, so
+recent notes were roughly twice as likely to land in band 3. The truncated-forward-window warning was
+right and under-stated; the exclusion is mandatory, not hygiene.
+
+### Defect 1 — an unwindowed second join *(mine)*
+
+The queue's final SELECT joined `COMPLAINTS` a second time on `HOUSEMAID_ID` alone, with no date
+predicate, so the complaint-type list showed each maid's **entire history** while the counts beside it
+were windowed. The symptom was visible in the output: notes reading `complaints_any = 1` alongside six
+listed complaint types, and band-3 rows displaying `Maid Wants To Resign` — a type that by definition
+cannot be in that note's window. A reviewer would have read a two-year-old complaint as context for
+this month's payment.
+
+Fixed by moving the `LISTAGG` into the CTE that already holds the windowed join, so the list and the
+counts cannot drift apart. **General rule: a display column and the count that qualifies it must come
+from the same join, or they will disagree and the display will win the reader.**
+
+### Defect 2 — a query delivered as fragments to assemble
+
+The queue was handed over as *"paste the block above, then swap the final SELECT"*. What came back
+contained Airfare Ticket, MV Prorated Salary, Raffle Prize and Bonus — payment types the `n` CTE
+excludes. The scope filter did not survive the assembly step, and because the output still looked
+plausible, nothing announced the loss.
+
+Hard rule 8 already says every query goes to Moe as a complete copy-paste block. **The rule now
+extends to fragments: no "reuse the CTEs from above".** A query whose correctness depends on the
+reader stitching two blocks together has moved the scope filter into the handover, which is the one
+place neither the code nor the review can see it. 6b is now self-contained and carries a
+`-- <<< do not drop` marker on the filter.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
