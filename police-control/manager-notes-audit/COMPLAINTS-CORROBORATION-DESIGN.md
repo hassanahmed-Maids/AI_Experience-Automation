@@ -694,6 +694,42 @@ that they inflate the 9,167 denominator. **That was overcautious and I was wrong
 stand unchanged. They remain a small data-quality item worth a line in the spec (a payment record for
 nothing is either a defect or a cancelled payment left standing), not a blocker on anything.
 
+## 3m. 6g settles it: the divisors are both the job's — the manual path fails differently
+
+| Origin | Notes | flat tier | /31 | /month length | **fits no rule** |
+|---|---:|---:|---:|---:|---:|
+| on_batch | 3,677 | 2,538 | **247** | **890** | **0 — 0.0%** |
+| off_batch | 51 | 25 | 3 | 6 | **15 — 29%** |
+
+**§3k is dead, properly this time.** Both divisors appear *inside the batch* — 247 notes over 31 and
+890 over the month length, all job-created. The divisor was never manual-vs-job. The likely
+explanation is that it tracks **the length of the period being paid for, not the month the note lands
+in**: a job running at month end in arrears will divide a May period by 31 while writing a June note.
+My classifier used the note's month as the reference and mislabelled the difference twice.
+
+### The finding, arrived at properly
+
+**The job's amounts always resolve: 0 of 3,677 fit no rule. Hand-added amounts often don't: 15 of 51,
+29%.** That is the manual-path signal §3k reached for and got wrong — not a different divisor, but
+**no derivable rule at all**. A human types a number; the job computes one. 29% versus 0.0% across
+3,728 notes is about as clean as a contrast gets in this data.
+
+### Three things the batch-day list gave away for free
+
+**The empirical definition reproduces the known figure exactly.** 9,011 notes on the 12 batch days,
+9,167 total, leaves **156 off-batch — the identical count `anti-attrition-cases.sql` reached by a
+different route.** Two independent methods, the same number to the note.
+
+🔴 **August's batch ran on 2026-09-01, not 2026-08-31.** So even the *corrected* `LAST_DAY` comparison
+would have misfiled all 918 notes of the largest batch in the series. The empirical definition was
+not tidier — it was necessary. **Any check anywhere in this audit that assumes the job runs on the
+last calendar day is wrong for at least one month in twelve.**
+
+**The programme is growing fast: 409 notes on the first batch, 918 on the last — +124% in a year**,
+rising every single month without exception. §3i's "run-rate up ~36%" was measured on money and
+understated it. Whatever O37 decides about governance, it decides it for a payment type that has
+doubled in twelve months.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -770,7 +806,9 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O42~~ | ~~Size the AED 0 notes~~ — **done, §3l.** 14 notes, 0.15%, AED 0. Immaterial; no rate in this document changes | — |
 | ~~O43~~ | ~~Review the 298 unexplained amounts~~ — **explained, §3k.** They prorate over a fixed 31 and are all hand-added. Superseded by O45 | — |
 | ~~O45~~ | ~~Run 6f~~ — **void, §3l.** The month-end predicate can never be true; the split measured nothing. Superseded by O46 |  — |
-| **O46** | Run **6g** — re-test the divisor/origin link with `NOTE_DATE::DATE = LAST_DAY(NOTE_DATE)`. Two divisors are confirmed in use; only the attribution is open | B4/B5, and whether a manual path needs a rule owner |
+| ~~O46~~ | ~~Run 6g~~ — **done, §3m.** Both divisors are the job's own. The manual path fails differently: 29% of hand-added amounts fit no rule vs 0.0% of the job's | — |
+| **O48** | List the **hand-added notes whose amount fits no rule** (all 12 months, ~40 rows). The cleanest anti-attrition finding in the file: the job never produces one | the hand-added review queue |
+| **O49** | 🔴 **Sweep the audit for month-end assumptions.** August's batch ran on 09-01, so any `LAST_DAY` test misfiles 918 notes. Batch days must be observed, never assumed | every batch-vs-manual check in the spec |
 | ~~O47~~ | ~~Re-check the hand-added population~~ — **checked, §3l.** Both other files cast `::DATE` and define batch days empirically. Unaffected | — |
 | **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30%+ of notes are prorated, so the check is `tier × days ÷ divisor` — and per §3k the divisor is not the same for both origins. Re-scope O23 | the anti-attrition recompute check |
 | **O41** | Confirm note **184233** (maid 97470): enrolment dated after the payment. Hard RED, needs a human verdict | the ENROLLED_AFTER_PAYMENT rule |
