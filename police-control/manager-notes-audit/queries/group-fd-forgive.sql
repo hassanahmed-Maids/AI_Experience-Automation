@@ -120,3 +120,67 @@ WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Forgive Deduction' AND n.AMOUNT >
   AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- FD1/FD2 RESULTS 2026-09-08.
+--   FD1 (1,027 notes with an amount):
+--     one accommodation day .............. 235 notes · AED  7,620 · above one day AED     0
+--     one working day ....................  31 notes · AED  1,179 · above one day AED     8
+--     between the two rates .............. 585 notes · AED 32,806 · above one day AED   235
+--     up to two days in one note ......... 163 notes · AED 10,946 · above one day AED 2,623
+--     MORE THAN TWO DAYS .................   7 notes · AED    335 · above one day AED   201
+--     BLOCKED — no salary on file ........   6 notes · AED    402
+--   ⚠️ NOT A FINDING. 57% landing "between the two rates" is the PROXY being systematically
+--   low, not 57% of notes being wrong. The code uses the payroll month's GROUP salaries
+--   (gr1/gr2/gr5/gr6); this used current PRIMARY/BASIC/ACCOMMODATION from HOUSEMAIDS_INFO.
+--   Same as-of defect that already bit the MV type check, the prorated start date and PS3.
+--   The AED 2,824 above the ceiling is inside the noise of that substitution.
+--   FD2 (293 maid-months) — 🟢 BOTH HARD CEILINGS HOLD:
+--     more notes than days in the month .... 0
+--     forgave more than a month of salary .. 0
+--     1-4 days forgiven ................... 215 maid-months · 435 notes · AED 23,586
+--     5-14 days forgiven ..................  74 maid-months · 531 notes · AED 26,808
+--     🔴 half the month or more ...........   3 maid-months ·  55 notes · AED  2,492
+--        most days in one month: 21 · largest share of a month's salary: 0.58
+--   Twenty-one unpaid days forgiven in one month means two thirds of the month was unpaid and
+--   then written back. Small money, specific population, and a real question.
+
+-- FD1b. 🔴 THE AMOUNT, ON THE SALARY THAT APPLIED THAT MONTH. HOUSEMAID_PAYROLL_HISTORY
+--   carries PAYROLL_MONTH and TOTAL_SALARY, so the note can be measured against the salary of
+--   its own payroll month instead of today's. This is the fourth appearance of the same
+--   lesson: a current-state value joined to a dated fact.
+--   ⚠️ TOTAL_SALARY is the whole month's pay, so one day = TOTAL_SALARY / daysInMonth. That is
+--   an upper bound on either group rate, making this ceiling generous in the same direction.
+WITH fd AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT,
+           DATE_TRUNC('month', n.NOTE_DATE)::DATE AS mth,
+           DAY(LAST_DAY(n.NOTE_DATE::DATE))       AS days_in_month
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Forgive Deduction' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+), sal AS (
+    SELECT HOUSEMAID_ID, DATE_TRUNC('month', PAYROLL_MONTH)::DATE AS mth,
+           MAX(TOTAL_SALARY) AS total_salary
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY
+    WHERE TOTAL_SALARY > 0
+    GROUP BY 1, 2
+), j AS (
+    SELECT fd.*, s.total_salary,
+           s.total_salary / NULLIF(fd.days_in_month, 0) AS one_day
+    FROM fd LEFT JOIN sal s
+           ON s.HOUSEMAID_ID = fd.HOUSEMAID_ID AND s.mth = fd.mth
+)
+SELECT CASE
+         WHEN total_salary IS NULL           THEN 'BLOCKED — no payroll row for that month'
+         WHEN AMOUNT <= one_day * 1.10       THEN '🟢 within one day of that month''s salary'
+         WHEN AMOUNT <= one_day * 2.00       THEN '⚠️ one to two days'
+         ELSE                                     '🔴 MORE THAN TWO DAYS OF THAT MONTH''S SALARY'
+       END                                       AS verdict,
+       COUNT(*)                                  AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)              AS maids,
+       ROUND(SUM(AMOUNT))                        AS aed,
+       ROUND(SUM(GREATEST(AMOUNT - one_day, 0))) AS aed_ABOVE_ONE_DAY,
+       ROUND(MEDIAN(AMOUNT))                     AS median_paid,
+       ROUND(MEDIAN(one_day))                    AS median_one_day
+FROM j
+GROUP BY 1
+ORDER BY aed_ABOVE_ONE_DAY DESC, aed DESC;
