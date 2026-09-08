@@ -529,3 +529,73 @@ FROM unmatched u
 LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = u.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- O11 RESULT 2026-09-08 — 🔴 THE LARGEST OVERPAYMENT FINDING IN THE AUDIT.
+--   🟢 within 6 months of her own start .. 296 notes · 270 maids · AED 147,880 · avg 500 · median  6 days
+--   🔴 over a year in, no referral ....... 164 notes · 142 maids · AED 143,965 · avg 878 · median 765 days
+--   ⚠️ 6-12 months after start ...........  72 notes ·  53 maids · AED  42,900 · avg 596 · median 253 days
+--   🔴 paid BEFORE she started ...........   2 notes ·   2 maids · AED     371 · median -97 days
+--   BLOCKED epoch-zero start .............   3 notes                · AED   2,000
+--   The signing group is textbook: median SIX DAYS after start, avg 500. AED 147,880 clears.
+--   🔴 The amount profile is what convicts the rest. The unjustified candidates average 878 —
+--   near-identical to the MATCHED REFERRAL average of 866 and nothing like the signing average
+--   of 500. They are paid at referral-bonus rates, to maids a median 765 days into service,
+--   with no referral and no referral-bonus record. Four converging signals.
+--   By the audit's own verdict algebra a payment matching NO applicable rule is RED, not
+--   cleared — the same principle as RARE_TYPE_REVIEW. The one benign reading is a third,
+--   undocumented bonus type; the spec knows only referral and signing (N5).
+--   ⚠️ DO NOT ADD to O7's AED 10,500 without checking. O7's population is referrers WITH
+--   entitlement; O11's is referrers with no bonus record. A maid can sit in both. Every time
+--   this session summed two tests without de-duplicating, the figure was overstated.
+
+-- O12. De-duplicate the two bonus findings before either figure is published. One row per
+--   note, priority ordered, so the bonus headline is a union and not a sum.
+WITH bonus AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), rb AS (
+    SELECT l.HOUSEMAID_ID AS referrer_id, b.PAYROLL_NOTE_DATE::DATE AS rb_day, b.BONUS_AMOUNT AS rb_amount
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES b
+    JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS l
+      ON l.REFERRED_MAID_ID = b.REFERRED_HOUSEMAID_ID
+    WHERE b.PAYROLL_NOTE_DATE IS NOT NULL AND l.HOUSEMAID_ID IS NOT NULL
+), ent AS (
+    SELECT HOUSEMAID_ID AS referrer_id,
+           SUM(IFF(COALESCE(IS_CANCELLED,0)=0 AND COALESCE(IS_REQUESTED_BONUS,0)=1, AMOUNT, 0)) AS entitled
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL GROUP BY 1
+), paid AS (
+    SELECT HOUSEMAID_ID, SUM(AMOUNT) AS bonus_paid FROM bonus GROUP BY 1
+), per_note AS (
+    SELECT n.note_id, n.HOUSEMAID_ID, n.note_day, n.AMOUNT,
+           MAX(IFF(r.referrer_id IS NOT NULL, 1, 0)) AS referrer_has_any,
+           MAX(IFF(ABS(DATEDIFF('day', r.rb_day, n.note_day)) <= 1, 1, 0)) AS same_day
+    FROM bonus n LEFT JOIN rb r ON r.referrer_id = n.HOUSEMAID_ID
+    GROUP BY 1, 2, 3, 4
+)
+SELECT CASE
+         WHEN p.referrer_has_any = 0 AND p.same_day = 0
+              AND h.START_DATE >= '1971-01-01'
+              AND DATEDIFF('day', h.START_DATE, p.note_day) > 365      THEN '1 no referral, over a year in'
+         WHEN e.entitled > 0 AND t.bonus_paid > e.entitled + 0.01      THEN '2 over the referral entitlement'
+         WHEN p.referrer_has_any = 0 AND p.same_day = 0
+              AND h.START_DATE >= '1971-01-01'
+              AND DATEDIFF('day', h.START_DATE, p.note_day) BETWEEN 181 AND 365
+                                                                       THEN '3 no referral, 6-12 months in'
+         WHEN p.referrer_has_any = 0 AND p.same_day = 0
+              AND h.START_DATE >= '1971-01-01'
+              AND DATEDIFF('day', h.START_DATE, p.note_day) <= 180     THEN '4 signing bonus — clean'
+         WHEN p.same_day = 1 OR p.referrer_has_any = 1                 THEN '5 referral bonus — clean'
+         ELSE                                                               '6 BLOCKED — no usable start date'
+       END                              AS verdict,
+       COUNT(*)                         AS notes,
+       COUNT(DISTINCT p.HOUSEMAID_ID)   AS maids,
+       ROUND(SUM(p.AMOUNT))             AS aed
+FROM per_note p
+LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = p.HOUSEMAID_ID
+LEFT JOIN ent  e ON e.referrer_id  = p.HOUSEMAID_ID
+LEFT JOIN paid t ON t.HOUSEMAID_ID = p.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY verdict;

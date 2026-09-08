@@ -3,7 +3,11 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-08 — AED 80,187 of money lost, against AED 7,197,642 examined.**
+**Confirmed 2026-09-08 — AED 224,152 of money lost, against AED 7,197,642 examined.**
+
+⚠️ **The bonus line and the over-entitlement line may intersect** — O12 de-duplicates before either
+is published. Every time this session summed two tests without de-duplicating, the figure was
+overstated: O6/O7 by 58%, then O8/O10, now this.
 
 🔴 **Two categories, and they must not be added together.** *Money lost* is money that should not
 have left. *Control violated* is a rule broken where the money may still have been owed — a real
@@ -11,6 +15,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 
 | Finding | AED | Archetype | Basis |
 |---|---:|---|---|
+| 🔴 **Bonus paid at referral rates, no referral, over a year into service** | **143,965** | not deserved | 164 notes, 142 maids. **Four converging signals:** no referral, no bonus record, median 765 days into service, and an average of 878 that matches the referral rate (866) rather than the signing rate (500) |
 | Airfare duplicates via the unguarded manual route | **49,500** | paid twice | 29 notes inside the 5-month guard, on a path that never calls it |
 | 🔴 **Bonus over the referral entitlement** | **10,500** | not deserved | 15 maids paid AED 20,000 against 9,500 entitled — **validated by 466 maids matching to the penny** |
 | Anti-attrition paid before any enrolment existed | **9,019** | not deserved | 42 notes, measured on `CREATION_DATE` |
@@ -32,7 +37,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Population | AED | What would settle it |
 |---|---:|---|
 | Bonus with a referral but no bonus request | 70,895 | Whether `IS_REQUESTED_BONUS` is reliably set |
-| Bonus with no referral-bonus record | **337,116** | **O11** — distance to the maid's own start date separates a signing bonus from an unjustified one |
+| Bonus, 6–12 months into service, no referral | 42,900 | Between the signing profile (avg 500) and the referral one (866) at avg 596 — genuinely ambiguous |
 | Bonus where the referrer has bonuses but none on that date | 16,500 | O9 flagged it; needs the same start-date cut |
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | Raffle: 17 same-amount wins inside 31 days | 3,400 | The raffle tables (N12). **A random draw should not repeat like this** |
@@ -44,6 +49,8 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **AED 642,580 of bonus** — 571 notes matched to a referral-bonus record, plus 296 signing
+  bonuses paid a median **six days** after the maid's own start (O9, O11).
 - 🟢 **AED 2.59m of ungated airfare, on the amount axis** — 1,518 notes across 15 nationalities, **one**
   above tier, AED 500. Tiers are strikingly consistent: 12 of 15 nationalities have exactly one
   distinct amount (A1).
