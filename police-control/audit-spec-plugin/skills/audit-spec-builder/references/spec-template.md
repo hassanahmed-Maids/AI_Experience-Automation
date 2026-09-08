@@ -148,15 +148,18 @@ At least three: one clean pass, one exception, one edge case. Show the arithmeti
 
 <Refund / reversal / partial month / cancelled mid-cycle / multi-currency / duplicate —
 whichever edge cases the feedback loop surfaced.>
+```
 
 ---
 
-## 6. Open Items
+**On unverified names.** The template no longer carries an Open Items section, so there is no list
+for an unverified claim to sit in. **Mark it inline instead**, at the point it is used:
+`UNVERIFIED — Snowflake team to confirm`. That was always the better place for it — a reader of §2
+sees the caveat attached to the column they are about to build on, rather than having to cross-check
+a table at the end. The rule the removed section carried still stands: **an unmarked assumption is a
+critical defect; there is no quota of them that is acceptable.**
 
-| # | Item | Owner | Blocking? |
-| --- | --- | --- | --- |
-| O1 | <anything still unverified> | <who> | Yes/No |
+Where something genuinely blocks the build, say so where it blocks — in the metric, the test, or the
+data point — and state what it needs and from whom. A spec that reads straight through is easier to
+act on than one that defers its own gaps to a register at the end.
 
-Mark every unverified name here as `UNVERIFIED — Snowflake team to confirm`. An empty
-Open Items table is a valid and good outcome; a hidden assumption is not.
-```

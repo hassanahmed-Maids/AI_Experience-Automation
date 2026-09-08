@@ -107,8 +107,8 @@ definition and should be added to the Data Catalog.
   `TOTAL`, `TASK_NAME`, `PAID_BY_MANAGER`, `DUE_ON` (via Ask the Code)
 - **Gap.** No payment **execution timestamp** appears in the columns returned. The control
   cannot be built without one. Ask the Code follow-up required: *"Which column records when
-  a payroll payment was actually executed, as opposed to when it was due?"* **This is the
-  blocking open item.**
+  a payroll payment was actually executed, as opposed to when it was due?"* **Until that is answered the
+  control cannot be specified, and the spec says so here rather than deferring it to a list.**
 - **Grain in source.** One row per accountant payment task
 
 **Approval authority.** `PAYROLLACCOUNTANTTODOS.PAID_BY_MANAGER` may identify who authorised
@@ -215,20 +215,3 @@ This row is a finding, not a gap in the report.
 Month 2026-06: paid AED 412,300 vs approved AED 408,000, M3 = AED 1,900. Residual
 AED 2,400 → exception row "Unreconciled — investigate". Without the tie-out line this
 AED 2,400 would be invisible in a report that otherwise looks complete.
-
----
-
-## 6. Open Items
-
-| # | Item | Owner | Blocking? |
-| --- | --- | --- | --- |
-| O1 | Payment execution timestamp column — no column found in `PAYROLLACCOUNTANTTODOS`; Ask the Code follow-up required | P&C | **Yes** — control cannot be built |
-| O2 | `MONTHLYPAYROLLS.STATUS` enum values and meanings | P&C via Ask the Code | Yes |
-| O3 | Existence of a payroll adjustments/corrections table | P&C via Ask the Code | Yes |
-| O4 | Join key types on `MONTHLYPAYMENTRULES.ID` ↔ `MONTHLY_PAYMENT_RULE_ID` | Snowflake team | Yes |
-| O5 | Whether `FINISHED` or `AUDITING_FINISHED` governs the audit lock | Payroll | Yes |
-| O6 | Confirm M2 thresholds (3 days, AED 5,000) | Requestor | No |
-| O7 | Timezone of `LOCK_DATE` and the execution timestamp | Snowflake team | No |
-
-All Snowflake locations in this example are `UNVERIFIED` — no Snowflake session confirmed
-them. A real spec resolves these before delivery.
