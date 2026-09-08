@@ -144,3 +144,48 @@ SELECT COALESCE(REASON, '(none)')      AS other_payment_type,
 FROM other
 GROUP BY 1
 ORDER BY notes DESC;
+
+-- Z4/Z5 RESULTS 2026-09-08:
+--   Z4 (474 standalone zeros): 289 unclassified · 90 "money moved elsewhere" (84 with a
+--      figure, 11 types, 79 maids, running 2025-09-08 -> 2026-09-04) · 43 cancelled ·
+--      28 adjustment · 22 never-filled · 2 no text. The classifier explains 39%.
+--   Z5: across Aug-Sep the 18 Abu Dhabi maids carry 5 other notes between them (4 anti-
+--      attrition AED 794 / 2 maids; 1 accommodation relocation AED 800 / 1 maid). At least
+--      15 of 18 received NOTHING. The money did not move elsewhere - it did not move.
+
+-- Z6. 🔴 THE AI AGENT'S READ. Free text is about named people: the Agent reads it, the audit
+--     never republishes it. So do not export rows — export SHAPES. Digits become '#' and
+--     whitespace collapses, so templated notes collapse to one line each. This both reduces
+--     474 notes to a readable set of phrasings AND strips the figures out of the export.
+--     Returns the shape, how many notes carry it, how many payment types and maids, and the
+--     window. Shapes seen once are bucketed as '(a one-off phrasing)' rather than printed.
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REASON,
+           TRIM(REGEXP_REPLACE(
+             REGEXP_REPLACE(LOWER(COALESCE(NOTE_REASON, '')), '[0-9]+', '#'),
+             '\\s+', ' ')) AS shape
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), day_shape AS (
+    SELECT HOUSEMAID_ID, note_day, COUNT_IF(AMOUNT > 0) AS non_zeros
+    FROM n GROUP BY 1, 2
+), standalone AS (
+    SELECT n.* FROM n
+    JOIN day_shape d ON d.HOUSEMAID_ID = n.HOUSEMAID_ID AND d.note_day = n.note_day
+    WHERE n.AMOUNT = 0 AND d.non_zeros = 0
+), counted AS (
+    SELECT shape, COUNT(*) AS notes, COUNT(DISTINCT REASON) AS types,
+           COUNT(DISTINCT HOUSEMAID_ID) AS maids,
+           MIN(note_day) AS first_seen, MAX(note_day) AS last_seen
+    FROM standalone GROUP BY shape
+)
+SELECT IFF(notes > 1, shape, '(a one-off phrasing)') AS text_shape,
+       SUM(notes)                                    AS notes,
+       MAX(types)                                    AS payment_types,
+       SUM(maids)                                    AS maids,
+       MIN(first_seen)                               AS first_seen,
+       MAX(last_seen)                                AS last_seen
+FROM counted
+GROUP BY 1
+ORDER BY notes DESC;
