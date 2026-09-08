@@ -301,6 +301,70 @@ so band 1 should be near-empty. If it is not, query 2's reading is wrong and §3
 Salary dispute, at 34% share and 11.4 days, should show a real band 1. **6a is a falsification test
 for the whole design, not just a queue-sizing exercise.**
 
+## 3f. 🔴 6a came back: salary dispute confirms, anti-attrition fails *below chance*
+
+3-month window, 2,793 anti-attrition notes (AED 621,322) and 337 salary-dispute notes (AED 120,196).
+
+| Payment type | 1 coupled | 2 window noise | 3 no type match | 4 no complaint |
+|---|---:|---:|---:|---:|
+| Anti-attrition Incentive | 336 · **12%** · AED 63,959 | 497 · 18% · AED 100,722 | **1,484 · 53% · AED 339,084** | 476 · 17% · AED 117,557 |
+| Salary Dispute | **161 · 48%** · AED 57,709 | 17 · 5% · AED 4,993 | 150 · 45% · AED 53,342 | 9 · 3% · AED 4,152 |
+
+**Salary dispute passes, and by more than query 2 predicted.** 53% of notes carry an expected
+complaint type, and **90% of those are coupled within 15 days**. Query 2 forecast 34% share at 11.4
+days; the wider type map (9 ids, not one) lifts the share, and the coupling is as tight as claimed.
+The check works on this type. Band 1 is a real GREEN and band 3 is a real question.
+
+### The band-1 percentage is not the test — the chance rate is
+
+12% coupled looks weak for anti-attrition but weak is not the finding. **The window itself
+manufactures band-1 hits.** A note's window spans signed day −14 to +90, 105 days; band 1 is the 30
+days from −14 to +15, so **any single complaint lands in band 1 with p = 0.286 by geometry alone.**
+A note with *k* expected-type complaints therefore hits band 1 by chance at 1 − (1 − 0.286)^k.
+
+| | Notes with a type match | Band 1 among them | *k* | Chance rate | Observed ÷ chance |
+|---|---:|---:|---:|---:|---:|
+| Salary Dispute | 178 | **90.4%** | ~2.9 | 61.8% | **1.46×** |
+| Anti-attrition | 833 | 40.3% | ~1.8 | 45.5% | **0.89×** |
+
+🔴 **Anti-attrition's coupled band is at 0.89× chance — it is not weak corroboration, it is no
+corroboration.** Even where a resignation-family complaint exists, its timing relative to the payment
+is indistinguishable from a complaint drawn at random from the window, and if anything sits slightly
+*further* from the note than chance would put it. This is the month-end batch of §3c seen at note
+grain: the payment date carries no information about when the maid said anything.
+
+Salary dispute at 1.46× is the contrast that proves the instrument works. **The same query, the same
+window, the same geometry — one type clears chance decisively and the other does not.**
+
+*(k is derived from band-1+2 specificity × query 3's density. Query 6a-iii measures it directly and
+computes the chance rate per note rather than from the cohort average; run it to nail the exact
+figure. The conclusion is not sensitive to it: anti-attrition would need k ≤ 1.5 to beat chance,
+which would mean type-matched notes are **less** chatty than average, and they are more.)*
+
+### The 53% nobody predicted
+
+**1,484 anti-attrition notes — 53%, AED 339,084 in one quarter — carry complaints but not one from
+the resignation family.** These maids are not silent: anti-attrition averages 10.3 complaints per
+note. They are talking to the company constantly, about something else entirely, while being paid to
+be retained. That is a sharper artefact than band 4's silence, and it is four times the volume.
+
+**70% of anti-attrition notes have no expected-type complaint at all** (bands 3+4), and the remaining
+30% show no timing signal. **No subset of this payment shows conversational corroboration above
+chance.** Combined with §3's four methods, that closes the question: the enrolment `notes` free-text
+box is not the *weakest* justification for AED 1.83m a year, it is the **only** one.
+
+### Two observations the query threw off
+
+**The run-rate is up ~36%.** AED 621,322 in three months annualises to ~AED 2.49m against the AED
+1.83m recorded for the trailing twelve. Either anti-attrition is growing fast or the quarter is
+unrepresentative. Not a finding — but O37's governance question is about more money than §3 says.
+
+**Band 4 is inflated at the recent edge.** Notes from the last 14 days have not yet lived through
+their own +14-day forward window, so their complaint counts are truncated and they fall into bands 3
+and 4 artificially. Anti-attrition band 4 reads 17% here against §3b's 13% over 12 months, and this
+is the likely cause. **Any queue built from band 4 must exclude notes newer than 14 days**, or it
+will open cases whose evidence simply has not arrived.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -372,7 +436,8 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | # | Ask | Unblocks |
 |---|---|---|
 | ~~O33~~ | ~~Run query 3 (coverage)~~ — **done.** It inverted the design (§3b): coverage is 94–100%, so presence can never be a RED. Superseded by **O38** | — |
-| **O38** | **Run query 6a** (~8 rows). The band distribution is the last open input: it sets the thresholds and falsifies or confirms §3c's reading of anti-attrition | the queue, and the design's own credibility |
+| ~~O38~~ | ~~Run query 6a~~ — **done, §3f.** Salary dispute clears chance at 1.46×; anti-attrition sits at 0.89× and is not corroborated at all | the queue |
+| **O39** | Run **6a-iii** (2 rows) to measure *k* per note and compute the chance rate exactly rather than from the cohort average, and **6a-ii** (~14 rows) for the arrival-shape histogram | pins §3f's central claim |
 | **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |
 | **O35** | Expose the `ComplaintType` **`tags`** join (`COMPLAINT_TYPES_TAGS`) — the code says the `transportation` tag, not the type name, is the single source of truth | taxi corroboration done the way the ERP does it |
 | **O36** | Confirm `HOUSEMAID_MANAGERACTIONLOGS.NOTES` is populated and readable at volume | anti-attrition Job 1 |

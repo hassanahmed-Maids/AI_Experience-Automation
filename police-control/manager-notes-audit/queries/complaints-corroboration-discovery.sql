@@ -302,6 +302,97 @@ GROUP BY 1,2 ORDER BY payment_type, band;
 
 
 -- =====================================================================================
+-- 6a-iii. THE CHANCE BASELINE — 2 rows, and the decisive one.
+--     A note's window spans signed day -14..+90 (105 days); band 1 is the 30 days
+--     -14..+15. So ONE complaint lands in band 1 with p = 30/105 = 0.286 by geometry
+--     alone, and a note with k expected-type complaints does so at 1-(1-p)^k.
+--     Comparing observed band-1 share against that per-note chance rate is the test.
+--     §3f estimated k from cohort averages; this measures it per note.
+--     Result to date: salary dispute 1.46x chance, anti-attrition 0.89x.
+-- =====================================================================================
+WITH map AS (
+    SELECT * FROM VALUES
+      ('Anti-attrition Incentive', 24),('Anti-attrition Incentive',154),
+      ('Anti-attrition Incentive',137),('Anti-attrition Incentive', 38),
+      ('Anti-attrition Incentive', 88),('Anti-attrition Incentive',426),
+      ('Anti-attrition Incentive',284),
+      ('Salary Dispute',193),('Salary Dispute',320),('Salary Dispute',322),
+      ('Salary Dispute',321),('Salary Dispute',330),('Salary Dispute', 77),
+      ('Salary Dispute',323),('Salary Dispute',156),('Salary Dispute',420)
+    AS t(payment_type, complaint_type_id)
+), n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
+           COALESCE(REASON,'(none)') AS payment_type
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON IN ('Anti-attrition Incentive','Salary Dispute')
+      AND NOTE_DATE BETWEEN DATEADD('month',-3,CURRENT_DATE()) AND CURRENT_DATE()
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
+), matched AS (      -- INNER joins: only notes that HAVE an expected-type complaint
+    SELECT n.ID, n.payment_type,
+           COUNT(*)                                                  AS k,
+           MIN(ABS(DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE)))   AS days_apart
+    FROM n
+    JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
+      ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
+     AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE)
+                             AND DATEADD('day', 14,n.NOTE_DATE)
+    JOIN map m
+      ON m.payment_type = n.payment_type
+     AND m.complaint_type_id = c.COMPLAINT_TYPE_ID
+    GROUP BY 1,2
+)
+SELECT payment_type,
+       COUNT(*)                                                   AS notes_type_matched,
+       ROUND(AVG(k),2)                                            AS avg_k,
+       ROUND(100.0*COUNT_IF(days_apart <= 15)/COUNT(*),1)         AS observed_band1_pct,
+       ROUND(100.0*AVG(1 - POWER(1 - 30.0/105.0, k)),1)           AS chance_band1_pct,
+       ROUND( (1.0*COUNT_IF(days_apart <= 15)/COUNT(*))
+              / NULLIF(AVG(1 - POWER(1 - 30.0/105.0, k)),0), 2)   AS lift_over_chance
+FROM matched GROUP BY 1 ORDER BY 1;
+
+
+-- =====================================================================================
+-- 6a-ii. ARRIVAL SHAPE — ~14 rows. Every expected-type complaint (not just the nearest),
+--     binned by SIGNED distance so each bin is an equal 15 days. Under a null the bins
+--     are FLAT: the complaint stream is uniform and the note date means nothing. A real
+--     driver spikes in the 0..14 bin. This is §3c's 30.8-day result at note grain.
+-- =====================================================================================
+WITH map AS (
+    SELECT * FROM VALUES
+      ('Anti-attrition Incentive', 24),('Anti-attrition Incentive',154),
+      ('Anti-attrition Incentive',137),('Anti-attrition Incentive', 38),
+      ('Anti-attrition Incentive', 88),('Anti-attrition Incentive',426),
+      ('Anti-attrition Incentive',284),
+      ('Salary Dispute',193),('Salary Dispute',320),('Salary Dispute',322),
+      ('Salary Dispute',321),('Salary Dispute',330),('Salary Dispute', 77),
+      ('Salary Dispute',323),('Salary Dispute',156),('Salary Dispute',420)
+    AS t(payment_type, complaint_type_id)
+), n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
+           COALESCE(REASON,'(none)') AS payment_type
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON IN ('Anti-attrition Incentive','Salary Dispute')
+      AND NOTE_DATE BETWEEN DATEADD('month',-3,CURRENT_DATE()) AND CURRENT_DATE()
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
+)
+SELECT n.payment_type,
+       FLOOR(DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE)/15.0)*15 AS bin_start_days_before,
+       COUNT(*)                                                     AS complaints,
+       ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (PARTITION BY n.payment_type),1) AS pct_of_type
+FROM n
+JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
+  ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
+ AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE) AND DATEADD('day',14,n.NOTE_DATE)
+JOIN map m
+  ON m.payment_type = n.payment_type
+ AND m.complaint_type_id = c.COMPLAINT_TYPE_ID
+GROUP BY 1,2 ORDER BY 1,2;
+-- Edge bins (-15 and 90) are partial by construction — read the middle five.
+
+
+-- =====================================================================================
 -- 6b. THE WORK QUEUE. One row per note — the fan-out collapsed by QUALIFY picking the
 --     single best-matching complaint (expected type first, then nearest in time).
 --     NO free text: ids, dates, amounts and scores only, so this one is safe to move.
@@ -374,9 +465,15 @@ FROM best b JOIN density d ON d.ID = b.note_id
 ORDER BY band DESC, b.AMOUNT DESC
 LIMIT 300;
 
--- 6b-i. The anti-attrition zero-complaint queue named in §3b — the natural first batch.
---       Same shape, filtered to band 4. 1,192 notes / AED 270,427 over 12 months.
---       Add:  WHERE band = '4_NO_COMPLAINT_AT_ALL'  and widen the note window to 12 months.
+-- 6b-i. ⚠️ EXCLUDE NOTES NEWER THAN 14 DAYS from any band-3 / band-4 queue (§3f). Their
+--       +14-day forward window has not elapsed, so their complaint counts are truncated
+--       and they fall into "no complaint" artificially. Add to n:
+--         AND NOTE_DATE <= DATEADD('day',-14,CURRENT_DATE())
+--
+-- 6b-ii. The real anti-attrition batch is band 3, not band 4 (§3f): 1,484 notes and
+--        AED 339,084 in ONE quarter where the maid is talking constantly — 10.3
+--        complaints per note — but never about leaving. Four times band 4's volume.
+--        Add:  WHERE band = '3_NO_TYPE_MATCH'
 
 
 -- =====================================================================================
