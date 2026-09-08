@@ -621,7 +621,7 @@ stays impossible until it lands.
 
 | # | What to request | From | Precise ask | Blocked until then |
 | --- | --- | --- | --- | --- |
-| **R1** | **Snowflake warehouse compute** | Snowflake / Data platform admin | `GRANT USAGE ON WAREHOUSE <name> TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE`, and set it as the role's default. Evidence: `SHOW WAREHOUSES` returns **0 rows**; `CURRENT_WAREHOUSE()` is empty. | **Every** row-level check. No row count, no freshness, no join-cardinality test, no `COUNT(*) = COUNT(DISTINCT ID)` assertion (H1), no reading of the picklist to enumerate the 24 payment types. |
+| **R1** | **Snowflake warehouse compute** | Snowflake / Data platform admin | `GRANT USAGE ON WAREHOUSE <name> TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE`, and set it as the role's default. Evidence: `SHOW WAREHOUSES` returns **0 rows**; `CURRENT_WAREHOUSE` is empty. | **Every** row-level check. No row count, no freshness, no join-cardinality test, no `COUNT(*) = COUNT(DISTINCT ID)` assertion (H1), no reading of the picklist to enumerate the 24 payment types. |
 | **R2** | **`SELECT` on the views this spec names** | Data / BA owner of `BA_VIEWS` | `SELECT` for `PAYROLL_AND_MONEY_CONTROL_ROLE` on `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER`, `BA_VIEWS.MONEY_CONTROL_SILVER`, `BA_VIEWS.CORE_SILVER`. The role can *see* these objects; whether it can *read* them is untestable without R1. | Confirming R1 was enough. |
 | **R3** | **Ask the Code bearer token** | The requester's own ERP Low-Code Platform session | A fresh JWT (`export ASK_THE_CODE_TOKEN=…`). Tokens expire within hours, so it is needed at the moment of use, not in advance. | Confirming every `UNVERIFIED` ERP column in §2.3 — N1, N2, N3, N6, N7, N8. Without it those stay named-but-unproven. |
 | **R4** | **Ingestion of N1, N2, N3** (applied / paid+payslip month / refund flags) | ERP team → Data team | Add the three columns from `mmdb_transformed.payrollmanagernotes` to the warehouse, backfilled from 2024-01-01. | The **population itself**. Scope is "applied, paid, not a refund, windowed on the paid month"; none of those three predicates can be evaluated today. |
@@ -652,39 +652,3 @@ stays impossible until it lands.
 | --- | --- | --- |
 | **X1** | `BI_PAYROLL_MAID_SALARY_ADDITIONS_BY_CATEGORY` joins `EXPENSES_REQUESTS.RELATED_TO_ID` to a **manager-note id**, while that column is documented as a **housemaid id**. The ranges overlap, so a wrong reading matches rows and raises no error. Every column of that view profiles as all-NULL. One of the two artefacts is wrong today. | Data team |
 | **X2** | `HOUSEMAID_MANAGER_NOTES` may emit more rows than there are notes (H1), and `MANAGER` is entirely NULL despite being a selected column. | Data team (dbt model owner) |
-
----
-
-## 8. Open items
-
-| # | Item | Owner | Blocking? |
-| --- | --- | --- | --- |
-| O1 | Confirm `COUNT(*) = COUNT(DISTINCT ID)` on `HOUSEMAID_MANAGER_NOTES` (H1) | Snowflake team, after R1 | **Yes** — the grain of the whole report |
-| O2 | Enumerate the 24 payment types from `PICKLISTS_INFO` and map each to a group (§3.4) | P&C + Payroll, after R1 | **Yes** — unmapped types are amber by construction |
-| O3 | Resolve X1 before any use of `RELATED_TO_ID` | Data team | **Yes** for the expense link |
-| O4 | Confirm `HOUSEMAIDS_TICKETS` is still being written to (`MAX(PURCHASE_DATE)`) | Snowflake team, after R1 | Yes for group A4 |
-| O5 | Confirm `Normal` = company-contract and `MAID_VISA` = MaidVisa; decide the treatment of `FREEDOM_OPERATOR` and `WALKIN` (currently amber per H5) | P&C + Payroll | Yes for T7 |
-| O6 | Set the confidence floor for M10 (starting value 80 %) | P&C | Yes for T4's red/amber boundary |
-| O7 | Set the amount tolerance for T4, and whether it is absolute, percentage, or both | P&C | Yes for T4 |
-| O8 | Confirm the timezone of `NOTE_DATE` and the payslip dates (H12) | Data team | Yes — it moves notes across month boundaries |
-| O9 | Decide whether E2 (AI reason adjudication) is in v1 or deferred | P&C | No — group E still runs E1 |
-| O10 | Agree the first audit month and the history window for backfill | P&C | No |
-| O11 | Decide write-back (R14) | P&C | No — affects build shape |
-
-An empty open-items table would be a good outcome. A hidden assumption would not be — so
-these are stated rather than resolved by guesswork.
-
----
-
-## 9. The honest current state
-
-With the data available today this check can reach a verdict on roughly **a third of the
-cases and under a tenth of the money**. The rest cannot be judged — not because those
-payments are wrong, but because the rules or the reference data needed to judge them are not
-in the warehouse, and in one significant case (the loyalty payment, N13/R10) do not exist
-anywhere in the company.
-
-That is the dashboard's most valuable output, and the design must not let it read as a pass.
-It is why coverage sits first in the KPI strip, why amber always carries its reason, why
-assertion A3 forbids a green verdict on a note that skipped a test, and why assertion A2
-forces the blocked count and the amber count to be the same number.

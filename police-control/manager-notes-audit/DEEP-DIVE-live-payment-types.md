@@ -23,18 +23,18 @@ Used by: `prorated_salary`, `mv_prorated_salary`, `last_day_cc_switch_adjustment
 `forgive_deduction`, `cover_deduction_limit`, `office_work_addition`, and (from another module)
 `airfare_ticket` and `raffle_prize`.
 
-### B. The expense bridge — `ManagerNoteService.processExpenseRequestTodo()`
+### B. The expense bridge — `ManagerNoteService.processExpenseRequestTodo`
 
 An accounting **`Expense`** row carries a `salaryAdditionType` picklist link. When an
 `ExpenseRequestTodo` reaches `PAID` + `confirmed` with `paymentMethod = SALARY`, a background task
-calls `processExpenseRequestTodo()`, which builds the note and **copies the reason verbatim**:
+calls `processExpenseRequestTodo`, which builds the note and **copies the reason verbatim**:
 
 ```
-managerNote.setAmount(expenseRequestTodo.getAmount());
-managerNote.setNoteReasone(expenseRequestTodo.getDescription());
+managerNote.setAmount(expenseRequestTodo.getAmount);
+managerNote.setNoteReasone(expenseRequestTodo.getDescription);
 managerNote.setNoteType(ADDITION);
-if (expense != null && expense.getSalaryAdditionType() != null)
-    managerNote.setAdditionReason(expense.getSalaryAdditionType());
+if (expense != null && expense.getSalaryAdditionType != null)
+    managerNote.setAdditionReason(expense.getSalaryAdditionType);
 ```
 
 **No code anywhere writes the reason string.** It lives in accounting DB config. This is why a string
@@ -44,7 +44,7 @@ taxi reimbursement, medical assistance, Maids.at other expenses and the bonuses.
 > 🟢 **N14 is answered by this, and needs no business owner.** The mapping "payment type → allowed
 > expense category" the spec has been waiting on *is the `Expense.salaryAdditionType` column*. Read
 > the Expense table and the mapping is complete and authoritative. Reclassify N14 from
-> "someone must write this" to "read this config table" — see O25.
+> "someone must write this" to "read this config table"
 
 The same method also creates the **paired loan** when the expense has `allowToAddLoan = true`, a
 `loanType`, and a positive loan amount on the request. That pairing is **generic**, not specific to
@@ -87,7 +87,7 @@ fires when a housemaid passes the **"Upload The e-Residency"** step of visa rene
 `ScheduledAnnualVacation` of type `vacation_airfare`. That row's `AfterCreate` triggers
 `HousemaidAirFareTicketBusinessRule`, which POSTs to `/payroll/ManagerNotes/create` with
 `additionReason = airfare_ticket`, `fromManager = jad`, `noteDate = payrollDueDate`.
-A backfill twin exists: `MigrationController.housemaidScheduledAnnualVacations()`.
+A backfill twin exists: `MigrationController.housemaidScheduledAnnualVacations`.
 
 **The amount — a flat per-nationality constant, not a cap.**
 1. Base: visa-processing parameter **`default_ticket_allowance_amount`**.
@@ -98,14 +98,14 @@ There are only ~7 configured nationality tiers, **which is exactly why 4,881 not
 amounts.** The amount is not derived from salary or tenure.
 
 **Eligibility — renewal-anchored month arithmetic.** Two gates in `AddScheduledAnnualVacationService`:
-- Gate A: `isforOfficeStaff()` returns early; the amount block runs only for `isforHousemaid()`.
-- Gate B, `validateOnExpiryDateOrLastAirfareTicket()`, branching on completed renewals:
+- Gate A: `isforOfficeStaff` returns early; the amount block runs only for `isforHousemaid`.
+- Gate B, `validateOnExpiryDateOrLastAirfareTicket`, branching on completed renewals:
   - **First renewal:** labor-card expiry within `param_airfare_ticket_after_expiry_date_months`
     (default **6**) months.
   - **Later renewals:** last airfare at least `param_airfare_ticket_last_ticket_months_ago`
     (default **16**) months ago — checked against both the last `vacation_airfare` and the last
     `airfare_ticket` note.
-- Duplicate guard `isThereMultipleAirFareTickets()`: blocks if any airfare vacation or note exists
+- Duplicate guard `isThereMultipleAirFareTickets`: blocks if any airfare vacation or note exists
   within the last **5 months**.
 
 **Why the notes are dated into 2028, and stamped midnight.** `noteDate = ScheduledAnnualVacation.payrollDueDate`,
@@ -120,7 +120,7 @@ these paths set `fromManager = "jad"` and never set a creator.
 | `cc_months >= 22` accumulated CC tenure | **No tenure test at all.** Eligibility is renewal-driven: 6 months before expiry, then 16 months since last. |
 | CC only; MV intervals bridge or reset | **No contract-type gate in this path.** It gates housemaid vs office-staff. |
 | Cap AED 2,000 Filipina / 1,350 other | **Exact per-nationality value** from a Nationality tag. A cap comparison would pass amounts an exact test rejects. |
-| `% 24 == 22` modulo in the ERP (O17) | **No modulo anywhere in this flow.** The only `% 24` matches are in bundled JS date libraries. O17's divergence belongs to `HousemaidsVacationAllowanceController`, a different path. |
+| `% 24 == 22` modulo in the ERP | **No modulo anywhere in this flow.** The only `% 24` matches are in bundled JS date libraries. an outstanding ask's divergence belongs to `HousemaidsVacationAllowanceController`, a different path. |
 
 **And a control gap:** nothing checks whether the company already bought her a ticket. The only
 ticket logic is `TicketMatchingLibrary`, a post-hoc credit-card reconciliation in accounting with no
@@ -135,9 +135,9 @@ link back to the note. **Cash can be paid on top of a purchased flight** and not
   duplicate guard). Violation → RED.
 - **A4 — not office staff.**
 - **A5 (new) — no company-bought ticket covering the same journey.** Currently uncheckable in code;
-  needs the ticket source (O4).
+  needs the ticket source.
 
-**Blocked on:** the Nationality tag values (a config read, O26) and confirming with George whether the
+**Blocked on:** the Nationality tag values (a config read) and confirming with George whether the
 22-month CC rule is a *policy the system does not implement* — because if so, that is a finding
 larger than any single note.
 
@@ -148,7 +148,7 @@ larger than any single note.
 **Architecture:** B, expense code **`AAI - 01`**, from `magnamedia-housemaid-management`.
 Fully documented in the spec's N13 and group B (six tests). Summary:
 
-- **`MaidIncentiveExperimentJob.processIncentiveExperimentNotes()`** posts the SALARY expense monthly;
+- **`MaidIncentiveExperimentJob.processIncentiveExperimentNotes`** posts the SALARY expense monthly;
   `AbuDhabiMaidIncentiveExpenseJob` feeds the same code.
 - **Enrolment** is a `MaidManagerActionLog` with `actionType.code = 'Maid_Incentive_Experiment'` and
   `incentiveAmount IS NOT NULL`.
@@ -160,7 +160,7 @@ Fully documented in the spec's N13 and group B (six tests). Summary:
 - **No human approval:** requester is service account **2226**; SALARY expenses auto-confirm.
 
 **Archetypes: ELIG · CORR · RECOMP · CEIL · UNIQ.** B1–B3 and B6 run on the existing grant;
-B4/B5 need `INCENTIVE_AMOUNT` exposed (O23).
+B4/B5 need `INCENTIVE_AMOUNT` exposed.
 
 ---
 
@@ -171,13 +171,13 @@ B4/B5 need `INCENTIVE_AMOUNT` exposed (O23).
 🔴 **Two different payments have been conflated in the spec's group C.**
 
 **Referral bonus** — `ReferralBonusesManagerJob` (`referral_bonuses_manager_job`) →
-`processReferralBonuses()` → `addReferralBonus()` → `HousemaidReferralService.createPayrollManagerNoteDeduction()`.
+`processReferralBonuses` → `addReferralBonus` → `HousemaidReferralService.createPayrollManagerNoteDeduction`.
 It writes **two notes per referral event**: one to the referrer (reason text
 *"\<B\> was referred by \<A\>"*, `referredMaidId` set) and one to the referred maid (*"Signing bonus
 for being referred by \<A\>"*, `referredMaidId = null`). **Both carry purpose `referral_bonus`.**
 
 **Retraction bonus** — purpose **`resignation_retraction`**, posted as an expense by
-`DelighterService.addExpenseRequestForHousemaid()`. This is what George described as "promised by
+`DelighterService.addExpenseRequestForHousemaid`. This is what George described as "promised by
 retractors". It is a *different purpose*, not the referral's second half.
 
 > 🔴 **Withdraw the "expose PURPOSE_ID" recommendation as stated.** `PURPOSE_ID` does **not**
@@ -185,8 +185,8 @@ retractors". It is a *different purpose*, not the referral's second half.
 > and free text. What `PURPOSE_ID` *does* separate is referral from **retraction**, which is still
 > worth exposing, but it will not solve the problem I said it would.
 
-**🟢 The referral price source exists — N11 and O10 are answerable.**
-`ReferralBonusRuleService.getReferralBonusAmounts()` queries **`ReferralBonusRule`** rows by
+**🟢 The referral price source exists — N11 and an outstanding ask are answerable.**
+`ReferralBonusRuleService.getReferralBonusAmounts` queries **`ReferralBonusRule`** rows by
 (MaidA type, MaidB type, MaidA nationality, MaidB nationality), ordered by `priority`, returning
 `[maidAValue, maidBValue]`. Seeded defaults:
 
@@ -201,7 +201,7 @@ retractors". It is a *different purpose*, not the referral's second half.
 are **runtime rows** added through the rule CRUD — governed, but not seeded, so they must be read
 from the table rather than assumed.
 
-**Code-enforced conditions** (`isEligibleForBonus()` and the referral lifecycle):
+**Code-enforced conditions** (`isEligibleForBonus` and the referral lifecycle):
 1. Phone normalised; duplicate number by the same maid → rejected.
 2. Duplicate number by a different maid → rejected.
 3. Referred number already a Housemaid → rejected.
@@ -238,9 +238,9 @@ created when a pre-collected Maid-Visa contract is cancelled/terminated → the 
 **`LastMvSalaryMaidServiceJob`** (`create_last_mv_salary_todo_job`) flips it to `READY_TO_BE_PAID` on
 the termination day and asks payroll for a single-maid WPS todo
 (`AccountantToDoService.createAccountantTodoForTerminatedProratedMVMaids`) → on WPS authorisation,
-**`AsyncService.processCurrentMonthHousemaidsBatchBT()`** writes the note.
+**`AsyncService.processCurrentMonthHousemaidsBatchBT`** writes the note.
 
-**Amount:** `note.amount = log.getTotalSalary()`, computed upstream as
+**Amount:** `note.amount = log.getTotalSalary`, computed upstream as
 `round( (maidService.salary / daysInTerminationMonth) × lastPaidDate.dayOfMonth )`.
 
 **Eligibility:** MAID_VISA (or MV-switched-to-CC), pre-collected contract cancelled in the window,
@@ -250,8 +250,7 @@ client payment covers the salary, **and at transfer time the maid is NOT `EMPLOY
 **Note date** is the processing timestamp — hence 0% midnight — with no requester (100%), because it
 is written inside a batch.
 
-**Archetypes: RECOMP · ELIG · CORR.** Needs the `MaidService.salary` snapshot and `lastPaidDate`
-(O27) — **this does not need N10's general salary history**, because the salary is snapshotted on the
+**Archetypes: RECOMP · ELIG · CORR.** Needs the `MaidService.salary` snapshot and `lastPaidDate` — **this does not need N10's general salary history**, because the salary is snapshotted on the
 service record. That removes a blocker the spec assumed.
 
 ---
@@ -266,10 +265,10 @@ service record. That removes a blocker the spec assumed.
   The configured one is parameter `EXPENSE_SALARY_DISPUTE_CODE` (default `expense_salary_dispute`),
   raisable via UI, `add-maid-refund` in acc-angular, **or the GPT/WhatsApp path**
   `ExpenseRequestTodoService.addExpensesForMaidByGPT` (keyed off a maid's mobile number).
-- **`ManagerNoteService.addFilipinaSalaryAdjustment()`** — hardcodes the reason, **defaults the
+- **`ManagerNoteService.addFilipinaSalaryAdjustment`** — hardcodes the reason, **defaults the
   amount to 500 when null**.
-- **`ManagerNoteService.addReducedOverstayFinesAddition()`** — "Overstay Fines Waived".
-- **`ProRatedSalariesService.processProRatedSalaries()`** tags prorated starting-salary additions
+- **`ManagerNoteService.addReducedOverstayFinesAddition`** — "Overstay Fines Waived".
+- **`ProRatedSalariesService.processProRatedSalaries`** tags prorated starting-salary additions
   with this reason.
 
 **The DEDUCTION side is explained:** the same picklist code doubles as
@@ -282,7 +281,7 @@ recovery.
 |---|---|
 | Amount cap or ceiling | **No** |
 | Business rule on the reason | **No** — `PayrollManagerNoteBR` fires only for `taxi_reimbursement` (an SMS) |
-| Validation in `processExpenseRequestTodo` | **None** — copies `expenseRequestTodo.getAmount()` straight through |
+| Validation in `processExpenseRequestTodo` | **None** — copies `expenseRequestTodo.getAmount` straight through |
 | Four-eyes | **No** — and `recalculateAndUpdateApprover` **auto-approves whenever creator == approver** |
 | `@PreAuthorize` on `POST /payrollmanagernote` create | **None**, in either payroll or housemaid-management |
 | A stored "disputed"/"needed" amount to reconcile against | **None anywhere** |
@@ -297,7 +296,7 @@ target.
 
 **Archetypes: UNRULED, unavoidably.** No RECOMP is possible — the correct figure is never captured.
 What *can* be built: outlier detection, requester concentration, the `addFilipinaSalaryAdjustment`
-default-500 population isolated, and a same-maid-repeat list. **New O28: this needs a policy
+default-500 population isolated, and a same-maid-repeat list. **New an outstanding ask: this needs a policy
 decision, not data** — either a cap and an approval gate are introduced, or the audit reports the
 whole category as unverifiable every month.
 
@@ -307,7 +306,7 @@ whole category as unverifiable every month.
 
 **Architecture:** A, from `magnamedia-housemaid-management`. Fully documented in the spec's N12 and
 group F. `RafflePerformerJob` draws weighted by ticket points, sets `isWinner`/`winOn`/`prize` on
-`RaffleDrawParticipant`, and `addPrizesToPayroll()` writes the note with `amount = prize.worth`.
+`RaffleDrawParticipant`, and `addPrizesToPayroll` writes the note with `amount = prize.worth`.
 Prizes are parameters: `raffle_first_prize` **2,000** × 3, `raffle_second_prize` **200** × 45.
 **2 distinct amounts in the data — exactly as predicted.**
 
@@ -317,8 +316,8 @@ Prizes are parameters: `raffle_first_prize` **2,000** × 3, `raffle_second_prize
 
 ## 7 · Prorated salary — AED 99k/12m
 
-**Architecture:** A. `_ProratedSalariesTransaction.calculate()` — a phase-zero salary transaction
-auto-discovered by reflection inside `HousemaidPayrollPaymentServiceV2.runTransactionsNew()` during
+**Architecture:** A. `_ProratedSalariesTransaction.calculate` — a phase-zero salary transaction
+auto-discovered by reflection inside `HousemaidPayrollPaymentServiceV2.runTransactionsNew` during
 **monthly payroll generation**.
 
 **Eligibility:** salary start date (`replacementSalaryStartDate` else `startDate`) is **on/after the
@@ -356,7 +355,7 @@ the maid an SMS. It does not create notes.
 
 **16% no requester** = the minority entered directly rather than through an expense.
 
-**Archetypes: CORR · ROSTER.** Runnable as soon as `EXPENSES_REQUESTS` is granted (O20) and
+**Archetypes: CORR · ROSTER.** Runnable as soon as `EXPENSES_REQUESTS` is granted and
 `EXPENSE_ID` is exposed (N4/R5).
 
 ---
@@ -410,7 +409,7 @@ status `IN_ACCOMMODATION_LIVE_OUT`) but is never consulted. **It is manual polic
 0% midnight, 0% no-requester, fully human-entered.
 
 **The paired loan is automatic** — same method, same transaction, `EmployeeLoan` created when
-`expenseRequestTodo.getLoanAmount() > 0`, type copied from `expense.getLoanType()`.
+`expenseRequestTodo.getLoanAmount > 0`, type copied from `expense.getLoanType`.
 
 **The five amounts are typed in.** The expense config has an optional `defaultAmount` that *pre-fills*
 an editable field. Not a tier, not a locked parameter — the clustering is human convention.
@@ -461,10 +460,10 @@ the todo with no human `requestedBy`.
 
 🔴 **The name is misleading.** It fires when a **CC maid switches TO Maid Visa**, not the reverse.
 Creating an MV contract in Sales (`ContractController.createContract`) for a maid whose prior type was
-not `MAID_VISA` calls `bindContractWithMaidVisaHousemaid()` and `createCcSwitchedToMvRecord()`,
+not `MAID_VISA` calls `bindContractWithMaidVisaHousemaid` and `createCcSwitchedToMvRecord`,
 persisting `CcMaidSwitchedToMv` with `switchDate = now`, `lastCcSalary = basicSalary`.
 
-**What writes the note:** `PayrollAuditTodoService.doMaidSwitchedToMvCalculations()`, driven by the
+**What writes the note:** `PayrollAuditTodoService.doMaidSwitchedToMvCalculations`, driven by the
 daily `PayrollAuditTodoJob` on the payroll lock date (or on demand when an auditor opens the
 "CC switching to MV" todo).
 
@@ -576,7 +575,7 @@ incentive landing on the wrong addition reason.
 | 1,000 | 3 | 0.2% |
 
 **AED 1,350 appears zero times.** The spec's cap figures are wrong on both the mechanism (exact tier,
-not cap) and the value. → **O26** must read the `ScheduledAnnualVacationAmount` tags to get the
+not cap) and the value. → **an outstanding ask** must read the `ScheduledAnnualVacationAmount` tags to get the
 authoritative set.
 
 ## Salary Dispute — the concentration risk is low; the design risk is not
@@ -726,20 +725,20 @@ how far each reference type reaches.
 No `@PreAuthorize` on `createEntity` in either the payroll or housemaid-management controller.
 The permission-guarded endpoints (`customdelete`, `bulkcreate`, `bulkrefund`, …) do not cover plain
 create. **Anyone with generic endpoint access can create a payment note of any type and any amount.**
-→ **O29**, and it is a security finding, not an audit one.
+→ **an outstanding ask**, and it is a security finding, not an audit one.
 
 ## F2 — self-approval is coded, not incidental
 `recalculateAndUpdateApprover` **auto-approves whenever creator == approver.** Combined with F1 and
 the absence of a cap on `salary_dispute`, one person can create and approve an uncapped payment.
-→ folded into **O28**.
+→ folded into **an outstanding ask**.
 
 ## F3 — the payroll lock date is the only gate on manual creation
 `PayrollManagerNoteController.createEntity` (payroll) applies a payroll-lock check and nothing else.
 The housemaid-management controller has **no gate at all** — so the lock is bypassable by choosing
-the other endpoint. → **O30**, and it materially weakens N7.
+the other endpoint. → **an outstanding ask**, and it materially weakens N7.
 
 ## F4 — cash airfare and purchased tickets never meet
-See §1. → **O31**.
+See §1. → **an outstanding ask**.
 
 ## F5 — `cover_deduction_limit` died at the V2 payroll cutover, and its replacement is invisible
 `NegativeSalariesService.negativeSalariesBean(...)` (legacy generator) created a
@@ -755,7 +754,7 @@ See §1. → **O31**.
 
 **Consequence for the audit:** deduction capping no longer produces manager notes, so it is invisible
 to a notes-only audit — while remaining a real money mechanism with a statutory WPS floor.
-→ **O32**: decide whether the audit's scope should extend to the repayment/unpaid-deduction chain.
+→ **an outstanding ask**: decide whether the audit's scope should extend to the repayment/unpaid-deduction chain.
 
 ## F6 — two payment types are their own rulebook
 `salary_dispute` and `Accommodation Relocation` both rely on rules that exist only in people's heads:
@@ -769,13 +768,13 @@ audit is the *only* control.
 | Item | Change |
 |---|---|
 | **Group A (airfare)** | Rewrite. CEIL against the Nationality tag, not a cap. Eligibility is renewal-anchored, not tenure. Drop the contract-type gate from this path. Raise the 22-month divergence with George. |
-| **N14** | 🟢 Answered — the mapping is `Expense.salaryAdditionType`. Not a business ask. → O25 |
-| **N11 / O10** | 🟢 Answered — `ReferralBonusRule` is the price table. AED 1,200 = the seeded CC/MV→TA rule. |
+| **N14** | 🟢 Answered — the mapping is `Expense.salaryAdditionType`. Not a business ask. → an outstanding ask |
+| **N11 / an outstanding ask** | 🟢 Answered — `ReferralBonusRule` is the price table. AED 1,200 = the seeded CC/MV→TA rule. |
 | **Group C** | Split referral (`referral_bonus`, two notes per event) from retraction (`resignation_retraction`). Withdraw the PURPOSE_ID claim as stated. |
 | **N10** | Narrowed. MV Prorated Salary needs only the `MaidService.salary` snapshot; `prorated_salary` needs gr1–gr6. |
-| **O17** | Reassigned — the `% 24` divergence is not in the airfare note path. |
+| **an outstanding ask** | Reassigned — the `% 24` divergence is not in the airfare note path. |
 | **Group I** | `cover_deduction_limit` is dead; document the V2 replacement instead. |
-| **New** | O25 (Expense config read), O26 (Nationality tags), O27 (MaidService.salary), O28 (salary-dispute policy), O29 (missing @PreAuthorize), O30 (lock bypass), O31 (ticket/cash), O32 (deduction-cap scope) |
+| **New** | an outstanding ask (Expense config read), an outstanding ask (Nationality tags), an outstanding ask (MaidService.salary), an outstanding ask (salary-dispute policy), an outstanding ask (missing @PreAuthorize), an outstanding ask (lock bypass), an outstanding ask (ticket/cash), an outstanding ask (deduction-cap scope) |
 
 # What is runnable the day the warehouse grant lands
 

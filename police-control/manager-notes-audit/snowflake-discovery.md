@@ -6,7 +6,7 @@ Every claim below carries the statement that produced it. Nothing here is assume
 ## 0. Connection and the compute blocker
 
 ```sql
-SELECT CURRENT_ACCOUNT(), CURRENT_ROLE(), CURRENT_WAREHOUSE(), CURRENT_DATABASE();
+SELECT CURRENT_ACCOUNT, CURRENT_ROLE, CURRENT_WAREHOUSE, CURRENT_DATABASE;
 -- IH42925 | PAYROLL_AND_MONEY_CONTROL_ROLE | (empty) | (empty)
 
 SHOW WAREHOUSES;
@@ -276,8 +276,8 @@ SHOW OBJECTS LIKE '%RAFFLE%'  IN ACCOUNT;  -- 0 rows
 SHOW OBJECTS LIKE '%REFERRAL%' IN ACCOUNT; -- 10 rows
 SHOW OBJECTS LIKE '%TICKET%'   IN ACCOUNT; -- 7 rows
 SHOW OBJECTS LIKE '%VACATION%' IN ACCOUNT; -- 1 row
-SHOW OBJECTS LIKE '%INSIGHTS%' IN ACCOUNT; -- INSIGHTS_DASHBOARD_CONTAINER, ...
-SHOW OBJECTS LIKE '%PICKLIST%' IN ACCOUNT; -- CORE_SILVER.PICKLISTS_INFO, ...
+SHOW OBJECTS LIKE '%INSIGHTS%' IN ACCOUNT; -- INSIGHTS_DASHBOARD_CONTAINER,...
+SHOW OBJECTS LIKE '%PICKLIST%' IN ACCOUNT; -- CORE_SILVER.PICKLISTS_INFO,...
 ```
 
 - **Raffle: nothing exists *in the warehouse*.** Zero objects account-wide (re-verified 2026-09-08 for `%RAFFLE%`, `%PRIZE%` and `%DRAW%`). 🔴 But it does exist in the **ERP** — five `raffledraw` tables in `magnamedia-housemaid-management` (N12). So this is an un-ingested source, not an absent one. The winners list is not in the
@@ -349,7 +349,7 @@ before the first number is published.
 The catalog cannot say what the ERP *does*. Four interrogations of the ERP source
 (conversations 45815–45818, modules `erp/magnamedia-payroll-management`,
 `erp/magnamedia-housemaid-management`, `erp/magnamedia-admin`) closed the gaps the catalog left.
-These are claims about **code**, not about rows; row-level behaviour is still O1.
+These are claims about **code**, not about rows; row-level behaviour is still.
 
 ### 10.1 The columns v1 could only guess at — all exist
 
@@ -384,11 +384,11 @@ These are claims about **code**, not about rows; row-level behaviour is still O1
    effective-dated.** *(Aside for the ERP team: the notification email hard-codes the literal
    `2000` instead of reading the parameter, so changing the parameter makes the email lie.)*
 4. **The ERP's own auditor filters on `CONFIRMED_* = false`.**
-   `HousemaidsExceptions.generateHousemaidExceptions()` raises
+   `HousemaidsExceptions.generateHousemaidExceptions` raises
    `HOUSEMAID_FILIPINO_AIRFARE_TICKET`, `HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET` (on
    `AMOUNT >` the limit, reason code `airfare_ticket`) and `HOUSEMAID_REPETITIVE_ADDED_PAYMENTS`
    (`> 1` addition in 3 months, excluding `cover_deduction_limit` and `cover_negative_salary`).
-   `approveHousemaidException()` sets the flags true, at which point the case leaves the ERP's
+   `approveHousemaidException` sets the flags true, at which point the case leaves the ERP's
    list **while the payment stays over the limit**. An independent check must never inherit that
    filter.
 5. **`NOTE_TYPE` has seven values** — `ADDITION, DEDUCTION, PENALTY_DEDUCTION, EXTRA_SHIFT, BONUS,
@@ -413,6 +413,6 @@ These are claims about **code**, not about rows; row-level behaviour is still O1
 - **24 addition-reason codes** were recovered from code references and are listed in the spec's
   §3 M6 table. Because they are *code-referenced*, a reason that exists in the picklist but is
   referenced nowhere in code is absent from that list — which is why reading the picklist itself
-  is O2.
+  is.
 - `EMPLOYEE_MANAGER_ID` is **not mapped in the current JPA entity**, which is why the warehouse's
   `MANAGER` column is entirely NULL. `FROM_MANAGER_ID` is a **picklist item, not a user**.

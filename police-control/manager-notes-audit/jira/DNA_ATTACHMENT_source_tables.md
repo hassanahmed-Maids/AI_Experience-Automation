@@ -221,12 +221,12 @@ the parameter, so changing the parameter makes the email lie.
 
 ### The ERP's own auditor — and why this report must not inherit its filter `code`
 
-`HousemaidsExceptions.generateHousemaidExceptions()` raises three exception types:
+`HousemaidsExceptions.generateHousemaidExceptions` raises three exception types:
 `HOUSEMAID_FILIPINO_AIRFARE_TICKET` and `HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET`
 (`AMOUNT >` the limit, reason code `airfare_ticket`), and `HOUSEMAID_REPETITIVE_ADDED_PAYMENTS`
 (`> 1` addition in 3 months, excluding `cover_deduction_limit` and `cover_negative_salary`).
 
-**Both queries filter `CONFIRMED_*_BY_AUDITOR = false`.** `approveHousemaidException()` sets the flag
+**Both queries filter `CONFIRMED_*_BY_AUDITOR = false`.** `approveHousemaidException` sets the flag
 true, at which point the case leaves the ERP's list **while the payment stays over the limit**. That
 population is precisely what an independent second check exists to see, so no query in this model may
 filter on `CONFIRMED_AMOUNT_BY_AUDITOR` or `CONFIRMED_REPEATED_BY_AUDITOR`. They are display columns.
@@ -325,34 +325,6 @@ Each of these returns a wrong answer rather than an error.
 | 4 | `SELECT MAX(PURCHASE_DATE) FROM …HOUSEMAIDS_TICKETS` | `ID` tops at 14,564 — if the source is dead, the airfare duplicate test silently disables |
 | 5 | `SELECT * FROM BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER LIMIT 50` | Whether an approved definition already exists for any of the ten metrics |
 | 6 | Monthly volume of scoped notes | Expect **1,300–1,500/month**; `DNA-9464` measured 8,632 across six months on the same source |
-
----
-
-## 9. The data asks
-
-None blocks the model; each one leaves a group rule returning BLOCKED, and its notes amber.
-
-| Ref | Ask | What it unlocks | Where to start |
-| --- | --- | --- | --- |
-| **N4** | Project `EXPENSE_ID` onto D1 | Re-checking route 2 downstream | Already in D1's own join, not selected |
-| **N5** | Project `ADDITION_REASON_ID` and `PURPOSE_ID` | Routing on ids, not names (H13) | Same table |
-| **N7** | The payroll lock window per month | Route 1 branch 2 | `MONTHLYPAYMENTRULES`, exact column `unverified` |
-| **N10** | Effective-dated salary history | Recomputing part-month salary (group D) | `mmdb` revision tables |
-| **N11** | Referral / signing scheme prices, effective-dated | Testing the amount (group C) | The referral scheme owner |
-| **N12** | Raffle winners per draw | Group F | 🟢 **Found 2026-09-08.** Source is the ERP module `magnamedia-housemaid-management`, package `com.magnamedia.entity.raffledraw`: `RaffleDrawParticipant` (`draw`, `housemaid`, `isWinner`, `winOn`, `prize`, `points`), `RaffleDraw` (`drawDate`, `status`), `RaffleDrawPrizeGrand` (`worth`, `isGrand`), `RaffleTicketLog`, `RaffleDrawLog`. **None is in the warehouse** — zero objects match `%RAFFLE%`/`%PRIZE%`/`%DRAW%` account-wide. This is an ingestion ask |
-| **N13** | A written loyalty rule | Group B | Does not exist anywhere; this is a business decision |
-| **N14** | Payment type → allowed expense heads | T5 | P&C + Payroll |
-| **N15** | Contract type → allowed payment types, all four types | T7 | P&C + Payroll |
-| **N16** | Payment types that always carry an expense record | T4 | P&C + Payroll — ⚠️ **two are already settled**, below |
-
-🔴 **N16 is partly answered, and getting it wrong fabricates findings.** `DNA-9464`: additions booked
-straight onto salary with no payment behind them — *"mainly Airfare Ticket and Office Work
-Addition"* — render as a third payment method, **Direct adjustment**, 565 across six months. So
-`airfare_ticket` legitimately has no expense request. Without this, every flight-home payment is
-red-flagged "no basis" — a fabricated finding on the largest group in the audit.
-
----
-
 ## 10. Adjacent production work
 
 | Key | What | Status | Relationship |
@@ -510,27 +482,3 @@ therefore **BLOCKED by construction**, not by anyone remembering to handle it. S
 list is incomplete and the warehouse's category profile is truncated, new types **will** appear —
 this property is what keeps them arriving as amber-with-a-reason instead of silent greens. **Do not
 add a default branch.**
-
-### What the archetypes are blocked on, and what that implies for sequencing
-
-| Archetype | Payment types | Blocked on | Unblocked by |
-| --- | --- | --- | --- |
-| **UNIQ** | all | nothing | — |
-| **RECON** | all | nothing | — |
-| **CEIL** | 3 | nothing, for airfare | — |
-| **CORR** | 7 | the `EXPENSES_REQUESTS` grant, and `EXPENSE_ID` exposed downstream | one grant + one column |
-| **ELIG** | 9 | the contract-type timeline (N17), the `live_out` flag (N19) | one revision source |
-| **PAIR** | 5 | a row-level loan source (N18) | one ingestion |
-| **RECOMP** | 8 | effective-dated salary history (N10) | one revision source |
-| **ROSTER** | 7 | lists that exist nowhere (N12, N14–N16) | an owner writing them |
-| **UNRULED** | 7 | nothing — no rule was ever written | a decision, not data |
-
-🟢 **Phase 1 needs no new data.** UNIQ, RECON and the airfare CEIL are unblocked today: duplicate
-detection, the payslip tie-out, the referral-event tie-out and the airfare cap, on sources already
-granted.
-🔴 **ROSTER + UNRULED cover fourteen payment types** — more than any data problem, and neither is
-unblocked by engineering.
-
-⚠️ These are counts of payment **types**, not of notes or money. Which archetype carries the most
-money is unmeasured, because no row-level query has run. Worth measuring before sequencing off this
-table.
