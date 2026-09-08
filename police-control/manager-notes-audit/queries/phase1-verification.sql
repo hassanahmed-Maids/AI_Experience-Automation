@@ -369,3 +369,54 @@ SELECT payment_type, mth,
        ROUND(100.0*COUNT_IF(requester IS NULL AND approver IS NULL)/COUNT(*)) AS pct_unattributed,
        ROUND(SUM(IFF(requester IS NULL AND approver IS NULL, AMOUNT, 0))) AS aed_unattributed
 FROM n GROUP BY 1,2 ORDER BY payment_type, mth;
+
+
+-- =====================================================================================
+-- 1f. O36 — IS THE ENROLMENT `NOTES` BOX USABLE? SELF-CONTAINED. Part A ~5 rows, B 1 row.
+--
+--     WHY THIS GATES THE LARGEST PAYMENT TYPE IN THE AUDIT. For anti-attrition the
+--     complaint test is N_A (1.00x chance, §3g), the enrolment-exists test passes 999
+--     times in 1,000 (§3h), and the recompute is blocked on ingestion (O44). So Job 1 —
+--     an agent reading this free-text box and judging whether it states a retention
+--     reason — IS the anti-attrition check. If the column is sparse or boilerplate, the
+--     type has no working check at all and the spec must say so rather than describe one.
+--
+--     ⚠️ NOTES is free text about a named individual. This query returns ONLY lengths,
+--        counts and ratios — never the text. The boilerplate ratio is computed from value
+--        frequencies without selecting any value. Do not "just look at a few" to check.
+-- =====================================================================================
+-- A. Confirm the picklist name first — every downstream filter depends on it.
+SELECT ACTION_TYPE,
+       COUNT(*)                                   AS records,
+       COUNT(DISTINCT HOUSEMAID_ID)               AS maids,
+       MIN(ACTION_DATE)::DATE                     AS first_seen,
+       MAX(ACTION_DATE)::DATE                     AS last_seen
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+WHERE ACTION_TYPE ILIKE '%incentive%' OR ACTION_TYPE ILIKE '%experiment%'
+   OR ACTION_TYPE ILIKE '%attrition%' OR ACTION_TYPE ILIKE '%retention%'
+GROUP BY 1 ORDER BY records DESC;
+
+-- B. Is the box filled, and does it carry anything? Adjust ACTION_TYPE from part A.
+WITH e AS (
+    SELECT HOUSEMAID_ID, ACTION_DATE,
+           NULLIF(TRIM(NOTES),'') AS note_text
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'      -- <<< set from part A
+      AND ACTION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+), freq AS (        -- value frequencies, so boilerplate is measurable without display
+    SELECT note_text, COUNT(*) AS uses FROM e WHERE note_text IS NOT NULL GROUP BY 1
+)
+SELECT
+    (SELECT COUNT(*) FROM e)                                          AS enrolment_records,
+    (SELECT COUNT_IF(note_text IS NULL) FROM e)                       AS notes_EMPTY,
+    (SELECT ROUND(100.0*COUNT_IF(note_text IS NOT NULL)/COUNT(*)) FROM e) AS pct_filled,
+    (SELECT COUNT(*) FROM freq)                                       AS distinct_values,
+    (SELECT ROUND(100.0*COUNT(*)/NULLIF((SELECT SUM(uses) FROM freq),0)) FROM freq)
+                                                                      AS pct_distinct,
+    -- share sitting on the single most-repeated value: high = boilerplate, not a reason
+    (SELECT ROUND(100.0*MAX(uses)/NULLIF((SELECT SUM(uses) FROM freq),0)) FROM freq)
+                                                                      AS pct_on_commonest_value,
+    (SELECT ROUND(AVG(LENGTH(note_text))) FROM e)                     AS avg_chars,
+    (SELECT MEDIAN(LENGTH(note_text)) FROM e)                         AS median_chars,
+    (SELECT COUNT_IF(LENGTH(note_text) <= 10) FROM e)                 AS under_10_chars,
+    (SELECT COUNT_IF(LENGTH(note_text) >= 60) FROM e)                 AS at_least_60_chars;
