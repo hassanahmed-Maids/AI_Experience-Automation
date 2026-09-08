@@ -12,7 +12,7 @@ rules; this file is the reasoning behind them.
 
 | Learning | Enforced in |
 | --- | --- |
-| The 15 defects that cost rework | `skills/audit-spec-builder/references/spec-traps.md` (new) |
+| The 16 defects that cost rework | `skills/audit-spec-builder/references/spec-traps.md` (new) |
 | How to hand a spec to DNA | `skills/audit-spec-builder/references/dna-handoff.md` (new) |
 | Two operating principles + Step 7 handoff stage | `skills/audit-spec-builder/SKILL.md` |
 | Metadata-only discovery without a warehouse grant | `skills/snowflake-discovery/SKILL.md` |

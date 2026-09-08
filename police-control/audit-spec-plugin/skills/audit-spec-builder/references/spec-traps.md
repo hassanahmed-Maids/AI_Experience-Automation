@@ -175,3 +175,37 @@ period boundary. Each returns a wrong answer silently, and **zero rows reads exa
 findings"**.
 
 Carry a trap table in the spec, one row per trap, each stating the consequence if ignored.
+
+## 16. A row-per-evidence export where the check needs a score
+
+A check that weighs several pieces of evidence against one record — every complaint on this maid,
+every expense near this note, every log line around this event — is naturally written as a join, and
+a join returns **one row per (record × evidence)**. The moment the evidence is dense, that export
+explodes: a corroboration queue over two payment types and three months returned 32,247 rows for
+~2,570 notes, because the maids averaged ~12.5 complaints in the window. The header still said
+"one row per note".
+
+**The instinct is to add a `LIMIT`, and it is always wrong here.** Truncating cuts one record's
+evidence list mid-way, and the consumer — a human reviewer or an agent — cannot see that it was cut.
+It returns *"no corroborating evidence"* for records whose evidence simply fell below the line. That
+is the clearance defect (#1) arriving through the export instead of the logic: a test that could not
+see its inputs reported as a test that passed.
+
+The fix is not a smaller export, it is a different shape. **If the verdict is a function of the
+evidence set, compute it where the evidence lives.** Type-match, timing and per-record normalisation
+are all aggregates; they collapse to one row per record when scored in the warehouse, and to 32k rows
+when scored outside it. Split the query by what each output is actually for:
+
+| | Grain | Free text | For |
+|---|---|---|---|
+| **distribution** | one row per band | no | sets thresholds; tells you whether the queue is worth building at all |
+| **queue** | one row per record, capped and ranked | no | the work list — ids, dates, amounts, scores |
+| **detail** | one record, by id | yes | the only place free text appears |
+
+Two things follow. **Pick the winner explicitly**: collapsing with `QUALIFY ROW_NUMBER()` forces you
+to *state* which piece of evidence represents the record (nearest in time? strongest type match?),
+which is trap #9 — matching without a key needs stated behaviour at >1 — answered rather than
+skipped. And **the split is the privacy boundary**: the wide, movable outputs carry no personal text,
+so the one output that does can be scoped to a single record and kept inside the warehouse session.
+Run the distribution first — it is small enough to read in full, and it will often tell you the queue
+should not exist in the shape you planned.

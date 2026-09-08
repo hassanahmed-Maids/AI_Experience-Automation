@@ -201,34 +201,209 @@ WHERE n.NOTE_TYPE='ADDITION' AND n.NOTE_REASON ILIKE '%comp;%'
   AND n.NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE());
 
 
+
 -- =====================================================================================
--- 6. THE AGENT'S WORK QUEUE. One row per note, bundled with the conversation an
---    AI agent must read to judge it. Start with the two types where the rule is a
---    human judgement rather than arithmetic: anti-attrition and salary dispute.
---    ⚠️ contains personal text — this output goes to the agent, never to a person's inbox.
+-- 6. THE CORROBORATION SCORE — the executable form of the §3d rule.
+--
+-- ⚠️ SUPERSEDES the original query 6, which joined note × complaint and returned
+--    32,247 rows for a 3-month, 2-type window. That was not a bug in the data: query 3
+--    measured 10.32 complaints/note for anti-attrition and 13.29 for salary dispute, so
+--    ~2,570 notes fan out to ~32k pairs exactly as predicted. A LIMIT would not fix it —
+--    it would truncate a maid's complaint list mid-way and hand the agent a queue that
+--    silently drops the evidence it is supposed to weigh.
+--
+-- The fix is to score inside the warehouse instead of exporting the join. §3d says the
+-- test is TYPE-MATCH + TIMING, normalised per maid — all three collapse to one row per
+-- note. 6a is the distribution (paste-able), 6b is the ranked queue (no free text),
+-- 6c is the single-note detail and is the ONLY place personal text appears.
 -- =====================================================================================
-WITH n AS (
-    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT, NOTE_REASON,
+
+-- ---------------------------------------------------------------------------------
+-- THE CORROBORATION MAP, as data. §4's table in machine-readable form.
+-- Paste this CTE at the top of 6a / 6b / 6c. Extend it to the other 12 types by
+-- adding rows — nothing downstream changes.
+-- Anti-attrition EXCLUDES 257 MV Retention: CC-only payment, so an MV-retention
+-- complaint behind it is a contradiction, not a corroboration (§4).
+-- ---------------------------------------------------------------------------------
+--   WITH map AS (
+--       SELECT * FROM VALUES
+--         ('Anti-attrition Incentive', 24),('Anti-attrition Incentive',154),
+--         ('Anti-attrition Incentive',137),('Anti-attrition Incentive', 38),
+--         ('Anti-attrition Incentive', 88),('Anti-attrition Incentive',426),
+--         ('Anti-attrition Incentive',284),
+--         ('Salary Dispute',193),('Salary Dispute',320),('Salary Dispute',322),
+--         ('Salary Dispute',321),('Salary Dispute',330),('Salary Dispute', 77),
+--         ('Salary Dispute',323),('Salary Dispute',156),('Salary Dispute',420)
+--       AS t(payment_type, complaint_type_id)
+--   )
+
+
+-- =====================================================================================
+-- 6a. THE DISTRIBUTION. ~8 rows. This is the one to run first and paste back — it sets
+--     the verdict thresholds and says whether a work queue is even worth building.
+--     Bands come straight from §3d: under ~15 days is a real link, ~30+ is the 90-day
+--     window talking to itself.
+-- =====================================================================================
+WITH map AS (
+    SELECT * FROM VALUES
+      ('Anti-attrition Incentive', 24),('Anti-attrition Incentive',154),
+      ('Anti-attrition Incentive',137),('Anti-attrition Incentive', 38),
+      ('Anti-attrition Incentive', 88),('Anti-attrition Incentive',426),
+      ('Anti-attrition Incentive',284),
+      ('Salary Dispute',193),('Salary Dispute',320),('Salary Dispute',322),
+      ('Salary Dispute',321),('Salary Dispute',330),('Salary Dispute', 77),
+      ('Salary Dispute',323),('Salary Dispute',156),('Salary Dispute',420)
+    AS t(payment_type, complaint_type_id)
+), n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
            COALESCE(REASON,'(none)') AS payment_type
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
     WHERE NOTE_TYPE='ADDITION'
       AND REASON IN ('Anti-attrition Incentive','Salary Dispute')
       AND NOTE_DATE BETWEEN DATEADD('month',-3,CURRENT_DATE()) AND CURRENT_DATE()
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
+-- scored: ONE row per note. The fan-out is collapsed here, by aggregation, not by LIMIT.
+), scored AS (
+    SELECT n.ID, n.payment_type, n.AMOUNT,
+           COUNT(c.ID)                                              AS complaints_any,
+           COUNT_IF(m.complaint_type_id IS NOT NULL)                AS complaints_expected,
+           MIN(IFF(m.complaint_type_id IS NOT NULL,
+                   ABS(DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE)), NULL)) AS days_apart_nearest
+    FROM n
+    LEFT JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
+           ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
+          AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE)
+                                  AND DATEADD('day', 14,n.NOTE_DATE)
+    LEFT JOIN map m
+           ON m.payment_type = n.payment_type
+          AND m.complaint_type_id = c.COMPLAINT_TYPE_ID
+    GROUP BY 1,2,3
+), banded AS (
+    SELECT payment_type, AMOUNT,
+           -- per-maid normalisation (§3d): a maid with 40 open complaints matches any
+           -- type by chance, so the raw match is meaningless without this ratio.
+           IFF(complaints_any=0, NULL,
+               ROUND(complaints_expected/NULLIF(complaints_any,0),3))  AS specificity,
+           CASE
+             WHEN complaints_any = 0                       THEN '4_NO_COMPLAINT_AT_ALL'
+             WHEN complaints_expected = 0                  THEN '3_NO_TYPE_MATCH'
+             WHEN days_apart_nearest <= 15                 THEN '1_CORROBORATED_coupled'
+             ELSE                                               '2_TYPE_MATCH_but_window_noise'
+           END AS band
+    FROM scored
+)
+SELECT payment_type, band,
+       COUNT(*)                                            AS notes,
+       ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (PARTITION BY payment_type)) AS pct_of_type,
+       ROUND(SUM(AMOUNT))                                  AS aed,
+       ROUND(AVG(specificity),3)                           AS avg_specificity
+FROM banded
+GROUP BY 1,2 ORDER BY payment_type, band;
+
+
+-- =====================================================================================
+-- 6b. THE WORK QUEUE. One row per note — the fan-out collapsed by QUALIFY picking the
+--     single best-matching complaint (expected type first, then nearest in time).
+--     NO free text: ids, dates, amounts and scores only, so this one is safe to move.
+--     Cap it. 300 notes worst-money-first is a batch; the whole 3 months is not.
+-- =====================================================================================
+WITH map AS (
+    SELECT * FROM VALUES
+      ('Anti-attrition Incentive', 24),('Anti-attrition Incentive',154),
+      ('Anti-attrition Incentive',137),('Anti-attrition Incentive', 38),
+      ('Anti-attrition Incentive', 88),('Anti-attrition Incentive',426),
+      ('Anti-attrition Incentive',284),
+      ('Salary Dispute',193),('Salary Dispute',320),('Salary Dispute',322),
+      ('Salary Dispute',321),('Salary Dispute',330),('Salary Dispute', 77),
+      ('Salary Dispute',323),('Salary Dispute',156),('Salary Dispute',420)
+    AS t(payment_type, complaint_type_id)
+), n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
+           COALESCE(REASON,'(none)') AS payment_type
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON IN ('Anti-attrition Incentive','Salary Dispute')
+      AND NOTE_DATE BETWEEN DATEADD('month',-3,CURRENT_DATE()) AND CURRENT_DATE()
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
+), density AS (      -- per-note counts over ALL complaints, before we pick a winner
+    SELECT n.ID,
+           COUNT(c.ID)                               AS complaints_any,
+           COUNT_IF(m.complaint_type_id IS NOT NULL) AS complaints_expected
+    FROM n
+    LEFT JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
+           ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
+          AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE)
+                                  AND DATEADD('day', 14,n.NOTE_DATE)
+    LEFT JOIN map m
+           ON m.payment_type = n.payment_type
+          AND m.complaint_type_id = c.COMPLAINT_TYPE_ID
+    GROUP BY 1
+), best AS (         -- the ONE complaint the agent should read first, per note
+    SELECT n.ID AS note_id, n.payment_type, n.HOUSEMAID_ID AS maid_id,
+           n.NOTE_DATE::DATE AS note_date, n.AMOUNT,
+           c.ID AS complaint_id, c.COMPLAINT_TYPE, c.COMPLAINT_TYPE_ID, c.STATUS,
+           c.CREATION_DATE::DATE AS complaint_opened,
+           DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE) AS days_before_note,
+           IFF(m.complaint_type_id IS NOT NULL, TRUE, FALSE) AS is_expected_type
+    FROM n
+    LEFT JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
+           ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
+          AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE)
+                                  AND DATEADD('day', 14,n.NOTE_DATE)
+    LEFT JOIN map m
+           ON m.payment_type = n.payment_type
+          AND m.complaint_type_id = c.COMPLAINT_TYPE_ID
+    QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY n.ID
+        ORDER BY IFF(m.complaint_type_id IS NOT NULL,0,1),          -- expected type wins
+                 ABS(DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE)) -- then nearest in time
+    ) = 1
+)
+SELECT b.note_id, b.payment_type, b.maid_id, b.note_date, b.AMOUNT,
+       d.complaints_any, d.complaints_expected,
+       ROUND(d.complaints_expected/NULLIF(d.complaints_any,0),3) AS specificity,
+       b.complaint_id, b.COMPLAINT_TYPE, b.STATUS, b.complaint_opened,
+       b.days_before_note, b.is_expected_type,
+       CASE
+         WHEN d.complaints_any = 0                            THEN '4_NO_COMPLAINT_AT_ALL'
+         WHEN d.complaints_expected = 0                       THEN '3_NO_TYPE_MATCH'
+         WHEN b.is_expected_type AND ABS(b.days_before_note) <= 15 THEN '1_CORROBORATED_coupled'
+         ELSE                                                      '2_TYPE_MATCH_but_window_noise'
+       END AS band
+FROM best b JOIN density d ON d.ID = b.note_id
+ORDER BY band DESC, b.AMOUNT DESC
+LIMIT 300;
+
+-- 6b-i. The anti-attrition zero-complaint queue named in §3b — the natural first batch.
+--       Same shape, filtered to band 4. 1,192 notes / AED 270,427 over 12 months.
+--       Add:  WHERE band = '4_NO_COMPLAINT_AT_ALL'  and widen the note window to 12 months.
+
+
+-- =====================================================================================
+-- 6c. THE DETAIL FETCH — one note at a time, by note_id from 6b.
+--     ⚠️ THE ONLY QUERY HERE THAT RETURNS PERSONAL TEXT. It goes to the agent inside
+--        the warehouse session. Never exported, never pasted into chat, never put on a
+--        dashboard, never mailed. §5: the agent reads it, the audit republishes a
+--        verdict, a category and a complaint id — nothing else.
+--     Per §5, GPT_SUMMARY is gpt-4.1-nano at temperature 0.9 — triage only. Anything
+--     that becomes a finding must be read from COMPLAINT_COMMENTS.TEXT / DESCRIPTION.
+-- =====================================================================================
+SET note_id = 0;   -- <<< set from 6b
+
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT, NOTE_REASON,
+           COALESCE(REASON,'(none)') AS payment_type
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE ID = $note_id
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
 )
 SELECT
-    n.ID                AS note_id,
-    n.payment_type,
-    n.HOUSEMAID_ID      AS maid_id,
-    n.NOTE_DATE::DATE   AS note_date,
-    n.AMOUNT,
-    c.ID                AS complaint_id,
-    c.COMPLAINT_TYPE,
-    c.STATUS            AS complaint_status,
+    n.ID AS note_id, n.payment_type, n.NOTE_DATE::DATE AS note_date, n.AMOUNT,
+    n.NOTE_REASON,                       -- the reviewer's own working (Job 2, §5)
+    c.ID AS complaint_id, c.COMPLAINT_TYPE, c.STATUS, c.ASSIGNED_TEAM,
     c.CREATION_DATE::DATE AS complaint_opened,
     DATEDIFF('day', c.CREATION_DATE, n.NOTE_DATE) AS days_before_note,
-    c.ASSIGNED_TEAM,
-    c.GPT_SUMMARY,                       -- already-summarised; cheapest input for the agent
+    c.GPT_SUMMARY,                       -- triage only — temperature 0.9, not evidence
     c.COMPLAINT_DESCRIPTION,
     (SELECT LISTAGG(cc.TEXT, E'\n---\n') WITHIN GROUP (ORDER BY cc.ITERATION)
      FROM BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINT_COMMENTS cc
@@ -236,5 +411,16 @@ SELECT
 FROM n
 LEFT JOIN BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS c
        ON c.HOUSEMAID_ID = n.HOUSEMAID_ID
-      AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE) AND DATEADD('day',14,n.NOTE_DATE)
-ORDER BY n.payment_type, n.AMOUNT DESC, days_before_note;
+      AND c.CREATION_DATE BETWEEN DATEADD('day',-90,n.NOTE_DATE)
+                              AND DATEADD('day', 14,n.NOTE_DATE)
+ORDER BY days_before_note;
+
+-- 6c-i. For anti-attrition, the PRIMARY evidence is not a complaint at all (§3): it is
+--       the free-text enrolment box. Fetch it alongside 6c. Same privacy rule.
+SELECT HOUSEMAID_ID, ACTION_DATE::DATE AS enrolled_on, ACTION_TYPE, NOTES
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
+  AND HOUSEMAID_ID = (SELECT HOUSEMAID_ID
+                      FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+                      WHERE ID = $note_id LIMIT 1)
+ORDER BY ACTION_DATE;

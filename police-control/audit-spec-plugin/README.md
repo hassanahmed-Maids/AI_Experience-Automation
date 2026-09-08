@@ -143,7 +143,7 @@ Answers take 30 seconds to 2 minutes. See
 ## Reference material
 
 - `skills/audit-spec-builder/references/spec-template.md` — the spec structure to fill in
-- `skills/audit-spec-builder/references/spec-traps.md` — the 15 defects that have actually
+- `skills/audit-spec-builder/references/spec-traps.md` — the 16 defects that have actually
   cost rework, ordered by what they cost. Read before writing any spec.
 - `skills/audit-spec-builder/references/dna-handoff.md` — how DNA intake works, the ticket
   shape that grades Ready, and the four rules with teeth

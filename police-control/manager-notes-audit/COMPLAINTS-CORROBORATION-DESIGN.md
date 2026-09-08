@@ -1,7 +1,7 @@
 # Complaints as the corroboration layer — design
 
 **Date:** 2026-09-08 · **Evidence:** ERP interrogations 45948 + 45949 (all modules), warehouse
-metadata, and queries 1b / 5 / 5b over live data.
+metadata, and queries 1b / 2 / 3 / 5 / 5b / 6 over live data.
 
 The audit currently judges a payment against *records* — an expense, an enrolment, a draw. It does
 not look at what anyone **said**. Complaints hold that, and for several payment types they are the
@@ -27,8 +27,8 @@ Three exceptions, and only three:
 
 **So corroboration is a heuristic join: `HOUSEMAID_ID` + a date window + semantic match on the
 complaint type.** That is workable, but it means a missing complaint can only ever be an AMBER unless
-query 3 shows very high coverage for that type. Query 3 is still outstanding and is the gate on this
-whole design.
+query 3 shows very high coverage for that type. *(Query 3 has since come back and inverted this —
+see §3b: coverage is so high that presence proves nothing at all.)*
 
 ## 2. How far the text references reach
 
@@ -259,6 +259,48 @@ says triggers it. Two methods, same answer.
   MV Prorated Salary, Last Day CC Switch, Medical Assistance, Taxi, Forgive Deduction, Salary
   Dispute). Everywhere else absence is AMBER at most, and for the machine-generated types it is N_A.
 
+## 3e. Query 6 returned 32k rows, and that is the fourth confirmation
+
+The work queue as first written joined note × complaint and returned **32,247 rows for a 3-month,
+2-type window**. That is not a data problem. Query 3 measured 10.32 complaints per note for
+anti-attrition and 13.29 for salary dispute; ~2,570 notes in the window fan out to ~32k pairs, which
+is the density arriving exactly as predicted — now confirmed on a 3-month window as well as a
+12-month one.
+
+**A `LIMIT` would have been the wrong fix.** Truncating the join cuts a maid's complaint list
+mid-way and hands the agent a queue whose missing evidence is invisible to it — the agent would
+return "no corroborating complaint" for notes whose corroboration was simply below the cut. The
+export shape was the defect: §3d's rule needs three numbers per note (type-match, timing,
+per-maid specificity), and all three are aggregates. They collapse to **one row per note** if
+scored inside the warehouse instead of exported and scored outside.
+
+So query 6 is now three:
+
+| | Returns | Carries personal text | Purpose |
+|---|---|---|---|
+| **6a** | ~8 rows | no | the band distribution — sets the thresholds, and says whether a queue is worth building |
+| **6b** | ≤300 rows | no | the ranked queue: ids, dates, amounts, scores. One row per note, fan-out collapsed by `QUALIFY` picking the single best-matching complaint (expected type first, then nearest in time) |
+| **6c** | 1 note | **yes** | the detail fetch, by `note_id`. The only query in the pack that returns free text |
+
+The four bands are §3d made executable:
+
+| Band | Meaning |
+|---|---|
+| `1_CORROBORATED_coupled` | expected complaint type, within 15 days — a real link |
+| `2_TYPE_MATCH_but_window_noise` | right type, ~30+ days — the 90-day window talking to itself |
+| `3_NO_TYPE_MATCH` | complaints present, none of the expected type — corroborates nothing |
+| `4_NO_COMPLAINT_AT_ALL` | the small high-value queue of §3b |
+
+**§4's map is now data, not prose** — a `VALUES` CTE keyed on `COMPLAINT_TYPE_ID`, carrying the
+two types in scope and extensible to the other twelve by adding rows. Anti-attrition excludes 257
+`MV Retention` in the CTE itself, so the CC-only rule cannot be forgotten at query time.
+
+**Prediction, to be checked against 6a:** anti-attrition should land overwhelmingly in bands 2–4.
+Query 2 put its expected-type share at 13% and its coupling at 30.8 days — the window's midpoint —
+so band 1 should be near-empty. If it is not, query 2's reading is wrong and §3c needs revisiting.
+Salary dispute, at 34% share and 11.4 days, should show a real band 1. **6a is a falsification test
+for the whole design, not just a queue-sizing exercise.**
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -329,7 +371,8 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 
 | # | Ask | Unblocks |
 |---|---|---|
-| **O33** | **Run query 3 (coverage).** Nothing here can be graded RED until we know what share of each type has any complaint at all | the entire design |
+| ~~O33~~ | ~~Run query 3 (coverage)~~ — **done.** It inverted the design (§3b): coverage is 94–100%, so presence can never be a RED. Superseded by **O38** | — |
+| **O38** | **Run query 6a** (~8 rows). The band distribution is the last open input: it sets the thresholds and falsifies or confirms §3c's reading of anti-attrition | the queue, and the design's own credibility |
 | **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |
 | **O35** | Expose the `ComplaintType` **`tags`** join (`COMPLAINT_TYPES_TAGS`) — the code says the `transportation` tag, not the type name, is the single source of truth | taxi corroboration done the way the ERP does it |
 | **O36** | Confirm `HOUSEMAID_MANAGERACTIONLOGS.NOTES` is populated and readable at volume | anti-attrition Job 1 |
