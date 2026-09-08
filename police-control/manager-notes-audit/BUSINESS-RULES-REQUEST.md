@@ -236,19 +236,43 @@ held"* when they are perfectly correct. We would rather know now than raise fals
 
 ---
 
-## Part 3 — Two things nobody owns, which are bigger than anything above
+## Part 3 — What nobody owns
 
-### The loyalty payment — `anti_attrition_incentive`
+*(The loyalty payment was the larger of these two. As of 2026-09-08 it is answered — the rule was found in the ERP. It is left below, marked answered, with the three findings that came out of it. **`AR-1` is now the only genuinely unowned item.**)*
 
-**There is no rule for this anywhere in the company.** We checked the ERP source code: the only place
-this payment appears is a list telling the system *how* to pay it. Nothing says *who should get it*,
-*how much*, or *when*.
+### The loyalty payment — `anti_attrition_incentive` ✅ **ANSWERED — question withdrawn**
 
-On illustrative figures this is the **largest single category of unverifiable money** in the audit.
+**We were wrong about this one too, and it is the biggest correction on this page.** We told you no
+rule existed for the loyalty payment anywhere in the company. **A rule exists, it is written in code,
+and it has been running every month.** We had searched the payroll system; the rule lives in the
+housemaid-management system, and the payment reaches payroll indirectly through an expense request,
+which is why a direct search found nothing.
 
-**This needs a decision, not an answer:** either somebody writes the rule, or the audit reports every
-month that a material sum leaves the company against no stated basis. Both are legitimate outcomes.
-Silence is not.
+**What actually happens**, confirmed against a year of real payments:
+
+- A maid is **enrolled** by a manager, who records an incentive amount against her — normally
+  AED 100, 150, 200, 250, 300 or 350 a month.
+- A **monthly job runs on the last day of each month** and pays every enrolled, active,
+  **CC-only** maid. It **prorates** the amount if she was only eligible part of the month.
+- Over the last 12 months that is **AED 1.83m across 9,167 payments to 2,394 maids**, and it is
+  growing — 404 maids in the first month, 910 in the latest. The current run-rate is about
+  **AED 2.5m a year**.
+
+We can now check all of it: that she was enrolled, that she was CC and active, that the amount
+recomputes from her enrolled amount and her eligible days, and that she was paid once.
+
+**Three things we would still like from you — findings, not blockers:**
+
+1. **There is no human approval on any of it.** The payments are created by an automated service
+   account, and this type of addition is auto-confirmed — there is no review step in the system at
+   all. Roughly **AED 207,000 a month** leaves the company this way unattended. That may be a
+   deliberate design; we would like it confirmed as one.
+2. **795 payments (AED 310k) are at AED 400 or AED 500** — amounts outside the standard list the
+   system validates against. Either the list was widened and we should know the current one, or some
+   enrolments bypassed the check.
+3. **43 payments (AED 12,553) were added by hand outside the monthly job**, at amounts matching no
+   standard value at all, by 28 different people. These are the genuinely discretionary ones, and
+   they are the only part of this payment type that still has no rule behind it.
 
 ### `AR-1`
 
@@ -263,7 +287,7 @@ under it. **Somebody in payroll knows what it is, and nothing in the system does
 | --- | --- | --- |
 | The five open payment types in Part 1 | unverifiable | fully checked, every month |
 | The three lists in Part 2 | three tests permanently blocked | those tests run across all payment types |
-| Loyalty and AR-1 | unverifiable, and unexplained | at minimum, explained |
+| ~~Loyalty~~ and AR-1 | loyalty is **answered and now fully checkable**; AR-1 remains unexplained | AR-1 at minimum explained |
 
 None of this needs engineering. Each answer is written once and the check runs itself from then on.
 

@@ -403,13 +403,69 @@ None of the five tables is in the warehouse. So group F is **BLOCKED on an inges
 source** (O3b) rather than on a business owner. That is a materially cheaper ask, and it is the only
 thing standing between this payment type and a running check.
 
-#### N13 — The loyalty rule
-The loyalty payment maps to addition reason **`anti_attrition_incentive`**. *(code-verified)* its
-**only** reference anywhere in the ERP is `HousemaidPayrollPaymentServiceV2.getMustBePaidManagerNotes`
-— a payment-routing list, **not an eligibility or amount rule**. So the v1 finding survives the
-code check with evidence: **no rule exists to test against, anywhere.** This is not a data gap
-ingestion fixes. Until a rule is written, every such note is permanently amber, reason *"no rule
-exists"*. **Writing the rule is the fix** — R10 / Q4.
+#### N13 — The loyalty rule — 🟢 **resolved 2026-09-08; the rule exists and the code has it**
+**v2's "no rule exists to test against, anywhere" was wrong, and wrong the same way N12 was.**
+*(code-verified, conversation 45934, all modules; corroborated against 9,167 real notes.)* That claim
+came from a payroll-module search finding only `HousemaidPayrollPaymentServiceV2.getMustBePaidManagerNotes`
+— a payment-routing list. The rule is not in payroll. It is in
+**`erp/magnamedia-housemaid-management`**, and it is fully specified.
+
+**Nothing sets `additionReason = anti_attrition_incentive` directly.** The notes are produced by a
+two-stage pipeline, which is why a string search in payroll found nothing:
+
+1. **`MaidIncentiveExperimentJob.processIncentiveExperimentNotes()`** (job definition
+   `maid_incentive_experiment_job`, *"Maid Incentive Experiment Job"*) posts a **SALARY expense
+   request** to accounting with `expense.code = "AAI - 01"`, `expenseRequestType = MAID_PAYMENT`.
+   A second producer, `AbuDhabiMaidIncentiveExpenseJob` → `MaidIncentiveService.processAbuDhabiIncentives()`,
+   feeds the same expense code.
+2. **`ManagerNoteService.processExpenseRequestTodo()`** (payroll, L113–174) then creates the
+   `PayrollManagerNote` when the SALARY expense is confirmed, copying the reason from
+   `Expense.salaryAdditionType`. **The literal string `anti_attrition_incentive` lives only in the
+   accounting Expense config for `AAI - 01`** — DB config, not source. That is the whole reason the
+   payroll search came up empty.
+
+**Eligibility** — `MaidManagerActionLogRepository.findHousemaidsWithIncentiveNotes(...)`, batched 50/page:
+
+- `h.housemaidType <> MAID_VISA` — **CC only** (a second confirmed row for N15)
+- `h.status NOT IN Housemaid.rejectedStatuses`
+- `EXISTS` a `MaidManagerActionLog` with `actionType.code = 'Maid_Incentive_Experiment'`
+  **and `incentiveAmount IS NOT NULL`** — this is the **enrolment record**
+- per-maid guard: skip if a note for the **same contract** already has `incentiveRequestDate` in the
+  current month
+
+**Amount** — there is no tier table. The amount is a **per-maid field set at enrolment**,
+`MaidManagerActionLog.incentiveAmount`, validated against parameter
+`MAID_INCENTIVE_CONFIGS_PARAM.amount_values`, **default `100,150,200,250,300,350`**. The same
+parameter carries `expenseCode = "AAI - 01"` and `requesterId = "2226"`.
+
+**Proration** — `MaidIncentiveExperimentJob` L335–338:
+
+```
+daysBetween           = daysBetweenDates(startDate, endDate) + 1
+totalMonthDaysTillNow = daysBetweenDates(firstDayOfMonth, currentDate) + 1
+amount                = (daysBetween / totalMonthDaysTillNow) * incentiveAmount
+```
+
+`startDate = max(tagDate, firstOfMonth)`; `endDate` = untag / contract-change / termination date.
+Run on the last day of the month, `totalMonthDaysTillNow` is the length of the month. **Confirmed
+against the data: 99.5% of 9,167 real notes fit `incentiveAmount × days ÷ days-in-month` exactly**
+(6,116 whole-month, 3,051 prorated).
+
+**Who requests and approves it.** `requesterId` from the parameter (default **user 2226**) is stamped
+on the expense, becomes `expenseRequestTodo.requestedBy`, and then the note's creator. `PayrollManagerNote`
+has **no `approvedBy` column at all**, and SALARY expense additions are **auto-confirmed — there is no
+approval gate**. So the "one person requests and approves 7,684 notes" pattern in the data is a
+**batch service account, not a human self-approving**. 🔴 The finding is not a segregation-of-duties
+breach; it is that **AED 1.8m/year passes with no human approval step by design** (new O22).
+
+**Two values still cannot be read from code**, because both are DB config, not source: the
+`AAI - 01` → `anti_attrition_incentive` mapping (accounting `Expense.salaryAdditionType`) and the
+actual monthly schedule (`JobInstance` — the job is registered with a `null` trigger). The data
+settles the schedule empirically: **12 batches, each on the last day of its month**, gaps of 28–32 days.
+
+**What this changes.** `anti_attrition_incentive` moves from **UNRULED** to
+**ELIG · CORR · RECOMP · CEIL · UNIQ** — see group B. Q4 ("someone must write the loyalty rule")
+is **withdrawn**: the rule is written, in code.
 
 #### N14 — Payment type → allowed expense heads
 Which `EXPENSES_REQUESTS.EXPENSE_TYPE` values are legitimate behind each addition reason. Test T5
@@ -706,7 +762,7 @@ payment type is:
 | `airfare_ticket` | ELIG · CEIL · UNIQ |
 | `bonus` + `referral_bonus` | ELIG · CORR · RECON · UNIQ |
 | `bonus` + other | CORR |
-| `anti_attrition_incentive` | UNRULED |
+| `anti_attrition_incentive` | **ELIG · CORR · RECOMP · CEIL · UNIQ** — *(specified 2026-09-08; was UNRULED)* |
 | `prorated_salary`, `mv_prorated_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | RECOMP · ELIG |
 | `previously_held_salary` | **PAIR** · ELIG — *(corrected 2026-09-08; needs no salary history)* |
 | `salary_dispute` | CORR · UNRULED *(E2 has no field)* |
@@ -775,7 +831,7 @@ count.
 | Addition reason `CODE` | Name | Group | Buildable today? |
 | --- | --- | --- | --- |
 | `airfare_ticket` | Airfare Ticket | **A — Flight home** | **Yes** (N8 lands the cap) |
-| `anti_attrition_incentive` | Anti Attrition Incentive | **B — Loyalty** | **No — no rule exists** (N13) |
+| `anti_attrition_incentive` | Anti-attrition Incentive | **B — Loyalty** | **Yes — 4 of 6 tests need only the grant; B4/B5 need one column** (N13, O23) |
 | `bonus` + purpose `referral_bonus` | Referral bonus | **C — Referral** | Partly — event yes (D18), price no (N11) |
 | `bonus` + other/no purpose | Signing bonus | **C — Signing** | Partly — price no (N11) |
 | `renewal_bonus` | Renewal Bonus | **H — unmapped** | No |
@@ -838,9 +894,27 @@ too.
 `TERMINATION`, `TO_EXIT` and `TO_MANILA`. If `airfare_ticket` cash covers repatriation as well as
 vacation, a maid terminated at 14 months would be wrongly red-flagged by a flat 22-month floor.
 
-**Group B — Loyalty.** No test exists. *(code-verified: `anti_attrition_incentive`'s only
-reference anywhere in the ERP is a payment-routing list, not an eligibility or amount rule.)*
-Returns BLOCKED, *"no rule exists"*. Permanently amber until a rule is written — Q4.
+**Group B — Loyalty.** 🔴 **Rewritten 2026-09-08 — v2's "no test exists" is superseded.** The rule
+is code-verified (N13) and five tests follow from it directly:
+
+- **B1 — enrolled.** A `MaidManagerActionLog` exists for this maid with
+  `actionType.code = 'Maid_Incentive_Experiment'` and `incentiveAmount IS NOT NULL`, dated on or
+  before the note. No enrolment → **RED**: an incentive paid to somebody never enrolled. **(CORR)**
+- **B2 — contract type.** `housemaidType <> MAID_VISA` as of the note date. An MV maid → **RED**;
+  the job cannot have produced it. **(ELIG)**
+- **B3 — active.** Her status is not in `Housemaid.rejectedStatuses` at the note date. **(ELIG)**
+- **B4 — the amount recomputes.** `AMOUNT = incentiveAmount × daysBetween ÷ totalMonthDaysTillNow`,
+  per the formula in N13, within AED 0.01. Divergence → **RED**, by the difference. **(RECOMP)**
+- **B5 — enrolment amount is allowed.** `incentiveAmount ∈ MAID_INCENTIVE_CONFIGS_PARAM.amount_values`.
+  🔴 Read the parameter live, never the code default — production has demonstrably extended it
+  (O23). **(CEIL)**
+- **B6 — once per contract per month.** The job's own guard. More than one note per
+  (contract, month) → **RED**. **(UNIQ, set-level)**
+
+**B1–B3 and B6 are runnable as soon as the warehouse grant lands** — `HOUSEMAID_MANAGERACTIONLOGS`
+is already granted and carries `ACTION_TYPE`, `HOUSEMAID_ID` and `ACTION_DATE`. **B4 and B5 need one
+column that the view does not expose** (O23). Do not report group B as blocked wholesale: four of
+its six tests are Phase 1 work.
 
 **Group C — Referral / signing.** 🔴 **Scheme supplied 2026-09-07 (George Abboud via Hassan
 Ahmed); v2's "price BLOCKED" is superseded.**
@@ -1393,6 +1467,9 @@ residual; G7 reports N14–N16 absent.
 | O2 | **Enumerate the addition-reason picklist and `HousemaidPurposesForBonusAdditionalDescription` from the database.** The §3 M6 table is recovered from **code references**, so a reason that exists in the picklist but is referenced nowhere in code is missing from it — and an unmapped reason is amber by construction, which is safe but understates coverage. Also needs `PICKLISTS_INFO`'s own column names and types, never profiled | Snowflake team, after O1 | **Yes** |
 | O3 | **Three Ask the Code follow-ups**, each one question: (a) N7 — the payroll lock-window table and column; (b) ~~N12 — what `RafflePerformerJob` reads to pick winners~~ **answered 2026-09-08, conversation 45932; became O3b**; (c) whether `HOUSEMAID_MANAGER_NOTES.AMOUNT` is always AED (O12) | P&C, with a fresh token | **Yes** |
 | O3b | **Ingest the five raffle tables** — `RaffleDraw`, `RaffleDrawParticipant`, `RaffleDrawPrizeGrand`, `RaffleTicketLog`, `RaffleDrawLog` (`com.magnamedia.entity.raffledraw`, module `erp/magnamedia-housemaid-management`). Verified 2026-09-08: **zero** objects matching `%RAFFLE%`, `%PRIZE%` or `%DRAW%` exist account-wide. This is the **whole** of what blocks group F — the rule is code-verified and needs no business owner (N12). Minimum viable set: participant (`draw`, `housemaid`, `isWinner`, `winOn`, `prize`, `points`), draw (`drawDate`, `status`) and prize (`worth`, `isGrand`) | Data team | **Yes** for group F |
+| O22 | **AED 1.8m a year passes with no human approval step, by design.** *(code + data, 2026-09-08.)* Anti-attrition notes are created by a batch job under service account **2226**; SALARY expense additions are **auto-confirmed** and `PayrollManagerNote` has no `approvedBy` column. 88.3% of notes (86.7% of the money) show the same name as requester and approver — that is the service account, not a person self-approving. The control question is whether an unattended monthly batch paying ~AED 207k should have any review at all | P&C + Payroll | Not blocking — it **is** a finding |
+| O23 | **Expose `INCENTIVE_AMOUNT` (and `INCENTIVE_REQUEST_DATE`, `CONTRACT_ID`) on `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS`.** The view is already granted and already carries `ACTION_TYPE`/`HOUSEMAID_ID`/`ACTION_DATE`, but its `AMOUNT` column maps to `a.DEDUCTION_AMOUNT`, not `a.INCENTIVE_AMOUNT` — so the enrolment amount, the one input B4 and B5 recompute against, is invisible. **One column, not an ingestion.** Also read `MAID_INCENTIVE_CONFIGS_PARAM.amount_values` live: 795 notes (AED 310k) imply enrolment amounts of 400 and 500, outside the code default `100,150,200,250,300,350` | Data team | **Yes** for B4/B5 |
+| O24 | **167 maid-months carry two notes inside the *same* batch run** (256 maid-months with >1 note overall, AED 75,120). The job guards per **contract**, not per maid, so a maid on two contracts in one month is legitimate — but that has to be confirmed, and `CONTRACT_ID` is not exposed (O23). Until then B6 cannot separate a double-pay from a two-contract month | Data team, then P&C | **Yes** for B6 |
 | O4 | Is `HOUSEMAIDS_TICKETS` still written to? `MAX(PURCHASE_DATE)`. `ID` tops at 14,564 — small enough to suspect a dead source, which would silently disable group A4 | Snowflake team, after O1 | Yes for A4 |
 | O5 | **Resolve X1** before any use of `EXPENSES_REQUESTS.RELATED_TO_ID` | Data team | **Yes** for the expense link |
 | O6 | **Timezone** of `NOTE_DATE` and the payslip dates. `TIMESTAMP_NTZ` carries none; if the ERP writes UTC, a note at 02:00 Dubai truncates to the previous day and can cross a lock-window edge | ERP team | **Yes** |

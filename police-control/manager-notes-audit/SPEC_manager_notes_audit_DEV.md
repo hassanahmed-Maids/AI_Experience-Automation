@@ -177,7 +177,7 @@ Read these from **`mmdb_transformed.payrollmanagernotes`** unless noted. Scope h
 | N10 | effective-dated salary history — the salary in force on a past date, not the current profile value | group D | `mmdb` revision tables are the likely home; confirm the shape |
 | N11 | ~~referral and signing bonus scheme prices~~ — 🔴 **largely resolved.** The referral scheme is stated (§8 C); a signing bonus has **no price by construction**. And an authorised-amount source exists: **`HOUSEMAID_REFERRALS.AMOUNT`** is what the referral record authorised, against which `MAIDS_REFERRALS_BONUSES.BONUS_AMOUNT` (paid) can be compared — C6 | group C | still open: what the **AED 1,200** is, and whether the amounts ever changed. ⚠️ `MAIDS_REFERRALS_BONUSES` is built **from `payrollmanagernotes` itself**, filtered `AMOUNT != 0 AND AMOUNT IS NOT NULL` — circular as a price source, and that filter deletes exactly the notes T3 flags. Use it for the paid amount only |
 | N12 | ~~raffle winners per draw~~ — 🟢 **resolved 2026-09-08 (conversation 45932, all modules).** The whole subsystem exists in **`erp/magnamedia-housemaid-management`**, not payroll: `RafflePerformerJob` draws winners weighted by ticket points and `addPrizesToPayroll()` writes the note with `amount = prize.worth`. Winners are `RaffleDrawParticipant` rows with `isWinner = true`; prize amounts come from parameters `raffle_first_prize` (2,000) and `raffle_second_prize` (200) | group F | **No longer a knowledge gap — an ingestion.** None of the five `raffledraw` tables is in the warehouse (verified: zero objects matching `%RAFFLE%`/`%PRIZE%`/`%DRAW%` account-wide). Group F is fully specified against them |
-| N13 | the loyalty rule | group B | nowhere. `anti_attrition_incentive` has no eligibility or amount rule anywhere in the ERP — its only reference is a payment-routing list. Someone has to write one (Q4) |
+| N13 | ~~the loyalty rule~~ — 🟢 **resolved 2026-09-08 (conversation 45934, all modules).** The rule is in **`erp/magnamedia-housemaid-management`**: `MaidIncentiveExperimentJob` pays every enrolled, active, non-MV maid on the last day of the month, amount = `MaidManagerActionLog.incentiveAmount × daysBetween ÷ totalMonthDaysTillNow`. It reaches payroll indirectly via expense code `AAI - 01`, which is why a payroll-module search found only the routing list | group B | **Not a business ask any more.** `HOUSEMAID_MANAGERACTIONLOGS` is already granted (gives B1/B2/B3/B6); B4/B5 need `INCENTIVE_AMOUNT` exposed on it — one column (O23) |
 | N14 | payment type → allowed expense heads | T5 | P&C + Payroll |
 | N15 | contract type → allowed payment types (all **four** types, see §6) | T7 | P&C + Payroll |
 | N16 | payment types that always carry an expense record | T4 | P&C + Payroll — **but two are already answered**, see below |
@@ -297,7 +297,7 @@ this. Do not code a fixed list of reasons.
 | `ADDITION_REASON_ID` code | Group | Buildable |
 |---|---|---|
 | `airfare_ticket` | **A** Flight home | ✅ |
-| `anti_attrition_incentive` | **B** Loyalty | ❌ needs N13 |
+| `anti_attrition_incentive` | **B** Loyalty | ✅ **specified** (ELIG · CORR · RECOMP · CEIL · UNIQ) — 4 of 6 tests need only the grant |
 | `bonus` + purpose `referral_bonus` | **C** Referral | partial — event ✅, price needs N11 |
 | `bonus` + other purpose | **C** Signing | partial — price needs N11 |
 | `prorated_salary`, `mv_prorated_salary`, `previously_held_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | **D** Part-month | partial — needs N10 |
@@ -454,7 +454,7 @@ none of them is a query away:
 |---|---|---|
 | 1 | **N14, N15, N16** — the three reference mappings. Without them T4, T5 and T7 stay BLOCKED and their notes amber | P&C + Payroll |
 | 2 | **N10–N11** — salary history and scheme prices. Each one gates a group rule. *(N12 raffle is resolved — it now needs a warehouse ingestion, not an answer)* | respective owners |
-| 3 | **N13** — a written loyalty rule. It does not exist anywhere in the company (Q4) | the business |
+| 3 | ~~**N13** — a written loyalty rule~~ **resolved 2026-09-08: the rule exists, in code (`MaidIncentiveExperimentJob`). Q4 withdrawn.** What replaces it is O23, one column on an already-granted view | Data team |
 | 4 | **Timezone of `NOTE_DATE`** and the payslip dates. `TIMESTAMP_NTZ` carries none; if the ERP writes UTC, a note at 02:00 Dubai truncates to the previous day and crosses a lock-window edge | ERP team |
 | 5 | **Confirm the note amount is AED.** The note table has no currency column, so the whole spec assumes it. If that is wrong, every comparison, M2, M11 and both tie-outs are wrong in an unknown direction | ERP team |
 | 6 | **The `MONTHLYPAYMENTRULES` lock column** (N7) | ERP team |
