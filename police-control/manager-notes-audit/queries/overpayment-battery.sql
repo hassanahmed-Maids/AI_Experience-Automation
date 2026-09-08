@@ -296,3 +296,57 @@ SELECT CASE
 FROM paid p JOIN ref r ON r.referrer_id = p.HOUSEMAID_ID
 GROUP BY 1
 ORDER BY aed_OVER_ENTITLEMENT DESC;
+
+-- O6/O7 RESULTS 2026-09-08 — 🔴 THE CLEANEST OVERPAYMENT FINDING SO FAR.
+--   O7: 466 maids / 525 notes match their referral entitlement TO THE PENNY (AED 455,200 =
+--       455,200). That validates HOUSEMAID_REFERRALS.AMOUNT as the entitlement, which is what
+--       makes the outliers credible rather than an artefact of a guessed model:
+--       🔴 15 maids · 28 notes · paid AED 20,000 against AED 9,500 entitled · OVER by 10,500
+--       (51 maids were paid LESS than entitled — underpayment, a byproduct, not this axis.)
+--   O6: requested, not cancelled, paid after ....... 594 notes · AED 511,700  clean
+--       no referral at all ......................... 407 notes · AED 251,721  ⚠️ signing bonus?
+--       🔴 referral exists, NO bonus ever requested   110 notes · AED  70,895
+--       🔴 paid BEFORE the bonus was requested ......  20 notes · AED  15,000
+--       No bonus was paid on an entirely cancelled referral — that bucket is empty.
+--   ⚠️ O6's 20 and O7's 15 are DIFFERENT CUTS OF ONE POPULATION and may overlap. Do not add
+--   them. O8 de-duplicates before anything is published.
+
+-- O8. Consolidate the bonus findings to a distinct note set, so the headline figure is the
+--   union rather than a sum of overlapping tests. One row per note, one verdict, priority
+--   ordered — over-entitlement first, since it is the hardest of the three.
+WITH bonus AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), ref AS (
+    SELECT HOUSEMAID_ID                                 AS referrer_id,
+           COUNT(*)                                     AS referrals,
+           COUNT_IF(COALESCE(IS_REQUESTED_BONUS,0) = 1) AS bonus_requested,
+           MIN(IFF(COALESCE(IS_REQUESTED_BONUS,0) = 1, BONUS_REQUEST_DATE::DATE, NULL))
+                                                        AS first_bonus_request,
+           SUM(IFF(COALESCE(IS_CANCELLED,0) = 0 AND COALESCE(IS_REQUESTED_BONUS,0) = 1,
+                   AMOUNT, 0))                          AS entitled
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL
+    GROUP BY 1
+), totals AS (
+    SELECT HOUSEMAID_ID, SUM(AMOUNT) AS bonus_paid FROM bonus GROUP BY 1
+)
+SELECT CASE
+         WHEN r.referrer_id IS NULL                                   THEN '4 no referral at all — unresolved'
+         WHEN r.entitled > 0 AND t.bonus_paid > r.entitled + 0.01     THEN '1 OVER the referral entitlement'
+         WHEN r.bonus_requested = 0                                   THEN '2 no bonus was ever requested'
+         WHEN b.note_day < r.first_bonus_request                      THEN '3 paid before the bonus request'
+         ELSE                                                              '5 clean'
+       END                                          AS verdict,
+       COUNT(*)                                     AS notes,
+       COUNT(DISTINCT b.HOUSEMAID_ID)               AS maids,
+       ROUND(SUM(b.AMOUNT))                         AS aed_paid,
+       ROUND(SUM(GREATEST(COALESCE(t.bonus_paid,0) - COALESCE(r.entitled,0), 0))
+             / NULLIF(COUNT(*),0) * COUNT(*))       AS aed_context
+FROM bonus b
+LEFT JOIN ref r    ON r.referrer_id  = b.HOUSEMAID_ID
+LEFT JOIN totals t ON t.HOUSEMAID_ID = b.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY verdict;
