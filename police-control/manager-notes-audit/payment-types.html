@@ -1,0 +1,266 @@
+<title>Live Payment Types</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+:root{
+  --ink:#15181D; --ink-2:#454D58; --ink-3:#727C8A;
+  --bg:#FCFCFB; --panel:#FFFFFF; --panel-2:#F4F5F3; --line:#E3E5E1; --line-2:#CBD0C9;
+  --red:#A32118; --amber:#B07F09; --green:#0A7245; --accent:#3538CD; --slate:#5B6472;
+  --red-wash:#FBEDEB; --amber-wash:#FBF3E0; --green-wash:#E9F4EE; --accent-wash:#EDEEFB;
+  --code-bg:#F2F3F0;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+  --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF; --slate:#9AA3AE;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --code-bg:#202320;
+}}
+:root[data-theme="dark"]{
+  --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+  --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF; --slate:#9AA3AE;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --code-bg:#202320;
+}
+*{box-sizing:border-box}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:2px}
+.wrap{max-width:1180px; margin:0 auto; padding:34px 22px 80px}
+.eyebrow{font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600}
+h1{font-size:29px; line-height:1.14; letter-spacing:-.02em; margin:7px 0 0; font-weight:700;
+  text-wrap:balance}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:16.5px; line-height:1.6;
+  color:var(--ink-2); margin:12px 0 0; max-width:66ch}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.pill{display:inline-block; font-size:11px; font-weight:600; letter-spacing:.02em;
+  padding:3px 8px; border-radius:3px; white-space:nowrap; border:1px solid transparent}
+.p-red{color:var(--red); background:var(--red-wash); border-color:color-mix(in srgb,var(--red) 30%,transparent)}
+.p-amb{color:var(--amber); background:var(--amber-wash); border-color:color-mix(in srgb,var(--amber) 32%,transparent)}
+.p-grn{color:var(--green); background:var(--green-wash); border-color:color-mix(in srgb,var(--green) 30%,transparent)}
+.p-acc{color:var(--accent); background:var(--accent-wash); border-color:color-mix(in srgb,var(--accent) 28%,transparent)}
+.p-mut{color:var(--ink-3); background:var(--panel-2); border-color:var(--line)}
+.band{display:grid; gap:13px; grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+  margin:26px 0 0; padding:20px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line)}
+.kpi b{display:block; font-family:"IBM Plex Mono",monospace; font-size:24px; line-height:1.1;
+  letter-spacing:-.02em; font-weight:600; font-variant-numeric:tabular-nums}
+.kpi span{display:block; font-size:11.5px; line-height:1.4; color:var(--ink-3); margin-top:4px}
+.kpi{border-left:2px solid var(--line-2); padding-left:12px}
+.kpi.r{border-left-color:var(--red)} .kpi.a{border-left-color:var(--amber)}
+.kpi.g{border-left-color:var(--green)} .kpi.c{border-left-color:var(--accent)}
+h2{font-size:19px; letter-spacing:-.01em; margin:42px 0 3px; font-weight:700}
+h2 + p{margin:0 0 16px; color:var(--ink-2); max-width:70ch}
+footer{margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
+  color:var(--ink-3); font-size:12.5px; max-width:78ch}
+code{font-family:"IBM Plex Mono",monospace; font-size:.87em; background:var(--code-bg);
+  border:1px solid var(--line); border-radius:3px; padding:1px 4px}
+</style>
+<style>
+.tw{overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--panel); margin:0}
+table{border-collapse:collapse; width:100%; font-size:13px}
+th,td{text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3);
+  background:var(--panel-2); font-weight:600; white-space:nowrap; position:sticky; top:0}
+th.s{cursor:pointer} th.s:hover{color:var(--ink)}
+tbody tr:last-child td{border-bottom:0}
+td.nm b{display:block; font-weight:600; font-size:13.5px}
+td.nm span{display:block; color:var(--ink-3); font-size:12px; line-height:1.45; margin-top:3px; max-width:46ch}
+td.num{text-align:right; white-space:nowrap; font-size:13.5px}
+tr[data-st="red"] td:first-child{box-shadow:inset 2px 0 0 var(--red)}
+tr[data-st="amber"] td:first-child{box-shadow:inset 2px 0 0 var(--amber)}
+tr[data-st="green"] td:first-child{box-shadow:inset 2px 0 0 var(--green)}
+tr[data-st="mut"] td:first-child{box-shadow:inset 2px 0 0 var(--line-2)}
+tr[data-meas="0"] td.num{color:var(--ink-3)}
+.ctl{display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin:0 0 14px}
+.chip{font:inherit; font-size:12.5px; font-weight:500; color:var(--ink-2); background:var(--panel);
+  border:1px solid var(--line-2); border-radius:999px; padding:5px 12px; cursor:pointer}
+.chip[aria-pressed="true"]{color:var(--accent); background:var(--accent-wash); font-weight:600;
+  border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.hidden{display:none}
+</style>
+<div class="wrap">
+<div class="eyebrow">Police &amp; Control &middot; Manager Notes Audit</div>
+<h1>The live payment types, and what can actually be checked</h1>
+<p class="lede">Eighteen addition types are in play. This is what each one is worth, whether a
+corroborating record exists behind it, whether anyone is named on it, and which of its checks can run
+today. Grey figures were not measured in this pass and are marked as such rather than estimated.</p>
+
+<div class="band">
+  <div class="kpi c"><b>AED 6.76m</b><span>additions across 12 months</span></div>
+  <div class="kpi r"><b>59%</b><span>of notes are one type: anti-attrition</span></div>
+  <div class="kpi a"><b>7 of 18</b><span>have a check blocked on ingestion</span></div>
+  <div class="kpi g"><b>2.33&times;</b><span>best measured corroboration (salary dispute)</span></div>
+</div>
+
+<h2>Every type, ranked by volume</h2>
+<p>The corroboration column is a lift over a random maid, not a raw rate &mdash; a payment can sit at
+94% complaint coverage and still carry no signal at all.</p>
+<div class="ctl">
+  <button class="chip" id="f1" aria-pressed="false">Has a finding</button>
+  <button class="chip" id="f2" aria-pressed="false">Measured this pass</button>
+  <button class="chip" id="f3" aria-pressed="false">Blocked</button>
+  <button class="chip" id="ft" aria-pressed="false">Dark</button>
+</div>
+<div class="tw"><table>
+<thead><tr>
+<th>Payment type</th><th class="s num" data-k="n">Notes / 12m</th><th class="s num" data-k="a">AED</th>
+<th>Group</th><th>Corroboration</th><th>Attribution</th><th>Checks</th>
+</tr></thead>
+<tbody id="tb"><tr data-st="red" data-meas="1" data-n="9167" data-a="1829735">
+<td class="nm"><b>Anti-attrition Incentive</b><span>Largest type by count. Complaint check N_A; enrolment-exists passes 1,000 in 1,001; tier recompute blocked. The real check reads the enrolment reason box.</span></td>
+<td class="num mono">9,167</td><td class="num mono">1,829,735</td>
+<td>B · Loyalty</td>
+<td><span class="pill p-amb">1.00x chance — zero signal</span></td>
+<td><span class="pill p-mut">batch job, no human step</span></td>
+<td><span class="pill p-red">6 of 8 Phase 1</span></td></tr><tr data-st="amber" data-meas="0" data-n="1647" data-a="-1">
+<td class="nm"><b>Airfare Ticket</b><span>Nationality tier cap is testable today against PARAMETERS. Tiers observed 2000 / 1500 / 1000.</span></td>
+<td class="num mono">1,647</td><td class="num mono">—</td>
+<td>A · Ceiling</td>
+<td><span class="pill p-mut">2.3x density, renewal-driven</span></td>
+<td><span class="pill p-mut">machine, null by design</span></td>
+<td><span class="pill p-amb">CEIL runnable</span></td></tr><tr data-st="red" data-meas="1" data-n="1205" data-a="-1">
+<td class="nm"><b>Bonus</b><span>Attribution broke around 2024-05 and peaked at 98%. The retraction half has a hard FK to a complaint; the referral half legitimately has none.</span></td>
+<td class="num mono">1,205</td><td class="num mono">—</td>
+<td>C · Referral / signing</td>
+<td><span class="pill p-amb">1.2x — referrals are never complaints</span></td>
+<td><span class="pill p-red">48% unattributed, and worsening</span></td>
+<td><span class="pill p-red">split by half</span></td></tr><tr data-st="amber" data-meas="1" data-n="1084" data-a="-1">
+<td class="nm"><b>Salary Dispute</b><span>The corroboration check works here: 53% carry an expected complaint type and 90% of those within 15 days. Reviewers often write the arithmetic into the note.</span></td>
+<td class="num mono">1,084</td><td class="num mono">—</td>
+<td>E · Salary correction</td>
+<td><span class="pill p-grn">2.33x chance — real coupling</span></td>
+<td><span class="pill p-grn">9% self-approved</span></td>
+<td><span class="pill p-amb">E1-E4 + S1</span></td></tr><tr data-st="amber" data-meas="1" data-n="502" data-a="84394">
+<td class="nm"><b>Taxi Reimbursement</b><span>The cleanest attribution record in the audit — proof the field can be populated reliably. Corroboration needs the complaint-type tag join.</span></td>
+<td class="num mono">502</td><td class="num mono">84,394</td>
+<td>A · Corroborate</td>
+<td><span class="pill p-grn">5.6x density</span></td>
+<td><span class="pill p-grn">0% unattributed in 36 months</span></td>
+<td><span class="pill p-amb">blocked on tags</span></td></tr><tr data-st="amber" data-meas="1" data-n="342" data-a="51260">
+<td class="nm"><b>Maids.at other expenses</b><span>The data named this type: OWWA / OEC Philippine overseas-worker paperwork. The spec had never said what it was for.</span></td>
+<td class="num mono">342</td><td class="num mono">51,260</td>
+<td>— </td>
+<td><span class="pill p-mut">2.0x, too generic to test</span></td>
+<td><span class="pill p-grn">68% raised, never approved</span></td>
+<td><span class="pill p-amb">review</span></td></tr><tr data-st="red" data-meas="1" data-n="89" data-a="21882">
+<td class="nm"><b>Medical Assistance</b><span>Highest self-approval rate in the audit. Density alone read as background noise; type-match showed the opposite — a quiet maid with exactly the right complaint.</span></td>
+<td class="num mono">89</td><td class="num mono">21,882</td>
+<td>A · Corroborate</td>
+<td><span class="pill p-grn">6.4x type-match</span></td>
+<td><span class="pill p-red">47% self-approved</span></td>
+<td><span class="pill p-red">runnable</span></td></tr><tr data-st="green" data-meas="1" data-n="82" data-a="10239">
+<td class="nm"><b>MOHRE requirement additions</b><span>Small, well-attributed, 92% segregated.</span></td>
+<td class="num mono">82</td><td class="num mono">10,239</td>
+<td>—</td>
+<td><span class="pill p-mut">not profiled</span></td>
+<td><span class="pill p-grn">3% self-approved</span></td>
+<td><span class="pill p-grn">runnable</span></td></tr><tr data-st="amber" data-meas="1" data-n="69" data-a="51600">
+<td class="nm"><b>Accommodation Relocation</b><span>Strongest complaint association measured. Also the only check on the unenforced CC live-out rule.</span></td>
+<td class="num mono">69</td><td class="num mono">51,600</td>
+<td>A · Corroborate</td>
+<td><span class="pill p-grn">7.3x — strongest in the set</span></td>
+<td><span class="pill p-grn">4% self-approved</span></td>
+<td><span class="pill p-amb">runnable</span></td></tr><tr data-st="red" data-meas="1" data-n="6" data-a="4100">
+<td class="nm"><b>VIP Bonus</b><span>Tiny volume, but two of five payments are self-approved.</span></td>
+<td class="num mono">6</td><td class="num mono">4,100</td>
+<td>—</td>
+<td><span class="pill p-amb">not profiled</span></td>
+<td><span class="pill p-red">39% self-approved</span></td>
+<td><span class="pill p-red">runnable</span></td></tr><tr data-st="green" data-meas="1" data-n="3" data-a="1855">
+<td class="nm"><b>Passport Assistance</b><span>Clean.</span></td>
+<td class="num mono">3</td><td class="num mono">1,855</td>
+<td>—</td>
+<td><span class="pill p-amb">not profiled</span></td>
+<td><span class="pill p-grn">100% segregated</span></td>
+<td><span class="pill p-grn">runnable</span></td></tr><tr data-st="amber" data-meas="1" data-n="3" data-a="600">
+<td class="nm"><b>Lost Luggage Compensation</b><span>Tiny volume; most carry no approver.</span></td>
+<td class="num mono">3</td><td class="num mono">600</td>
+<td>—</td>
+<td><span class="pill p-amb">not profiled</span></td>
+<td><span class="pill p-grn">59% raised, never approved</span></td>
+<td><span class="pill p-amb">runnable</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
+<td class="nm"><b>Prorated salary</b><span>Not measured this session. Machine-generated from payroll state.</span></td>
+<td class="num mono">—</td><td class="num mono">—</td>
+<td>D · Recompute</td>
+<td><span class="pill p-mut">2.0x</span></td>
+<td><span class="pill p-mut">machine</span></td>
+<td><span class="pill p-mut">RECOMP blocked</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
+<td class="nm"><b>MV Prorated Salary</b><span>Not measured this session. The tightest temporal coupling in the whole corroboration study — 0.1 days.</span></td>
+<td class="num mono">—</td><td class="num mono">—</td>
+<td>D · Recompute</td>
+<td><span class="pill p-grn">10.2x on Maid's termination, 0.1 days</span></td>
+<td><span class="pill p-mut">machine</span></td>
+<td><span class="pill p-mut">RECOMP blocked</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
+<td class="nm"><b>Forgive Deduction</b><span>Not measured this session. Must pair with a salary-dispute exclusion (E4).</span></td>
+<td class="num mono">—</td><td class="num mono">—</td>
+<td>PAIR</td>
+<td><span class="pill p-grn">5.4x</span></td>
+<td><span class="pill p-mut">machine</span></td>
+<td><span class="pill p-mut">PAIR runnable</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
+<td class="nm"><b>Last Day CC Switch Adjustment</b><span>Not measured this session. 58% carry the CC-to-MaidVisa switch complaint the code predicts.</span></td>
+<td class="num mono">—</td><td class="num mono">—</td>
+<td>D · Recompute</td>
+<td><span class="pill p-grn">3.2x, validates the code exactly</span></td>
+<td><span class="pill p-mut">machine</span></td>
+<td><span class="pill p-mut">RECOMP blocked</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
+<td class="nm"><b>Raffle Prize</b><span>Random draw, so its complaint density is the background rate for any maid. Used as the null cohort every other lift is measured against.</span></td>
+<td class="num mono">—</td><td class="num mono">—</td>
+<td>— null cohort</td>
+<td><span class="pill p-acc">1.0x by construction</span></td>
+<td><span class="pill p-mut">machine</span></td>
+<td><span class="pill p-mut">the control group</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
+<td class="nm"><b>Office Work Addition</b><span>A separate check owns office work.</span></td>
+<td class="num mono">—</td><td class="num mono">—</td>
+<td>out of scope</td>
+<td><span class="pill p-mut">1.7x</span></td>
+<td><span class="pill p-mut">machine</span></td>
+<td><span class="pill p-mut">excluded</span></td></tr></tbody></table></div>
+
+<footer><strong>Measured 2026-09-08</strong> against <code>BA_VIEWS</code>, 12-month window.
+Volumes and AED for the greyed rows were not queried in this pass &mdash; they are shown as
+&ldquo;&mdash;&rdquo; rather than carried over from an earlier estimate. Corroboration lifts come from
+the complaint study; the raffle prize is the null cohort every other lift is measured against, which
+is why it reads 1.0&times; by construction.</footer>
+</div>
+<script>
+(function(){
+  var tb=document.getElementById('tb'), rows=[].slice.call(tb.rows);
+  var f1=document.getElementById('f1'), f2=document.getElementById('f2'), f3=document.getElementById('f3');
+  function on(b){return b.getAttribute('aria-pressed')==='true';}
+  function apply(){
+    rows.forEach(function(r){
+      var ok=true;
+      if(on(f1) && !/red|amber/.test(r.dataset.st)) ok=false;
+      if(on(f2) && r.dataset.meas!=='1') ok=false;
+      if(on(f3) && r.textContent.toLowerCase().indexOf('blocked')===-1) ok=false;
+      r.classList.toggle('hidden',!ok);
+    });
+  }
+  [f1,f2,f3].forEach(function(b){b.addEventListener('click',function(){
+    b.setAttribute('aria-pressed', on(b)?'false':'true'); apply();
+  });});
+  var dir={};
+  [].slice.call(document.querySelectorAll('th.s')).forEach(function(th){
+    th.addEventListener('click',function(){
+      var k=th.dataset.k; dir[k]=!dir[k];
+      rows.sort(function(x,y){
+        var a=+x.dataset[k], b=+y.dataset[k];
+        return dir[k] ? a-b : b-a;
+      }).forEach(function(r){tb.appendChild(r);});
+    });
+  });
+  var ft=document.getElementById('ft');
+  function dark(){var s=document.documentElement.getAttribute('data-theme');
+    return s ? s==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;}
+  function sync(){ft.setAttribute('aria-pressed',dark()?'true':'false'); ft.textContent=dark()?'Light':'Dark';}
+  sync();
+  ft.addEventListener('click',function(){
+    document.documentElement.setAttribute('data-theme', dark()?'light':'dark'); sync();
+  });
+})();
+</script>

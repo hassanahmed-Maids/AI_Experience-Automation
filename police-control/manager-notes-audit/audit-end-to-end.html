@@ -1,0 +1,146 @@
+<title>Audit End to End</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+:root{
+  --ink:#15181D; --ink-2:#454D58; --ink-3:#727C8A;
+  --bg:#FCFCFB; --panel:#FFFFFF; --panel-2:#F4F5F3; --line:#E3E5E1; --line-2:#CBD0C9;
+  --red:#A32118; --amber:#B07F09; --green:#0A7245; --accent:#3538CD; --slate:#5B6472;
+  --red-wash:#FBEDEB; --amber-wash:#FBF3E0; --green-wash:#E9F4EE; --accent-wash:#EDEEFB;
+  --code-bg:#F2F3F0;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+  --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF; --slate:#9AA3AE;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --code-bg:#202320;
+}}
+:root[data-theme="dark"]{
+  --ink:#E9EBE7; --ink-2:#AEB5AD; --ink-3:#828A84;
+  --bg:#121412; --panel:#191B19; --panel-2:#202320; --line:#2B2E2B; --line-2:#3D413D;
+  --red:#F0736A; --amber:#E0A93C; --green:#3FB985; --accent:#8DA2FF; --slate:#9AA3AE;
+  --red-wash:#2A1815; --amber-wash:#26200F; --green-wash:#12241C; --accent-wash:#1A1D33;
+  --code-bg:#202320;
+}
+*{box-sizing:border-box}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{background:var(--bg); color:var(--ink); margin:0;
+  font-family:"IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:2px}
+.wrap{max-width:1180px; margin:0 auto; padding:34px 22px 80px}
+.eyebrow{font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600}
+h1{font-size:29px; line-height:1.14; letter-spacing:-.02em; margin:7px 0 0; font-weight:700;
+  text-wrap:balance}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:16.5px; line-height:1.6;
+  color:var(--ink-2); margin:12px 0 0; max-width:66ch}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.pill{display:inline-block; font-size:11px; font-weight:600; letter-spacing:.02em;
+  padding:3px 8px; border-radius:3px; white-space:nowrap; border:1px solid transparent}
+.p-red{color:var(--red); background:var(--red-wash); border-color:color-mix(in srgb,var(--red) 30%,transparent)}
+.p-amb{color:var(--amber); background:var(--amber-wash); border-color:color-mix(in srgb,var(--amber) 32%,transparent)}
+.p-grn{color:var(--green); background:var(--green-wash); border-color:color-mix(in srgb,var(--green) 30%,transparent)}
+.p-acc{color:var(--accent); background:var(--accent-wash); border-color:color-mix(in srgb,var(--accent) 28%,transparent)}
+.p-mut{color:var(--ink-3); background:var(--panel-2); border-color:var(--line)}
+.band{display:grid; gap:13px; grid-template-columns:repeat(auto-fit,minmax(158px,1fr));
+  margin:26px 0 0; padding:20px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line)}
+.kpi b{display:block; font-family:"IBM Plex Mono",monospace; font-size:24px; line-height:1.1;
+  letter-spacing:-.02em; font-weight:600; font-variant-numeric:tabular-nums}
+.kpi span{display:block; font-size:11.5px; line-height:1.4; color:var(--ink-3); margin-top:4px}
+.kpi{border-left:2px solid var(--line-2); padding-left:12px}
+.kpi.r{border-left-color:var(--red)} .kpi.a{border-left-color:var(--amber)}
+.kpi.g{border-left-color:var(--green)} .kpi.c{border-left-color:var(--accent)}
+h2{font-size:19px; letter-spacing:-.01em; margin:42px 0 3px; font-weight:700}
+h2 + p{margin:0 0 16px; color:var(--ink-2); max-width:70ch}
+footer{margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
+  color:var(--ink-3); font-size:12.5px; max-width:78ch}
+code{font-family:"IBM Plex Mono",monospace; font-size:.87em; background:var(--code-bg);
+  border:1px solid var(--line); border-radius:3px; padding:1px 4px}
+</style>
+
+<style>
+.stage{border-left:2px solid var(--line-2); padding:0 0 4px 18px; margin:0 0 26px; position:relative}
+.stage.s-live{border-left-color:var(--green)}
+.stage.s-part{border-left-color:var(--amber)}
+.stage.s-new{border-left-color:var(--accent)}
+.sh{display:flex; align-items:baseline; gap:11px; flex-wrap:wrap}
+.sn{font-size:11.5px; color:var(--ink-3); font-weight:600; letter-spacing:.08em}
+.sh h3{font-size:17px; margin:0; font-weight:700; letter-spacing:-.01em}
+.sl{margin:6px 0 10px; color:var(--ink-2); max-width:74ch}
+.stage ul{list-style:none; margin:0; padding:0; display:grid; gap:7px}
+.stage li{padding:8px 12px; border-radius:4px; background:var(--panel-2); font-size:13.2px;
+  line-height:1.5; max-width:88ch}
+.stage li.i-warn{background:var(--red-wash)}
+.stage li.i-blocked{background:var(--amber-wash)}
+.stage li.i-new{background:var(--accent-wash)}
+.tw{overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--panel)}
+table{border-collapse:collapse; width:100%; font-size:13px}
+th,td{text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3);
+  background:var(--panel-2); font-weight:600}
+tbody tr:last-child td{border-bottom:0}
+td b{display:block; font-weight:600} td span.mono{font-size:11.5px; color:var(--ink-3)}
+td.own{white-space:nowrap; color:var(--ink-2)}
+.two{display:grid; gap:30px; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); margin-top:16px}
+</style>
+<div class="wrap">
+<div class="eyebrow">Police &amp; Control &middot; Manager Notes Audit</div>
+<h1>End to end: a note arrives, a verdict comes out</h1>
+<p class="lede">Every month managers add money to housemaid payslips. Each addition is supposed to be
+justified by the rule governing that payment type, and nothing checks it. This is the whole path a
+single addition takes — what runs today, what is blocked and on whom.</p>
+
+<div class="band">
+  <div class="kpi c"><b>44,169</b><span>addition notes in the source</span></div>
+  <div class="kpi g"><b>4 of 6</b><span>stages run today</span></div>
+  <div class="kpi a"><b>6</b><span>asks stand between this and full coverage</span></div>
+  <div class="kpi r"><b>2</b><span>defects that return a clean, meaningless result</span></div>
+</div>
+
+<h2>The path</h2>
+<p>Stages in order. The two red items are the ones that produce a confident wrong answer rather than
+an error &mdash; they are the reason this reads as a pipeline and not a checklist.</p>
+<section class="stage s-live">
+<div class="sh"><span class="sn mono">01</span><h3>Population</h3><span class="pill p-grn">runs today</span></div>
+<p class="sl">44,169 addition notes exist. Scope is one row per manager note — a maid with four additions is four cases.</p><ul><li class="i-ok">ADDITION on a housemaid, applied, not a refund</li><li class="i-warn">🔴 <code>PAID = true</code> is NOT a scope filter — it means &ldquo;carried-forward must-be-paid&rdquo;, and filtering on it drops most of the population and reports the month clean</li><li class="i-ok">Negative and zero amounts stay in — reported, never netted away</li><li class="i-new">Future-dated notes are a feed defect, not an unverifiable case</li></ul></section><section class="stage s-live">
+<div class="sh"><span class="sn mono">02</span><h3>Audit month</h3><span class="pill p-grn">runs today</span></div>
+<p class="sl">Which payslip actually paid this note. Three branches, because the ERP populates the paid-month columns for only some notes.</p><ul><li class="i-ok">Recorded → <code>PAID_ON_PAYROLL_MONTH</code></li><li class="i-ok">Derived → the payroll lock window containing the note date</li><li class="i-ok">Neither → in the population, AMBER, never dropped</li><li class="i-new">🔴 <code>NOTE_DATE</code> carries a time. <code>NOTE_DATE = LAST_DAY(...)</code> is false for every row and returns a plausible, meaningless split</li></ul></section><section class="stage s-part">
+<div class="sh"><span class="sn mono">03</span><h3>Test battery</h3><span class="pill p-amb">partly blocked</span></div>
+<p class="sl">Seven cross-cutting tests plus one group rule. Every applicable test runs and is recorded — there is no early exit.</p><ul><li class="i-ok">T1 profile · T2 payment type · T3 amount usable</li><li class="i-blocked">T4 authorising expense record — <b>blocked</b>: no FK exists, and <code>EXPENSES_REQUESTS</code> is not granted</li><li class="i-blocked">T5 expense head · T7 contract-type eligibility — <b>blocked</b> on three reference lists that do not exist</li><li class="i-ok">T6 duplicate — runnable</li><li class="i-ok">Group rule — one per payment family, nine reusable mechanisms behind them</li></ul></section><section class="stage s-new">
+<div class="sh"><span class="sn mono">04</span><h3>Two obligations on every test</h3><span class="pill p-acc">new in v3</span></div>
+<p class="sl">Both learned by getting them wrong on live data.</p><ul><li class="i-new">A window test publishes its <b>chance rate</b>: a 105-day window with a 30-day band gives p=0.286, so at 1.7 records per subject chance alone yields 40%</li><li class="i-new">A control metric publishes a <b>24-month series</b>: a point count renders a broken control, a worked-off backlog and a holding control as one number</li></ul></section><section class="stage s-live">
+<div class="sh"><span class="sn mono">05</span><h3>Verdict</h3><span class="pill p-grn">runs today</span></div>
+<p class="sl">One column, computed once. Every tile, chart, filter and export aggregates it and nothing re-derives eligibility.</p><ul><li class="i-ok">RED ⟸ any applicable test returned RED</li><li class="i-ok">AMBER ⟸ not red, and any applicable test was BLOCKED</li><li class="i-ok">GREEN ⟺ every applicable test ran and returned GREEN</li><li class="i-ok">🔴 A test that could not run is not a test that passed — and an unmapped payment type yields an empty check plan, so it arrives AMBER, never a silent green</li></ul></section><section class="stage s-live">
+<div class="sh"><span class="sn mono">06</span><h3>Metrics</h3><span class="pill p-grn">runs today</span></div>
+<p class="sl">Ten named metrics the auditor reads, aggregating the one verdict column. M7 + M8 + M9 = M1 exactly; amounts sum to M2 to the cent.</p><ul><li class="i-ok">M1 Cases · M2 Money · M7 Findings · M8 Unverifiable · M9 Cleared</li><li class="i-ok">M10 Coverage · M11 Amount at Risk · M12 Duplicate groups</li><li class="i-ok">M13 Expense match rate — per payment type, with an 80% floor per type</li><li class="i-ok">M14 Completeness exceptions — one row per maid × payroll month</li></ul></section>
+
+<h2>What is blocked, and on whom</h2>
+<p>None of it is a guess about what exists. Every column named below is code-verified in the ERP; it
+needs bringing across, not building.</p>
+<div class="tw"><table>
+<thead><tr><th>Ask</th><th>Why it blocks</th><th>Owner</th></tr></thead>
+<tbody><tr><td><b>Warehouse grant</b><span class="mono">O1</span></td><td>The P&C role has no warehouse. <code>SHOW</code> and column comments work; every row-level scan fails.</td><td class="own">Data platform</td></tr><tr><td><b><code>EXPENSES_REQUESTS</code> grant</b><span class="mono">§11</span></td><td>Not granted to the P&C role, so the whole corroboration archetype — seven payment types — stays blocked even after O1.</td><td class="own">Data platform</td></tr><tr><td><b>Enrolment + exit dates</b><span class="mono">O64</span></td><td>Supersedes the earlier ask for <code>INCENTIVE_AMOUNT</code> alone: 30% of anti-attrition notes are prorated, over two divisors, so the recompute needs the dates and the divisor rule.</td><td class="own">Dev + Data</td></tr><tr><td><b><code>DELIGHTER_TODO</code></b><span class="mono">O34</span></td><td>Carries the categorised resignation reason and the hard FK from the retraction bonus to its complaint. Also the only route to resolving Bonus's 850 unattributed notes.</td><td class="own">Data</td></tr><tr><td><b>Complaint-type tags</b><span class="mono">O35</span></td><td>The code says the <code>transportation</code> tag, not the type name, is the source of truth for taxi corroboration.</td><td class="own">Data</td></tr><tr><td><b>Three reference lists</b><span class="mono">N14/N15/N16</span></td><td>Payment type → allowed expense heads; contract type → allowed payment types; which types always carry an expense record. Business rules, not data.</td><td class="own">Payroll</td></tr></tbody></table></div>
+
+<footer><strong>Spec v3, 2026-09-08.</strong> The first version corrected by querying live data
+rather than reading catalog metadata and ERP source alone &mdash; eleven queries that changed the
+logic in eight places and withdrew two claims the earlier versions made confidently. Amber is a
+result this report publishes, not a failure of it: a test that could not run is never counted as one
+that passed.</footer>
+</div>
+<script>
+(function(){
+  var d=document.documentElement;
+  function dark(){var s=d.getAttribute('data-theme');
+    return s ? s==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;}
+  var b=document.createElement('button');
+  b.className='chip'; b.style.cssText='position:fixed;right:16px;bottom:16px;font:inherit;font-size:12.5px;'+
+    'padding:6px 13px;border-radius:999px;border:1px solid var(--line-2);background:var(--panel);color:var(--ink-2);cursor:pointer';
+  function sync(){b.textContent=dark()?'Light':'Dark';}
+  sync();
+  b.addEventListener('click',function(){d.setAttribute('data-theme',dark()?'light':'dark'); sync();});
+  document.body.appendChild(b);
+})();
+</script>
