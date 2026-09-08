@@ -209,3 +209,37 @@ skipped. And **the split is the privacy boundary**: the wide, movable outputs ca
 so the one output that does can be scoped to a single record and kept inside the warehouse session.
 Run the distribution first — it is small enough to read in full, and it will often tell you the queue
 should not exist in the shape you planned.
+
+## 17. A window-based association test with no chance baseline
+
+Any check of the form *"is there a related record within N days"* has a built-in hit rate that owes
+nothing to the business. If the lookup window spans W days and "close enough" covers C of them, one
+related record lands inside C by geometry alone with p = C/W, and a subject with *k* related records
+does so at 1 − (1 − p)^k. **Report the raw percentage and you are reporting the window's shape.**
+
+Worked: a 105-day window with a 30-day proximity band gives p = 0.286. At k = 1.7, chance alone
+produces a 40% hit rate. An observed 40% is therefore **zero** signal — but it reads as "40% of
+payments are corroborated" on a dashboard, and nobody asks what 0% would have looked like.
+
+Three requirements follow.
+
+**State the chance rate next to every observed rate**, computed per subject from that subject's own
+*k*, not from a cohort average. Cohort *k* is a Jensen trap: the average of 1 − (1 − p)^k is not
+1 − (1 − p)^avg(k), and estimating *k* rather than measuring it produced errors of 1.46× vs 2.33×
+in a real case — wrong enough to misrank two payment types against each other.
+
+**Carry a null cohort where one exists.** A population selected by a mechanism known to be unrelated
+to the thing being tested — a random draw, a lottery, a scheduled batch — is a free control group,
+and it validates the window empirically rather than by arithmetic.
+
+**Check the shape, not just the count.** Bin the related records by signed distance and normalise
+per day, because edge bins are not full width. A causal driver spikes in the nearest bin and decays
+monotonically. Two failure shapes to recognise: **flat** means the window is talking to itself, and
+**a peak in a bin that is not the nearest one** means a cycle is beating against another cycle — a
+real driver does not sit further from the event than the bin beside it.
+
+One consequence for aggregation. A per-record view and a per-subject view can disagree honestly: a
+mild near-window enrichment concentrated on high-*k* subjects raises the per-record rate while
+leaving the per-subject rate exactly at chance, because for those subjects the nearest record was
+already going to be close. **The verdict grain is the subject, so the subject-level rate is the one
+that decides** — the per-record rate will overstate it. Normalise per subject before reading either.

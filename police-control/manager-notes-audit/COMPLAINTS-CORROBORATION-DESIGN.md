@@ -301,7 +301,7 @@ so band 1 should be near-empty. If it is not, query 2's reading is wrong and §3
 Salary dispute, at 34% share and 11.4 days, should show a real band 1. **6a is a falsification test
 for the whole design, not just a queue-sizing exercise.**
 
-## 3f. 🔴 6a came back: salary dispute confirms, anti-attrition fails *below chance*
+## 3f. 🔴 6a came back: salary dispute confirms, anti-attrition does not clear chance
 
 3-month window, 2,793 anti-attrition notes (AED 621,322) and 337 salary-dispute notes (AED 120,196).
 
@@ -324,22 +324,23 @@ A note with *k* expected-type complaints therefore hits band 1 by chance at 1 �
 
 | | Notes with a type match | Band 1 among them | *k* | Chance rate | Observed ÷ chance |
 |---|---:|---:|---:|---:|---:|
-| Salary Dispute | 178 | **90.4%** | ~2.9 | 61.8% | **1.46×** |
-| Anti-attrition | 833 | 40.3% | ~1.8 | 45.5% | **0.89×** |
+| Salary Dispute | 178 | **90.4%** | ~2.9 *(est)* | 61.8% | 1.46× *(est)* |
+| Anti-attrition | 833 | 40.3% | ~1.8 *(est)* | 45.5% | 0.89× *(est)* |
 
-🔴 **Anti-attrition's coupled band is at 0.89× chance — it is not weak corroboration, it is no
+*(Estimated from cohort averages. **Superseded by the measured figures in §3g** — both k values
+were too high, which understated salary dispute badly. The direction held; the magnitudes did not.)*
+
+🔴 **Anti-attrition's coupled band does not clear chance — it is not weak corroboration, it is no
 corroboration.** Even where a resignation-family complaint exists, its timing relative to the payment
-is indistinguishable from a complaint drawn at random from the window, and if anything sits slightly
-*further* from the note than chance would put it. This is the month-end batch of §3c seen at note
-grain: the payment date carries no information about when the maid said anything.
+is indistinguishable from a complaint drawn at random from the window. This is the month-end batch of
+§3c seen at note grain: the payment date carries no information about when the maid said anything.
+*(§3g measures it exactly: **1.00×**.)*
 
-Salary dispute at 1.46× is the contrast that proves the instrument works. **The same query, the same
-window, the same geometry — one type clears chance decisively and the other does not.**
+Salary dispute is the contrast that proves the instrument works. **The same query, the same window,
+the same geometry — one type clears chance decisively and the other does not.** *(§3g: **2.33×**.)*
 
-*(k is derived from band-1+2 specificity × query 3's density. Query 6a-iii measures it directly and
-computes the chance rate per note rather than from the cohort average; run it to nail the exact
-figure. The conclusion is not sensitive to it: anti-attrition would need k ≤ 1.5 to beat chance,
-which would mean type-matched notes are **less** chatty than average, and they are more.)*
+*(k here is derived from band-1+2 specificity × query 3's density, and it was too high for both
+types — see §3g for the measured values and the corrected lifts.)*
 
 ### The 53% nobody predicted
 
@@ -364,6 +365,75 @@ their own +14-day forward window, so their complaint counts are truncated and th
 and 4 artificially. Anti-attrition band 4 reads 17% here against §3b's 13% over 12 months, and this
 is the likely cause. **Any queue built from band 4 must exclude notes newer than 14 days**, or it
 will open cases whose evidence simply has not arrived.
+
+## 3g. Measured: anti-attrition is at 1.00× chance, salary dispute at 2.33×
+
+6a-iii computes the chance rate per note instead of from cohort averages.
+
+| Payment type | Notes type-matched | avg *k* | Observed band 1 | Chance | **Lift** |
+|---|---:|---:|---:|---:|---:|
+| Salary Dispute | 178 | 1.62 | 90.4% | 38.8% | **2.33×** |
+| Anti-attrition Incentive | 833 | 1.72 | 40.3% | 40.2% | **1.00×** |
+
+🔴 **Anti-attrition lands on 1.00.** Not "weak", not "below chance" — *exactly* the rate a complaint
+drawn at random from the window would produce. 40.3% observed against 40.2% expected across 833
+notes. A designed null could not land closer.
+
+**Salary dispute is 2.33×, not the 1.46× estimated** — the estimate was wrong because it put *k* at
+2.9 when the measured value is 1.62. Correcting *k* lowers the chance rate to 38.8% and the true lift
+is far stronger than §3f claimed.
+
+**The controlled comparison is now exact.** Both types carry effectively the same number of
+expected-type complaints per note — 1.62 and 1.72 — so they face nearly identical chance rates
+(38.8% and 40.2%). **The only thing that differs is *when* the complaints sit relative to the
+payment.** Volume, density and vocabulary are held constant by the data itself; timing alone
+separates a corroborated payment from an uncorroborated one.
+
+### The arrival histogram, per-day so the bins are comparable
+
+Edge bin `-15` spans 14 days and `90` spans 1, so raw percentages mislead. Normalised, against each
+type's own far field (30–89 days out, where nothing causal should remain):
+
+| Days before note | Anti-attrition | vs far field | Salary Dispute | vs far field |
+|---|---:|---:|---:|---:|
+| −14..−2 *(after the note)* | 16.4/day | 1.49× | 3.7/day | 6.4× |
+| **0..14** | 16.1/day | **1.46×** | **11.6/day** | **19.9×** |
+| 15..29 | **19.3/day** | **1.75×** | 1.8/day | 3.1× |
+| 30..44 | 9.7/day | 0.88× | 1.1/day | 1.9× |
+| 45..59 | 11.9/day | 1.08× | 0.3/day | 0.6× |
+| 60..74 | 11.2/day | 1.02× | 0.7/day | 1.3× |
+| 75..89 | 11.2/day | 1.02× | 0.1/day | 0.2× |
+
+**Salary dispute is the textbook shape:** a 19.9× spike in the fortnight before the payment, decaying
+monotonically to nothing. The complaint drives the payment, visibly, at day scale.
+
+**Anti-attrition has no spike at all.** It has a broad, mild plateau — ~1.5× across the whole −14..+29
+range — and then flat. **Its peak bin is 15–29 days, not 0–14.** A causal driver does not peak
+*further* from the event than the bin next to it; a monthly cycle brushing against a monthly batch
+does exactly that. This is §3c's 30.8-day mean seen in profile.
+
+### Why a 1.5× plateau still scores 1.00× at note level
+
+These two results are consistent, and the reason matters for the design. The mild near-window
+enrichment sits on **chatty maids** — those with several expected-type complaints — where one more
+nearby complaint does not change whether the *nearest* one falls in band 1, because it already
+would. So the enrichment is a density effect, not a coupling effect, and it vanishes the moment the
+question becomes per-note rather than per-complaint.
+
+**This is precisely the failure §3d's per-maid normalisation rule was written to catch**, now
+demonstrated on real data rather than argued. A per-complaint view would have reported anti-attrition
+as 1.5× "enriched near the payment" and been wrong.
+
+### Settled
+
+Five independent methods — no FK *(code)*, 1 reference in 9,167 *(query 5)*, 13% type-share at 1.8×
+*(query 2)*, 1.00× chance-adjusted coupling *(6a-iii)*, no proximity spike *(6a-ii)* — agree.
+**Anti-attrition enrolment is not conversation-driven. The free-text `notes` box on the enrolment
+record is the only justification that exists**, and the corroboration layer cannot supply a second
+one. That closes the design question; what remains is O37, which is governance, not data.
+
+The complaint check ships for salary dispute (and the §4 types that behave like it) and is **N_A for
+anti-attrition** — not AMBER, not "absent evidence". Testing it there would score noise.
 
 ## 4. The corroboration map — expected complaint types per payment
 
@@ -437,7 +507,7 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 |---|---|---|
 | ~~O33~~ | ~~Run query 3 (coverage)~~ — **done.** It inverted the design (§3b): coverage is 94–100%, so presence can never be a RED. Superseded by **O38** | — |
 | ~~O38~~ | ~~Run query 6a~~ — **done, §3f.** Salary dispute clears chance at 1.46×; anti-attrition sits at 0.89× and is not corroborated at all | the queue |
-| **O39** | Run **6a-iii** (2 rows) to measure *k* per note and compute the chance rate exactly rather than from the cohort average, and **6a-ii** (~14 rows) for the arrival-shape histogram | pins §3f's central claim |
+| ~~O39~~ | ~~Run 6a-iii and 6a-ii~~ — **done, §3g.** Anti-attrition 1.00× chance, salary dispute 2.33×; no proximity spike on anti-attrition. The design question is closed | — |
 | **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |
 | **O35** | Expose the `ComplaintType` **`tags`** join (`COMPLAINT_TYPES_TAGS`) — the code says the `transportation` tag, not the type name, is the single source of truth | taxi corroboration done the way the ERP does it |
 | **O36** | Confirm `HOUSEMAID_MANAGERACTIONLOGS.NOTES` is populated and readable at volume | anti-attrition Job 1 |
