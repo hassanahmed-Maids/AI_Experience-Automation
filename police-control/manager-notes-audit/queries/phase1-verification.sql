@@ -813,3 +813,52 @@ SELECT notes                                                         AS notes_on
 FROM same_day
 GROUP BY notes
 ORDER BY notes;
+
+-- F11 RESULTS 2026-09-08 — 169 same-day groups, 345 notes, AED 30,060.
+--   (Reconciles with F10's 176: the histogram counts only the 2nd+ note of each group,
+--    345 notes - 169 groups = 176.)
+--   notes/day  groups   AED     sums-to-one-entitlement  every-note-full  neither
+--       2        163   28,854            10                    0            153
+--       3          5    1,006             0                    0              5
+--       4          1      200             1                    0              0
+--   🔴 EVERY-NOTE-FULL IS ZERO. In twelve months not one maid received two full entitlements
+--   on one day. The clean double-payment shape does not occur.
+--   ⚠️ MY "neither shape" BUCKET WAS MISLABELLED. I called a group that does not sum to an
+--   allowed value a review case. It is not: proration pays daysBetween/daysInMonth, so a maid
+--   with a GAP between contracts (unassigned part of the month) legitimately receives fragments
+--   summing to LESS than her entitlement. 153 of 163 landing there is the expected shape of
+--   proration with gaps, not 153 findings. The test could not separate what it claimed to.
+
+-- F12. The sharpened test: proration can only ever sum to AT MOST the entitlement. So the
+--      question is not "does it sum to an allowed value" but "does it sum to MORE than this
+--      maid's own entitlement". INCENTIVE_AMOUNT is not exposed (B4/B5's blocked column), so
+--      the entitlement is proxied by the largest whole-entitlement amount the maid was paid
+--      in any single note over the year.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), ent AS (
+    SELECT HOUSEMAID_ID, MAX(AMOUNT) AS entitlement
+    FROM paid
+    WHERE AMOUNT IN (100,150,200,250,300,350,400,450,500)
+    GROUP BY 1
+), same_day AS (
+    SELECT HOUSEMAID_ID, note_day, COUNT(*) AS notes, SUM(AMOUNT) AS total
+    FROM paid GROUP BY 1, 2 HAVING COUNT(*) > 1
+)
+SELECT CASE
+         WHEN e.entitlement IS NULL              THEN 'entitlement unknown - never paid a whole month'
+         WHEN s.total > e.entitlement + 0.5      THEN 'OVER entitlement - overpaid'
+         WHEN s.total > e.entitlement - 0.5      THEN 'exactly the entitlement - a clean split'
+         ELSE                                         'under entitlement - proration with a gap'
+       END                                       AS verdict,
+       COUNT(*)                                  AS maid_days,
+       ROUND(SUM(s.total))                       AS aed,
+       ROUND(SUM(GREATEST(s.total - COALESCE(e.entitlement, s.total), 0))) AS aed_over
+FROM same_day s
+LEFT JOIN ent e ON e.HOUSEMAID_ID = s.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY maid_days DESC;

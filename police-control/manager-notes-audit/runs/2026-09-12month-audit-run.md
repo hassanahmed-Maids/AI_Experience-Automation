@@ -418,3 +418,37 @@ on the same day cannot be a split. F11 asks exactly that of all 176.
 
 This is the check that turns "indistinguishable without a column we do not have" into a verdict using
 the column we do.
+
+---
+
+# F11 — the same-day repeats do not contain a single double payment
+
+| Notes on the day | Groups | AED | Sums to one entitlement | **Every note a full one** | Neither |
+|---:|---:|---:|---:|---:|---:|
+| 2 | 163 | 28,854 | 10 | **0** | 153 |
+| 3 | 5 | 1,006 | 0 | **0** | 5 |
+| 4 | 1 | 200 | 1 | **0** | 0 |
+
+**In twelve months, not one maid received two full entitlements on the same day.** The shape that
+would prove a double payment — two whole monthly amounts, no proration story available — has **zero**
+instances. That is a real clearing result on a population this report had called indistinguishable.
+
+*(Reconciling with F10's 176: the gap histogram counts only the second and later note of each group.
+345 notes − 169 groups = 176. The two agree.)*
+
+## ⚠️ My own bucket label was wrong, and it was the biggest bucket
+
+I designed F11 with three outcomes and called the third — sums to no allowed value — a **review case**.
+**It is not.** Proration pays `daysBetween ÷ daysInMonth`, so a maid with a **gap between contracts**,
+unassigned for part of the month, legitimately receives fragments summing to **less** than her
+entitlement. 153 of 163 landing in that bucket is the ordinary shape of proration with gaps, not 153
+findings. Had I read the bucket by its label I would have reported an AED 28,854 review population
+that is mostly routine.
+
+**The test could not separate what it claimed to**, because it asked the wrong question. Proration can
+only ever sum to *at most* the entitlement, so the question is not *does it sum to an allowed value*
+but **does it sum to more than this maid's own entitlement**.
+
+F12 asks that. `INCENTIVE_AMOUNT` is still not exposed — B4/B5's blocked column — so the entitlement is
+proxied by the largest whole-entitlement amount the maid was paid in any single note across the year.
+Anything over it is an overpayment; anything at or under it is proration behaving correctly.
