@@ -128,6 +128,18 @@ August 2026:
 Stable across six months: CC 72–80% undeducted, MV 90–95%. **Open loan book AED 22.99m**, and of the
 AED 4.37m recoverable in August, AED 3.89m was not recovered.
 
+✅ **Definitions verified against the catalog, not assumed.** `INSIGHTS_DASHBOARD_CONTAINER` entry
+`hm-payroll-deducted-vs-undeducted` states the undeducted share is measured against **Total Loans to Be
+Deducted, not Total Loans** — which is the denominator used above. `hm-payroll-additions-as-loans-by-category`
+confirms `ADDITION_LOAN_AMOUNT` as the sanctioned field, and `ohmm-medical-medical-loans` describes its
+source in words as "broken down by **loans and paid by company**", confirming the two-mode split
+independently of TF21.
+
+⚠️ **The metric is days old.** Every housemaid-payroll entry in the catalog was created or updated on
+**2026-09-08**, at version 1–3. So the recovery gap is newly instrumented: the business can see it, but
+only just, and it has probably not been acted on yet. *(Also: the approved queries read
+`GOLD.HOUSEMAID_MANAGEMENT.*` where this audit read `BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.*`.)*
+
 🟡 **This is not the audit's discovery.** It is a sanctioned dashboard metric the business can
 already see. What the audit adds is the join: TF19 shows advances **are** booked as loans at 85–100%,
 TF20 shows those loans are then **not** recovered. **The booking control works; the recovery control

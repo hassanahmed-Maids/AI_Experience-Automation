@@ -101,3 +101,49 @@ report as an open population pending a re-run against `CREATION_DATE`, not as a 
 The same answer produced three findings that did not depend on the 53 — enrolment checked at selection
 only, amount validated at write time only, and a back-fill that derives the amount from free text — so
 the question was worth asking even though it cost the headline.
+
+## 2026-09-08 — Manager Notes, the tail five: every quoted KPI now traces to its approved definition
+The last five payment types (Taxi, Accommodation Relocation, Maids.at, Medical, MOHRE — AED 219,143)
+were audited for entitlement. They close cleanly: **944 notes, every one linked to a PAID expense
+request**, the approval gate **100% compliant** across AED 2.8m and eleven head/type combinations, and
+**AED 5,092** of confirmed violation (6 relocations and 3 live-out transport allowances paid to maids
+who were live-in on the day, resolved as-of).
+
+**Seven candidate findings were raised and withdrawn in eight rounds, six of them caught by a guard
+built into the query rather than by review.** Recorded because the pattern matters more than the
+verdicts: (1) an expense "task name" column that holds a workflow state, not a category — which also
+made a routing test match nothing and read as clean; (2) `LIMIT_FOR_APPROVAL` read as a ceiling when it
+is a threshold *above* which approval is needed, which turned 217 compliant Maids.at notes into a
+AED 20,532 finding; (3) a self-approval rate published before `APPROVE_HOLDER` was checked — taxi's
+120 self-approvals were **all** by the head's designated approver, and the finding went to zero;
+(4) a batch job mistaken for misconduct — anti-attrition's 8,095 self-approved notes carry **three**
+identities with one holding 94.9%, so AED 1,585,600 was a producer signature; (5) `ALLOW_TO_ADD_LOAN`
+read as an obligation when it means *may*, which reported AED 2.2m of grants as unrecovered debt;
+(6) `EXPENSES_REQUESTS.LOAN_AMOUNT` instead of the sanctioned `ADDITION_LOAN_AMOUNT` — 3.4% where the
+approved KPI says 85–100%; (7) a booking rate computed across two payment models, when
+`MEDICAL_ASSISTANCE_TYPE` is *Loan* (100% booked) or *Paid by Company* (no loan by definition).
+
+**The most instructive failure is #6, because it carried a positive control and the control PASSED.**
+Accommodation Relocation agreed at 98.5% mine vs 94.8–100% approved — on the one head where the two
+loan fields coincide. **A positive control validates the plumbing, not the field choice; one control
+that fails to fire is not evidence.** Adopted: use two, on populations chosen to differ.
+
+**Two things worth more than the tail came out of queries meant to tidy it up.** (a)
+`EXPENSES_CONFIGURATION` **already declares the allowed-category reference list** the audit had been
+blocking on as a business ask to George (Part 2A) — 31 heads carrying salary addition type, category,
+approval method, limit, invoice requirement and loan flag. The ask is withdrawn. (b) The recovery
+question resolves upward into an approved metric: **CC 80.2% and MV 95.2% of deductible loans went
+undeducted in August**, stable over six months, against a **AED 22.99m** open loan book. Advances are
+booked as loans correctly and then not recovered — **the booking control works, the recovery control
+does not.** Reported as *joined*, not discovered: it is a sanctioned dashboard figure.
+
+**Policy compliance recorded.** `INSIGHTS_DASHBOARD_CONTAINER` was read (definitions live in
+`SEMANTIC_ID` + `TOOLTIP_INFO`, not flat columns) and confirms every KPI this audit quotes:
+`hm-payroll-deducted-vs-undeducted` states the undeducted denominator is *Total Loans to Be Deducted*,
+not Total Loans — which is what was used; `hm-payroll-additions-as-loans-by-category` confirms
+`ADDITION_LOAN_AMOUNT` as the sanctioned field; `ohmm-medical-medical-loans` describes the source in
+words as "broken down by loans and paid by company", confirming the two-mode split independently.
+⚠️ Note for whoever quotes these next: the approved queries read `GOLD.HOUSEMAID_MANAGEMENT.*` while
+this audit read `BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.*`, and the housemaid-payroll dashboard entries
+were all created or updated **on 2026-09-08** — the recovery metric is days old, so "the business can
+already see it" is true only just, and the figure has probably not been acted on yet.
