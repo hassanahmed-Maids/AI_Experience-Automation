@@ -122,3 +122,65 @@ before text, and a documented refusal when the exposure exceeds the finding.
 What it needs *first* is neither: it is the two structural repairs above — **population-level tests**
 and **note history** — because without them the audit cannot see a whole class of defect no matter how
 many grants it gets, and cannot tell whether anything it looks at is what was originally written.
+
+
+---
+
+# 🔴 REVISION, 2026-09-08 — the grant landed, and it reframes the ledger
+
+**A1 is no longer the answer to "what is missing".** The expense grant arrived, the join proved exact,
+and the result inverted the headline this ledger opened with.
+
+## T4's domain is two fifths of the money, not ninety percent
+
+`EXPENSE_ID → EXPENSES_REQUESTS.ID` matches **11,819 of 11,819 (100.0%)**. But only 11,819 of 17,576
+ADDITION notes carry one. **AED 4,359,589 of AED 7,197,642 — 60.6% — has no expense request behind it
+at all.**
+
+And the split is **structural, not random**. Whole payment types are all-or-nothing:
+
+| Never expense-backed | Notes | AED |
+|---|---:|---:|
+| MV Prorated Salary | 770 | 788,069 |
+| Raffle Prize | 576 | 180,000 |
+| Prorated salary | 619 | 98,836 |
+| Forgive Deduction | 1,060 | 53,325 |
+| Last Day CC Switch Adjustment | 213 | 13,616 |
+| Office Work Addition | 96 | 29,684 |
+| **Airfare Ticket — 95%** | 1,565 of 1,655 | **2,588,000** |
+| **Bonus — 71%** | 844 of 1,205 | 605,275 |
+
+| Always expense-backed | Notes | Linked & PAID |
+|---|---:|---:|
+| Anti-attrition Incentive | 9,167 | 9,165 |
+| Salary Dispute | 1,084 | 1,073 |
+| Taxi Reimbursement | 503 | 503 |
+| Maids.at other expenses, Medical, MOHRE, Accommodation Relocation | all | all |
+
+**This maps exactly onto the twenty creation paths from conv. 46017.** `ProRatedSalariesService`,
+`AsyncService`, `PayrollGroupService`, `NegativeSalariesService`, `syncSigningBonus` and
+`MigrationController /housemaidScheduledAnnualVacations` all write notes **directly in payroll**,
+computing the amount from salary maths — they never touch accounting.
+
+## What that means for the audit
+
+🔴 **T4 — "is there an authorised expense behind this payment" — is not the audit's central test. It
+is one of two, and it governs the smaller half.** For 60.6% of the money the question is not *was an
+expense approved* but *was the computation right*: salary history, contract dates, raffle
+participation, day counts.
+
+The ledger opened by saying one grant was ~90% of the uncovered money. **That was wrong.** The grant
+unlocks 39.4%, exactly and verifiably. The rest was never blocked by access — it needs the group
+rules, and those need the business answers, most of which Block D just resolved.
+
+**M4's confidence floor is unnecessary where the FK exists** — no fuzzy matching, no first-match
+hazard, no tolerance. It is still needed nowhere else, because unlinked notes have nothing to match.
+
+## 🟢 V9 has no instances
+
+**Zero notes across twelve months are attached to a REJECTED, DISMISSED or CANCELED request** — for
+every payment type. 2,083 such requests exist, and none of them produced a surviving note.
+
+**The mechanism conv. 46017 described is real and the exposure is nil in this window.** V9 drops from
+RED-pending-confirmation to a **design observation**: nothing *would* stop it, and nothing has needed
+to. Worth a guard, not a ticket.

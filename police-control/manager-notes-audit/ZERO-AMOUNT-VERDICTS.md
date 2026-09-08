@@ -216,8 +216,14 @@ For a zero note this is harmless. **For a non-zero note it is not — the note i
 from.** ⚠️ **Whether accounting permits a cancel after `PAID`/confirmed is not established** (marked
 unverified in the answer), so this is a question with a named mechanism, not a confirmed loss.
 
-**Verdict: RED, pending one confirmation.** **It is the largest thing found today and it has nothing
-to do with zero amounts** — the zero-amount investigation walked into it, exactly as it walked into V6.
+**Verdict — MEASURED 2026-09-08: 🟢 no instances.** With the expense grant, every addition note over
+twelve months was checked against its request's status. **Zero notes are attached to a REJECTED,
+DISMISSED or CANCELED request**, across every payment type, though 2,083 such requests exist.
+
+**The mechanism is real and the exposure is nil in this window.** V9 drops from RED-pending to a
+**design observation**: nothing would stop it, and nothing has needed to. Worth a guard in the code,
+not a ticket — and worth re-running, since the reason it has never happened may simply be that
+requests are not cancelled after confirmation.
 
 ## V10 · 🟢 The born-zero question is answerable — `PayrollManagerNote` is `@Audited`
 

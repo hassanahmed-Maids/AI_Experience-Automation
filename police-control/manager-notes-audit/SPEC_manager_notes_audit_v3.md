@@ -964,6 +964,37 @@ notes of one type, observed from the data. August's ran on **2026-09-01**, not o
 carries the finding. Otherwise one config change would paint 900 notes red and bury the individual
 work.
 
+### M3d — 🔴 The two populations *(added 2026-09-08, measured)*
+
+**60.6% of addition money never passes through an expense request.** `EXPENSE_ID` resolves to
+`EXPENSES_REQUESTS.ID` with a **100.0% match on all 11,819 notes that carry one** — but 5,757 of
+17,576 notes carry none, and they are **AED 4,359,589 of AED 7,197,642**.
+
+The split is by payment type, not by note. **Never expense-backed:** MV Prorated Salary, Raffle Prize,
+Prorated salary, Forgive Deduction, Last Day CC Switch Adjustment, Office Work Addition, **95% of
+Airfare Ticket**, **71% of Bonus**. **Always expense-backed:** anti-attrition (9,165 of 9,167 linked
+and PAID), Salary Dispute, Taxi Reimbursement, Maids.at other expenses, Medical Assistance, MOHRE,
+Accommodation Relocation.
+
+This matches the twenty note-creation paths exactly *(conv. 46017)*: `ProRatedSalariesService`,
+`AsyncService`, `PayrollGroupService`, `NegativeSalariesService`, `syncSigningBonus` and
+`MigrationController /housemaidScheduledAnnualVacations` write notes **directly in payroll** from
+salary maths, never touching accounting.
+
+🔴 **So T4 is not the audit's central test — it is one of two, governing the smaller half.**
+
+| Population | Share of money | The question | The test |
+|---|---:|---|---|
+| **Expense-backed** | 39.4% | *Was an expense authorised, and does the amount agree?* | **T4/T5**, on an exact FK |
+| **Payroll-internal** | **60.6%** | *Was the computation right?* | **The group rules** — salary history, contract dates, participation, day counts |
+
+**A note with no `EXPENSE_ID` is not an unmatched note.** It must never route to T4's failure verdict;
+it is `N_A` for T4 and carries its group rule instead. Conflating the two would report the entire
+raffle, prorated and forgive-deduction populations as missing their paperwork.
+
+**M4's confidence floor does not apply to the linked population** — the key is exact, so there is no
+fuzzy match, no first-match hazard and no tolerance to set.
+
 ### M4 — The note→expense match, and the confidence floor
 
 - **Business definition.** Which expense request, if any, authorised this note.
