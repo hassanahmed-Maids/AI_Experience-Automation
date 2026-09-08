@@ -99,6 +99,72 @@ judge whether it states a retention reason — and separately look for a `Maid W
 is CC-only (`housemaidType <> MAID_VISA`). An MV-retention complaint behind a CC incentive is a
 contradiction, not a corroboration.
 
+## 3b. 🔴 Query 3 came back and it inverts the design: presence proves nothing
+
+Coverage is **94–100% for eleven of the fourteen live types**, with **4 to 26 complaints per note** in
+the window. This is a very chatty system — 735,293 complaints, and the largest types are
+`Maid related question` (90,625), `Document required` (23,722), `Maid is sick or injured` (20,467).
+
+**So "does this maid have a complaint?" is almost always yes, and answers nothing.** A presence test
+would return GREEN on everything and catch nobody. Any check built on it would be theatre.
+
+### The raffle is a free control group
+
+Raffle winners are drawn **at random, weighted only by tickets** — nothing about a maid's situation
+influences whether she wins. Her complaint density is therefore the **background rate for a random
+maid**: 3.58 complaints per note, 62% coverage. Everything else can be read as a lift against it.
+
+| Payment type | Cover | Complaints/note | Lift vs random | Reading |
+|---|---:|---:|---:|---|
+| Accommodation Relocation | 100% | 26.27 | **7.3×** | strong association |
+| Taxi Reimbursement | 99% | 20.14 | **5.6×** | strong |
+| Forgive Deduction | 100% | 19.39 | **5.4×** | strong |
+| Salary Dispute | 98% | 13.29 | **3.7×** | strong |
+| Last Day CC Switch Adjustment | 100% | 11.29 | **3.2×** | strong |
+| Anti-attrition Incentive | 87% | 10.32 | 2.9× | moderate |
+| Airfare Ticket | 94% | 8.35 | 2.3× | moderate |
+| Prorated salary | 96% | 7.28 | 2.0× | moderate |
+| Maids.at other expenses | 99% | 7.14 | 2.0× | weak |
+| Office Work Addition | 94% | 5.98 | 1.7× | weak |
+| MV Prorated Salary | 98% | 5.55 | 1.6× | weak |
+| **Medical Assistance** | **74%** | 4.33 | **1.2×** | **at background** |
+| **Bonus** | **67%** | 4.18 | **1.2×** | **at background** |
+| *Raffle Prize (the null)* | *62%* | *3.58* | *1.0×* | *— by construction* |
+
+The lift column validates the corroboration map independently of the code: the types the ERP says are
+conversation-driven sit at 3–7×, and the types it says are machine-generated sit at 1–2×. **Two
+independent methods agreeing is the strongest evidence this design has.**
+
+### Two results that were not predicted
+
+🔴 **Medical Assistance sits at background — 1.2× and only 74% covered.** A medical payment on a maid
+with no more sickness complaints than a random maid is the opposite of what the flow implies
+(`MedicalAssistantJob` creates these off medical/EID steps). Either the payment is being raised
+without the medical episode being ticketed, or the window is wrong. **23 notes, AED 5,857, worth
+opening.** Small money, but it is the cleanest anomaly on this table.
+
+**Bonus at 1.2× / 67% is expected and is a validation, not a finding.** *(code-verified: referrals are
+never complaints.)* The referral half legitimately has no conversation. The retraction half should —
+and it has a hard FK, so it should be tested through `DelighterToDo.rbComplaint`, not through this
+window.
+
+### What the check becomes
+
+**Not** "is there a complaint" — **"is there a complaint of the *right type*, and is that more than
+this maid's background chatter?"** Three consequences:
+
+1. **The presence test is deleted.** It can never be a RED, on any type.
+2. **Query 2 (co-occurrence) is now the critical missing query** — it gives the observed
+   complaint-type distribution per payment, which is what a type-match test needs.
+3. **Every type-match test needs a per-maid baseline**, not just a global one: a maid with 40 open
+   complaints will match any type by chance. Score `complaints of the expected type ÷ complaints of
+   any type` in the window, and compare that ratio to the same ratio across all maids.
+
+**One residual use for presence:** the 87% coverage on anti-attrition still leaves **1,192 notes and
+AED 270,427 where the maid had *no complaint of any kind* in a 104-day window** — while being paid to
+be retained. That is not proof of anything, but it is a well-defined, small, high-value queue, and it
+is the natural first batch for the agent.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
