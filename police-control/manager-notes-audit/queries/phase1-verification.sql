@@ -32,6 +32,21 @@
 --    ⚠️ Only meaningful where a HUMAN is the requester. Machine types (airfare, raffle,
 --       prorated, forgive, office work, last-day CC) have a null/service requester by
 --       design and must be EXCLUDED, or this manufactures thousands of false findings.
+--
+--    ⚠️ TWO KNOWN GAPS, both open (O54, O55), both of which move the numbers:
+--    1. NO DATE FILTER. This spans the whole table; every other figure in the audit is a
+--       12-month window. Do not put them on one dashboard. To match, add to n:
+--         AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+--    2. The type list below is an ASSUMPTION, not a measurement. `Bonus` is partly
+--       machine-generated (the retraction half, via DelighterService), so some of its
+--       58% B_neither_recorded is null attribution BY DESIGN rather than a finding.
+--       Batch days are observable — see 6g in complaints-corroboration-discovery.sql —
+--       so the machine/human split should be measured per type, not hardcoded.
+--
+--    RESULT 2026-09-08: R_self_approved_name_form = 0 on every type. The name-form class
+--    this rewrite was built to catch does not exist; the old string test was not missing
+--    it. What the run DID show is that 45% of notes in scope (AED 2.86m) name NOBODY at
+--    all — you cannot ask who approved what when the record is empty.
 -- =====================================================================================
 
 -- 1c. RUN THIS FIRST — how resolvable are the approver names at all?

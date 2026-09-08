@@ -859,6 +859,60 @@ opposite sign, and it is more insidious because it feels conservative.
 The narrowed rule blocks in exactly one place: the approver's name matches the requester's, *and*
 several staff share that first name, so it cannot be called either way. Everything else resolves.
 
+## 3q. 🔴 O51's premise was wrong — and S1 found something far bigger
+
+**`R_self_approved_name_form` returns 0 notes. On every payment type.**
+
+The whole basis of O51 was that self-approvals were slipping through as mismatched name forms
+("manale" approving "manale hamasny"). They are not. The one self-approval in §3o's 35-row sample
+used the identical full form on both sides, and the bare short form only ever appears approving
+*other* people's requests — which is correctly segregated. **I generalised a mechanism from a single
+row and it was not there.** The old `LOWER(a) = LOWER(b)` was not under-reporting this way, and its
+self-approval count was not the floor I claimed.
+
+What the rewrite did buy is the verdict algebra, and that immediately showed the real problem is not
+segregation at all:
+
+| Verdict | Notes | % | AED |
+|---|---:|---:|---:|
+| **B_neither_recorded** | **7,147** | **45.3%** | **2,864,088** |
+| G_segregated | 6,309 | 39.9% | 2,504,847 |
+| R_self_approved_exact | 1,170 | 7.4% | 244,730 |
+| R_raised_never_approved | 1,165 | 7.4% | 129,990 |
+| B_same_first_name_unresolvable | 2 | 0.0% | 750 |
+| *R_self_approved_name_form* | *0* | — | — |
+
+🔴 **AED 2.86m of human-type additions carry neither a requester nor an approver.** 45% of the notes
+in S1's scope have no attribution whatsoever. That is larger than every other finding in this file
+combined, and it is not a segregation problem — **you cannot ask whether the same person did both
+when the record names nobody at all.**
+
+**Self-approval is also bigger than S1's own header claimed.** That header advertises "the AED 8,800
+salary dispute". The actual output is **1,170 notes and AED 244,730**, twenty-eight times that in
+money. The check was working; nobody had read its total.
+
+**Two types are extreme:** Medical Assistance is **47% self-approved** (70 of 149) and VIP Bonus
+**39%** (54 of 138). Small money, but as rates those are governance questions on their own.
+
+### Two caveats that must travel with these numbers
+
+**S1 has no date filter.** It spans the whole table, while every other figure in this document is a
+12-month window. The AED totals here are not comparable with anything in §3 — and a dashboard mixing
+them would be wrong. Medical Assistance reads 149 notes here against §3b's 23 in twelve months, which
+is the same effect.
+
+**The "human types" list is an assumption, not a measurement.** `Bonus` is partly machine-generated —
+the retraction half runs through `DelighterService.handleRetractDelighterWithOneTimeBonus` — so its
+58% `B_neither_recorded` may be null attribution *by design* rather than a finding. The same doubt
+applies to Salary Dispute's 4,211 unattributed notes: a payment type can be human in the spec and
+still have an automated path in production.
+
+**§3m already built the tool to settle this.** Batch days are observable — a day the job ran is a day
+with a pile of notes on it. Applying that per payment type separates machine-created from
+human-created empirically, instead of trusting a hardcoded list. **Until that runs, `B_neither_recorded`
+is a mixture of "nobody recorded who did this" and "no human was involved", and only the first is a
+finding.**
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -938,7 +992,10 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O46~~ | ~~Run 6g~~ — **done, §3m.** Both divisors are the job's own. The manual path fails differently: 29% of hand-added amounts fit no rule vs 0.0% of the job's | — |
 | ~~O48~~ | ~~Size the no-rule hand-added notes~~ — **done, §3n.** 35 of 156 (22.4%, AED 8,675) vs 0 of 9,011 job notes. Part B lists them | — |
 | ~~O50~~ | ~~Ship the no-rule check~~ — **withdrawn, §3o.** It detects whole-dirham typing, not error. The note date says the same thing more directly | — |
-| ~~O51~~ | ~~Fix S1's identity comparison~~ — **rewritten.** Four verdicts, `BLOCKED` for an unidentifiable approver, and 1c sizes how many of the old GREENs were never verified. Needs running | every segregation-of-duties number in the audit |
+| ~~O51~~ | ~~Fix S1's identity comparison~~ — **done, and the premise was wrong (§3q).** The name-form class is empty; the old check was not under-reporting that way | — |
+| **O53** | 🔴 **AED 2.86m of human-type additions have no requester and no approver** (45% of S1's scope). Larger than everything else in this file. Split it first with the §3m batch-day test — some is machine attribution by design | the biggest open question in the audit |
+| **O54** | Add a **12-month window to S1**. It currently spans the whole table while every other figure here is 12-month; the two must not appear on one dashboard | comparability of every S1 number |
+| **O55** | Replace S1's hardcoded "human types" list with the **empirical batch-day split** per type. `Bonus` is partly machine-generated, so part of its 58% unattributed is by design | the S1 denominator |
 | **O52** | 🔴 **A single approver signs off the entire manual anti-attrition path** (34 of 35). Raise with the rule owners alongside O37 | the control question on 27% of live addition money |
 | **O49** | 🔴 **Sweep the audit for month-end assumptions.** August's batch ran on 09-01, so any `LAST_DAY` test misfiles 918 notes. Batch days must be observed, never assumed | every batch-vs-manual check in the spec |
 | ~~O47~~ | ~~Re-check the hand-added population~~ — **checked, §3l.** Both other files cast `::DATE` and define batch days empirically. Unaffected | — |
