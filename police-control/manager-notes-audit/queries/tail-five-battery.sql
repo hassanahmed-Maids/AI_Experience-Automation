@@ -340,3 +340,134 @@ FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = 'MONEY_CONTROL_SILVER'
   AND TABLE_NAME IN ('EXPENSES_REQUESTS','EXPENSES_CONFIGURATION')
 ORDER BY TABLE_NAME, ORDINAL_POSITION;
+
+
+-- =====================================================================================
+-- ROUND 3 — TF7 is the tail's first RED, TF8 killed a AED 1.58m false finding, and
+-- TF9 opened four tests that reach far past these five types.
+--
+-- TF7  🔴 RED. 6 notes / 6 maids / AED 4,700 -- relocation paid to a maid who was LIVE-IN
+--      on the day. The rule is CC live-out only; the CC half held, this half did not.
+--      🟢 THE SELF-DIAGNOSTIC PAID FOR ITSELF. 5 of 66 notes resolve to a different
+--      live_out than the maid carries today -- 3 REDs and 2 GREENs. So a current-state read
+--      would have flagged 5 notes: 2 of them wrong, while MISSING 3 of the 6 real ones.
+--      Half the true findings invisible and 40% of the flags false, on one column.
+--
+-- TF8  🔴 CONFIRMED THE HOLD WAS RIGHT. Anti-attrition's 8,095 self-approved notes carry
+--      THREE distinct requesters and one identity holds 94.9% of them. That is a batch job
+--      stamping itself into both fields. **AED 1,585,600 is a producer signature, not
+--      misconduct** -- had TF3 been published on its face it would have been this session's
+--      seventh retraction, and by far its largest.
+--      Medical: 41 notes across 2 identities (61/39) -- a small team, looks HUMAN.
+--      Taxi:    120 notes, ONE identity, 100% -- shape is identical to the job. UNRESOLVED.
+--      ⚠️ MIDNIGHT IS DEAD AS A SIGNAL HERE. The guard did its job: 18.1% of all additions
+--      are midnight-stamped, so the column carries real time -- but the KNOWN job
+--      (anti-attrition) sits at 0.0%. Concentration discriminates; timestamp does not.
+--
+-- TF9  🟢 THE BIGGEST UNLOCK OF THE WHOLE BATTERY, and it was meant to be a fix-up query.
+--      EXPENSES_CONFIGURATION carries CATEGORY, TOP_PARENT_CATEGORY, LIMIT_FOR_APPROVAL,
+--      LIMIT_FOR_CEO_APPROVAL, REQUIRE_INVOICE, REQUIRE_ATTACHMENT, APPROVAL_METHOD,
+--      APPROVE_HOLDER, ALLOW_TO_ADD_LOAN. EXPENSES_REQUESTS carries REQUESTED_BY,
+--      APPROVED_BY, INVOICE_UPLOAD_DATE, LOAN_AMOUNT, DESCRIPTION.
+--      Four tests that were never possible now are, and NONE of them are tail-five-specific:
+--        (a) paid ABOVE the head's own configured approval limit
+--        (b) paid with NO invoice where the head REQUIRES one
+--        (c) self-approval AT SOURCE, on the request rather than the note's copy
+--        (d) the loan-pairing rule (ALLOW_TO_ADD_LOAN vs LOAN_AMOUNT) -- the L-group's
+--            "0% to 115%" problem, testable at last
+-- =====================================================================================
+
+
+-- TF10. 🟢 CLOSES GEORGE'S PART 2A ASK FROM THE DATABASE. The business ask was "a table:
+--       payment type on the left, allowed expense categories on the right." CONFIG DECLARES
+--       IT. Every head that produces a salary addition already names its category, its
+--       approval limit, and whether it demands an invoice. This is the reference list,
+--       authoritative, and it needs nobody's time to produce.
+--       No join, no fan-out. Small result.
+SELECT SALARY_ADDITION_TYPE,
+       CODE,
+       CAPTION,
+       EXPENSE_TYPE,
+       CATEGORY,
+       TOP_PARENT_CATEGORY,
+       STATUS,
+       APPROVAL_METHOD,
+       LIMIT_FOR_APPROVAL,
+       LIMIT_FOR_CEO_APPROVAL,
+       REQUIRE_INVOICE,
+       REQUIRE_ATTACHMENT,
+       ALLOW_TO_ADD_LOAN
+FROM BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION
+WHERE SALARY_ADDITION_TYPE IS NOT NULL
+ORDER BY SALARY_ADDITION_TYPE, CODE;
+
+
+-- TF11. 🟡 ESTABLISH THE JOIN KEY BEFORE USING IT -- the discipline TF2 failed to apply.
+--       TF2 assumed a column's meaning from its name and got a workflow state. This one
+--       PROFILES the three candidate keys on the requests actually behind the five types,
+--       with no join at all, so the next round's join is chosen from evidence.
+--       TASK_NAME and EXPENSE_REQUEST_TASK_NAME are DIFFERENT columns; only one is a head.
+SELECT n.REASON                                        AS payment_type,
+       COALESCE(x.EXPENSE_TYPE, '(null)')              AS expense_type,
+       COALESCE(x.TASK_NAME, '(null)')                 AS task_name,
+       COALESCE(x.EXPENSE_REQUEST_TASK_NAME, '(null)') AS request_task_name,
+       COUNT(*)                                        AS notes,
+       ROUND(SUM(n.AMOUNT))                            AS aed
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
+WHERE n.NOTE_TYPE = 'ADDITION' AND n.AMOUNT > 0
+  AND n.REASON IN ('Taxi Reimbursement','Accommodation Relocation',
+                   'Maids.at other expenses','Medical Assistance',
+                   'MOHRE requirement additions')
+  AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+  AND n.NOTE_DATE <= CURRENT_DATE()
+GROUP BY 1, 2, 3, 4
+ORDER BY payment_type, aed DESC;
+
+
+-- TF12. 🔴 SELF-APPROVAL AT SOURCE — settles the Taxi question TF8 left open, and needs
+--       no config join. The note carries a COPY of who asked and who approved; the expense
+--       request is the ORIGINAL, and the approval gate lives there. If taxi's single
+--       identity is a service account it will look the same on both. If it is a person
+--       clearing their own reimbursements, the request will say so in its own fields.
+--       Run across every payment type so the five are read against the house, not alone.
+--       Names are compared and counted, never selected.
+WITH linked AS (
+    SELECT n.ID AS note_id, COALESCE(n.REASON,'(none)') AS payment_type, n.AMOUNT,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(x.REQUESTED_BY),''), '\\s+', ' '))) AS req,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(x.APPROVED_BY),''),  '\\s+', ' '))) AS apr,
+           x.REQUEST_STATUS
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND n.NOTE_DATE <= CURRENT_DATE()
+), people AS (
+    SELECT payment_type, req, COUNT(*) AS n_by_person
+    FROM linked
+    WHERE req IS NOT NULL AND apr IS NOT NULL AND req = apr
+    GROUP BY 1, 2
+), conc AS (
+    SELECT payment_type, COUNT(*) AS self_identities,
+           MAX(n_by_person) AS biggest_one, SUM(n_by_person) AS self_notes
+    FROM people GROUP BY 1
+)
+SELECT l.payment_type,
+       IFF(l.payment_type IN ('Taxi Reimbursement','Accommodation Relocation',
+                              'Maids.at other expenses','Medical Assistance',
+                              'MOHRE requirement additions'), 'TAIL FIVE', '') AS in_scope,
+       COUNT(*)                                                     AS linked_notes,
+       ROUND(SUM(l.AMOUNT))                                         AS aed,
+       COUNT_IF(l.req IS NOT NULL AND l.apr IS NOT NULL AND l.req = l.apr) AS self_at_source,
+       ROUND(100.0 * COUNT_IF(l.req IS NOT NULL AND l.apr IS NOT NULL
+                              AND l.req = l.apr) / COUNT(*), 1)     AS pct_self,
+       ROUND(SUM(IFF(l.req IS NOT NULL AND l.apr IS NOT NULL AND l.req = l.apr,
+                     l.AMOUNT, 0)))                                 AS aed_self,
+       COUNT_IF(l.apr IS NULL)                                      AS request_never_approved,
+       c.self_identities,
+       ROUND(100.0 * c.biggest_one / NULLIF(c.self_notes, 0), 1)    AS pct_held_by_one
+FROM linked l
+LEFT JOIN conc c ON c.payment_type = l.payment_type
+GROUP BY 1, 2, 9, 10
+HAVING COUNT(*) >= 20
+ORDER BY pct_self DESC;

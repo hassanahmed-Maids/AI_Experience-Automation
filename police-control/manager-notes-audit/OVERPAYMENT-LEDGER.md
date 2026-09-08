@@ -3,7 +3,7 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-08 — ~AED 224,000 of money lost, against AED 7,197,642 examined (3.1%).**
+**Confirmed 2026-09-08 — ~AED 228,700 of money lost, against AED 7,197,642 examined (3.2%).**
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
 **3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
@@ -29,6 +29,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Raffle prizes to maids terminated before the draw | **3,000** | not deserved | 15 wins, 13 maids, **median 558 days** after they left |
 | Prorated salary paid to maids outside the eligibility window | **2,976** | not deserved | 25 notes — 18 whose salary start predates the note by a median 650 days, 7 whose salary start is *after* it. **Resolved as-of the note date** (PS1c), down from 78 on a current-state read |
 | Airfare paid above its nationality tier | **500** | off-rule | 1 Kenyan note at 2,000 against a 1,500 tier — **the only one in 1,518** |
+| 🔴 **Accommodation Relocation paid to a live-in maid** | **4,700** | not deserved | 6 notes, 6 maids. The rule is CC live-out only; TF6 cleared the CC half, TF7 broke on this one. **Resolved as-of the note date — and the as-of read is the whole finding:** 5 of 66 notes carry a different `LIVE_OUT` than today, so a current-state read would have flagged 5 notes of which 2 were wrong, while missing 3 of the 6 real ones |
 
 ### Control violated — a rule broken, the money may still be owed
 
@@ -54,6 +55,15 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **The tail five, on the authorisation spine (TF1).** Taxi, Accommodation Relocation, Maids.at,
+  Medical and MOHRE — **944 notes, AED 219,143, every single one linked to a PAID expense request.**
+  Zero with no request, zero on a rejected or cancelled one, zero refunded after the note was
+  written. Only one violation survives the whole tail: the 6 live-in relocations above.
+- 🟢 **AED 1,585,600 of "self-approved" anti-attrition — NOT a finding, and this is the point.**
+  8,095 notes where requester equals approver looks like the largest control failure in the audit.
+  Concentration says otherwise: **three identities in total, one holding 94.9%.** That is a batch job
+  writing itself into both fields, exactly as `REQUESTED_BY` once named a run rather than a route.
+  Published on its face it would have been the session's largest retraction.
 - 🟢 **AED 385,984 of Salary Dispute — on its approval trail, not on complaints.** 1,073 of 1,084
   notes carry an exact FK to an expense request and every one is PAID; O1 found AED 1,213 of
   disagreement across 3 notes. The complaint test was run and scored **1.08× chance** — no power,
