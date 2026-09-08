@@ -9,6 +9,44 @@ thing and must never be reported as one.
 
 ---
 
+## 🔴 STATUS 2026-09-08 (later than the text below — read this first)
+
+**Much of §A–§C is now stale.** The expense grant landed, `EXPENSES_REQUESTS` and
+`EXPENSES_CONFIGURATION` are readable, N19 (`LIVE_OUT`) is resolved, and T4/T5 have run. Fifteen
+payment types now carry an entitlement verdict. **A1's "this single grant is ~90% of the uncovered
+money" was corrected to 39.4% and is largely spent.**
+
+**But the honest answer to "are manager notes fully audited" is NO, for one structural reason that
+none of the sections below names:**
+
+### The audit has only ever looked at ADDITIONS
+
+`NOTE_TYPE = 'ADDITION'` appears in **151 query blocks across every file in `queries/`**. Exactly one
+query has ever selected anything else (TF16), and it used deductions as a *corroborator* for an
+addition test — never as a population.
+
+**Deductions are the mirror of this audit's entire purpose.** The brief is *money that left without
+justification*. A deduction is money taken **from a maid**. A wrong deduction is the same class of
+error pointed the other way — and it lands on the maid, who has the least ability to detect or contest
+it, rather than on the company. **Nothing in the audit has looked at it.**
+
+G2 and G10 — the spec's own guards, *"the grain holds"* and *"no legacy note types are present"* —
+have still never run. So the number of note types, and the money sitting in the non-ADDITION ones, is
+**not known**. That is the first thing a deduction sweep would establish.
+
+### Also still open on additions
+
+| | |
+|---|---|
+| **O2 — paid twice, swept across all 25 types** | Written, never run. **O-C is the one archetype with no systematic sweep** — every duplicate finding so far came from a per-type query |
+| Is there a third kind of bonus? | AED 143,965 + 42,900 turns on it |
+| How many maids enter each raffle draw? | One number settles AED 180,000 |
+| 58 maids owed ~AED 103,500 | A remediation list, not a finding — never handed to payroll |
+| Window | **Twelve months only.** Nothing before 2025-09 has been examined on entitlement |
+| §D deliverables | Still true: no `TEST_TRACE`, no UI report, TICKET-2 not updated, and **no artefact anybody else could run** |
+
+---
+
 ## A. Access — three things, none of them a business decision
 
 | | Ask | Blocks | Status |
