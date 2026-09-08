@@ -613,3 +613,82 @@ ORDER BY verdict;
 --   the money over-paid is the 10,500 excess, not 17,500.)
 --   🟢 BONUS IS CLOSED: AED 642,951 of 849,316 cleared on evidence (75.7%), AED 143,965 RED,
 --   AED 42,900 ambiguous, AED 2,000 blocked.
+
+-- O4b. 🔴 SALARY DISPUTE — AED 385,984, the largest type with no entitlement verdict.
+--   REPLACES the original O4, which had two defects it was written before this session learned
+--   to catch:
+--     (1) a correlated EXISTS carrying a BETWEEN — Snowflake rejects it, as it rejected O9;
+--     (2) the chance baseline was in the COMMENT, not the query. An observed corroboration
+--         rate with nothing to compare it against is trap 17, and this project has already
+--         published one such rate that turned out to be exactly 1.00x chance.
+--   Method: window -180..+30 days (211 days), band -30..+7 (38 days), so p = 38/211 = 0.180.
+--   Chance a maid with k complaints in the window has one in the band = 1 - (1-p)^k, SUMMED
+--   PER NOTE — never 1-(1-p)^avg(k), which is the Jensen trap.
+--   ⚠️ Complaint TAXONOMY AND DATES ONLY. No free text leaves the warehouse.
+WITH disp AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Salary Dispute' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), comp AS (
+    SELECT HOUSEMAID_ID, CREATION_DATE::DATE AS complaint_day
+    FROM BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS
+    WHERE HOUSEMAID_ID IS NOT NULL AND CREATION_DATE IS NOT NULL
+), pairs AS (
+    SELECT d.note_id, d.HOUSEMAID_ID, d.note_day, d.AMOUNT,
+           COUNT_IF(c.complaint_day BETWEEN DATEADD('day',-180,d.note_day)
+                                        AND DATEADD('day',  30,d.note_day)) AS k_window,
+           COUNT_IF(c.complaint_day BETWEEN DATEADD('day', -30,d.note_day)
+                                        AND DATEADD('day',   7,d.note_day)) AS in_band,
+           COUNT(c.complaint_day)                                            AS complaints_ever
+    FROM disp d
+    LEFT JOIN comp c ON c.HOUSEMAID_ID = d.HOUSEMAID_ID     -- equality only; band work in the aggregate
+    GROUP BY 1, 2, 3, 4
+)
+SELECT COUNT(*)                                                          AS dispute_notes,
+       ROUND(SUM(AMOUNT))                                                AS aed,
+       COUNT_IF(in_band > 0)                                             AS with_a_complaint_in_band,
+       ROUND(100.0 * COUNT_IF(in_band > 0) / COUNT(*), 1)                AS pct_observed,
+       ROUND(SUM(1 - POWER(1 - 38.0/211, k_window)), 1)                  AS chance_expected,
+       ROUND(100.0 * SUM(1 - POWER(1 - 38.0/211, k_window)) / COUNT(*), 1) AS pct_chance,
+       ROUND(COUNT_IF(in_band > 0)
+             / NULLIF(SUM(1 - POWER(1 - 38.0/211, k_window)), 0), 2)     AS TIMES_CHANCE,
+       COUNT_IF(complaints_ever = 0)                                     AS maid_never_complained,
+       ROUND(SUM(IFF(complaints_ever = 0, AMOUNT, 0)))                   AS aed_maid_never_complained,
+       ROUND(SUM(IFF(in_band = 0, AMOUNT, 0)))                           AS aed_no_complaint_in_band
+FROM pairs;
+
+-- O4c. The same population split into verdicts, so the answer is a population and not a ratio.
+--   "Never complained at all" is the unambiguous bucket: a salary correction for a maid with
+--   no complaint on record in her entire history.
+WITH disp AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Salary Dispute' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), comp AS (
+    SELECT HOUSEMAID_ID, CREATION_DATE::DATE AS complaint_day
+    FROM BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS
+    WHERE HOUSEMAID_ID IS NOT NULL AND CREATION_DATE IS NOT NULL
+), pairs AS (
+    SELECT d.note_id, d.HOUSEMAID_ID, d.note_day, d.AMOUNT,
+           COUNT_IF(c.complaint_day BETWEEN DATEADD('day',-30,d.note_day)
+                                        AND DATEADD('day',  7,d.note_day)) AS in_band,
+           COUNT_IF(c.complaint_day <= d.note_day)                          AS complaints_before,
+           COUNT(c.complaint_day)                                           AS complaints_ever
+    FROM disp d LEFT JOIN comp c ON c.HOUSEMAID_ID = d.HOUSEMAID_ID
+    GROUP BY 1, 2, 3, 4
+)
+SELECT CASE
+         WHEN in_band > 0           THEN '🟢 a complaint in the 30 days before'
+         WHEN complaints_before > 0 THEN '⚠️ complained earlier, not near this note'
+         WHEN complaints_ever  > 0  THEN '⚠️ complaints only AFTER the note'
+         ELSE                            '🔴 NO COMPLAINT ON RECORD, EVER'
+       END                              AS verdict,
+       COUNT(*)                         AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)     AS maids,
+       ROUND(SUM(AMOUNT))               AS aed,
+       ROUND(MEDIAN(AMOUNT))            AS median_paid
+FROM pairs
+GROUP BY 1
+ORDER BY aed DESC;
