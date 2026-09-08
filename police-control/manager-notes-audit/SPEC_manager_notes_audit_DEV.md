@@ -273,7 +273,8 @@ cannot return red for that type. **A low match rate means unverified, never clea
 
 | | |
 |---|---|
-| **Grain** | D1 LEFT JOINs `expensepayments` on `HOUSEMAID_ID + EXPENSE_ID` with no dedup, and `EXPENSE_ID` is a category. It can emit more rows than notes. **Assert `COUNT(*) = COUNT(DISTINCT ID)` first (G2)** |
+| **Grain** | D1 LEFT JOINs `expensepayments` on `HOUSEMAID_ID + EXPENSE_ID` with no dedup. It can emit more rows than notes. **Assert `COUNT(*) = COUNT(DISTINCT ID)` first (G2)** |
+| 🔴 **`EXPENSE_ID` is not a category** | Measured 2026-09-08: across 9,167 anti-attrition notes there are **9,166 distinct `EXPENSE_ID` values, 9,165 of them used exactly once**. It is the per-expense-request id, one per note. **Grouping by it returns the input**, and any check that treats it as an expense head or category is testing nothing. (An earlier version of this table asserted the opposite — the claim was never measured) |
 | **TEXT booleans** | `HOUSEMAIDS_INFO.IS_DELETED` / `EXCLUDED_FROM_PAYROLL` = `'00'`/`'01'` nullable · `HOUSEMAID_PAYROLL_HISTORY.IS_TRANSFERRED` = `'YES'`/`'NO'` · `HOUSEMAIDS_TICKETS.IS_DELETED` = `'00'`/`'01'`. `= TRUE` matches nothing |
 | **Empty-string sentinels** | `BENEFICIARY_NAME`, `RELATED_TO_NAME`, `APPROVED_BY`, `REQUESTED_BY` return `''`, not NULL. Use `NULLIF(TRIM(x),'')` |
 | **Secure expenses** | `EXPENSES_REQUESTS` excludes `is_secure = 1` categories **entirely**. "No expense record" and "record withheld" are indistinguishable → amber, never red |

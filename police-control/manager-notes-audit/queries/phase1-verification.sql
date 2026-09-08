@@ -652,3 +652,74 @@ FROM flagged f CROSS JOIN modal m
 WHERE f.req IS NOT NULL AND f.req <> m.req
 GROUP BY f.req
 ORDER BY notes DESC;
+
+-- F6 VOID / F7 RESULTS 2026-09-08:
+--   🔴 F6 was built on a false premise. EXPENSE_ID is the per-expense-request id, ONE PER NOTE:
+--   9,166 distinct values across 9,167 notes, 9,165 used exactly once. Grouping by it returns
+--   the input. It is NOT an expense category — the dev-spec trap table said otherwise and is
+--   corrected. (The run did confirm the type total independently: AED 1,829,743 / 12 months.)
+--   F7: the 1,468 non-batch notes are TWO batch-shaped streams plus a tail —
+--     #1  931 notes  AED 210,302  4 months  2026-06-27 -> 2026-09-04  (started 10 weeks ago)
+--     #2  409 notes  AED  65,862  ONE DAY   2025-09-30 (a month-end)
+--     26 others  128 notes  AED 31,295
+--   AED 307,459 = 16.8% of the type's money did not come from the job the spec describes.
+--   Abu Dhabi is a poor fit for #1: only 11 of 9,167 notes belong to a maid with no
+--   Maid_Incentive_Experiment row, so the non-batch notes pay ENROLLED maids.
+
+-- F8. 🔴 Are the 516 duplicate candidates just batch + second-producer in the same month?
+--     A maid paid once by the batch and once by another requester inside one month is exactly
+--     that shape. Aggregates only.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), flagged AS (
+    SELECT p.*, NULLIF(TRIM(p.REQUESTED_BY), '') AS req FROM paid p
+), modal AS (
+    SELECT req FROM flagged WHERE req IS NOT NULL
+    GROUP BY req ORDER BY COUNT(*) DESC LIMIT 1
+), mm AS (
+    SELECT f.HOUSEMAID_ID,
+           DATE_TRUNC('month', f.note_day)                          AS mth,
+           COUNT_IF(f.req = m.req)                                  AS batch_notes,
+           COUNT_IF(f.req IS NOT NULL AND f.req <> m.req)           AS other_notes,
+           SUM(f.AMOUNT)                                            AS aed
+    FROM flagged f CROSS JOIN modal m
+    GROUP BY 1, 2
+)
+SELECT COUNT(*)                                                          AS maid_months,
+       COUNT_IF(batch_notes > 0 AND other_notes > 0)                     AS both_producers_same_month,
+       ROUND(SUM(IFF(batch_notes > 0 AND other_notes > 0, aed, 0)))      AS aed_in_those,
+       COUNT_IF(batch_notes > 1)                                         AS batch_paid_twice,
+       COUNT_IF(other_notes > 1)                                         AS other_paid_twice,
+       COUNT_IF(batch_notes + other_notes > 1)                           AS any_multiple
+FROM mm;
+
+-- F9. Is producer #1 a job or hand entry? A job lands many notes on few days. Only days
+--     carrying 10+ of its notes are returned, so a manual pattern returns almost nothing.
+WITH paid AS (
+    SELECT ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), flagged AS (
+    SELECT p.*, NULLIF(TRIM(p.REQUESTED_BY), '') AS req FROM paid p
+), modal AS (
+    SELECT req FROM flagged WHERE req IS NOT NULL
+    GROUP BY req ORDER BY COUNT(*) DESC LIMIT 1
+), top1 AS (
+    SELECT f.req FROM flagged f CROSS JOIN modal m
+    WHERE f.req IS NOT NULL AND f.req <> m.req
+    GROUP BY f.req ORDER BY COUNT(*) DESC LIMIT 1
+)
+SELECT f.note_day,
+       COUNT(*)              AS notes,
+       ROUND(SUM(f.AMOUNT))  AS aed,
+       COUNT(DISTINCT f.AMOUNT) AS distinct_amounts
+FROM flagged f JOIN top1 t ON f.req = t.req
+GROUP BY f.note_day
+HAVING COUNT(*) >= 10
+ORDER BY f.note_day;

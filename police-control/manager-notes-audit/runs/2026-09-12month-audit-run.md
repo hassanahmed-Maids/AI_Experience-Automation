@@ -291,3 +291,46 @@ like.** So the 32 are one of:
 always populated so it cannot mark an edit. This is the next ask-the-code question, and it is now a
 much sharper one than the one I asked this morning: not *"what is `ACTION_DATE`"* but *"can a
 `Maid_Incentive_Experiment` row be deleted, and does anything record that it was"*.
+
+---
+
+# 🔴 F7 — this payment type has at least three producers, not one
+
+F6 was built on a wrong premise and returned nothing: `EXPENSE_ID` is the **per-request id**, one per
+note (9,166 distinct values across 9,167 notes, 9,165 used once), not an expense category. The dev
+spec's trap table asserted the opposite; that row is corrected. The run did confirm the type total
+independently — **AED 1,829,743** over twelve months.
+
+F7 answers the producer question directly. **The 1,468 non-batch notes are not 28 people making
+one-offs. They are two batch-shaped streams plus a small tail.**
+
+| Requester | Notes | AED | Months active | Window |
+|---|---:|---:|---:|---|
+| **#1** | **931** | **210,302** | 4 | 2026-06-27 → 2026-09-04 |
+| **#2** | **409** | **65,862** | 1 | **2025-09-30 only** |
+| 26 others | 128 | 31,295 | — | spread |
+| **Total non-batch** | **1,468** | **307,459** | | |
+
+**AED 307,459 — 16.8% of this payment type's money — did not come from the job the spec says produces
+it.** And 90% of that sits in two requesters.
+
+- **#2 paid 409 notes on a single day, 2025-09-30 — a month-end.** That is batch behaviour under a
+  requester that is not the batch's. Either the configured `requesterId` differed that month, or the
+  run was repeated by hand.
+- **#1 appeared on 2026-06-27 and has run since — 931 notes, AED 210,302 in about ten weeks.** A
+  second standing stream started ten weeks ago and nothing in the audit was watching for it.
+
+## What #1 is not
+
+The obvious guess is the Abu Dhabi job, which needs no enrolment log. **The data argues against it:**
+only **11** of 9,167 notes belong to a maid with no `Maid_Incentive_Experiment` row at all, so
+virtually every non-batch note is paid to an *enrolled* maid. A producer that never consults the
+enrolment table would not land almost exclusively on enrolled maids. #1 is more likely a second route
+paying the same population — which raises the question the duplicate rule already gestured at.
+
+## 🔴 The link to the 516 duplicate candidates
+
+This run reported 516 anti-attrition duplicate candidates and could not explain them. **A maid paid
+once by the batch and once by #1 in the same month is exactly that shape.** F8 tests it directly:
+maid-months carrying notes from both. If it lands, the duplicate finding and the second-producer
+finding are one finding, and it is a double-payment finding.
