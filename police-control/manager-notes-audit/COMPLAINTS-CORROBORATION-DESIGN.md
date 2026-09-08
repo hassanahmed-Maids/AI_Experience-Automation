@@ -636,6 +636,64 @@ rule the job does not use, on a payment type whose enrolment justification is al
 **6f settles the split across all 9,167 notes** rather than 20, restricted to 30-day months where the
 two divisors actually differ.
 
+## 3l. 🔴 Retraction: `NOTE_DATE = LAST_DAY(NOTE_DATE)` never matches, so §3k's origin claim is void
+
+6f returned **no `on_batch` rows at all** — every one of the 3,728 anti-attrition notes in 30-day
+months classified as `off_batch`. That is impossible on its face: the band-3 queue is full of notes
+dated **2026-06-30**, June has 30 days, so those are month-end notes and belong in this population.
+
+**`NOTE_DATE` carries a time component.** `LAST_DAY()` returns a DATE at midnight, so
+`NOTE_DATE = LAST_DAY(NOTE_DATE)` compares `2026-06-30 08:15:00` against `2026-06-30 00:00:00` and is
+false for every row. The predicate could not return true, and a filter that can never fire returns
+a clean, plausible, entirely meaningless split.
+
+**§3k's central claim is therefore withdrawn.** "Only hand-added notes prorate over 31" was read off
+`ON_BATCH_DATE = 0` in 6e part B — the same broken comparison. It never showed that those 20 amounts
+were hand-added; it showed that the comparison was false, which it always is. The convergence I drew
+with `anti-attrition-cases.sql`'s 156 hand-added notes goes with it: two numbers of similar size,
+one of which was measuring nothing.
+
+This is trap #2 in the plugin's own catalogue — **an assertion that cannot fail** — arriving as a
+*classifier* rather than as a test, where nothing looks wrong because the output is well-formed.
+**Checked the blast radius: the other files are clean.** `anti-attrition-cases.sql` and
+`live-types-deep-profile.sql` both cast `NOTE_DATE::DATE` before comparing, and the former defines
+batch days *empirically* — `GROUP BY NOTE_DATE::DATE HAVING COUNT(*) > 100` — rather than assuming
+month-end at all. That is the better idiom and it is what 6g adopts: the job's run days are a fact in
+the data, not something to infer from the calendar. **The 156-note hand-added figure stands.**
+
+### What actually survives, and it is still the interesting half
+
+The shape distribution does not depend on the origin split, so it stands:
+
+| Shape | Notes | AED | % |
+|---|---:|---:|---:|
+| 1_flat_tier | 2,563 | 636,900 | 68.8% |
+| 3_over_month_length | 896 | 90,562 | 24.0% |
+| 2_over_31 | 250 | 28,431 | 6.7% |
+| 4_still_unexplained | 15 | 3,153 | 0.4% |
+| 0_zero | 4 | 0 | 0.1% |
+
+**In 30-day months, both divisors are in live use: 896 notes prorate over the calendar month and 250
+over a fixed 31.** One payment type, two proration rules — that part of §3k is confirmed on 3,728
+notes and does not rest on the broken predicate. What is *unproven* is the attribution: whether the
+divisor tracks batch-vs-manual origin, or something else entirely. 6g re-tests it with a working
+comparison.
+
+**And the classifier now explains 99.5%** — 15 notes and AED 3,153 fit no rule at all, down from the
+298 that made §3i call this a second mechanism. The amount space of anti-attrition is essentially
+solved: a tier table, two proration divisors, and a 15-note tail.
+
+### The zeros, sized: immaterial
+
+**14 zero-amount notes out of 9,167 — 0.15%, AED 0 total, across 12 maids**, spanning 2025-11-06 to
+2026-09-01. Plus 131 notes under AED 10 (1.4%).
+
+I flagged these as needing sizing *before* any rate in this document could be quoted, on the grounds
+that they inflate the 9,167 denominator. **That was overcautious and I was wrong about the risk:** at
+0.15% they move no figure here — the 1.00× chance rate, the 87% coverage, the band percentages all
+stand unchanged. They remain a small data-quality item worth a line in the spec (a payment record for
+nothing is either a defect or a cancelled payment left standing), not a blocker on anything.
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -709,9 +767,11 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O33~~ | ~~Run query 3 (coverage)~~ — **done.** It inverted the design (§3b): coverage is 94–100%, so presence can never be a RED. Superseded by **O38** | — |
 | ~~O38~~ | ~~Run query 6a~~ — **done, §3f.** Salary dispute clears chance at 1.46×; anti-attrition sits at 0.89× and is not corroborated at all | the queue |
 | ~~O40~~ | ~~Run 6d~~ — **done, §3j.** One mechanism with proration, not two. The split claim is withdrawn |  — |
-| **O42** | Size the **AED 0 anti-attrition notes** (6e). They sit inside the 9,167 denominator every lift figure in this document uses | the denominator, and every rate quoted here |
+| ~~O42~~ | ~~Size the AED 0 notes~~ — **done, §3l.** 14 notes, 0.15%, AED 0. Immaterial; no rate in this document changes | — |
 | ~~O43~~ | ~~Review the 298 unexplained amounts~~ — **explained, §3k.** They prorate over a fixed 31 and are all hand-added. Superseded by O45 | — |
-| **O45** | Run **6f**: confirm across 9,167 notes that off-batch notes prorate over 31 while batch notes use the calendar month. If it holds, B4/B5 needs TWO recompute rules and the manual path needs a rule owner | the anti-attrition recompute, and a governance question |
+| ~~O45~~ | ~~Run 6f~~ — **void, §3l.** The month-end predicate can never be true; the split measured nothing. Superseded by O46 |  — |
+| **O46** | Run **6g** — re-test the divisor/origin link with `NOTE_DATE::DATE = LAST_DAY(NOTE_DATE)`. Two divisors are confirmed in use; only the attribution is open | B4/B5, and whether a manual path needs a rule owner |
+| ~~O47~~ | ~~Re-check the hand-added population~~ — **checked, §3l.** Both other files cast `::DATE` and define batch days empirically. Unaffected | — |
 | **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30%+ of notes are prorated, so the check is `tier × days ÷ divisor` — and per §3k the divisor is not the same for both origins. Re-scope O23 | the anti-attrition recompute check |
 | **O41** | Confirm note **184233** (maid 97470): enrolment dated after the payment. Hard RED, needs a human verdict | the ENROLLED_AFTER_PAYMENT rule |
 | ~~O39~~ | ~~Run 6a-iii and 6a-ii~~ — **done, §3g.** Anti-attrition 1.00× chance, salary dispute 2.33×; no proximity spike on anti-attrition. The design question is closed | — |

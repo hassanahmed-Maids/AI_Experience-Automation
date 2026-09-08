@@ -670,3 +670,60 @@ SELECT origin, shape,
        ROUND(SUM(AMOUNT))                                                AS aed,
        ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (PARTITION BY origin))    AS pct_of_origin
 FROM shaped GROUP BY 1,2 ORDER BY 1,2;
+
+
+-- =====================================================================================
+-- 6g. THE DIVISOR/ORIGIN LINK, RE-TESTED (§3l). SELF-CONTAINED. ~10 rows.
+--
+--     ⚠️ 6f IS VOID. It split origin on NOTE_DATE = LAST_DAY(NOTE_DATE). NOTE_DATE carries
+--     a TIME, LAST_DAY() returns midnight, so that comparison is false for every row —
+--     6f classified all 3,728 notes as off_batch and its split measured nothing. A filter
+--     that can never fire still returns a well-formed, plausible result. Cast first.
+--
+--     Two fixes here. Compare on ::DATE, and define batch days EMPIRICALLY the way
+--     anti-attrition-cases.sql does — a day the job ran is a day with a pile of notes on
+--     it, which is a fact in the data. Do not assume the job runs on the last calendar
+--     day; that assumption is what 6f smuggled in.
+--
+--     Still restricted to 30-day months: the only case where /30 and /31 disagree.
+--     CONFIRMED already (does not depend on origin): both divisors are in live use —
+--     896 notes over the month length, 250 over a fixed 31. OPEN: what selects between
+--     them. If it is batch-vs-manual, B4/B5 needs two recompute rules.
+-- =====================================================================================
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT,
+           DAY(LAST_DAY(NOTE_DATE::DATE)) AS days_in_month
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON = 'Anti-attrition Incentive'      -- <<< do not drop
+      AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), batch_days AS (        -- the job's run days, observed rather than assumed
+    SELECT note_day FROM n GROUP BY 1 HAVING COUNT(*) > 100
+), shaped AS (
+    SELECT IFF(n.note_day IN (SELECT note_day FROM batch_days),
+               'on_batch','off_batch')                             AS origin,
+           n.AMOUNT,
+           CASE
+             WHEN n.AMOUNT = 0 THEN '0_zero'
+             WHEN n.AMOUNT = ROUND(n.AMOUNT) AND MOD(n.AMOUNT,50) = 0 THEN '1_flat_tier'
+             WHEN ABS(n.AMOUNT*31 - ROUND(n.AMOUNT*31)) < 0.2
+              AND MOD(ROUND(n.AMOUNT*31),50) = 0                   THEN '2_over_31'
+             WHEN ABS(n.AMOUNT*n.days_in_month - ROUND(n.AMOUNT*n.days_in_month)) < 0.2
+              AND MOD(ROUND(n.AMOUNT*n.days_in_month),50) = 0      THEN '3_over_month_length'
+             ELSE '4_still_unexplained'
+           END AS shape
+    FROM n
+    WHERE n.days_in_month = 30
+)
+SELECT origin, shape,
+       COUNT(*)                                                          AS notes,
+       ROUND(SUM(AMOUNT))                                                AS aed,
+       ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (PARTITION BY origin))    AS pct_of_origin
+FROM shaped GROUP BY 1,2 ORDER BY 1,2;
+
+-- 6g-i. SANITY CHECK — run this first. If on_batch is empty again, the batch-day
+--       threshold is wrong for this population, not the comparison.
+--   WITH n AS (...same...)
+--   SELECT note_day, COUNT(*) AS notes FROM n
+--   GROUP BY 1 HAVING COUNT(*) > 100 ORDER BY note_day;
