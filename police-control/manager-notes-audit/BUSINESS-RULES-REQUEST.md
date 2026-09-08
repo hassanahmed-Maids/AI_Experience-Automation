@@ -20,7 +20,7 @@ result, but it means real money passes without a check.
 
 ## Part 1 — Payment types that cannot be checked at all
 
-*(Two of the seven have since been answered by the ERP code itself — the raffle and the Google review. They are left in place, marked answered, so you can see what came off the list and why. **Five** genuinely remain.)*
+*(Two of the seven have since been answered by the ERP code itself — the raffle and the Google review. They are left in place, marked answered, so you can see what came off the list and why. **Four** genuinely remain: the vacation daily rate and the three loan-type advances — and see the note on those below.)*
 
 Each of these goes from *unverifiable* to *fully checked* the moment somebody answers.
 
@@ -110,23 +110,19 @@ away) to **115%** (the maid repaying more than she received).
 
 ---
 
-### 7. Live-out transport allowance — ⚠️ **may not be a real payment type**
+### 7. Live-out transport allowance ✅ **ANSWERED — question withdrawn**
 
-We checked the code, and **"Live-out Transportation Assistance" does not exist as a payment reason in
-the ERP.** There is no such option, no rate and no rule. The only live-out transportation thing in
-the system is a *complaint ticket* raised after a mediator visit, which pays nothing.
+**We told you this might not be a real payment type. It is real, and we found it.** Live-out
+Transportation Assistance is an **expense category**, and the money is booked on the payslip under
+**Taxi Reimbursement**. In the last 12 months that is **340 payments totalling AED 70,450 — 69% of
+everything paid as taxi reimbursement.** It is the main use of that payment type, not an edge case.
 
-It appears as a **category in a reporting view**, which is not the same as a payment type — that
-view groups payments under labels of its own.
+Our earlier note was a search error on our side: we looked for it in the list of payslip payment
+types and, not finding it, concluded it did not exist. It sits one level down, in the expense
+categories.
 
-**The question:** when someone books transport money for a live-out maid, **what do they actually
-record it as** — a taxi reimbursement, or something else? And is there a rate at all, or is every
-amount decided case by case?
-
-**Why it matters:** if the reporting label doesn't correspond to a real payment type, we have been
-counting a category that doesn't exist — and the same doubt now applies to the sim card, WPS
-compliance, PCR and NOL card categories in Part 1 items 4–6. **We are checking those before asking
-you to define rules for payments that may not be separate payments at all.**
+**Nothing is needed from you.** We can now check these the same way as any other reimbursement —
+that an expense record exists, that it is in an allowed category, and that it was approved.
 
 ---
 
@@ -285,7 +281,7 @@ under it. **Somebody in payroll knows what it is, and nothing in the system does
 
 | | Today | After |
 | --- | --- | --- |
-| The five open payment types in Part 1 | unverifiable | fully checked, every month |
+| The remaining open payment types in Part 1 | unverifiable | fully checked, every month |
 | The three lists in Part 2 | three tests permanently blocked | those tests run across all payment types |
 | ~~Loyalty~~ and AR-1 | loyalty is **answered and now fully checkable**; AR-1 remains unexplained | AR-1 at minimum explained |
 

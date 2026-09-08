@@ -480,6 +480,169 @@ the pipeline end to end.
 
 ---
 
+# What the data confirmed, and the two things it reframed
+
+Nine profiling queries were run against the live set on 2026-09-08. The code predictions held
+arithmetically in four places, and the data resolved two open contradictions.
+
+## 🟢 The raffle matches the code *exactly*
+
+| | Code | Data (12m) |
+|---|---|---|
+| Second prize | 200 × 45 winners × 12 draws | **200 → 540 notes** (45 × 12) |
+| First prize | 2,000 × 3 winners × 12 draws | **2,000 → 36 notes** (3 × 12) |
+
+Two distinct amounts, no others, exact counts. `RafflePerformerJob` is running precisely to
+specification. Group F will be a formality once the tables are ingested.
+
+## 🟢 Four formulas confirmed arithmetically
+
+- **Anti-attrition:** every fractional amount is `tier × days/31` — 38.71 = 100×12/31,
+  19.35 = 100×6/31, 154.84 = 200×24/31, 193.55 = 200×30/31.
+- **MV Prorated Salary:** 967.74 = 1000×30/31, 483.87 = 1000×15/31, 1064.52 = 1500×22/31.
+  **65% of its amounts carry fils** — the signature of proration.
+- **Forgive Deduction:** 65 ≈ 2000/31, 67 ≈ 2000/30, 32 ≈ 1000/31. One day of salary, as coded.
+  **Only 2% are multiples of 50** — nothing typed in.
+- **Last Day CC Switch Adjustment:** 32–107, median 65. One day of CC salary.
+
+## 🔴 Reframe 1 — the 22-month CC airfare rule is real, and enforced *by hand*
+
+The code has no tenure test. The **free text on the notes does**:
+
+> *"postponed, didn't accumulate 22 months under CC"* — 19 notes
+> *"postponed to complete 22 months under CC"* — 7 notes
+
+**George's rule is genuine policy. The system does not implement it. Human reviewers enforce it by
+postponing notes — editing the date forward, exactly as they do for referral bonuses.** That
+reconciles the divergence completely, and it changes what the audit must test.
+
+The system creates an airfare note on visa renewal for anyone, with no tenure check. **The only thing
+standing between that and paying an ineligible maid is a person noticing.** So group A needs two
+tests, not one:
+
+- **A6 (policy, not code) — CC tenure ≥ 22 months at the note date.** Every note failing this is a
+  case the manual control should have caught. The ~26 postponed notes are evidence it usually works;
+  the audit's job is to find the ones it did not.
+- The coded tests (exact nationality tier, renewal anchor, 16-month spacing) still stand.
+
+**This is the highest-value single check in the audit**: a manual control, unsupported by code,
+guarding the largest category of money.
+
+## 🔴 Reframe 2 — "Live-out Transportation Assistance" exists, and I was wrong to say it didn't
+
+On 2026-09-08 this spec recorded that *"Live-out Transportation Assistance does not exist as an ERP
+addition reason"*, and the business-rules request asked owners what it really was.
+
+**It is a real expense category, booked under the `taxi_reimbursement` addition reason.** In the last
+12 months:
+
+| Taxi Reimbursement, by expense category | Notes | AED |
+|---|---:|---:|
+| **Live-out Transportation Assistance** | **340** | **70,450** |
+| Taxi Reimbursement | 155 | 12,630 |
+| Taxi rides - maids | 1 | 0 |
+
+**It is 69% of all taxi-reimbursement money and the dominant use of the payment type.** The error was
+the same shape as the raffle error: I searched for it as an *addition reason* and concluded it did not
+exist, when it lives one level down as an *expense category*. → withdraw Part 1 item 7 of the
+business-rules request; the question is answered.
+
+## 🟢 N14 recovered from the data as well as the code
+
+Each type-B payment maps to exactly one expense category — the mapping is clean, and taxi is the only
+one-to-many:
+
+| Payment type | Expense category | Coverage |
+|---|---|---|
+| Anti-attrition Incentive | Anti-attrition Incentive | 9,164 / 9,167 |
+| Salary Dispute | Salary disputes for housemaids | 1,069 / 1,084 |
+| Maids.at other expenses | Maids.at other expenses | 341 / 341 |
+| Medical Assistance | Medical Assistance Bill | 88 / 88 |
+| Accommodation Relocation | Accommodation Relocation | 62 / 62 |
+| **Taxi Reimbursement** | **Live-out Transportation Assistance** *and* Taxi Reimbursement | 340 + 155 |
+
+Anything outside a type's category list is a finding. Three already visible: one anti-attrition note
+booked under *Live-out Transportation Assistance*, two salary disputes under *Bonuses for Housemaids*,
+and **77 `bonus` notes booked under *CC Housemaids Expenses - Abu Dhabi Incentive*** — the AD
+incentive landing on the wrong addition reason.
+
+## 🔴 Airfare tiers are 2,000 / 1,500 / 1,000 — the spec's 1,350 does not exist
+
+| Amount | Notes | Share |
+|---|---:|---:|
+| 2,000 | 773 | 54.1% |
+| 1,500 | 529 | 37.0% |
+| **0** | **123** | **8.6%** |
+| 1,000 | 3 | 0.2% |
+
+**AED 1,350 appears zero times.** The spec's cap figures are wrong on both the mechanism (exact tier,
+not cap) and the value. → **O26** must read the `ScheduledAnnualVacationAmount` tags to get the
+authoritative set.
+
+## Salary Dispute — the concentration risk is low; the design risk is not
+
+My earlier framing implied misuse concentration. The 12-month data does not support that:
+
+| | |
+|---|---|
+| Distinct requesters | **36** |
+| Top requester's share of money | **17%** |
+| Self-approved | **2%** |
+| No requester | **1%** (the 47% all-time figure is historical) |
+
+So it is not one person moving money. **The finding is structural** — no cap, no reconciliation
+target, no `@PreAuthorize` — and it stands unchanged. Correcting the emphasis matters for how it is
+raised: this is a design gap to close, not an individual to investigate.
+
+## Where humans *do* self-approve
+
+| Type | Self-approved | Requesters / approvers |
+|---|---:|---|
+| VIP Bonus | **100%** | 1 / 1 |
+| Medical Assistance | **48%** | 8 / 8 |
+| Taxi Reimbursement | 25% | 43 / 10 |
+| Accommodation Relocation | 5% | 8 / 2 (top requester holds **80%** of the money) |
+
+Anti-attrition's 88% is the service account and is not a segregation issue. **Medical Assistance at
+48% across 8 people is**, and it is small enough to fix by policy tomorrow.
+
+Separately, **Maids.at other expenses has 0% missing requesters but 82% missing approvers** — every
+note is human-raised and four in five reach payroll with nobody recorded as approving.
+
+## Growth — three types are new and four are exploding
+
+| Type | First 6m | Last 6m | Change |
+|---|---:|---:|---|
+| Maids.at other expenses | 232 | 45,593 | **+19,552%** |
+| Medical Assistance | 447 | 13,742 | +2,974% |
+| Taxi Reimbursement | 7,602 | 58,192 | +665% |
+| Anti-attrition Incentive | 193,331 | 1,176,879 | +509% |
+| Forgive Deduction | 12,986 | 40,230 | +210% |
+| Airfare Ticket | 833,000 | 1,180,000 | +42% |
+| MV Prorated Salary / Accommodation Relocation / Last Day CC Switch | 0 | 580,118 / 44,800 / 13,616 | **NEW** |
+| Office Work Addition | 12,028 | 7,573 | −37% |
+
+Everything else is flat. **Nothing in the live set is shrinking except office work.**
+
+## Duplicates, zeros and outliers
+
+**481 same-maid-same-day cases, AED 133,545.** Most are benign: Forgive Deduction's 213 cases
+(90% identical amounts) are multiple forgiven days processed together, and anti-attrition's 169 cases
+are only 5% identical — consistent with two contracts prorated differently, which is the legitimate
+case the code's per-contract guard allows. **The ones to open: 12 `Bonus` cases (AED 22,000, 67% at
+identical amounts) and 29 of 34 `Prorated salary` cases at identical amounts.** One airfare case has
+**four notes for one maid on one day**.
+
+**472 zero-amount notes** across the live set — airfare 123, salary dispute 104, bonus 70,
+Maids.at 69. These are voided or superseded entries; they need a rule, because a zero note is
+currently indistinguishable from a real one in every count.
+
+**112 rows beyond 3σ, AED 201,620.** MV Prorated Salary dominates (13 rows, max 4,838.71 = 5,000×30/31
+— a high salary, not an error). The genuine outlier is **note 174632, Salary Dispute, AED 4,554.84 at
+9.93σ against a type average of 356** — the single most anomalous note in the live set.
+
+---
+
 # Cross-cutting findings
 
 ## F1 — `POST /payrollmanagernote` has no authorisation check

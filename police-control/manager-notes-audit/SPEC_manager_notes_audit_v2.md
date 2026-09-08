@@ -468,6 +468,25 @@ settles the schedule empirically: **12 batches, each on the last day of its mont
 is **withdrawn**: the rule is written, in code.
 
 #### N14 — Payment type → allowed expense heads
+🟢 **ANSWERED 2026-09-08 — from code and confirmed in data. This is no longer a business ask.**
+The mapping *is* the accounting **`Expense.salaryAdditionType`** column: `processExpenseRequestTodo()`
+copies it verbatim onto the note, so the set of expenses carrying a given `salaryAdditionType` **is**
+that payment type's allowed category list. Read the Expense table (O25). Confirmed against 12 months
+of free text — each type maps to exactly one category, except taxi which has two:
+
+| Payment type | Allowed expense category | Coverage |
+|---|---|---|
+| Anti-attrition Incentive | Anti-attrition Incentive | 9,164 / 9,167 |
+| Salary Dispute | Salary disputes for housemaids | 1,069 / 1,084 |
+| Maids.at other expenses | Maids.at other expenses | 341 / 341 |
+| Medical Assistance | Medical Assistance Bill | 88 / 88 |
+| Accommodation Relocation | Accommodation Relocation | 62 / 62 |
+| Taxi Reimbursement | **Live-out Transportation Assistance** · Taxi Reimbursement | 340 + 155 |
+
+Violations already visible: 1 anti-attrition note under *Live-out Transportation Assistance*, 2 salary
+disputes under *Bonuses for Housemaids*, and **77 `bonus` notes under *CC Housemaids Expenses - Abu
+Dhabi Incentive*** — the AD incentive on the wrong addition reason.
+
 Which `EXPENSES_REQUESTS.EXPENSE_TYPE` values are legitimate behind each addition reason. Test T5
 fires RED (F3) on a mismatch, so **without this list T5 has two silent failure modes**: an empty
 list reds every note, a permissive default greens every note. **A payment type absent from the
@@ -863,6 +882,23 @@ count.
   nationality code, **not** `NATIONALITY_CATEGORY` (D12) — they are different partitions. 🔴 Strictly
   greater, matching the ERP *(code-verified)*. BLOCKED if the parameter row is missing, or if the
   audit month predates the parameter's current value (H11 — no effective dating).
+> 🔴 **Read this before A2 — corrected 2026-09-08 from code + data.** The ERP does **not** implement
+> a tenure rule for airfare at all. `AddScheduledAnnualVacationService` creates the note on **visa
+> renewal** (the "Upload The e-Residency" step), gated only on 6-months-before-expiry (first renewal),
+> 16-months-since-last (later ones) and a 5-month duplicate guard. There is **no `cc_months` test, no
+> contract-type gate and no modulo** anywhere in that path.
+>
+> **The 22-month rule is nonetheless real — humans enforce it by hand.** The notes' own free text
+> carries *"postponed, didn't accumulate 22 months under CC"* (19 notes) and *"postponed to complete
+> 22 months under CC"* (7 notes): reviewers push the note date forward, exactly as they do for
+> referral bonuses. So A2/A3 below are **policy tests with no system counterpart** — which makes them
+> the most valuable checks in the audit rather than the least, because a manual control is the only
+> thing guarding AED 7.77m. Keep them, and label them as policy, not as a restatement of code.
+>
+> Also corrected: the amount is an **exact per-nationality value** (`Nationality` tag
+> `ScheduledAnnualVacationAmount`, else parameter `default_ticket_allowance_amount`), not a cap. The
+> observed tiers are **2,000 / 1,500 / 1,000** — **AED 1,350 does not appear in a single note** (O26).
+
 - 🔴 **A2 — CC tenure.** *(business rule, George Abboud via Hassan Ahmed, 2026-09-07 — replaces
   v2's "months ≥ 6".)* `cc_months >= 22`, where `cc_months` is accumulated **CC** service as of the
   **note date**, walked back over her contract-type timeline (N17): an MV interval **shorter than
@@ -1051,7 +1087,7 @@ value list is itself **truncated**, so more exist.
   been recoverable → **RED (F4)**. Amounts unequal → **RED (F1)**. Not CC live-out → **RED (F3)**.
 - **L2 — Sim card Loan · WPS Compliance Loan · PCR Test & medical assistance Loan.** Same
   addition-equals-loan pairing; no eligibility rule recovered, so that half is **BLOCKED**.
-- 🔴 **L3 — Live-out Transportation Assistance does not exist as an ERP addition reason.**
+- 🔴 **L3 — Live-out Transportation Assistance is not an ERP addition reason — 🔴 **but it IS a real expense category, corrected again 2026-09-08.** It is booked under the `taxi_reimbursement` addition reason and accounts for **340 notes / AED 70,450 in 12 months — 69% of all taxi reimbursement money**. The 8 September claim that it 'does not exist' was the raffle error repeated: searched as an addition reason, missed one level down as an expense category.**
   *(code-verified 2026-09-08, conversation 45930.)* There is no such picklist item, no parameter and
   no constant. The only "live-out transportation" concept in the ERP is
   `TAG_LIVE_OUT_TRANSPORTATION_CHECK_IN`, a complaint/check-in tag raised after a mediator visit,
