@@ -130,3 +130,45 @@ The 474 standalone zeros are one of:
 - **raised-and-never-filled** requests, a workflow that never closes.
 
 **Z4 separates them by keyword class, counts only.** That is the last query this needs.
+
+---
+
+# Z4–Z5 results — and the honest limit of this method
+
+## Z4 — the 474 standalone zeros, classified
+
+| Class | Notes | Types | Maids | Carry a figure | Window |
+|---|---:|---:|---:|---:|---|
+| ⚠️ **6 — none of the above** | **289** | 13 | 272 | 132 | 2025-09-24 → 2028-03-11 |
+| 🔴 **1 — money moved elsewhere** | **90** | 11 | 79 | **84** | 2025-09-08 → 2026-09-04 |
+| 2 — cancelled or superseded | 43 | 9 | 38 | 35 | full year |
+| 4 — an adjustment | 28 | 3 | 25 | 26 | 2025-10-04 → 2026-07-27 |
+| 3 — raised, never filled | 22 | 5 | 22 | 12 | 2025-09-13 → 2027-01-24 |
+| 5 — no text at all | 2 | 1 | 1 | 0 | Jan 2026 |
+
+🔴 **90 notes across 11 payment types and 79 maids carry language indicating the payment happened
+outside payroll, and 84 of the 90 carry a figure.** It runs the whole year — this is not an incident.
+**If it holds, money is moving outside the system of record, invisible to this audit and to payroll
+controls alike, and a zero-amount note is the only trace left behind.**
+
+⚠️ **The classifier explains 39% of the population and no more.** 289 notes — **61%** — match nothing,
+across 13 payment types and 272 maids, 132 of them carrying a figure. **This investigation cannot
+conclude on the majority of its own population.** Saying so is part of the result; another round of
+regexes would only move notes between buckets I invented.
+
+**The next step is not SQL.** It is the **AI Agent reading a sample of the free text** — the Agent
+reads it, the audit never republishes it. That is what the Agent exists for, and it is the only thing
+that can classify 289 notes written by people rather than by a schema.
+
+## Z5 — the Abu Dhabi run paid nobody, and nothing else paid them either
+
+Across August–September 2026, the 18 maids carry only **five** other notes between them:
+
+| Other payment type | Notes | Maids of the 18 | AED |
+|---|---:|---:|---:|
+| Anti-attrition Incentive | 4 | 2 | 794 |
+| Accommodation Relocation | 1 | 1 | 800 |
+
+**At least 15 of the 18 received nothing at all.** The money did not land under another reason — it
+did not land. This is a defect **and** an unpaid entitlement, and it is the one finding here that can
+be filed today with no further data.

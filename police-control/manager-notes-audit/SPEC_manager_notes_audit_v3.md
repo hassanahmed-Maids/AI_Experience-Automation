@@ -799,7 +799,7 @@ and all outcomes are written to `TEST_TRACE`.
 | --- | --- | --- | --- | --- |
 | **T1** | Is the maid's profile readable? | never | no `HOUSEMAIDS_INFO` row · `IS_DELETED = '01'` · `HOUSEMAID_TYPE ∉ {Normal, MAID_VISA}` (H5) · a needed date is epoch-zero (H6) | never |
 | **T2** | Is a payment type recorded? | `ADDITION_REASON_ID IS NULL` → **F4** | `ADDITION_REASON_ID` set but resolves to no picklist row | never |
-| **T3** | Is the amount usable? | never | `AMOUNT IS NULL` → *"amount not recorded"* · `AMOUNT = 0` → *"zero-amount addition"* · `AMOUNT < 0` → *"negative addition — money taken back"* | `AMOUNT > 0` |
+| **T3** | Is the amount usable? | **`AMOUNT = 0` and the note stands alone and its text indicates payment happened elsewhere → *"paid outside payroll"*** · **every note of the payment type in the run is zero → *"a broken run"*** | `AMOUNT IS NULL` → *"amount not recorded"* · `AMOUNT = 0` otherwise → *"zero-amount addition"* · `AMOUNT < 0` → *"negative addition — money taken back"* | `AMOUNT > 0` |
 | **T4** | Authorised expense record, and does the amount agree? | matched, authorised, currencies equal, and `\|note − request\|` > tolerance → **F1** · matched but not authorised (see below) → **F4** · unmatched, reason ∈ N16, and that reason's M13 ≥ floor → **F4** | unmatched and M13 < floor · unmatched and reason ∉ N16 or N16 absent · multiple candidates (H1) · currencies differ and no FX (H7) · the N4 link unresolved | reason ∉ N16 and N16 present |
 | **T5** | Expense head consistent with payment type? | matched and head ∉ N14 list for that reason → **F3** | N14 absent, or the reason is not in it · T4 did not match | T4 returned N_A |
 | **T6** | Duplicate? | a duplicate group exists → **F2** on every member | the entitlement window for the reason is unknown · the window extends outside loaded history | never |
@@ -899,6 +899,38 @@ A finding is evidence; a clearance is only the absence of one. One red outweighs
 greens; one blocked outweighs any number of greens. **There is no fourth state** — v1's
 `REPORTED` for negative and zero amounts was a fourth value that belonged to no metric, so those
 notes were amber on screen and countable nowhere. Negatives and zeros are **AMBER**, carrying
+
+#### T3 split — 🔴 **one AMBER was covering three different things** *(2026-09-08, Z1–Z5)*
+
+v3 gave every `AMOUNT = 0` note the same verdict: AMBER, *"zero-amount addition"*. **510 such notes
+across 15 payment types say that is three findings wearing one label.**
+
+**1. 🔴 A broken run → RED.** `Abu Dhabi Incentive` is **18 notes, 100% zero, from a single day
+(2026-08-31)** — the entire payment type. `AbuDhabiMaidIncentiveExpenseJob` computes
+`abuDhabiIncentiveOffered × eligibleDays ÷ totalDaysInMonth`; a whole run at zero means the offered
+amount, the eligible days or the write-back failed. **Z5 confirms the money did not go anywhere else:
+across August–September only 5 other notes exist among those 18 maids (4 anti-attrition, AED 794; 1
+accommodation relocation, AED 800), so at least 15 of the 18 received nothing at all.** This is a
+defect *and* an unpaid entitlement. **Rule: when 100% of a payment type's notes in a run are zero,
+that is RED for the run, not AMBER per note** — the per-note verdict cannot see it.
+
+**2. 🔴 Paid outside payroll → RED.** **474 of the 510 zeros stand alone** — no payment to that maid
+that day — and **508 of 510 carry free text, 319 with a figure in it**. Of the standalone ones,
+**90 (11 payment types, 79 maids) carry language indicating the payment happened elsewhere, and 84 of
+those 90 carry a figure.** Running the whole year, 2025-09-08 to 2026-09-04. If that reading holds,
+**money moved outside the system of record — invisible to this audit and to payroll controls alike**,
+and a zero-amount note is the only trace it leaves.
+
+**3. 🟠 Everything else stays AMBER** — 43 cancelled or superseded, 28 adjustments, 22 raised and
+never filled, 2 with no text.
+
+⚠️ **The classifier explains 39% of the population. It must not be reported as if it explained all of
+it.** **289 of the 474 — 61% — match none of the keyword classes**, across 13 payment types and 272
+maids, 132 carrying a figure. **The investigation cannot conclude on the majority of the population**,
+and the next step is not another regex: it is the **AI Agent reading a sample of the free text** under
+the standing rule — the Agent reads it, the audit never republishes it. A keyword class is an
+indicator; a note matching *"manual"* is a candidate for off-payroll payment, not proof of one.
+
 their own blocking reasons (M3 T3), and their amounts sit in `M2.negative`.
 
 Evaluated for display in this order; first match names the verdict, but **every** test outcome is
