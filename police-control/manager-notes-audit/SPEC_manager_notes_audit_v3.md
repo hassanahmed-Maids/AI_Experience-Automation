@@ -953,6 +953,13 @@ run.
 | **P4** | **Run doubled** | Two runs of the same type inside one batch cycle | The individual notes are each valid |
 | **P5** | **Amount distribution shift** | The modal amount of a type changes between runs | A changed tier is legitimate; an unannounced one is not |
 
+| **P6** | 🔴 **Remediation follow-through** | A population-level RED has no correcting note for some or all of its members after N days | The original failure is visible; **whether anyone was made whole is not.** 75 airfare notes were zeroed 17-24 Aug 2026; 19 maids were corrected from 26 Aug and **58 were not** — ~AED 100,000, three weeks outstanding |
+
+**P6 exists because the audit found the failure and nearly missed the people.** Every population-level
+RED must carry a follow-through: *did a correcting note appear, for whom, and who is still waiting.*
+**A whole-run failure nobody remediates is worse than one nobody noticed** — the record shows it was
+seen, and 19 corrections out of 77 prove it was.
+
 **P3 is the one to build first.** It is cheap — group by `(REQUESTED_BY, run day, payment type)` and
 look for a cohort that moves — and it is the only guard against the census silently re-partitioning
 itself, which corrupts *every* per-type metric in the report at once.

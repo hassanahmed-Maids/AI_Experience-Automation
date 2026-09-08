@@ -297,3 +297,33 @@ the new expense zeroes the amount, or the job sent zero, or the note was written
 
 **It does not need to be answered to act.** The owner of that config change knows what they changed.
 **Verdict: RED — final, sized, and with 18 people at the end of it.**
+
+
+---
+
+## V11 · 🔴 RED — 58 maids are owed an airfare and have not been paid
+
+**The largest human finding in the investigation, and it came out of the zero-amount thread.**
+
+Between **17 and 24 August 2026**, seven airfare run days produced **75 zero-amount notes** —
+6/6, 11/12, 11/11, 3/4, 20/21, 6/6, 18/18. The month is clean before the 14th and after the 27th.
+A bounded incident, not a rate.
+
+**77 maids were entitled to an airfare and received AED 0.**
+
+| Outcome | Maids | AED |
+|---|---:|---:|
+| 🟢 A later airfare exists | 19 | 33,000 |
+| 🔴 **Never paid since** | **58** | **0** |
+
+**Corrections ran 2026-08-26 to 2026-09-07 — two days after the incident ended.** The failure was
+noticed and 19 of 77 were made good. **58 were not**, and at the corrected cohort's average of
+AED 1,737 that is **roughly AED 100,000 outstanding to 58 people, three weeks old.**
+
+⚠️ **The AED 100,000 is an estimate from the corrected cohort, not a computed entitlement.** The
+airfare amount is a flat per-nationality constant, so A7b's tiers give the real figure. **The count of
+58 is exact; the amount is not.**
+
+**Verdict: RED — and unlike every other finding in this register, the remedy is a payment, not a code
+change.** It is an order of magnitude beyond V1 (18 maids, ~AED 4,250), and it was found by asking a
+question no test in the spec asks: **after a failed run, was anybody made whole?**

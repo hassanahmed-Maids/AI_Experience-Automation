@@ -281,25 +281,35 @@ ORDER BY pairs DESC;
 
 -- A7b. 🔴 WHAT BROKE ON 17-24 AUGUST? The airfare amount is a flat per-nationality constant
 --   (tag `ScheduledAnnualVacationAmount`, else parameter `default_ticket_allowance_amount`).
---   A zero therefore means the tag or the parameter resolved to nothing. The nationality mix
---   of the 75 zero notes separates the two: ONE nationality => its tag broke; MANY => the
---   global default broke. The parameter store is not in the warehouse, so this is the only
---   way to tell from data.
-SELECT COALESCE(h.NATIONALITY, '(unknown)')                      AS nationality,
-       COUNT(*)                                                  AS notes_in_window,
-       COUNT_IF(n.AMOUNT = 0)                                    AS zeros,
-       COUNT_IF(n.AMOUNT > 0)                                    AS non_zeros,
-       ROUND(AVG(IFF(n.AMOUNT > 0, n.AMOUNT, NULL)))             AS avg_when_paid,
-       (SELECT MODE(n2.AMOUNT)
-          FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n2
-          LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h2 ON h2.ID = n2.HOUSEMAID_ID
-         WHERE n2.NOTE_TYPE = 'ADDITION' AND n2.REASON = 'Airfare Ticket' AND n2.AMOUNT > 0
-           AND h2.NATIONALITY IS NOT DISTINCT FROM h.NATIONALITY
-           AND n2.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())) AS this_nationalitys_tier
-FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
-LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
-WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket'
-  AND n.NOTE_DATE >= '2026-08-15' AND n.NOTE_DATE < '2026-08-27'
+--   A zero means the tag or the parameter resolved to nothing. The nationality mix separates
+--   them: ONE nationality => its tag broke; MANY => the global default broke.
+--   (The first version put the tier in a correlated scalar subquery referencing the outer
+--    GROUP BY column, which Snowflake rejects. The tier is now a CTE and a join.)
+WITH tiers AS (
+    SELECT COALESCE(h.NATIONALITY, '(unknown)') AS nationality,
+           MODE(n.AMOUNT)                       AS nationality_tier,
+           COUNT(*)                             AS tier_evidence_notes
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    GROUP BY 1
+), win AS (
+    SELECT COALESCE(h.NATIONALITY, '(unknown)') AS nationality, n.AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket'
+      AND n.NOTE_DATE >= '2026-08-15' AND n.NOTE_DATE < '2026-08-27'
+)
+SELECT w.nationality,
+       COUNT(*)                                        AS notes_in_window,
+       COUNT_IF(w.AMOUNT = 0)                          AS zeros,
+       COUNT_IF(w.AMOUNT > 0)                          AS non_zeros,
+       ROUND(AVG(IFF(w.AMOUNT > 0, w.AMOUNT, NULL)))   AS avg_when_paid,
+       MAX(t.nationality_tier)                         AS this_nationalitys_tier,
+       MAX(t.tier_evidence_notes)                      AS tier_from_n_notes
+FROM win w
+LEFT JOIN tiers t ON t.nationality = w.nationality
 GROUP BY 1
 ORDER BY zeros DESC;
 
@@ -332,3 +342,12 @@ SELECT CASE WHEN later_amount IS NULL THEN '🔴 never paid an airfare since'
 FROM later
 GROUP BY 1
 ORDER BY maids DESC;
+
+-- A7c RESULT 2026-09-08 — 🔴 THE FINDING WITH PEOPLE WAITING ON IT.
+--   never paid an airfare since ....  58 maids · AED 0
+--   a later airfare exists .........  19 maids · AED 33,000 · corrections 2026-08-26 to 09-07
+--   Corrections began two days after the incident ended, so the failure WAS noticed and 19 of
+--   77 were made good. 58 were not. At the corrected cohort's average of AED 1,737 that is
+--   roughly AED 100,000 owed to 58 people, outstanding for three weeks.
+--   ⚠️ The AED 100,000 is an estimate from the corrected cohort's average, not a computed
+--   entitlement. The count of 58 is exact; the amount is not. A7b gives the real figure.
