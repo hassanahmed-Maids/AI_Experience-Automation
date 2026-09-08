@@ -11,6 +11,7 @@ Multi-agent pipeline that migrates ~500 ERP broadcast templates (WhatsApp/SMS) i
 5. Channel is passthrough (mostly WhatsApp, sometimes SMS) — never a design axis.
 6. Migration proceeds **target by target** (CC-Clients, MV-Clients, CC-Housemaids, MV-Housemaids), and within a target **cluster by cluster**. Each export = one target, stated by Moe.
 7. We never use CustomerIO "Broadcasts" — campaigns only.
+8. **Any query Moe has to run goes in the chat message itself**, as a complete copy-paste block — never a file path and line numbers, never "it's in the repo". Commit it to the repo as well, but the chat is where it gets run from. Keep each one small enough to paste and read: if a result would run to thousands of rows, that is a signal the query is the wrong shape, not that it needs a `LIMIT` (see trap 16 in the audit-spec plugin).
 
 ## Knowledge base (read before acting; these are living documents)
 
