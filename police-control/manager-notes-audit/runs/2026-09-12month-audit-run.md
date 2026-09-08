@@ -501,3 +501,55 @@ findings from the code, which apply to all 9,167 notes and AED 1.83m rather than
 
 **The duplicate rule produced no material finding on this payment type, and required five corrections
 to establish that.** Both halves of that sentence are the deliverable.
+
+---
+
+# F13 — my arithmetic hypothesis was right for AED 68 and wrong for AED 771
+
+| Excess, in days of entitlement | Maid-days | AED |
+|---|---:|---:|
+| ≤ 2 days | 6 | **68** |
+| 3.5 – 21.3 days | 11 | **771** |
+
+**The changeover-day explanation covers 6 of 17 groups.** The rest run to 21.3 days of extra
+entitlement, which no off-by-one produces, and several land on half-days (3.5, 6.5, 9.5, 10.5, 16.5)
+rather than whole ones. I proposed the arithmetic reading with a code mechanism behind it; the data
+supports it for a third of the cases and rejects it for the rest.
+
+**The likely reading for the 11 is not a defect at all.** The job's guard is **per contract** — it
+skips a maid only if a note *for the same contract* already carries `incentiveRequestDate` this month.
+A maid on two **concurrent** contracts is therefore paid twice **by design**. Sequential contracts sum
+to at most one entitlement (the 99); overlapping ones sum to more (the 11). Without `CONTRACT_ID` on
+the notes view this cannot be confirmed.
+
+## ⛔ Stopping the duplicate thread here
+
+**AED 771 across 11 maid-days over twelve months is immaterial, and what remains is a business
+question, not a query:** *is a maid on two concurrent contracts entitled to two incentives?* Raised as
+**N16** in `BUSINESS-RULES-REQUEST.md`. It is worth answering because the same per-contract guard
+governs every prorated payment type — not because of the amount.
+
+Chasing it further with SQL would be spending the audit's credibility on AED 771.
+
+---
+
+# Anti-attrition: final state
+
+**One material finding.** 🔴 **42 notes, AED 9,019 — paid before any enrolment record existed.** Every
+competing explanation was tested and eliminated: logging lag (96.7% of enrolment rows are same-day),
+wrong column (re-run on `CREATION_DATE`, 11 cleared, 42 stood), manual route (`REQUESTED_BY` identifies
+a *run*, not a *route*). What is left is the job's own work.
+
+**Three control findings that apply to all 9,167 notes and AED 1,829,743**, not to 42: enrolment is
+checked once at selection and never across the two async hops to payment; the amount is validated only
+at write time, with a silent hard-coded fallback when the parameter is missing; and a back-fill utility
+sets that amount by string-matching free text.
+
+**No material duplicate finding — after five corrections.** 516 on calendar months → 259 on the batch
+cycle → AED 838 of real excess → AED 68 arithmetic, AED 771 a definition question. **Both halves of
+that belong in the report: the number, and the fact that four of the five corrections were to my own
+work.**
+
+**One ask, now priced.** `INCENTIVE_AMOUNT` on `HOUSEMAID_MANAGERACTIONLOGS`: it unblocks B4/B5,
+adjudicates the 52 groups that currently cannot be judged at all (AED 7,083), and removes the floor
+caveat from every entitlement test in this payment type. One column.

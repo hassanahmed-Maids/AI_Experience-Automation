@@ -290,3 +290,25 @@ None of this needs engineering. Each answer is written once and the check runs i
 If it is easier to answer some and not others, **the three lists in Part 2 are worth the most** — each one switches on a test across every payment type at once. The quickest single win is
 **the vacation daily rate** (Part 1, item 3): two numbers, and a payment goes from unverifiable to
 checked exactly.
+
+## N16 — Is a maid on two *concurrent* contracts entitled to two anti-attrition incentives?
+*(raised 2026-09-08 from the F10-F13 chain; small money, clean question)*
+
+`MaidIncentiveExperimentJob`'s duplicate guard is **per contract**: it skips a maid only if a note
+**for the same contract** already carries `incentiveRequestDate` this month. So a maid holding two
+contracts at once is paid twice **by design**, and the audit cannot call that right or wrong.
+
+The data is consistent with it. Of 169 same-day payment groups over twelve months, 99 sum to *less*
+than the maid's entitlement (sequential contracts with a gap — correct proration) and **11 sum to
+more, by 3.5 to 21.3 days of entitlement, AED 771 total** — the shape overlapping contracts produce.
+A further 6, AED 68, sit at one to two days and are consistent with the job's inclusive day counting
+paying the changeover day twice.
+
+**The ask is one sentence:** when a housemaid holds two contracts simultaneously, should she receive
+one incentive or two? If one, the guard needs to be per maid-month rather than per contract, and the
+11 cases are overpayments. If two, the audit's uniqueness rule for this payment type must be written
+per contract and these clear.
+
+**Money at stake is AED 771 over a year — this is a definition question, not a recovery.** It is worth
+answering because the same per-contract guard governs every prorated payment type, not because of the
+amount.

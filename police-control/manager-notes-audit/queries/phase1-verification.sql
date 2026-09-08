@@ -904,3 +904,16 @@ JOIN ent e ON e.HOUSEMAID_ID = s.HOUSEMAID_ID
 WHERE s.total > e.entitlement + 0.5
 GROUP BY 1, 2
 ORDER BY 2, 1;
+
+-- F13 RESULTS 2026-09-08 — the changeover-day hypothesis is only partly right, and mostly wrong.
+--   excess <=2 days ...  6 maid-days · AED  68  <- consistent with inclusive counting on both
+--                                                  segments paying the changeover day twice
+--   excess 3.5-21.3 d .. 11 maid-days · AED 771  <- NOT an off-by-one. 21 days of extra
+--                                                  entitlement is a different mechanism.
+--   Half-day values (3.5, 6.5, 9.5, 10.5, 16.5) also argue against whole-day arithmetic.
+--   Most likely reading for the 11: the job's guard is PER CONTRACT, so a maid on two
+--   CONCURRENT contracts is paid twice by design. Sequential contracts sum to <= entitlement;
+--   overlapping ones sum to more. Unconfirmable without CONTRACT_ID on the notes view.
+--   ⛔ STOPPING HERE. AED 771 across 11 maid-days is immaterial, and the remaining question is
+--   a business one - is a maid on two concurrent contracts entitled to two incentives? - not a
+--   query. Recorded in BUSINESS-RULES-REQUEST.md rather than chased with more SQL.
