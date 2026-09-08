@@ -241,3 +241,53 @@ was not.
   **superseded pending F5**.
 - **F3** — blocked. `HousemaidExtraFields` is not in the warehouse, so the Abu Dhabi route can be
   neither confirmed nor excluded. A named ingestion ask, like the raffle tables.
+
+---
+
+# F2/F5 — the batch made 32 of the 42 itself, and 16% of this type is not the batch
+
+## 🔴 The 42, attributed
+
+| | notes | AED |
+|---|---:|---:|
+| From the batch's own requester | **32** | — |
+| From one of 28 other requesters | 10 | — |
+| Unattributed | 0 | — |
+| **Total** | **42** | **9,019** |
+
+The manual `AAI - 01` route is real but marginal here: 23.8% of the 42 versus a 16.0% base rate, about
+1.5×. **It does not explain the finding. The unattended job produced 32 payments with no enrolment
+record on file at the time.**
+
+## 🔴 The bigger thing F2 found by accident
+
+**1,468 of 9,167 anti-attrition notes — 16% — did not come from the batch account.** 28 distinct other
+requesters, 2 notes with no requester at all. N13 describes this payment type as an unattended monthly
+job stamping one configured service account. **One note in six is something else**, and nothing in the
+audit was looking at that. F6 and F7 characterise it: whether a second expense code is visible (the
+only surviving angle on the Abu Dhabi question after F3 blocked), and whether the 28 are one-offs or
+standing alternate routes.
+
+## The 42 profiled on the right column
+
+**42 notes · 18 maids · AED 9,019 · median gap 41 days · max 157 · 2 within three days · 28 at thirty
+or more · 8 beyond ninety · 10 maids paid more than once.**
+
+This supersedes the ACTION_DATE profile in this file (53 notes, 21 maids, median 49, max 176). The
+shape survives the correction intact: still not a lag, still concentrated in repeat maids.
+
+## 🔴 What the 32 narrow the question to
+
+Code answer 46015 said the eligibility `EXISTS` is evaluated once at selection, with the note written
+two async hops later. That explains paying a maid whose enrolment was removed *after* selection — and
+**a removal followed by a later re-enrolment is exactly what `MIN(CREATION_DATE) > note_day` looks
+like.** So the 32 are one of:
+
+- **(a) the enrolment row was deleted and recreated** → the trail is mutable, and no point-in-time
+  check on it can be trusted;
+- **(b) the job paid with no row that ever existed** → the guard is bypassable.
+
+**Neither is excludable from the warehouse.** Deleted rows are gone, and `USER_WHO_LAST_MODIFIED` is
+always populated so it cannot mark an edit. This is the next ask-the-code question, and it is now a
+much sharper one than the one I asked this morning: not *"what is `ACTION_DATE`"* but *"can a
+`Maid_Incentive_Experiment` row be deleted, and does anything record that it was"*.

@@ -574,3 +574,81 @@ SELECT COUNT(*)                        AS notes,
        (SELECT COUNT(*) FROM (SELECT HOUSEMAID_ID FROM b1b GROUP BY 1 HAVING COUNT(*) > 1))
                                        AS maids_paid_more_than_once
 FROM b1b;
+
+-- F2/F5 RESULTS 2026-09-08:
+--   F2: 9,167 notes — 7,697 from the modal (batch) requester, 2 with none, and 1,468 from
+--       28 OTHER distinct requesters. 16% of this "unattended job" type is not the job.
+--       Of the 42 B1b notes: 32 from the batch requester, 10 from others, 0 unattributed.
+--       Base rate 16.0% other vs 23.8% among B1b — the manual route is ~1.5x enriched but
+--       does NOT explain the bulk. The batch made 32 of them itself.
+--   F5: 42 notes · 18 maids · AED 9,019 · median gap 41d · max 157d · 2 within 3 days ·
+--       28 at >=30 days · 8 at >=90 days · 10 maids paid more than once.
+--       Supersedes the ACTION_DATE profile (53 notes / 21 maids / median 49 / max 176).
+--
+--   🔴 What the 32 mean. Code answer 46015 says the eligibility EXISTS is evaluated once at
+--   selection and the note is written two async hops later. That explains paying a maid whose
+--   enrolment was removed AFTER selection — and a removal followed by a later re-enrolment is
+--   exactly what MIN(CREATION_DATE) > note_day looks like. So the 32 are either
+--     (a) the enrolment row was deleted and recreated later  -> the trail IS mutable, or
+--     (b) the job paid with no row that ever existed          -> the guard is bypassable.
+--   Neither is excludable from the warehouse: deleted rows are gone and
+--   USER_WHO_LAST_MODIFIED is always populated. This is the ask-the-code follow-up.
+
+-- F6. Is a SECOND producer visible in the data? Every route reaching one expense code carries
+--     one addition reason, so distinct EXPENSE_IDs under this reason = distinct producers.
+--     This is the one angle on the Abu Dhabi question that survives F3 being blocked.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY, EXPENSE_ID
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), enrol AS (
+    SELECT HOUSEMAID_ID, MIN(CREATION_DATE)::DATE AS first_created
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
+    GROUP BY 1
+), flagged AS (
+    SELECT p.*, IFF(e.first_created > p.note_day, 1, 0) AS is_b1b,
+           NULLIF(TRIM(p.REQUESTED_BY), '') AS req
+    FROM paid p LEFT JOIN enrol e ON e.HOUSEMAID_ID = p.HOUSEMAID_ID
+), modal AS (
+    SELECT req FROM flagged WHERE req IS NOT NULL
+    GROUP BY req ORDER BY COUNT(*) DESC LIMIT 1
+)
+SELECT f.EXPENSE_ID,
+       COUNT(*)                                          AS notes,
+       ROUND(SUM(f.AMOUNT))                              AS aed,
+       COUNT_IF(f.req = m.req)                           AS from_batch_requester,
+       COUNT(DISTINCT IFF(f.req <> m.req, f.req, NULL))  AS other_requesters_distinct,
+       SUM(f.is_b1b)                                     AS b1b_notes,
+       MIN(f.note_day)                                   AS first_note,
+       MAX(f.note_day)                                   AS last_note
+FROM flagged f CROSS JOIN modal m
+GROUP BY f.EXPENSE_ID
+ORDER BY notes DESC;
+
+-- F7. Shape of the 1,468 non-batch notes: is it 28 people making one-offs, or a handful of
+--     standing alternate routes? Ranked, never named — one row per requester, rank only.
+WITH paid AS (
+    SELECT ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), flagged AS (
+    SELECT p.*, NULLIF(TRIM(p.REQUESTED_BY), '') AS req FROM paid p
+), modal AS (
+    SELECT req FROM flagged WHERE req IS NOT NULL
+    GROUP BY req ORDER BY COUNT(*) DESC LIMIT 1
+)
+SELECT ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) AS requester_rank,
+       COUNT(*)                                   AS notes,
+       ROUND(SUM(f.AMOUNT))                       AS aed,
+       COUNT(DISTINCT DATE_TRUNC('month', f.note_day)) AS months_active,
+       MIN(f.note_day)                            AS first_note,
+       MAX(f.note_day)                            AS last_note
+FROM flagged f CROSS JOIN modal m
+WHERE f.req IS NOT NULL AND f.req <> m.req
+GROUP BY f.req
+ORDER BY notes DESC;
