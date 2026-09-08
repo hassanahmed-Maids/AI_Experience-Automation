@@ -766,6 +766,60 @@ enrolment justification is already a free-text box (§3) and whose volume has do
 by the same person is the strongest single combination available anywhere in this dataset. That
 intersection is the first thing to read off 6h part B.
 
+## 3o. 🔴 Reading the 35: the check detects HAND-TYPED, not WRONG. O50 withdrawn.
+
+The list is 33 whole integers plus two one-decimal values. **The job writes two-decimal computed
+values; a person types whole dirhams.** A test with a 0.2 tolerance on `amount × d` therefore flags
+rounded entry by construction — which is exactly and only what it did.
+
+**Can the amounts be reconciled if whole-dirham rounding is allowed?** Rounding by up to 0.5 moves
+`amount × 31` by up to 15.5, so widen the tolerance to `0.5 × d` and **34 of 35 fit**. Which sounds
+like an exoneration and is not:
+
+| Divisor | Share of arbitrary amounts the widened test accepts |
+|---|---:|
+| /28 | 56% |
+| /29 | 58% |
+| /30 | 60% |
+| /31 | 62% |
+| **any of the four** | **97.2%** |
+
+**The widened test's chance pass rate is 97.2%. The observed rate is 97.1%.** It accepts almost any
+number, so it is worth nothing in either direction — the same trap §3g caught on the complaint
+window, arriving here in the exculpatory direction. I cannot conclude from it that the 35 amounts are
+correct, and I will not.
+
+### What is actually established
+
+**The strict test separates machine precision from human precision. It does not test correctness.**
+0 of 9,011 job notes fail because the job emits exact two-decimal values; 35 hand-added notes fail
+because a person rounded. Whether any of those 35 is the *right* amount cannot be decided from the
+amount alone — it needs the tier and the days, which is O44.
+
+**So O50 is withdrawn.** Shipped as a spec check it would report 35 payments as findings on the
+evidence that a human typed them, which the note date already says more directly and without the
+arithmetic. It fails the plugin's own check #1: a signal that cannot distinguish a defect from a
+data-entry convention is not a finding.
+
+### The two real findings in the list, neither of which is about amounts
+
+🔴 **A single approver.** 34 of the 35 hand-added payments carry the same approver; one carries a
+different one. Whatever the batch job does automatically, the entire manual path for this payment
+type funnels through one person's approval. On a payment type whose justification is a free-text box
+(§3), that is the control question — and it was visible only because the queue happened to carry the
+column.
+
+🔴 **The approver name is stored in two forms — a short form and a full name — and S1 compares them
+as strings.** One row here self-approves and is caught only because both sides happen to use the
+identical full form. **Any self-approval recorded with mismatched name forms passes S1 silently.**
+That is a live defect in a check already written into `phase1-verification.sql`, and it under-reports
+in the safe-looking direction. S1 needs an identity key, or normalisation, before its output means
+anything.
+
+*(One amount, AED 801, fits no divisor even with rounding allowed — the only arithmetic outlier in
+the set. Since 2.8% of arbitrary amounts fail by chance, one in 35 is exactly expected. Not evidence
+of anything on its own.)*
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -844,7 +898,9 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O45~~ | ~~Run 6f~~ — **void, §3l.** The month-end predicate can never be true; the split measured nothing. Superseded by O46 |  — |
 | ~~O46~~ | ~~Run 6g~~ — **done, §3m.** Both divisors are the job's own. The manual path fails differently: 29% of hand-added amounts fit no rule vs 0.0% of the job's | — |
 | ~~O48~~ | ~~Size the no-rule hand-added notes~~ — **done, §3n.** 35 of 156 (22.4%, AED 8,675) vs 0 of 9,011 job notes. Part B lists them | — |
-| **O50** | Ship this as a spec check: *hand-added anti-attrition payment whose amount matches no rule the job could produce*. Zero judgement required, control group built in | the anti-attrition dashboard |
+| ~~O50~~ | ~~Ship the no-rule check~~ — **withdrawn, §3o.** It detects whole-dirham typing, not error. The note date says the same thing more directly | — |
+| **O51** | 🔴 **Fix S1's identity comparison** in `phase1-verification.sql`. The approver name is stored in two forms and S1 compares strings, so self-approvals with mismatched forms pass silently. Needs a key or normalisation | every segregation-of-duties number in the audit |
+| **O52** | 🔴 **A single approver signs off the entire manual anti-attrition path** (34 of 35). Raise with the rule owners alongside O37 | the control question on 27% of live addition money |
 | **O49** | 🔴 **Sweep the audit for month-end assumptions.** August's batch ran on 09-01, so any `LAST_DAY` test misfiles 918 notes. Batch days must be observed, never assumed | every batch-vs-manual check in the spec |
 | ~~O47~~ | ~~Re-check the hand-added population~~ — **checked, §3l.** Both other files cast `::DATE` and define batch days empirically. Unaffected | — |
 | **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30%+ of notes are prorated, so the check is `tier × days ÷ divisor` — and per §3k the divisor is not the same for both origins. Re-scope O23 | the anti-attrition recompute check |
