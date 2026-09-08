@@ -911,3 +911,41 @@ FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_MEDICAL_LOANS
 WHERE CREATION_DATE >= DATEADD('month', -12, CURRENT_DATE())
 GROUP BY 1, 2, 3
 ORDER BY aed_advanced DESC;
+
+
+-- =====================================================================================
+-- ROUND 8 — THE MEDICAL QUESTION CLOSES ON THE BUSINESS MODEL, NOT ON A FIELD CORRECTION.
+--
+-- TF21 🟢 MEDICAL_ASSISTANCE_TYPE HAS EXACTLY TWO VALUES, AND THAT IS THE WHOLE ANSWER:
+--        Loan            582 items · AED 63,835 advanced · 63,805 booked = **100.0%**
+--        Paid by Company 355 items · AED 70,605          · LOAN_AMOUNT NULL
+--      Medical assistance is not one thing. Where it is a LOAN it is booked as a loan
+--      100% of the time -- perfect compliance, both live-in and live-out. Where the company
+--      PAYS the bill it is a benefit, not an advance, and having no loan against it is
+--      CORRECT BY DEFINITION, not a missing control.
+--      So TF14's "3.4% booked" was wrong twice over: the wrong field, AND a denominator that
+--      mixed two payment models into one rate. 38% of medical money is a company-paid
+--      benefit that can never show a loan. **A rate is meaningless across a population that
+--      contains a category the numerator cannot apply to.**
+--      ⚠️ Scope: this view carries only CC_LIVE_IN and CC_LIVE_OUT. The 100% is a CC
+--      statement; MV medical is not in it.
+--
+-- TF18b 🟡 The catalog's definitions live in SEMANTIC_ID + TOOLTIP_INFO (VARIANT), not in
+--       flat columns -- which is why the first attempt's text sweep was the wrong shape as
+--       well as invalid syntax. TF18c reads them properly.
+-- =====================================================================================
+
+
+-- TF18c. 🟡 THE APPROVED DEFINITIONS, READ THE WAY THE CATALOG STORES THEM. Closes the
+--        policy obligation: any KPI this audit quotes must carry its sanctioned definition
+--        and filters, not a reconstruction. TOOLTIP_INFO is a VARIANT -- returned whole
+--        rather than picked apart, since its keys are not yet known.
+SELECT ID,
+       SEMANTIC_ID,
+       DASHBOARD_DOCS_ID,
+       VERSION,
+       UPDATED_AT,
+       TOOLTIP_INFO
+FROM BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER
+WHERE SEMANTIC_ID ILIKE ANY ('%loan%', '%deduct%', '%addition%', '%salary%')
+ORDER BY SEMANTIC_ID;
