@@ -723,3 +723,48 @@ FROM flagged f JOIN top1 t ON f.req = t.req
 GROUP BY f.note_day
 HAVING COUNT(*) >= 10
 ORDER BY f.note_day;
+
+-- F8/F9 RESULTS 2026-09-08 — 🔴 F9 RETRACTS THE "THREE PRODUCERS" READING.
+--   F9: 918 of producer #1's 931 notes fell on ONE day, 2026-09-01, AED 206,831, 82 distinct
+--   amounts. 2026-09-01 with 918 notes is August's known batch day. Producer #2's 409 notes
+--   all fell on 2025-09-30, a month-end. BOTH "producers" are the monthly job running under a
+--   different configured requester. REQUESTED_BY identifies a RUN, not a ROUTE.
+--   => F2 is void as a batch-vs-manual test; the manual AAI - 01 explanation for the 42 has no
+--      evidence behind it, which leaves "the job paid them itself" as the reading.
+--   F8: 8,895 maid-months · 81 with two requesters (AED 42,196) · 161 batch-paid-twice ·
+--       20 other-paid-twice · 255 carrying more than one note.
+--       The 81 are the month-boundary artefact: August's run (2026-09-01) and September's run
+--       share calendar September. 255 maid-months at ~2 notes each reconciles the 516 notes
+--       reported earlier — the discrepancy was grain, as suspected.
+
+-- F10. The duplicate rule rebuilt on the batch cycle instead of the calendar month.
+--      Gap histogram between consecutive payments to the same maid. The true cycle is 28-32
+--      days; <=1 day is one run counted twice, and anything under ~20 days is a real duplicate.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), seq AS (
+    SELECT HOUSEMAID_ID, note_day, AMOUNT,
+           DATEDIFF('day',
+                    LAG(note_day) OVER (PARTITION BY HOUSEMAID_ID ORDER BY note_day, ID),
+                    note_day) AS gap_days
+    FROM paid
+)
+SELECT CASE
+         WHEN gap_days IS NULL  THEN 'first payment to this maid'
+         WHEN gap_days = 0      THEN 'same day  - one run counted twice'
+         WHEN gap_days <= 7     THEN '1-7 days  - duplicate'
+         WHEN gap_days <= 20    THEN '8-20 days - duplicate'
+         WHEN gap_days <= 27    THEN '21-27 days - short cycle'
+         WHEN gap_days <= 34    THEN '28-34 days - the normal cycle'
+         ELSE                        '35+ days  - a gap in payments'
+       END                   AS bucket,
+       COUNT(*)              AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID) AS maids,
+       ROUND(SUM(AMOUNT))    AS aed
+FROM seq
+GROUP BY 1
+ORDER BY notes DESC;

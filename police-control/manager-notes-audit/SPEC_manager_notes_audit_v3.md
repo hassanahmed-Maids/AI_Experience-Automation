@@ -584,9 +584,15 @@ date-editing artefact.
 bucket, same-day rows included** — stamped on create, not only on update. **No mutation check may be
 built on it**, and the "is the trail mutable" question stays unanswerable from the warehouse.
 
-**B1 — no enrolment row at all — is 11 notes.** Those are the population F2 discriminates: the batch
-stamps one configured service account on every note it makes, so a different `REQUESTED_BY` means the
-manual `AAI - 01` route, where no enrolment check exists on any path.
+**B1 — no enrolment row at all — is 11 notes.**
+
+🔴 **The manual-route explanation for the 42 has no evidence behind it.** F2 split them 32/10 on
+requester identity, on the premise that the batch stamps one configured service account. **F9 falsified
+the premise:** 918 of the 931 notes from the largest non-modal requester fell on **2026-09-01**, which
+is August's known batch day — and the second-largest's 409 notes all fell on 2025-09-30, a month-end.
+**The job's requester changed at least twice in twelve months.** `REQUESTED_BY` identifies a *run*,
+not a *route*, so F2 is void as a batch-vs-manual test and every check keyed on "the service account"
+is unsound. The remaining reading of the 42 is the strongest one: **the job paid them itself.**
 
 **What this changes in the audit.** Three findings stand that never needed the 42: enrolment is not
 re-checked at payment, the amount is not re-checked at payment, and the field the audit trail rests on

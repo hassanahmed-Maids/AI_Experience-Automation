@@ -334,3 +334,48 @@ This run reported 516 anti-attrition duplicate candidates and could not explain 
 once by the batch and once by #1 in the same month is exactly that shape.** F8 tests it directly:
 maid-months carrying notes from both. If it lands, the duplicate finding and the second-producer
 finding are one finding, and it is a double-payment finding.
+
+---
+
+# 🔴 RETRACTION — "three producers" was wrong. It is one job with an unstable requester
+
+F9 settles it in one row: **918 of producer #1's 931 notes fell on 2026-09-01**, AED 206,831.
+**2026-09-01 with 918 notes is already recorded in this file as August's batch day.** #2's 409 notes
+all fell on 2025-09-30, the September 2025 month-end. Both "producers" are the monthly job.
+
+**Withdrawn:** *"AED 307,459 — 16.8% of the type — did not come from the job the spec describes."*
+It did. The job's stamped requester is simply not the same across runs.
+
+## What is true instead, and it is not nothing
+
+🔴 **`REQUESTED_BY` does not identify the batch.** The configured requester changed at least twice in
+twelve months — the Sept 2025 run and the Aug 2026 run each carry a different account from the modal
+one. N13 records `requesterId = 2226` from `MAID_INCENTIVE_CONFIGS_PARAM` as *the* stamp on every
+note; across a year it is three accounts.
+
+**Consequences, in order of cost:**
+
+1. **F2 is void as a batch-vs-manual test.** Its "32 from the batch, 10 from elsewhere" split was
+   measuring which *run* a note came from, not which *route*. **The manual `AAI - 01` explanation for
+   the 42 now has no evidence behind it at all** — and that makes B1b stronger, not weaker: the most
+   likely reading is that **all 42 are the job's own work**.
+2. **Any check keyed on "the service account" is unsound**, including the self-approval and
+   nobody-recorded verdicts that used requester identity in earlier runs.
+3. **The batch day crosses the month boundary**, which corrupts every monthly window. August's run on
+   2026-09-01 and September's run both fall in calendar September.
+
+## 🔴 Which explains the 81, and probably the 516
+
+F8: 8,895 maid-months · **81 with notes from two requesters** (AED 42,196) · **161 where the batch
+paid twice** · 20 where a non-modal requester paid twice · **255 maid-months carrying more than one
+note**.
+
+The 81 are almost certainly the boundary artefact, not double payments: August's batch (2026-09-01,
+requester #1) and September's batch land in the same calendar month under different requesters, so a
+month-grained duplicate rule reports them as a pair. **255 maid-months with multiple notes reconciles
+with the 516 notes reported earlier at roughly two notes each** — the discrepancy flagged in this file
+was grain, as suspected.
+
+**The monthly duplicate window is the wrong instrument.** F10 replaces it with the batch cycle: a gap
+histogram between consecutive payments to the same maid. The true cycle is 28–32 days; anything much
+shorter is a real duplicate and anything at ~1 day is the same run counted twice.
