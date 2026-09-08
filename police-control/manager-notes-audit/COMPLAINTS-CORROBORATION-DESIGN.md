@@ -899,7 +899,7 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 | ~~O46~~ | ~~Run 6g~~ — **done, §3m.** Both divisors are the job's own. The manual path fails differently: 29% of hand-added amounts fit no rule vs 0.0% of the job's | — |
 | ~~O48~~ | ~~Size the no-rule hand-added notes~~ — **done, §3n.** 35 of 156 (22.4%, AED 8,675) vs 0 of 9,011 job notes. Part B lists them | — |
 | ~~O50~~ | ~~Ship the no-rule check~~ — **withdrawn, §3o.** It detects whole-dirham typing, not error. The note date says the same thing more directly | — |
-| **O51** | 🔴 **Fix S1's identity comparison** in `phase1-verification.sql`. The approver name is stored in two forms and S1 compares strings, so self-approvals with mismatched forms pass silently. Needs a key or normalisation | every segregation-of-duties number in the audit |
+| ~~O51~~ | ~~Fix S1's identity comparison~~ — **rewritten.** Four verdicts, `BLOCKED` for an unidentifiable approver, and 1c sizes how many of the old GREENs were never verified. Needs running | every segregation-of-duties number in the audit |
 | **O52** | 🔴 **A single approver signs off the entire manual anti-attrition path** (34 of 35). Raise with the rule owners alongside O37 | the control question on 27% of live addition money |
 | **O49** | 🔴 **Sweep the audit for month-end assumptions.** August's batch ran on 09-01, so any `LAST_DAY` test misfiles 918 notes. Batch days must be observed, never assumed | every batch-vs-manual check in the spec |
 | ~~O47~~ | ~~Re-check the hand-added population~~ — **checked, §3l.** Both other files cast `::DATE` and define batch days empirically. Unaffected | — |

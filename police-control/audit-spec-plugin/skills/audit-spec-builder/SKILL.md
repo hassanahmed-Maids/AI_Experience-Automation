@@ -25,7 +25,7 @@ two mandatory deliverables — never end without both:
 
 A session that produced discussion, tables, or SQL but not those two files is incomplete.
 
-**Read `references/spec-traps.md` before writing any verdict logic.** It carries seventeen defects
+**Read `references/spec-traps.md` before writing any verdict logic.** It carries eighteen defects
 that each cost real rework, ordered by expense. The first is the one that recurs: *something is
 marked as blocked on the screen while the underlying numbers still count those records as clean.*
 Every audit spec must be read against that list before it is called finished.

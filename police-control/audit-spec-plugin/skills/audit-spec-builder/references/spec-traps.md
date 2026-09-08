@@ -243,3 +243,39 @@ mild near-window enrichment concentrated on high-*k* subjects raises the per-rec
 leaving the per-subject rate exactly at chance, because for those subjects the nearest record was
 already going to be close. **The verdict grain is the subject, so the subject-level rate is the one
 that decides** — the per-record rate will overstate it. Normalise per subject before reading either.
+
+## 18. Comparing two columns that come from different sources
+
+A control of the form *"the same person must not do both"* is usually written as
+`LOWER(a) = LOWER(b)`. That is sound only if `a` and `b` are drawn from the same controlled
+vocabulary. Check where each one comes from before trusting the comparison.
+
+A real case: `REQUESTED_BY` is populated from `users.FULL_NAME` — canonical, always
+`"Firstname Lastname"`. `APPROVED_BY` is free text, whatever the approver typed, commonly a bare
+first name. The numeric id column that would have settled it exists but is unmapped and entirely
+NULL. So the equality compares a canonical value against an uncontrolled one and **matches only by
+luck**: it fires when someone happens to type their full name, and stays silent when they type
+`"Manale"`. In the observed data 34 of 35 approvals carried a single-token approver, and the check
+called every one of them segregated.
+
+**A bare first name is not an identity.** Where it cannot be resolved to exactly one person, the
+correct verdict is BLOCKED, never "segregated" — this is check #1 arriving through an identity
+join rather than through a filter, and it fails in the dangerous direction: the control reports
+clean because it could not run.
+
+Four requirements:
+
+- **Normalise before comparing** — case, and internal whitespace (`"Georgina  Wakim"` carries a
+  double space and will not equal `"Georgina Wakim"`).
+- **Match name FORMS, not just strings.** A short form that prefixes the full name is the same
+  person: `"manale"` vs `"manale hamasny"` is a self-approval the string test misses.
+- **Resolve, then decide.** Build the staff population from the canonical column, count how many
+  people share each first token, and only clear a row when the approver resolves to exactly one
+  person who is not the requester.
+- **Report the blocked count next to the finding count.** A self-approval total from an
+  unresolvable identity column is a *floor*, and the number that says how soft it is belongs
+  beside it — not in a footnote.
+
+The general form: before comparing two columns, ask what populates each. Two columns holding
+"a person's name" may be two different kinds of thing, and an equality between them is then a
+coincidence detector wearing the clothes of a control.

@@ -6,56 +6,148 @@
 
 
 -- =====================================================================================
--- 1. S1 — SEGREGATION OF DUTIES. The cheapest real finding in the audit.
---    Catches the AED 8,800 salary dispute that was requested and approved by one person.
+-- 1. S1 — SEGREGATION OF DUTIES.  ⚠️ REWRITTEN 2026-09-08 (O51). The previous version
+--    compared LOWER(requester) = LOWER(approver) and UNDER-REPORTED SILENTLY.
+--
+--    ROOT CAUSE — the two columns do not come from the same place:
+--      REQUESTED_BY  = mmdb.users.FULL_NAME   (canonical, "Niveen Bouhassan")
+--      APPROVED_BY   = free text, a NAME not a user id ("Manale", "Jed")
+--    There is no identity key: MANAGER (EMPLOYEE_MANAGER_ID) has no non-null values and
+--    is unmapped in the JPA entity. So a string equality compares a canonical value
+--    against an uncontrolled one and matches only by luck. Observed: 34 of 35 hand-added
+--    anti-attrition approvals carry a SINGLE-TOKEN approver, and a single token is not
+--    an identity. The old check called every one of those GREEN.
+--
+--    THE RULE (plugin check #1): a test that could not run is not a test that passed.
+--    Where the approver cannot be resolved to a person, the verdict is BLOCKED — never
+--    segregated. S1's self-approval count is a FLOOR, and this version says by how much.
+--
 --    ⚠️ Only meaningful where a HUMAN is the requester. Machine types (airfare, raffle,
 --       prorated, forgive, office work, last-day CC) have a null/service requester by
 --       design and must be EXCLUDED, or this manufactures thousands of false findings.
 -- =====================================================================================
+
+-- 1c. RUN THIS FIRST — how resolvable are the approver names at all?
+--     If single_token_approvals is large, most of S1's old GREENs were unverified.
 WITH n AS (
-    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
-           COALESCE(REASON,'(none)')      AS payment_type,
-           NULLIF(TRIM(REQUESTED_BY),'')  AS requester,
-           NULLIF(TRIM(APPROVED_BY),'')   AS approver
+    SELECT ID,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(REQUESTED_BY),''), '\\s+', ' '))) AS requester,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(APPROVED_BY),''),  '\\s+', ' '))) AS approver
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
     WHERE NOTE_TYPE = 'ADDITION'
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
-), human AS (        -- types the code says are human-entered
+)
+SELECT COUNT(*)                                                          AS notes,
+       COUNT(DISTINCT requester)                                         AS distinct_requesters,
+       COUNT(DISTINCT approver)                                          AS distinct_approvers,
+       COUNT_IF(approver IS NOT NULL
+                AND ARRAY_SIZE(SPLIT(approver,' ')) = 1)                 AS single_token_approvals,
+       COUNT(DISTINCT IFF(ARRAY_SIZE(SPLIT(approver,' ')) = 1, approver, NULL))
+                                                                         AS distinct_single_tokens,
+       COUNT_IF(approver IS NULL)                                        AS no_approver,
+       COUNT_IF(requester IS NULL)                                       AS no_requester
+FROM n;
+
+
+-- 1. S1 proper — four verdicts, and BLOCKED is not a pass.
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
+           COALESCE(REASON,'(none)') AS payment_type,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(REQUESTED_BY),''), '\\s+', ' '))) AS requester,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(APPROVED_BY),''),  '\\s+', ' '))) AS approver
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION'
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), people AS (        -- the canonical staff population, from the FULL_NAME column
+    SELECT DISTINCT requester AS full_name, SPLIT_PART(requester,' ',1) AS first_token
+    FROM n WHERE requester IS NOT NULL
+), token_map AS (     -- can a bare first name identify exactly one person?
+    SELECT first_token, COUNT(DISTINCT full_name) AS people_sharing_it
+    FROM people GROUP BY 1
+), human AS (
     SELECT * FROM n WHERE payment_type IN (
       'Salary Dispute','Bonus','Taxi Reimbursement','Medical Assistance',
       'Maids.at other expenses','Accommodation Relocation','VIP Bonus',
       'Passport Assistance','Lost Luggage Compensation','MOHRE requirement additions')
+), judged AS (
+    SELECT h.*,
+           ARRAY_SIZE(SPLIT(h.approver,' ')) AS approver_tokens,
+           t.people_sharing_it,
+           CASE
+             WHEN h.requester IS NULL AND h.approver IS NULL THEN 'B_neither_recorded'
+             WHEN h.approver  IS NULL                        THEN 'R_raised_never_approved'
+             WHEN h.requester IS NULL                        THEN 'B_no_requester'
+             -- same person, same string
+             WHEN h.requester = h.approver                   THEN 'R_self_approved_exact'
+             -- same person, different name FORM: "manale" vs "manale hamasny"
+             WHEN h.requester LIKE h.approver || ' %'
+               OR h.approver  LIKE h.requester || ' %'
+               OR h.approver  = SPLIT_PART(h.requester,' ',1) THEN 'R_self_approved_name_form'
+             -- a bare first name that several staff share cannot be ruled OUT as the
+             -- requester, so it cannot be cleared either
+             WHEN ARRAY_SIZE(SPLIT(h.approver,' ')) = 1
+              AND COALESCE(t.people_sharing_it,0) <> 1        THEN 'B_approver_not_identifiable'
+             ELSE 'G_segregated'
+           END AS verdict
+    FROM human h
+    LEFT JOIN token_map t ON t.first_token = h.approver
 )
-SELECT payment_type,
-       COUNT(*)                                                      AS notes,
-       ROUND(SUM(AMOUNT))                                            AS aed,
-       COUNT_IF(LOWER(requester) = LOWER(approver))                  AS self_approved,
-       ROUND(SUM(IFF(LOWER(requester)=LOWER(approver), AMOUNT, 0)))  AS aed_self_approved,
-       COUNT_IF(requester IS NULL AND approver IS NULL)              AS neither_recorded,
-       ROUND(SUM(IFF(requester IS NULL AND approver IS NULL, AMOUNT, 0))) AS aed_neither,
-       COUNT_IF(approver IS NULL AND requester IS NOT NULL)          AS raised_never_approved,
-       ROUND(SUM(IFF(approver IS NULL AND requester IS NOT NULL, AMOUNT,0))) AS aed_unapproved
-FROM human GROUP BY 1 ORDER BY aed_self_approved DESC;
+SELECT payment_type, verdict,
+       COUNT(*)                                                       AS notes,
+       ROUND(SUM(AMOUNT))                                             AS aed,
+       ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (PARTITION BY payment_type)) AS pct_of_type
+FROM judged GROUP BY 1,2 ORDER BY payment_type, verdict;
 
--- 1b. The row list — every self-approved or unattributed human-entered payment, worst first.
+-- Reading it (plugin check #1 — a clearance is not a finding's opposite):
+--   R_*  = findings. R_self_approved_name_form is the class the old S1 missed entirely.
+--   B_*  = BLOCKED. The test could not run. These are NOT clean and must not be counted
+--          as segregated in any tile, filter or denominator.
+--   G_   = segregated, and only where the approver resolves to exactly one known person.
+
+
+-- 1b. The row list — every finding AND every blocked row, worst first.
+--     ⚠️ Blocked rows are included deliberately. Dropping them is how the old version
+--        made an unresolvable approver look like a clean one.
 WITH n AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT, COALESCE(REASON,'(none)') AS payment_type,
-           NULLIF(TRIM(REQUESTED_BY),'') AS requester, NULLIF(TRIM(APPROVED_BY),'') AS approver
+           NULLIF(TRIM(REQUESTED_BY),'') AS requester_raw,
+           NULLIF(TRIM(APPROVED_BY),'')  AS approver_raw,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(REQUESTED_BY),''), '\\s+', ' '))) AS requester,
+           LOWER(TRIM(REGEXP_REPLACE(NULLIF(TRIM(APPROVED_BY),''),  '\\s+', ' '))) AS approver
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
     WHERE NOTE_TYPE='ADDITION' AND AMOUNT > 0
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
-)
-SELECT ID AS note_id, payment_type, HOUSEMAID_ID AS maid_id, NOTE_DATE::DATE AS d, AMOUNT,
-       requester, approver,
-       CASE WHEN LOWER(requester)=LOWER(approver)          THEN 'SELF-APPROVED'
-            WHEN requester IS NULL AND approver IS NULL     THEN 'NEITHER RECORDED'
-            ELSE 'RAISED, NEVER APPROVED' END AS finding
-FROM n
-WHERE payment_type IN ('Salary Dispute','Bonus','Taxi Reimbursement','Medical Assistance',
+), people AS (
+    SELECT DISTINCT requester AS full_name, SPLIT_PART(requester,' ',1) AS first_token
+    FROM n WHERE requester IS NOT NULL
+), token_map AS (
+    SELECT first_token, COUNT(DISTINCT full_name) AS people_sharing_it
+    FROM people GROUP BY 1
+), judged AS (
+SELECT n.ID AS note_id, n.payment_type, n.HOUSEMAID_ID AS maid_id,
+       n.NOTE_DATE::DATE AS d, n.AMOUNT, n.requester_raw, n.approver_raw,
+       t.people_sharing_it AS staff_sharing_that_first_name,
+       CASE
+         WHEN n.requester IS NULL AND n.approver IS NULL THEN 'B_neither_recorded'
+         WHEN n.approver  IS NULL                        THEN 'R_raised_never_approved'
+         WHEN n.requester IS NULL                        THEN 'B_no_requester'
+         WHEN n.requester = n.approver                   THEN 'R_self_approved_exact'
+         WHEN n.requester LIKE n.approver || ' %'
+           OR n.approver  LIKE n.requester || ' %'
+           OR n.approver  = SPLIT_PART(n.requester,' ',1) THEN 'R_self_approved_name_form'
+         WHEN ARRAY_SIZE(SPLIT(n.approver,' ')) = 1
+          AND COALESCE(t.people_sharing_it,0) <> 1        THEN 'B_approver_not_identifiable'
+         ELSE 'G_segregated'
+       END AS verdict
+FROM n LEFT JOIN token_map t ON t.first_token = n.approver
+WHERE n.payment_type IN ('Salary Dispute','Bonus','Taxi Reimbursement','Medical Assistance',
       'Maids.at other expenses','Accommodation Relocation','VIP Bonus','Passport Assistance',
       'Lost Luggage Compensation','MOHRE requirement additions')
-  AND (LOWER(requester)=LOWER(approver) OR approver IS NULL)
-ORDER BY AMOUNT DESC LIMIT 300;
+)
+SELECT * FROM judged
+WHERE verdict <> 'G_segregated'          -- QUALIFY needs a window function; this does not
+ORDER BY LEFT(verdict,1), AMOUNT DESC
+LIMIT 300;
 
 
 -- =====================================================================================
