@@ -155,6 +155,47 @@ that knowledge, the audit would red-flag every single flight-home payment.
 
 ---
 
+## Part 2b — Three questions about held salary
+
+We can now check **`previously_held_salary`** — the payment that releases money withheld earlier —
+because the payslip records both the withholding and the amount. Three things decide how far that
+check can go.
+
+### 1. Can a salary be held in part, or only in full?
+
+On the payslip a hold is **all-or-nothing**: the month was either transferred or it wasn't. But we
+also found an explicit **partial** hold at final settlement — a prorated amount split into *paid* and
+*kept on hold*.
+
+**The question:** are those the only two ways money gets held, or is there a third? Specifically, can
+a single month's salary be **partly** paid and partly withheld outside of final settlement?
+
+**Why it matters:** a rule written for full holds will mis-read every partial one, and vice versa.
+
+### 2. Is the final-settlement sheet still maintained?
+
+The partial-hold figures live in a final-settlement details sheet whose columns look hand-maintained
+rather than system-generated.
+
+**The question:** is it current and trustworthy, who keeps it, and is it the system of record for
+held prorated salary — or just a working copy?
+
+**Why it matters:** if it is a working copy, the audit must report those cases as unverifiable rather
+than checking against it.
+
+### 3. Does `previously_held_salary` ever release something that was never "held"?
+
+Money also comes off a payslip through **deductions**, and a month's additions total can be
+**negative** — both reduce what she receives without any hold being recorded.
+
+**The question:** is `previously_held_salary` ever used to reverse a deduction or a negative
+adjustment, rather than to release a genuine hold?
+
+**Why it matters:** if yes, some of these payments will look like *"money released that was never
+held"* when they are perfectly correct. We would rather know now than raise false findings.
+
+---
+
 ## Part 3 — Two things nobody owns, which are bigger than anything above
 
 ### The loyalty payment — `anti_attrition_incentive`

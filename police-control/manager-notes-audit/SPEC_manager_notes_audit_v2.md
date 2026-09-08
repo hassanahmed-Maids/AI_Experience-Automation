@@ -187,9 +187,11 @@ amount **is** the subject of the audit and is shown. Access statement needed —
 | D6 | Note date | same | `NOTE_DATE` `TIMESTAMP_NTZ` | Catalog min `2016-11-21`. 🔴 **Timezone unstated — O6.** Load-bearing: for most notes this *is* the paid-month anchor (M0) |
 | D7 | Requester / approver carried from the expense side | same | `REQUESTED_BY`, `APPROVED_BY` `TEXT` | ← `ep.REQUESTED_BY`, `ep.APPROVED_BY`. 🔴 **Arrives through the heuristic join, so it inherits H1's fan-out** |
 | — | ~~Note author~~ | same | `MANAGER` `FIXED(38,0)` | ⚠️ **Profiled "no non-null values" — dead.** *(code-verified why: `EMPLOYEE_MANAGER_ID` is not mapped in the current JPA entity.)* The real column is `CREATOR` — N6 |
-| **D8** | **Payslip month, and the payslip's own additions total** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` | `HOUSEMAID_ID`, `PAYROLL_MONTH` `DATE`, `ADDITIONS` `REAL` | From `mmdb.housemaidpayrolllogs`; `ADDITIONS` ← `MANAGER_ADDITIONS`, which counts **only `NOTE_TYPE='ADDITION'`** *(code-verified)*. **This is the tie-out anchor (G1) and the only expected-population source in the design** |
+| **D8** | **Payslip month, and the payslip's own additions total** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` | `HOUSEMAID_ID`, `PAYROLL_MONTH` `DATE`, `ADDITIONS` `REAL` | From `mmdb.housemaidpayrolllogs`; `ADDITIONS` ← `MANAGER_ADDITIONS`, which counts **only `NOTE_TYPE='ADDITION'`** *(code-verified)*. **This is the tie-out anchor (G1) and the only expected-population source in the design**. 🔴 `ADDITIONS` profiles **−1,516 to 8,800** — a payslip's manager-additions total **can be negative**, so G1's residual arithmetic and M14's over/under split must both handle it |
 | D9 | Payslip payment state | same | `PAID_ON_DATE` `TEXT`, `PAID_ON_DATE_FORMATTED` `DATE`, `IS_TRANSFERRED` `TEXT` | 🔴 `PAID_ON_DATE` is **TEXT** parsed by a 3-format `TRY_TO_DATE` chain — a 4th format yields NULL silently. `IS_TRANSFERRED` is **TEXT** `'YES'/'NO'`; `= TRUE` matches nothing |
-| D10 | Payslip exclusions | same | `AUTOMATIC_EXCLUSION_REASONS`, `MANUAL_EXCLUSION_REASON`, `STATUS` `TEXT` | Rendered in the drill-down; explains a maid with notes but no payslip |
+| **D10** | **The hold record** *(reframed 2026-09-08 — this is not just drill-down context)* | same | `AUTOMATIC_EXCLUSION_REASONS`, `MANUAL_EXCLUSION_REASON` `TEXT`, `STATUS` `TEXT`, `EXPECTED_RELEASE_DATE` `DATE` | 🔴 **Together with `IS_TRANSFERRED` (D9) this *is* the withholding event** — the evidence group D's `previously_held_salary` needs. `AUTOMATIC_EXCLUSION_REASONS` is enumerated and states **why**: *client's payment not received* · *not on the latest MOL list* · *no Ansari account* · *medical not passed* · *MV contract cancelled with pre-collected salary* — **list truncated in the profile, more exist**. `EXPECTED_RELEASE_DATE` has data only from **2025-10-04**. `STATUS` carries **20** values including `ON_VACATION`, `PENDING_VACATION`, `EMPLOYEMENT_TERMINATED`, `SICK_WITHOUT_CLIENT`, `ASSIGNED_OFFICE_WORK` — relevant to Q7's termination-vs-vacation airfare question |
+| **D10b** | **The payslip's own arithmetic** | same | `TOTAL_SALARY` `REAL` (← `TOTAL_EARNINGS`, 0–13,000), `DEDUCTIONS` `REAL` (← `TOTAL_DEDUCTION`, 0–2,800), `NET_SALARY` `REAL` (← `TOTAL_SALARY`, 0–13,200) | 🔴 **What she was actually paid, per month, exactly.** This is half of what group E needs — the other half is the entitled salary (N10). Note the source-column names are **crossed over**: warehouse `TOTAL_SALARY` ← source `TOTAL_EARNINGS`, warehouse `NET_SALARY` ← source `TOTAL_SALARY` |
+| **D10c** | **Partial holds at final settlement** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_FINAL_SETTLEMENT_DETAILS_SHEET` | `"Prorated Salary we paid (FS Paid)"`, `"Prorated Salary kept on hold (FS Collected)"` — both `TEXT` | 🔴 **A second, partial hold mechanism.** Where D9/D10 is whole-payslip and binary, this is an explicit paid/retained split on a prorated amount at termination. ⚠️ Both columns are **TEXT**, so they need casting and carry the empty-string-vs-NULL trap; and the view's column names are human labels with spaces, which usually means a sheet-derived source — **confirm it is maintained before building on it (Q13)** |
 | **D11** | **Contract type** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO` | `HOUSEMAID_TYPE` `TEXT` | 🔴 **Four values, not two**: `Normal, MAID_VISA, FREEDOM_OPERATOR, WALKIN`. An `IF MV … ELSE CC` rule silently treats the last two as company-contract — see H5 |
 | D12 | Nationality | same | `NATIONALITY` `TEXT`, `NATIONALITY_CATEGORY` `TEXT` | `NATIONALITY_CATEGORY ∈ {Filipina, African, Ethiopian, Other}`. 🔴 **The ERP's airfare rule splits on the raw nationality picklist code `philippines`, not on this category** *(code-verified)* — do not substitute one for the other |
 | D13 | Service dates | same | `START_DATE`, `SALARY_STARTING_DATE`, `NET_HIRED_DATE` `TIMESTAMP_NTZ` | `SALARY_STARTING_DATE = COALESCE(REPLACEMENT_SALARY_START_DATE, START_DATE)`. 🔴 **All bottom out at `1970-01-01`** — epoch-zero standing in for unknown (H6). The ERP's airfare service rule counts months from `START_DATE` *(code-verified)* |
@@ -648,7 +650,8 @@ payment type is:
 | `bonus` + `referral_bonus` | ELIG · CORR · RECON · UNIQ |
 | `bonus` + other | CORR |
 | `anti_attrition_incentive` | UNRULED |
-| the five group-D reasons | RECOMP · ELIG |
+| `prorated_salary`, `mv_prorated_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | RECOMP · ELIG |
+| `previously_held_salary` | **PAIR** · ELIG — *(corrected 2026-09-08; needs no salary history)* |
 | `salary_dispute` | CORR · UNRULED *(E2 has no field)* |
 | `raffle_prize` | ROSTER |
 | the four group-G reasons | CORR · ROSTER |
@@ -826,6 +829,34 @@ construction**, so the amount is not a blocked test, it is unbounded.
 
 **Group D — Part-month.** D1 recompute from dates and the salary **in force then** (**BLOCKED**,
 N10) · D2 termination mode consistent (D14) · D3 window matches employment dates.
+
+🔴 **`previously_held_salary` is not a recomputation — it is a pairing, and it is checkable now.**
+*(Corrected 2026-09-08.)* The question it answers is *"was this money actually held?"*, and the
+warehouse carries the withholding event (D9/D10) and the amount (D10b/D10c). It needs no salary
+history at all.
+
+```
+candidates for a previously_held_salary note =
+  (a) earlier payslip rows for that maid with IS_TRANSFERRED = 'NO' (D9)
+      AND a non-null exclusion reason (D10)          → held amount = that month's NET_SALARY (D10b)
+  (b) a final-settlement row carrying
+      "Prorated Salary kept on hold (FS Collected)"  → held amount = that value, cast (D10c)
+
+exactly 1 candidate and released == held   → GREEN
+exactly 1 candidate and released <> held   → RED (F1), by the difference
+no candidate anywhere                      → RED (F4) — money released that was never held
+more than 1                                → BLOCKED, "multiple candidate hold records"
+```
+
+⚠️ **Two mechanisms, two shapes.** (a) is whole-payslip and binary — `IS_TRANSFERRED` is
+`IFF(TRANSFERRED=1,'YES','NO')` with no partial-transfer amount anywhere on the table, so at that
+level a hold is all-or-nothing. (b) is explicitly partial. A rule written for only one of them
+mis-reads the other.
+⚠️ **Nothing links the release to a specific held month**, so this carries M4's confidence-floor
+treatment like every other keyless match in the design.
+⚠️ **Two further ways money is withheld** that are *not* holds and may also be what a release
+reverses: `DEDUCTIONS` (D10b, 0–2,800) reduces the net without a hold, and `ADDITIONS` can be
+negative (D8). Whether `previously_held_salary` ever reverses either is **Q15**.
 
 **Group E — Salary correction.** 🔴 **Conjunctive, not disjunctive.** E1 the expense record proves
 the amount **AND** E2 the stated reason (D5) justifies the payment. v1 wrote "E1 **or** E2", which
@@ -1294,6 +1325,24 @@ manager additions cannot be audited. **Both are legitimate; neither should be ac
 `previously_held_salary` and `mv_extra_salary`, the note amount **is** a salary figure. v2's
 default shows a band on screen and the exact figure only in the reviewed drill-down. Confirm, or
 override and accept salary figures in the case table and the CSV export.
+
+**Q13 — is `HOUSEMAID_FINAL_SETTLEMENT_DETAILS_SHEET` maintained and current?** Blocking for the
+partial-hold half of `previously_held_salary`. Its columns are human labels with spaces
+(`"Prorated Salary kept on hold (FS Collected)"`) and typed `TEXT`, which usually means a
+sheet-derived source rather than a system table. If it is stale or hand-kept, the partial-hold check
+cannot rely on it and that branch must BLOCK rather than red.
+
+**Q14 — is one payslip row always one whole month?** Blocking for the hold rule and for G2's cousin.
+If a maid can hold **two** rows for one `PAYROLL_MONTH`, then a partial hold could be represented as
+one transferred row and one not — a **third** hold mechanism the rule above does not cover. This is
+one query once compute lands: `COUNT(*)` against `COUNT(DISTINCT HOUSEMAID_ID, PAYROLL_MONTH)` on
+`HOUSEMAID_PAYROLL_HISTORY`.
+
+**Q15 — does `previously_held_salary` ever reverse a deduction or a negative addition,** rather than
+a hold? `DEDUCTIONS` (0–2,800) reduces the net without any hold being recorded, and a payslip's
+`ADDITIONS` total can go negative (−1,516). If either is ever released under this reason, they belong
+in the candidate set — awkwardly, because the `DEDUCTION` note feed stopped recording, so a deduction
+released this way could never be evidenced.
 
 **Q7 — the airfare rule's edges.** Blocking for group A. George gave the floor (22 months CC) and
 the bridging rule (an MV break under a year bridges, longer resets). Four edges are undefined:
