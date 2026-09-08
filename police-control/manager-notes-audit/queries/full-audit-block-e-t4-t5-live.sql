@@ -95,39 +95,67 @@ WHERE n.NOTE_TYPE = 'ADDITION'
 GROUP BY 1, 2, 3
 ORDER BY notes DESC;
 
--- E5. 🔴 THE ELIGIBILITY CONTRADICTION. N13, code-verified: the anti-attrition job filters
---     h.housemaidType <> MAID_VISA — CC only. D3 shows 941 notes, AED 172,967, 331 maids
---     with HOUSEMAID_TYPE = MAID_VISA.
---     ⚠️ HOUSEMAID_TYPE is CURRENT, not as-of-payment: a maid paid as CC who later switched
---     to MV would look identical. HOUSEMAIDS_INFO_REVISION carries SWITCH_HOUSEMAID_TYPE_DATE
---     and OLD_HOUSEMAID_TYPE, so the point-in-time question is answerable. This resolves it.
+-- E5. 🔴 THE ELIGIBILITY CONTRADICTION, resolved point-in-time.
+--     N13, code-verified: the anti-attrition job filters h.housemaidType <> MAID_VISA — CC
+--     only. D3 shows 941 notes, AED 172,967, 331 maids currently typed MAID_VISA.
+--     HOUSEMAID_TYPE is CURRENT, so a maid paid as CC who later switched looks identical.
+--     HOUSEMAIDS_INFO_REVISION is an Envers revision table (ID + REVISION + *_MODIFIED
+--     flags), so the as-of-payment type is recoverable. Its key is ID, not HOUSEMAID_ID —
+--     the first version of this query guessed otherwise and failed to compile.
 WITH paid AS (
-    SELECT n.ID, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
     WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Anti-attrition Incentive'
       AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
-), now_mv AS (
-    SELECT ID AS HOUSEMAID_ID FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO
-    WHERE HOUSEMAID_TYPE = 'MAID_VISA'
-), switched AS (
-    -- the earliest date this maid became MAID_VISA, from the revision history
-    SELECT HOUSEMAID_ID, MIN(SWITCH_HOUSEMAID_TYPE_DATE) AS became_mv_on
+), rev AS (
+    SELECT ID AS maid_id, HOUSEMAID_TYPE, LAST_MODIFICATION_DATE::DATE AS as_of
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
-    WHERE HOUSEMAID_TYPE = 'MAID_VISA' AND SWITCH_HOUSEMAID_TYPE_DATE IS NOT NULL
-    GROUP BY 1
+    WHERE HOUSEMAID_TYPE IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL
+), asof AS (
+    SELECT p.note_id, p.HOUSEMAID_ID, p.note_day, p.AMOUNT,
+           r.HOUSEMAID_TYPE AS type_when_paid
+    FROM paid p
+    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.as_of <= p.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.as_of DESC) = 1
+)
+SELECT COALESCE(a.type_when_paid, '(no revision before the note)') AS type_when_paid,
+       COALESCE(h.HOUSEMAID_TYPE, '(unknown)')                     AS type_now,
+       COUNT(*)                                                    AS notes,
+       COUNT(DISTINCT a.HOUSEMAID_ID)                              AS maids,
+       ROUND(SUM(a.AMOUNT))                                        AS aed
+FROM asof a
+LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = a.HOUSEMAID_ID
+GROUP BY 1, 2
+ORDER BY notes DESC;
+
+-- E5b. The same as-of machinery, stated as the verdict the audit needs. Anything landing in
+--      'PAID WHILE MV' contradicts a code-verified eligibility rule on AED 1.83m/year.
+--      🟢 This as-of pattern is also N17: the contract-type timeline group A needs for the
+--      airfare service rule. Once it works here, group A stops being blocked on a business ask.
+WITH paid AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Anti-attrition Incentive'
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), rev AS (
+    SELECT ID AS maid_id, HOUSEMAID_TYPE, LAST_MODIFICATION_DATE::DATE AS as_of
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+    WHERE HOUSEMAID_TYPE IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL
+), asof AS (
+    SELECT p.note_id, p.HOUSEMAID_ID, p.note_day, p.AMOUNT, r.HOUSEMAID_TYPE AS type_when_paid
+    FROM paid p
+    LEFT JOIN rev r ON r.maid_id = p.HOUSEMAID_ID AND r.as_of <= p.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY p.note_id ORDER BY r.as_of DESC) = 1
 )
 SELECT CASE
-         WHEN m.HOUSEMAID_ID IS NULL              THEN 'CC now - not a contradiction'
-         WHEN s.became_mv_on IS NULL              THEN 'MV now, no switch date on file'
-         WHEN p.note_day < s.became_mv_on         THEN 'MV now, but was CC when paid - OK'
-         ELSE                                          'PAID WHILE MV - contradicts N13'
-       END                        AS verdict,
-       COUNT(*)                   AS notes,
-       COUNT(DISTINCT p.HOUSEMAID_ID) AS maids,
-       ROUND(SUM(p.AMOUNT))       AS aed
-FROM paid p
-LEFT JOIN now_mv m   ON m.HOUSEMAID_ID = p.HOUSEMAID_ID
-LEFT JOIN switched s ON s.HOUSEMAID_ID = p.HOUSEMAID_ID
+         WHEN type_when_paid IS NULL          THEN 'BLOCKED - no revision before the note'
+         WHEN type_when_paid = 'MAID_VISA'    THEN 'RED - PAID WHILE MV, contradicts N13'
+         ELSE                                      'GREEN - was CC when paid'
+       END                            AS verdict,
+       COUNT(*)                       AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)   AS maids,
+       ROUND(SUM(AMOUNT))             AS aed
+FROM asof
 GROUP BY 1
 ORDER BY notes DESC;
 

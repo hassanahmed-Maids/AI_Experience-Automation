@@ -184,3 +184,19 @@ every payment type. 2,083 such requests exist, and none of them produced a survi
 **The mechanism conv. 46017 described is real and the exposure is nil in this window.** V9 drops from
 RED-pending-confirmation to a **design observation**: nothing *would* stop it, and nothing has needed
 to. Worth a guard, not a ticket.
+
+
+## 🟢 N23 is a smaller ask than this ledger said
+
+`HOUSEMAIDS_INFO_REVISION` turns out to be **a Hibernate Envers revision table already in the
+warehouse** — `ID` + `REVISION` + a `*_MODIFIED` flag per column, 397 columns of it. So the ingestion
+pattern for Envers history **already exists here and is already maintained**.
+
+**N23 is therefore not "please build revision ingestion". It is "please do for `PayrollManagerNote`
+what is already done for `HousemaidInfo`."** That is a materially cheaper ask than the one written
+above, and it is the difference between the audit being able to tell a note that was born wrong from
+one changed later, and not.
+
+It also hands group A its missing piece: **the as-of-payment type join (E5b) is N17**, the
+contract-type timeline. Group A was blocked on a business answer that turns out to be a revision table
+nobody had looked in.
