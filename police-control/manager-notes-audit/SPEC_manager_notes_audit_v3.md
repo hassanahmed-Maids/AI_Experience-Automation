@@ -527,6 +527,54 @@ observed from the data, never inferred from the calendar.
 **ELIG · CORR · RECOMP · CEIL · UNIQ** — see group B. Q4 ("someone must write the loyalty rule")
 is **withdrawn**: the rule is written, in code.
 
+#### N13 corrected — 🔴 **the enrolment check is weaker than N13 said, and the audit trail under it is not a timestamp**
+*(code-verified 2026-09-08, conversation 46015 — housemaid-management + payroll + accounting.)*
+Raised by B1b: 53 notes over twelve months are dated before the earliest enrolment row of the maid
+they paid. Three readings were possible. The code separates them, and two are confirmed.
+
+**1. The `EXISTS` runs once, at selection, and is never re-checked.** N13 above says the job "requires
+an enrolment record before it pays". It requires one *when it reads its page*. It then only POSTs an
+`ExpenseRequestTodo`; the `PayrollManagerNote` is created **two async hops later** — accounting
+confirmation, then a `SequentialQueue` background task (`ExpenseRequestTodoBusinessRule` →
+`ManagerNoteService.processExpenseRequestTodo`). Neither hop re-reads the enrolment. A maid whose
+incentive row is edited, retyped or removed after selection **is still paid**. The only intervening
+guard is `incentiveRequestDate` in the current month, which is de-duplication, not re-validation.
+
+**2. `ACTION_DATE` is not an enrolment timestamp.** `MaidManagerActionLog.actionDate` is stamped
+`new LocalDate().toDate()` **only in `createEntity`**. `updateEntity` never re-stamps it and only
+rejects null — so after any edit it is **whatever the caller sent**. It is a user-editable business
+date. The entity carries no `@PreUpdate`, no `@LastModifiedDate`, no soft-delete flag and no visible
+`@Audited`; the real timestamps are `creationDate` / `lastModificationDate` on the shared `BaseEntity`,
+and **`creationDate` is the field the code itself orders enrolments by**
+(`findByHousemaidAndActionTypeOrderByCreationDateDesc`). **Any point-in-time test built on
+`ACTION_DATE` is testing a field the sending code never reads.** B1b must be re-run against
+`CREATION_DATE` — see `queries/phase1-verification.sql` block **B1b-F**.
+
+**3. Two routes pay under this reason with no enrolment row at all.**
+`AbuDhabiMaidIncentiveExpenseJob` calls the same `createMaidIncentiveExpenseRequest`, selecting from
+`HousemaidExtraFields` (`abuDhabiIncentiveType`, `abuDhabiIncentiveOffered`) and needing no
+`MaidManagerActionLog`; and **any manual `POST /expenseRequestTodo/createExpenseRequestTodoWithCreator`
+carrying expense code `AAI - 01`** produces the identical note, with no enrolment check on that path.
+Whether the AD job's parameter (`ABU_DHABI_MAID_INCENTIVE_CONFIGS_PARAM`) resolves to `AAI - 01` or to
+its own code is DB config and unverified — the census's separate *Abu Dhabi Incentive* type suggests
+the latter, but suggestion is not verification. Discriminated in data by **F2** (creator ≠ the
+service account ⇒ manual route) and **F3** (Abu Dhabi enrolment present ⇒ never needed a log).
+
+**4. The amount is validated at write time and never at pay time.** `validateIncentiveAmount` runs
+only in the `/maidNote` controller against `MAID_INCENTIVE_CONFIGS_PARAM.amount_values`; neither the
+job nor `createMaidIncentiveExpenseRequest` re-checks. **If the parameter is missing or blank the
+validator falls back to a hard-coded `[100,150,200,250,300,350]`** — a broken configuration passes as
+a good one. And `MaidManagerActionLogService.correctIncentiveHistoricalData` re-derives
+`incentiveAmount` by **string-matching amounts inside the enrolment's free-text note**
+(`extractIncentiveAmountFromNote`) **and saves without re-validating**. A back-fill utility sets the
+number driving AED 1.83m a year, from prose.
+
+**What this changes in the audit.** B1b's 53 are downgraded from a payment finding to a **column
+finding plus a population to re-test** — pending F1–F3, they are AMBER, not RED. Three findings stand
+regardless, and none of them needed the 53: enrolment is not re-checked at payment, the amount is not
+re-checked at payment, and the field the trail rests on is user-editable. **Trap 19: a date column is
+not a timestamp until the code that writes it says so.**
+
 #### N14 — Payment type → allowed expense heads
 🟢 **ANSWERED 2026-09-08 — from code and confirmed in data. This is no longer a business ask.**
 The mapping *is* the accounting **`Expense.salaryAdditionType`** column: `processExpenseRequestTodo`

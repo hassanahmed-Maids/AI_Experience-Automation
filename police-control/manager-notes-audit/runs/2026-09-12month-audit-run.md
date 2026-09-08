@@ -148,3 +148,50 @@ B1b is one predicate — `enrolled_on <= note_day` — added to a check that alr
 that a justifying record existed *ever*; all 53 of these pass that test. **The predicate found
 AED 11,419, a code-versus-data contradiction, and a mutable-audit-trail question that nobody had
 asked.** August showed one of these. The year showed the shape.
+
+---
+
+# B1b answered by the code — session 46015, 2026-09-08
+
+I asked the three explanations as one question (`asks/askcode-B1b-actionlog-mutability.md`; answer in
+`evidence-antiattrition-actionlog-conv46015.md`). **Two of the three are confirmed, and the check I ran
+was measured against the wrong column.**
+
+## 🔴 The column B1b rests on is not a timestamp
+
+`MaidManagerActionLog.actionDate` — the warehouse's `ACTION_DATE` — is stamped `new LocalDate().toDate()`
+**only on create**. `updateEntity` never re-stamps it and only rejects null, so **after any edit it is
+whatever the caller sent**. It is user-editable business data. The entity has no `@PreUpdate`, no
+`@LastModifiedDate`, no soft-delete flag. The real timestamps sit on the shared `BaseEntity`, and
+**`creationDate` is the field the code itself orders enrolments by**. The selection query never reads
+`ACTION_DATE` at all.
+
+So B1b's 53 are **not a payment finding yet**. They are a finding about the column plus a population
+that has to be re-tested against `CREATION_DATE` (block **B1b-F**, F1).
+
+## 🔴 Two routes pay under this reason with no enrolment row at all
+
+`AbuDhabiMaidIncentiveExpenseJob` calls the same expense-request helper, selects from
+`HousemaidExtraFields`, and needs no action log. **Any manual `AAI - 01` expense request** produces the
+identical note with no enrolment check on that path. F2 (creator ≠ service account 2226) and F3 (Abu
+Dhabi enrolment present) separate them in data.
+
+## 🔴 Three findings that never needed the 53
+
+1. **Enrolment is checked at selection and never again.** The job POSTs an `ExpenseRequestTodo`; the
+   note is written two async hops later (accounting confirmation, then a `SequentialQueue` task) and
+   nothing re-reads the enrolment. **A maid whose incentive row is edited or removed after selection is
+   still paid.** N13's "the job requires an enrolment log before it pays" is wrong as stated.
+2. **The amount is validated at write time only.** Neither the job nor the expense helper re-checks it,
+   and if `MAID_INCENTIVE_CONFIGS_PARAM` is missing the validator **silently falls back to a hard-coded
+   `[100,150,200,250,300,350]`** — broken config passes as good config.
+3. **A back-fill utility sets the amount from prose.** `correctIncentiveHistoricalData` re-derives
+   `incentiveAmount` by string-matching amounts inside the enrolment's free-text note, and saves
+   without re-validating. That number drives AED 1.83m a year.
+
+## What the exchange cost and returned
+
+One question. It downgraded my loudest finding from RED to AMBER, and returned three control findings
+of its own — each of which applies to **every** anti-attrition note, not to 53 of them. **The
+downgrade is the point: the check was measuring an editable field and reporting it as an audit trail.**
+Written into the spec as N13-corrected and as traps 19–21.

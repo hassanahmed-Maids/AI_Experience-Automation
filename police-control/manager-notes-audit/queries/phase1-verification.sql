@@ -420,3 +420,108 @@ SELECT
     (SELECT MEDIAN(LENGTH(note_text)) FROM e)                         AS median_chars,
     (SELECT COUNT_IF(LENGTH(note_text) <= 10) FROM e)                 AS under_10_chars,
     (SELECT COUNT_IF(LENGTH(note_text) >= 60) FROM e)                 AS at_least_60_chars;
+
+
+-- =====================================================================================
+-- B1b-F — FOLLOW-UPS AFTER ask-the-code SESSION 46015 (2026-09-08).
+--   The code answer says ACTION_DATE (= MaidManagerActionLog.actionDate) is stamped only
+--   on CREATE and is caller-supplied on every UPDATE — it is a business date, not a
+--   system timestamp, and the selection query never reads it. B1b's 53 cases were
+--   measured against the wrong column. It also names two routes that pay with no
+--   enrolment row at all: the Abu Dhabi job, and any manual AAI - 01 expense request.
+--   Each block below is self-contained. Run in order; F1 first.
+-- =====================================================================================
+
+-- F1a. Does the view expose a real creation timestamp? (Look for CREATION_DATE /
+--      LAST_MODIFICATION_DATE / CREATED_AT.) If it does not, F1b cannot run and the
+--      ask becomes "expose one column", the same shape as the INCENTIVE_AMOUNT ask.
+SHOW COLUMNS IN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS;
+
+-- F1b. B1b re-run against CREATION_DATE instead of ACTION_DATE, side by side with the
+--      original so the two are directly comparable. Substitute the real column name
+--      from F1a for CREATION_DATE if it differs.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), enrol AS (
+    SELECT HOUSEMAID_ID,
+           MIN(ACTION_DATE)::DATE    AS first_action_date,
+           MIN(CREATION_DATE)::DATE  AS first_created
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
+    GROUP BY 1
+)
+SELECT
+    COUNT(*)                                                              AS notes,
+    COUNT_IF(e.HOUSEMAID_ID IS NULL)                                      AS no_enrolment_row_at_all,
+    COUNT_IF(e.first_action_date > p.note_day)                            AS b1b_old_by_action_date,
+    ROUND(SUM(IFF(e.first_action_date > p.note_day, p.AMOUNT, 0)))        AS aed_old,
+    COUNT_IF(e.first_created > p.note_day)                                AS b1b_new_by_creation_date,
+    ROUND(SUM(IFF(e.first_created > p.note_day, p.AMOUNT, 0)))            AS aed_new,
+    -- rows whose business date and creation date disagree at all: the edit population
+    COUNT_IF(e.first_action_date <> e.first_created)                      AS action_date_edited
+FROM paid p
+LEFT JOIN enrol e ON e.HOUSEMAID_ID = p.HOUSEMAID_ID;
+
+-- F2. WHO created the 53 notes. N13: every batch note carries the configured service
+--     account (requesterId 2226 by default). A different creator on these rows means the
+--     manual AAI - 01 expense route, where no enrolment check exists at all.
+--     Creators only — no maid identifiers, no free text.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, USER_WHO_CREATED_NOTE
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), enrol AS (
+    SELECT HOUSEMAID_ID, MIN(ACTION_DATE)::DATE AS first_action_date
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
+    GROUP BY 1
+)
+SELECT
+    COALESCE(p.USER_WHO_CREATED_NOTE, '(none)')                       AS created_by,
+    COUNT(*)                                                          AS all_notes,
+    COUNT_IF(e.first_action_date > p.note_day)                        AS b1b_notes,
+    ROUND(SUM(IFF(e.first_action_date > p.note_day, p.AMOUNT, 0)))    AS b1b_aed
+FROM paid p
+LEFT JOIN enrol e ON e.HOUSEMAID_ID = p.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY b1b_notes DESC, all_notes DESC;
+
+-- F3a. Is an Abu Dhabi enrolment surface in the warehouse at all? The code names
+--      HousemaidExtraFields.abuDhabiIncentiveType / abuDhabiIncentiveOffered /
+--      lastAbuDhabiIncentiveProcessedDate.
+SHOW TERSE OBJECTS LIKE '%EXTRA_FIELD%' IN ACCOUNT;
+
+-- F3b. Counts only — are the B1b maids Abu Dhabi enrolments, who need no action log?
+--      Run only if F3a finds the object; substitute its real schema/table/columns.
+--      Returns four numbers, no maid identifiers.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), enrol AS (
+    SELECT HOUSEMAID_ID, MIN(ACTION_DATE)::DATE AS first_action_date
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
+    GROUP BY 1
+), flagged AS (
+    SELECT p.*, IFF(e.first_action_date > p.note_day, 1, 0) AS is_b1b
+    FROM paid p LEFT JOIN enrol e ON e.HOUSEMAID_ID = p.HOUSEMAID_ID
+)
+SELECT
+    SUM(is_b1b)                                                   AS b1b_notes,
+    COUNT_IF(is_b1b = 1 AND x.HOUSEMAID_ID IS NOT NULL)           AS b1b_that_are_abu_dhabi,
+    COUNT(*)                                                      AS all_notes,
+    COUNT_IF(x.HOUSEMAID_ID IS NOT NULL)                          AS all_that_are_abu_dhabi
+FROM flagged f
+LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_EXTRA_FIELDS x
+       ON x.HOUSEMAID_ID = f.HOUSEMAID_ID
+      AND x.ABU_DHABI_INCENTIVE_TYPE IS NOT NULL
+      AND x.ABU_DHABI_INCENTIVE_TYPE <> 'NO_AD_INCENTIVE';
