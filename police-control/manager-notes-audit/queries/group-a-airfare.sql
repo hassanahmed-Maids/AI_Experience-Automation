@@ -215,3 +215,55 @@ SELECT t.nationality, t.modal_amount AS nationality_tier, t.notes,
 FROM air a JOIN tier t ON t.nationality = a.nationality
 GROUP BY 1, 2, 3
 ORDER BY off_tier_notes DESC, t.notes DESC;
+
+-- A3c RESULT 2026-09-08 — the 38 are mostly a BYPASS, not a failure:
+--   automatic -> manual ....  29 notes · 29 maids · AED 49,500  (97% of the money)
+--   automatic -> automatic ..  7 notes ·  4 maids · AED  3,000
+--   manual    -> automatic ..  2 notes ·  2 maids · AED      0
+--   🔴 The dominant shape is a MANUAL airfare stacked on an automatic one inside five months.
+--   The manual expense path (processExpenseRequestTodo) never calls
+--   isThereMultipleAirFareTickets() — so the duplicate guard is not failing, it is ABSENT on
+--   that route. Same shape as the amount guard: written on one branch, missing on the other.
+--   The 7 automatic->automatic notes are a genuine guard failure, AED 3,000.
+
+-- A5 RESULT 2026-09-08: ZERO ROWS. ⚠️ NOT YET A CLEARANCE. Spec trap H4: zero rows reads
+--   exactly like "no findings". Before this is reported as "no maid drew cash and flew on a
+--   company ticket", the join has to be shown capable of returning something. A5a and A5b do
+--   that, and if they show the table is populated and the ids overlap, then and only then is
+--   the empty result a real GREEN.
+
+-- A5a. Is HOUSEMAIDS_TICKETS populated, dated, and joinable at all?
+SELECT COUNT(*)                                          AS ticket_rows,
+       COUNT(DISTINCT HOUSEMAID_ID)                      AS distinct_maids,
+       COUNT_IF(HOUSEMAID_ID IS NULL)                    AS null_maid_id,
+       COUNT_IF(PURCHASE_DATE IS NOT NULL)               AS with_purchase_date,
+       COUNT_IF(DEPARTURE_DATE IS NOT NULL)              AS with_departure_date,
+       MIN(COALESCE(PURCHASE_DATE, DEPARTURE_DATE::DATE)) AS earliest,
+       MAX(COALESCE(PURCHASE_DATE, DEPARTURE_DATE::DATE)) AS latest,
+       COUNT_IF(COALESCE(IS_DELETED,'00') = '01')        AS deleted_rows,
+       COUNT(DISTINCT TICKET_TYPE)                       AS ticket_types
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS;
+
+-- A5b. Do the two populations overlap AT ALL, at any distance? Unbounded window, so a real
+--   absence and a broken join become distinguishable. Also returns the ticket-type vocabulary.
+WITH air AS (
+    SELECT DISTINCT HOUSEMAID_ID, NOTE_DATE::DATE AS note_day
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Airfare Ticket' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), tick AS (
+    SELECT HOUSEMAID_ID, COALESCE(TICKET_TYPE,'(none)') AS ticket_type,
+           COALESCE(PURCHASE_DATE, DEPARTURE_DATE::DATE) AS ticket_day
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS
+    WHERE COALESCE(IS_DELETED,'00') <> '01'
+)
+SELECT t.ticket_type,
+       COUNT(*)                                              AS pairs,
+       COUNT(DISTINCT a.HOUSEMAID_ID)                        AS maids_with_both,
+       MIN(ABS(DATEDIFF('day', a.note_day, t.ticket_day)))   AS closest_days,
+       MEDIAN(ABS(DATEDIFF('day', a.note_day, t.ticket_day))) AS median_days,
+       COUNT_IF(ABS(DATEDIFF('day', a.note_day, t.ticket_day)) <= 180) AS within_180_days
+FROM air a
+JOIN tick t ON t.HOUSEMAID_ID = a.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY pairs DESC;
