@@ -389,34 +389,45 @@ ORDER BY verdict;
 -- O9. 🔴 RESOLVE THE AED 251,721. `Bonus` mixes referral and signing bonuses and PURPOSE_ID
 --   is not in the warehouse — but MAIDS_REFERRALS_BONUSES carries PAYROLL_NOTE_DATE,
 --   BONUS_AMOUNT and NOTE_REASON against the REFERRED maid. Walking REFERRED -> REFERRER via
---   HOUSEMAID_REFERRALS identifies which bonus notes are referral bonuses, from the referral
---   side, without PURPOSE_ID. Whatever remains unmatched is a signing bonus or unjustified.
+--   HOUSEMAID_REFERRALS identifies which bonus notes are referral bonuses from the referral
+--   side, with no PURPOSE_ID. Whatever stays unmatched is a signing bonus or unjustified.
+--   Uses EXISTS, not a LEFT JOIN: a referrer with two bonus records would otherwise count the
+--   same note twice and inflate the matched side (the grain trap, G2).
+--   ±1 day on the date, because PAYROLL_NOTE_DATE and NOTE_DATE are written by different
+--   systems and an exact match would silently under-report the referral half.
 WITH bonus AS (
     SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
     WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
-), ref_link AS (
-    SELECT REFERRED_MAID_ID, HOUSEMAID_ID AS referrer_id
-    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
-    WHERE REFERRED_MAID_ID IS NOT NULL AND HOUSEMAID_ID IS NOT NULL
 ), rb AS (
-    SELECT l.referrer_id, b.PAYROLL_NOTE_DATE::DATE AS note_day, b.BONUS_AMOUNT
+    SELECT l.HOUSEMAID_ID                     AS referrer_id,
+           b.PAYROLL_NOTE_DATE::DATE          AS note_day,
+           b.BONUS_AMOUNT                     AS bonus_amount
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES b
-    JOIN ref_link l ON l.REFERRED_MAID_ID = b.REFERRED_HOUSEMAID_ID
-    WHERE b.PAYROLL_NOTE_DATE IS NOT NULL
+    JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS l
+      ON l.REFERRED_MAID_ID = b.REFERRED_HOUSEMAID_ID
+    WHERE b.PAYROLL_NOTE_DATE IS NOT NULL AND l.HOUSEMAID_ID IS NOT NULL
 )
 SELECT CASE
-         WHEN r.referrer_id IS NULL THEN '🔴 not a referral bonus — signing bonus or unjustified'
-         ELSE                            'matched to a referral bonus record'
+         WHEN EXISTS (SELECT 1 FROM rb
+                       WHERE rb.referrer_id = n.HOUSEMAID_ID
+                         AND ABS(DATEDIFF('day', rb.note_day, n.note_day)) <= 1
+                         AND ABS(COALESCE(rb.bonus_amount, -1) - n.AMOUNT) < 0.01)
+              THEN 'matched to a referral-bonus record'
+         WHEN EXISTS (SELECT 1 FROM rb
+                       WHERE rb.referrer_id = n.HOUSEMAID_ID
+                         AND ABS(DATEDIFF('day', rb.note_day, n.note_day)) <= 1)
+              THEN '⚠️ referral bonus on the same day, DIFFERENT amount'
+         WHEN EXISTS (SELECT 1 FROM rb WHERE rb.referrer_id = n.HOUSEMAID_ID)
+              THEN 'referrer has referral bonuses, none on this date'
+         ELSE '🔴 no referral-bonus record at all — signing bonus or unjustified'
        END                              AS reading,
        COUNT(*)                         AS bonus_notes,
        COUNT(DISTINCT n.HOUSEMAID_ID)   AS maids,
-       ROUND(SUM(n.AMOUNT))             AS aed
+       ROUND(SUM(n.AMOUNT))             AS aed,
+       ROUND(AVG(n.AMOUNT))             AS avg_bonus
 FROM bonus n
-LEFT JOIN rb r ON r.referrer_id = n.HOUSEMAID_ID
-              AND r.note_day    = n.note_day
-              AND ABS(COALESCE(r.BONUS_AMOUNT,0) - n.AMOUNT) < 0.01
 GROUP BY 1
 ORDER BY aed DESC;
 
