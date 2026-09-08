@@ -59,7 +59,7 @@ a control that exists on paper and is not on the path the money takes.
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | ⚠️ **Raffle: is the entrant list ~1,400 or ~6,700?** | 180,000 *(the whole type)* | **One number, not an ingestion.** 88 repeat winners is **1.02× chance** for a pool of 1,400 and **4.09×** for 6,738. R3 shows MAID_VISA wins at 0.29× its share and three nationalities never win, so the real pool is far smaller than the paid population. **If the draw enters ~1,400 maids, group F is clean.** *(An earlier version of this row called the draw non-uniform on the 6,738 figure — retracted.)* |
 | Raffle Prize | 180,000 | The five raffle tables (N12) — **48 winners every month for 12 months** |
-| ⚪ **Advances on the two heads named "Loan", with no loan booked** | *withheld* | TF14 measured 3.4% (Medical) and 4.3% (MOHRE) loan-booking against Accommodation Relocation's 98.5%. **The figures are not publishable as they stand.** TF17 found `BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY` in the gold layer, which already carries `LOAN_PERCENTAGE_OF_ADDITIONS` as an approved KPI — so TF14 is an unverified ad hoc reconstruction of a sanctioned metric, and the approved definition governs. TF19 reads the view. **And recovery is untested:** TF16 is VOID — its positive control (65 booked relocation loans) showed zero deductions too, so deduction notes are not the recovery mechanism. TF20 asks the approved view instead |
+| ⚪ **RETRACTED — "advances with no loan booked"** | **0** | TF14 reported 3.4% (Medical) and 4.3% (MOHRE) loan-booking. The approved KPI `LOAN_PERCENTAGE_OF_ADDITIONS` says **85–100% and 100%**. TF14 read `EXPENSES_REQUESTS.LOAN_AMOUNT` — the loan on the expense *request* — where the sanctioned metric reads `ADDITION_LOAN_AMOUNT`, the loan on the payroll *addition*. Different field, largely empty. **The loans are booked. There is no finding here.** ⚠️ TF14 carried a positive control and the control **passed** — on the one head where the two fields coincide — which is why the error survived a round |
 | Self-approval where the approver was **not** the head's designated holder | 16,831 | TF15, resolved. 31 notes: Airfare 8,500 · Medical 3,995 · Bonus 2,000 · Salary Dispute 1,726 · MOHRE 610. **Control violated, not money lost** — the payments may still be owed |
 | MV prorated paid twice to 3 maids | 1,245 | Whether each had two pre-collected contracts terminate |
 
@@ -113,6 +113,25 @@ a control that exists on paper and is not on the path the money takes.
 - 🟢 **AED 2.59m of ungated airfare, on the amount axis** — 1,518 notes across 15 nationalities, **one**
   above tier, AED 500. Tiers are strikingly consistent: 12 of 15 nationalities have exactly one
   distinct amount (A1).
+
+## The recovery gap — reported upward, not discovered here
+
+**The manager-notes question "was this advance ever taken back" resolves into an existing approved
+metric, and the answer is mostly no.** From `BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS`,
+August 2026:
+
+| | Loan book | Deductible in August | Deducted | **Undeducted** |
+|---|---:|---:|---:|---:|
+| CC | 13,997,075 | 1,786,065 | 353,972 | **1,432,093 — 80.2%** |
+| MV | 8,992,006 | 2,582,608 | 123,453 | **2,459,154 — 95.2%** |
+
+Stable across six months: CC 72–80% undeducted, MV 90–95%. **Open loan book AED 22.99m**, and of the
+AED 4.37m recoverable in August, AED 3.89m was not recovered.
+
+🟡 **This is not the audit's discovery.** It is a sanctioned dashboard metric the business can
+already see. What the audit adds is the join: TF19 shows advances **are** booked as loans at 85–100%,
+TF20 shows those loans are then **not** recovered. **The booking control works; the recovery control
+does not.** Everything in the tail-five exercise is smaller than this by two orders of magnitude.
 
 ## The strategic finding
 

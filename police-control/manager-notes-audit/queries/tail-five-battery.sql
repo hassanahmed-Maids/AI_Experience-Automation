@@ -841,3 +841,73 @@ SELECT SUBJECT_MONTH,
 FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS
 WHERE SUBJECT_MONTH >= DATEADD('month', -12, CURRENT_DATE())
 ORDER BY SUBJECT_MONTH DESC, METRIC_SORT;
+
+
+-- =====================================================================================
+-- ROUND 7 — TF14 IS RETRACTED IN FULL BY THE APPROVED KPI, AND ITS CONTROL PASSED BY LUCK.
+--
+-- TF19 🔴🔴 THE APPROVED VIEW DISAGREES WITH MY RECONSTRUCTION BY AN ORDER OF MAGNITUDE.
+--      LOAN_PERCENTAGE_OF_ADDITIONS, sanctioned, CC/WPS by month:
+--        PCR Test & medical assistance Loan  85.3 · 98.4 · 100 · 90.0 · 97.7 · 84.9
+--        WPS Compliance Loan                 100 · 100 · 100 · 100  (every month, both types)
+--      TF14 reported 3.4% and 4.3% for those same two heads. **The loans ARE booked.**
+--      Cause: TF14 read `EXPENSES_REQUESTS.LOAN_AMOUNT`, the loan on the expense REQUEST.
+--      The KPI reads ADDITION_LOAN_AMOUNT, the loan on the payroll ADDITION. They are not
+--      the same field and the request-side one is largely empty. TF14's every figure is void.
+--
+--      ⚠️⚠️ THE LESSON IS THE CONTROL, NOT THE ERROR. TF14 carried Accommodation Relocation
+--      as its positive control and the control PASSED -- 98.5% mine vs 94.8-100% approved.
+--      It passed on the ONE head where the two fields happen to agree, and that agreement
+--      bought false confidence in a measure that was wrong everywhere else: Maids.at 28% vs
+--      82-98% approved, LOTA 38% vs 55-96%, Salary Additions 4.2% vs 8-56%.
+--      **A positive control validates the plumbing, not the field choice.** One control that
+--      passes is not evidence; it is one data point that failed to fire.
+--
+-- TF20 🔴 AND HERE IS THE ANSWER TF16 WAS REACHING FOR, from the approved metric, at a scale
+--      the whole tail-five exercise never touched. August 2026:
+--        CC  loan book AED 13,997,075 · deductible this month 1,786,065 · DEDUCTED 353,972
+--            -> **UNDEDUCTED 1,432,093 = 80.2%**
+--        MV  loan book AED  8,992,006 · deductible this month 2,582,608 · DEDUCTED 123,453
+--            -> **UNDEDUCTED 2,459,154 = 95.2%**
+--      Stable across all six months: CC 72-80% undeducted, MV 90-95%. Combined open loan
+--      book **AED 22.99m**, and of the AED 4.37m that could have been recovered in August,
+--      AED 3.89m was not.
+--
+--      🟡 THIS IS NOT THE AUDIT'S DISCOVERY. It is somebody's existing approved dashboard
+--      metric and the business can already see it. What the audit adds is the JOIN: TF19
+--      shows the advances ARE being booked as loans at 85-100%, and TF20 shows the loans are
+--      then not recovered. **The booking control works. The recovery control does not.**
+--      The manager-notes question "was this advance ever taken back" resolves upward into a
+--      AED 22.99m receivable that is already being reported.
+-- =====================================================================================
+
+
+-- TF18b. 🟡 CORRECTED — the original used CONCAT_WS(' ', *), and `*` is not allowed as a
+--        function argument outside the SELECT list. Two small steps instead of one clever one:
+--        learn the container's shape, then read it.
+SELECT COLUMN_NAME, DATA_TYPE
+FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'CORE_SILVER'
+  AND TABLE_NAME   = 'INSIGHTS_DASHBOARD_CONTAINER'
+ORDER BY ORDINAL_POSITION;
+
+
+-- TF21. 🟢 THE LAST TAIL-FIVE QUESTION, SCOPED TO WHAT THE APPROVED SOURCE ALREADY MODELS.
+--       BI_MEDICAL_LOANS carries STATUS and LOAN_AMOUNT per medical loan. If medical
+--       advances are booked (TF19: 85-100%) and loans are largely unrecovered (TF20: 80-95%),
+--       then the medical slice should show it in its own STATUS column.
+--       ⚠️ This view also carries HOUSEMAID_NAME and REQUESTED_BY. Aggregate only — no
+--       personal or per-maid financial data leaves this query.
+SELECT COALESCE(STATUS, '(none)')                   AS loan_status,
+       COALESCE(CATEGORY, '(none)')                 AS category,
+       COALESCE(MEDICAL_ASSISTANCE_TYPE, '(none)')  AS assistance_type,
+       COUNT(*)                                     AS loans,
+       COUNT(DISTINCT HOUSEMAID_ID)                 AS maids,
+       ROUND(SUM(AMOUNT_IN_AED))                    AS aed_advanced,
+       ROUND(SUM(LOAN_AMOUNT))                      AS aed_booked_as_loan,
+       ROUND(100.0 * SUM(LOAN_AMOUNT)
+             / NULLIF(SUM(AMOUNT_IN_AED), 0), 1)    AS pct_booked
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_MEDICAL_LOANS
+WHERE CREATION_DATE >= DATEADD('month', -12, CURRENT_DATE())
+GROUP BY 1, 2, 3
+ORDER BY aed_advanced DESC;
