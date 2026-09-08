@@ -189,3 +189,33 @@ SELECT IFF(notes > 1, shape, '(a one-off phrasing)') AS text_shape,
 FROM counted
 GROUP BY 1
 ORDER BY notes DESC;
+
+-- Z7. WHO created the 18 Abu Dhabi zero notes? Ask-the-code 46016 proved the only documented
+--     producer CANNOT post a zero-amount request (it returns early at MaidIncentiveService
+--     L305 before createMaidIncentiveExpenseRequest). So something else made them.
+--     ⚠️ REQUESTED_BY identifies a RUN, not a ROUTE (F9) - so the test is SHAPE: a batch
+--     account posts many notes on few days across a type; a person posts few, on many days,
+--     scattered across types. Ranked, never named.
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REASON,
+           NULLIF(TRIM(REQUESTED_BY), '') AS req
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), ad_requesters AS (
+    SELECT DISTINCT req FROM n WHERE REASON = 'Abu Dhabi Incentive'
+)
+SELECT ROW_NUMBER() OVER (ORDER BY COUNT_IF(n.REASON = 'Abu Dhabi Incentive') DESC,
+                                   COUNT(*) DESC)              AS requester_rank,
+       COUNT_IF(n.REASON = 'Abu Dhabi Incentive')              AS abu_dhabi_notes,
+       COUNT(*)                                                AS all_their_notes,
+       COUNT(DISTINCT n.REASON)                                AS payment_types_they_touch,
+       COUNT(DISTINCT n.note_day)                              AS days_active,
+       ROUND(SUM(n.AMOUNT))                                    AS aed_all_their_notes,
+       COUNT_IF(n.AMOUNT = 0)                                  AS zero_notes_they_made,
+       MIN(n.note_day)                                         AS first_note,
+       MAX(n.note_day)                                         AS last_note
+FROM n
+JOIN ad_requesters a ON a.req IS NOT DISTINCT FROM n.req
+GROUP BY n.req
+ORDER BY abu_dhabi_notes DESC, all_their_notes DESC;

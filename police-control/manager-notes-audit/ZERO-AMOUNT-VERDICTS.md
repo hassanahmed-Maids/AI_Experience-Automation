@@ -16,7 +16,7 @@ never GREEN.**
 
 ---
 
-## V1 · 🔴 RED — Abu Dhabi Incentive: a whole run paid nothing, and 15 maids went unpaid
+## V1 · 🔴 RED — **REVISED 2026-09-08 (conv. 46016).** 18 notes exist that the only documented producer cannot create
 
 **18 notes · 100% zero · one day (2026-08-31) · AED 0**
 
@@ -27,13 +27,39 @@ or the write-back failed. **Z5 rules out the money landing elsewhere:** across A
 18 maids carry five other notes between them (4 anti-attrition AED 794; 1 accommodation relocation
 AED 800), so **at least 15 of the 18 received nothing at all.**
 
-**Verdict: RED — defect, with an unpaid entitlement behind it.** This is the only finding in the
-investigation that is complete: named job, computable amount, identified population, no further data
-needed. **It is also the only one with people waiting at the end of it.**
+### 🔴 The code answer inverted this. Four of my five claims are withdrawn.
 
-**Fix:** recompute the 2026-08-31 run and pay the difference. **Add the run-level test** — a per-note
-verdict structurally cannot see "100% of this type is zero", which is why an entire failed run sat in
-an AMBER bucket for eight days without anyone noticing.
+| Claim | Status after conv. 46016 |
+|---|---|
+| 18 notes, 100% zero, one day, the whole payment type | ✅ **stands** — measured |
+| The Abu Dhabi job is broken | ❌ withdrawn |
+| A one-line integer-division fix | ❌ withdrawn — the `(double)` cast is present |
+| Eligibility is consumed, so they stay unpaid | ❌ withdrawn — the marker is written only on success, so a maid who computes zero is **re-selected next month** |
+| **≥15 maids are owed money and did not receive it** | ⚠️ **unsupported** |
+
+**`MaidIncentiveService` L305-308 returns early when the amount is zero** — *"Calculated amount is
+zero — no request created"* — **before** `createMaidIncentiveExpenseRequest` is reached. **The job
+cannot post a zero-amount request.** So the one producer we knew about is the one producer that
+provably did not make these 18 notes.
+
+**The unpaid-maids claim went with it.** It assumed the notes represent owed incentives. If they are
+markers or manual entries, nobody may be owed anything — and I stated it as the finding's human cost
+before I had established the notes were payments at all.
+
+**Verdict: RED — but for the gap, not for the job.** *Eighteen notes exist under a payment type whose
+only documented producer cannot create them.* A smaller human story and a larger control story: an
+undocumented path is writing notes under an incentive's expense code. **Z7 asks who.**
+
+**What still holds:** the run-level test. A per-note verdict structurally cannot see *"100% of this
+type is zero"*, and that remains true whatever produced them.
+
+### 🟢 One question closed for free
+
+Both config parameters **default to expense code `AAI - 01` in source**. Had the live Abu Dhabi
+parameter kept that default, its notes would carry `anti_attrition_incentive` — the reason comes from
+`Expense.salaryAdditionType`, not from the producer. **A distinct `Abu Dhabi Incentive` reason exists
+in the data, so the live parameter carries a different code.** That settles what F3 was blocked on:
+**the Abu Dhabi job never was an explanation for the 42 anti-attrition cases.**
 
 ---
 
@@ -96,7 +122,7 @@ something finished read as ongoing. **Verdict: GREEN — closed, no action.** Re
 
 | | Notes | Verdict |
 |---|---:|---|
-| Abu Dhabi run | 18 | 🔴 RED — defect + unpaid entitlement |
+| Abu Dhabi notes | 18 | 🔴 RED — an undocumented producer |
 | Paid outside payroll | 90 | 🔴 RED, provisional |
 | **Unread** | **289** | ⚠️ **BLOCKED** |
 | Housekeeping | 93 | 🟠 AMBER |
@@ -146,7 +172,7 @@ owner disputes V2, the read can be reopened for those 90 notes specifically — 
 
 | | Notes | Verdict |
 |---|---:|---|
-| Abu Dhabi run | 18 | 🔴 **RED — final.** Defect + at least 15 maids unpaid |
+| Abu Dhabi notes | 18 | 🔴 **RED — an undocumented producer**, not a broken job |
 | Paid outside payroll | 90 | 🔴 **RED — provisional, and actionable as it stands** |
 | PII in free text | — | 🔴 **RED — new, needs an owner outside this audit** |
 | 🟢 System-generated markers | **81** | 🟢 **N_A — correct by design, never a finding** |
