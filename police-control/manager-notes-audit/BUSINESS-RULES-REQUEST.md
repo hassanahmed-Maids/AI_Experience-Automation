@@ -291,7 +291,7 @@ If it is easier to answer some and not others, **the three lists in Part 2 are w
 **the vacation daily rate** (Part 1, item 3): two numbers, and a payment goes from unverifiable to
 checked exactly.
 
-## N16 — Is a maid on two *concurrent* contracts entitled to two anti-attrition incentives?
+## N22 — Is a maid on two *concurrent* contracts entitled to two anti-attrition incentives?
 *(raised 2026-09-08 from the F10-F13 chain; small money, clean question)*
 
 `MaidIncentiveExperimentJob`'s duplicate guard is **per contract**: it skips a maid only if a note

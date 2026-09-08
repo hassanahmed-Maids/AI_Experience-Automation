@@ -526,7 +526,7 @@ the notes view this cannot be confirmed.
 
 **AED 771 across 11 maid-days over twelve months is immaterial, and what remains is a business
 question, not a query:** *is a maid on two concurrent contracts entitled to two incentives?* Raised as
-**N16** in `BUSINESS-RULES-REQUEST.md`. It is worth answering because the same per-contract guard
+**N22** in `BUSINESS-RULES-REQUEST.md`. It is worth answering because the same per-contract guard
 governs every prorated payment type — not because of the amount.
 
 Chasing it further with SQL would be spending the audit's credibility on AED 771.
