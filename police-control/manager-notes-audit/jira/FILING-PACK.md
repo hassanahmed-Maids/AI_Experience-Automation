@@ -95,6 +95,7 @@ side can evidence those criteria.
 
 | # | Ask | Blocks |
 | --- | --- | --- |
+| **O3b / N12** | **The five raffle tables** — `RaffleDrawParticipant` (`draw`, `housemaid`, `isWinner`, `winOn`, `prize`, `points`), `RaffleDraw` (`drawDate`, `status`), `RaffleDrawPrizeGrand` (`worth`, `isGrand`), plus `RaffleTicketLog` and `RaffleDrawLog`. ERP module `magnamedia-housemaid-management`, package `com.magnamedia.entity.raffledraw`. **Zero** objects matching `%RAFFLE%`, `%PRIZE%` or `%DRAW%` exist account-wide. Newly found 2026-09-08 — this single ingestion takes `raffle_prize` from unverifiable to fully checked, with no business decision needed | **all of group F** — the only thing blocking it |
 | **O21 / N17** | **Contract-type timeline per maid** — every CC/MV interval with dates. `HOUSEMAIDS_INFO_REVISION` has exactly the right columns (`OLD_HOUSEMAID_TYPE`, `HOUSEMAID_TYPE`, `SWITCH_HOUSEMAID_TYPE_DATE`) and **all of them are empty**. Two working routes exist: `mmdb.housemaids_revisions` (the VISA models already read it for `FIRST_HOUSEMAID_TYPE`), or the `to_type` column behind `BI_HOUSEMAID_STATUS_LOGS` | the ELIG archetype — 9 payment types |
 | **O21 / N19** | **`live_out` flag, effective-dated.** `HOUSEMAID_TYPE` does not carry it; the gold layer derives `CC Live In / CC Live Out / MV` from a separate flag | Accommodation Relocation, Live-out Transportation Assistance |
 | **O21 / N18** | **A row-level loan source.** No raw or silver loans table exists — only three aggregated gold views | the PAIR archetype — 5 payment types |
@@ -122,7 +123,7 @@ Platform session — they expire within hours.
 | # | Question |
 | --- | --- |
 | **O3a** | Which table and column hold the **payroll month lock date**, and what rule assigns a manager note to a payroll month? *(Confirmed not obtainable from Snowflake by any route — no `%PAYMENT_RULE%` object exists and every lock-date column profiles as "no non-null values".)* |
-| **O3b** | What does **`RafflePerformerJob`** read to pick winners? One answer names the table and an entire payment type becomes checkable. |
+| ~~**O3b**~~ | ~~What does `RafflePerformerJob` read to pick winners?~~ **ANSWERED 2026-09-08** (conversation 45932, all modules). It reads `RaffleDrawParticipant` rows flagged `isWinner`, on the current month's `RaffleDraw`, with the amount from `RaffleDrawPrizeGrand.worth`. **This item moves to the data team as an ingestion request** — see below. |
 | **new** | Is there a **priced referral or signing bonus scheme** anywhere in the ERP? N11 claimed "not found in the ERP" but no interrogation ever asked — the warehouse was searched, the code was not. |
 | **O12** | Is `HOUSEMAID_MANAGER_NOTES.AMOUNT` **always AED**? There is no currency column, so the entire spec assumes it. |
 
@@ -154,7 +155,7 @@ He has already given four rules. These are what is still open on them.
 ## 6 · Owners still to be named
 
 Nobody owns these today, and no engineering unblocks them. Together they cover **fourteen payment
-types** — more than any data problem on this page.
+types** — more than any data problem on this page. *(The raffle is no longer among them: as of 2026-09-08 it has a code-verified rule and needs only an ingestion — see §3.)*
 
 | # | What has to exist | Suggested owner |
 | --- | --- | --- |

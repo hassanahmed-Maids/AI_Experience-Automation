@@ -18,31 +18,40 @@ result, but it means real money passes without a check.
 
 ---
 
-## Part 1 — Seven payment types that cannot be checked at all
+## Part 1 — Payment types that cannot be checked at all
+
+*(Two of the seven have since been answered by the ERP code itself — the raffle and the Google review. They are left in place, marked answered, so you can see what came off the list and why. **Five** genuinely remain.)*
 
 Each of these goes from *unverifiable* to *fully checked* the moment somebody answers.
 
-### 1. Raffle prize — `raffle_prize`
+### 1. Raffle prize — `raffle_prize` ✅ **ANSWERED — question withdrawn**
 
-**What we need:** the list of winners for each draw.
+**We were wrong about this, and we want to say so plainly.** An earlier draft of this page told you
+there was no raffle system — no draw, no winners record, nothing but a label on a dropdown. That was
+a mistake on our side: we had searched only the payroll part of the ERP. The raffle lives in the
+housemaid-management part.
 
-**Why we can't work it out — and this turned out to be worse than we thought.** We checked the ERP
-code. **There is no raffle job, no draw record and no winners table anywhere in the payroll system.**
-"Raffle prize" is only a label on a dropdown. The payment is typed in by hand, and the only two
-places the system mentions it are the payslip wording (*"You won a raffle prize on…"*) and a rule
-that excludes it from final settlements.
+**There is a complete, automated prize draw**, and nothing is needed from you:
 
-**So this is not a missing data feed. There is nothing recording who won.**
+- A scheduled job runs the draw each month. Each maid's **tickets** are earned (a month with the same
+  client, a renewal, a replacement) and **more tickets mean better odds** — the draw is weighted, not
+  a flat lottery.
+- **Winners are recorded**, each against the draw she won, with the date and the prize.
+- **The prize amounts are set centrally, not typed in:** first prize **AED 2,000** (3 winners),
+  second prize **AED 200** (45 winners).
+- The system **writes the payslip note itself**, with the amount taken from the prize record.
 
-**The questions:**
-- **Who runs the draw**, and how are winners chosen?
-- **Where are the winners written down** — a spreadsheet, a chat, somebody's notes? Any of those is
-  workable; we just need to know it exists.
-- **Is there a fixed prize amount**, or does it vary by draw?
+So we can check this payment completely: that she actually won, that the amount matches her prize,
+and that it was paid once. The only thing left is a technical one — those records have not been
+copied into the reporting warehouse yet, which is a request to the data team, not to you.
 
-**Why it matters most:** every other payment on this page has *a rule nobody wrote down*. This one
-has **no record that the event even happened**. Money is being paid against a prize with no evidence
-attached to it.
+**One thing worth your attention, though it is not a question.** A person can still add a raffle
+prize by hand, bypassing the draw. The audit will now show us whether that happens — and if it does,
+those are exactly the payments worth looking at.
+
+**Please confirm one thing only:** have the AED 2,000 / AED 200 prize amounts ever changed? The
+settings are not date-stamped, so if they moved, older payments would look wrong against today's
+values.
 
 ---
 
@@ -252,11 +261,12 @@ under it. **Somebody in payroll knows what it is, and nothing in the system does
 
 | | Today | After |
 | --- | --- | --- |
-| Seven payment types in Part 1 | unverifiable | fully checked, every month |
+| The five open payment types in Part 1 | unverifiable | fully checked, every month |
 | The three lists in Part 2 | three tests permanently blocked | those tests run across all payment types |
 | Loyalty and AR-1 | unverifiable, and unexplained | at minimum, explained |
 
 None of this needs engineering. Each answer is written once and the check runs itself from then on.
 
-If it is easier to answer some and not others, **the three lists in Part 2 are worth the most**, and
-**the raffle winners list in Part 1 is the quickest win.**
+If it is easier to answer some and not others, **the three lists in Part 2 are worth the most** — each one switches on a test across every payment type at once. The quickest single win is
+**the vacation daily rate** (Part 1, item 3): two numbers, and a payment goes from unverifiable to
+checked exactly.

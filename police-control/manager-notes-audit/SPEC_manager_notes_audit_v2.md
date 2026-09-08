@@ -340,23 +340,68 @@ from `payrollmanagernotes` itself**, filtered `AMOUNT != 0 AND AMOUNT IS NOT NUL
 as a price source and its filter deletes exactly the notes T3 exists to flag. Use it for the paid
 amount, never as the authority.
 
-#### N12 — Raffle winners — 🔴 **v2's claim here was wrong; corrected 2026-09-08**
-**There is no `RafflePerformerJob`, no draw table and no winners table.** *(code-verified,
-conversation 45929, payroll module.)* v2 asserted the job existed and that a winners record
-"plausibly exists" in the ERP. It does not. `raffle_prize` is **only a picklist item** on
-`AdditionReasons`, and none of the payroll module's 28 scheduled jobs creates, draws or selects
-winners.
+#### N12 — Raffle winners — 🟢 **resolved 2026-09-08; two corrections, one in each direction**
 
-Its only two references anywhere in the module are downstream consumers of a note that already
-carries the reason: the payslip translation services, which render *"You won a raffle prize on …"*,
-and `PayrollHousemaidFinalSettlementController.calculateAdditionsWithoutRaffleAndReferral(...)`,
-which **excludes** raffle additions from a final settlement.
+**The complete raffle subsystem exists in the ERP.** *(code-verified, conversation 45932, all
+modules.)* It is not in `erp/magnamedia-payroll-management` — it lives in
+**`erp/magnamedia-housemaid-management`** (staffmgmt), which is why the earlier payroll-scoped
+interrogation (conversation 45929) found nothing and why this file briefly recorded the opposite.
+**Both prior claims were wrong:** v2's original "the job plausibly exists" was right by luck and
+unverified; the 2026-09-08 correction that said it does not exist was a scoping artefact. Neither
+was evidence. This one is.
 
-**So a raffle prize is a hand-entered addition with no draw record behind it.** That is a stronger
-finding than "the winners list has not been ingested": there is nothing to ingest. Either the
-selection happens outside the payroll repository — ⚠️ the interrogation was scoped to
-`erp/magnamedia-payroll-management`, so **re-ask across all modules before treating this as final** —
-or it happens outside the ERP altogether, in which case the list has an owner and no system.
+**How a winner is chosen.** Scheduled job **`RafflePerformerJob`** (job definition
+`job_to_start_raffle_draw`) picks up the current month's `RaffleDraw` when its `drawDate`/`drawTime`
+arrives and its status is `PENDING`. It builds a pool holding **one entry per ticket point** per
+participant — so odds are weighted by tickets — shuffles it, and draws with `Random.nextInt(...)`,
+setting `isWinner = true`, `winOn = now` and a prize on the chosen `RaffleDrawParticipant`.
+Second-prize winners are drawn first; existing first-prize winners are then removed from the pool
+before the first-prize picks. On completion it calls `addPrizesToPayroll()` and marks the draw
+`FINISHED`.
+
+**What creates the note.** `RafflePerformerJob.addPrizesToPayroll()` is the **only** automatic
+writer of a `PayrollManagerNote` with `additionReason = raffle_prize`. It sets
+`noteType = ADDITION`, `amount = prize.getWorth()`, the winning housemaid, and re-assigns the creator
+to the ERP system user when the creator is null or `admin`. It also fires the Customer.io event
+`raffle_winner_selected`. The two other code references to `raffle_prize` are read-only:
+`ChatGPTController.getLastRafflePrize` and
+`PayrollHousemaidFinalSettlementController.calculateAdditionsWithoutRaffleAndReferral(...)`, which
+**excludes** raffle additions from a final settlement. The generic manual endpoint can still set the
+reason by hand — that is the path an audit exists to catch.
+
+**Where the record lives** — package `com.magnamedia.entity.raffledraw`, one table per entity:
+
+| Entity | What it holds | The columns the audit needs |
+| --- | --- | --- |
+| `RaffleDraw` | the draw | `drawDate`, `drawTime`, `endDate`, `status` (`INITIALING/PENDING/ONGOING/FINISHED/EXPIRED`) |
+| `RaffleDrawParticipant` | participants **and** winners — a winner is a participant row with the flag | `draw`, `housemaid`, `points`, **`isWinner`**, **`winOn`**, **`prize`** |
+| `RaffleDrawPrizeGrand` | the prizes | `draw`, `name`, **`worth`** (the amount), `isGrand` (first/grand) |
+| `RaffleTicketLog` | the ticket ledger feeding participation | `ticketsCount`, `ticketsReason` (`ONE_MONTH_WITH_SAME_CLIENT`, `MAID_RENEWED`, `REPLACEMENT`, `ELIGIBLE_FOR_RAFFLE`) |
+| `RaffleDrawLog` | draw event log (live-draw display) | — |
+
+**The prize amounts are parameters, not typed in.** Seeded in `SetupCustomParameters`, read by
+`RaffleService.createRaffle` into each `RaffleDrawPrizeGrand.worth`:
+
+| Parameter | Default |
+| --- | --- |
+| `raffle_first_prize` | **2,000** |
+| `raffle_second_prize` | **200** |
+| `raffle_first_prize_winners` | 3 |
+| `raffle_second_prize_winners` | 45 |
+
+Ticket weights: `raffle_renewal_tickets` 35 · `raffle_with_client_tickets` 5 ·
+`raffle_faulty_replacements_tickets` 10 · `raffle_eligible_tickets` 1.
+
+**What this changes for the audit.** `raffle_prize` moves from **UNRULED** to a fully specified
+**ROSTER · CEIL · UNIQ** type — see group F below. The amount is knowable exactly
+(`participant.prize.worth`), the entitlement is a membership test against a real table, and a
+hand-entered raffle note with no winning participant row behind it is a finding, not an unknown.
+
+**🔴 What still blocks it: ingestion, not knowledge.** Verified 2026-09-08 —
+`SHOW TERSE OBJECTS LIKE '%RAFFLE%' | '%PRIZE%' | '%DRAW%' IN ACCOUNT` each return **zero rows**.
+None of the five tables is in the warehouse. So group F is **BLOCKED on an ingestion, with a named
+source** (O3b) rather than on a business owner. That is a materially cheaper ask, and it is the only
+thing standing between this payment type and a running check.
 
 #### N13 — The loyalty rule
 The loyalty payment maps to addition reason **`anti_attrition_incentive`**. *(code-verified)* its
@@ -665,7 +710,7 @@ payment type is:
 | `prorated_salary`, `mv_prorated_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | RECOMP · ELIG |
 | `previously_held_salary` | **PAIR** · ELIG — *(corrected 2026-09-08; needs no salary history)* |
 | `salary_dispute` | CORR · UNRULED *(E2 has no field)* |
-| `raffle_prize` | ROSTER |
+| `raffle_prize` | **ROSTER · CEIL · UNIQ** — *(specified 2026-09-08; was UNRULED)* |
 | the four group-G reasons | CORR · ROSTER |
 | `forgive_deduction` | PAIR |
 | `cover_deduction_limit`, `cover_negative_salary` | RECOMP |
@@ -740,7 +785,7 @@ count.
 | `mv_extra_salary` | MV Extra Salary | **D (MV only)** | Partly |
 | `last_day_cc_switch_adjustment` | Last-day CC Switch Adjustment | **D** | Partly |
 | `salary_dispute` | Salary correction | **E — Correction** | Partly — E1 yes, E2 needs the judgement field |
-| `raffle_prize` | Raffle Winner | **F — Raffle** | **No — winners list absent** (N12) |
+| `raffle_prize` | Raffle Winner | **F — Raffle** | **Fully specified**; blocked only on ingesting the five raffle tables (N12, O3b) |
 | `taxi_reimbursement` | Transportation Fare Reimbursement | **G — Reimbursement** | **Yes**, once N4 lands |
 | `medical_assistant` | Medical Assistant | **G** | Yes, once N4 lands |
 | `Maids_at_other_expenses` | Maids at Other Expenses | **G** | Yes, once N4 lands |
@@ -898,8 +943,23 @@ the verdict algebra cannot express and which let a matched correction go green w
 actually asks whether it was *justified* never ran. If E2 is deferred for v1, **E2 returns BLOCKED
 and group E is amber** — the honest result.
 
-**Group F — Raffle.** F1 the maid is on the winners list for that draw, and nothing else.
-**BLOCKED** — N12.
+**Group F — Raffle.** Specified 2026-09-08 from the ERP subsystem (N12). Four tests, at the grain
+of one note per winning participant row:
+
+- **F1 — she won.** A `RaffleDrawParticipant` row exists for this housemaid with `isWinner = true`,
+  on a `RaffleDraw` whose `status = 'FINISHED'` and whose `winOn` falls in the note's payroll month.
+  No such row → **RED**: a raffle payment to somebody who did not win.
+- **F2 — the amount is the prize.** `AMOUNT = participant.prize.worth`. This is a **CEIL** with an
+  exact value, not a range — the amount is written by the job from a parameter, so any divergence is
+  either a hand-entered note or a changed parameter. Divergence → **RED**, by the difference.
+- **F3 — paid once.** Exactly one `raffle_prize` note per winning participant row. More than one →
+  **RED** (**UNIQ**, set-level).
+- **F4 — not double-counted at exit.** A `raffle_prize` note must not appear in a final settlement's
+  additions; the ERP excludes it deliberately
+  (`calculateAdditionsWithoutRaffleAndReferral`). Present → **RED**.
+
+**All four are BLOCKED today on ingestion only** (O3b) — the rule is known and the source is named.
+Do not confuse this with the genuinely unruled types: nothing here needs a business owner.
 
 **Group G — Reimbursement.** G1 amount agrees with the expense record · G2 beneficiary is that maid
 (`BENEFICIARY_TYPE = 'MAID'` and the id matches) · G3 an approver is recorded, written as
@@ -1331,7 +1391,8 @@ residual; G7 reports N14–N16 absent.
 | --- | --- | --- | --- |
 | O1 | **Row-level verification of §2.1 is outstanding.** Names, types, source expressions and profiled ranges are verified from the catalog; **row counts, freshness, cardinality and population are verified nowhere** — the P&C role has no warehouse. First three queries once granted: (a) `COUNT(*)` vs `COUNT(DISTINCT ID)` on `HOUSEMAID_MANAGER_NOTES` (G2 — the grain of the whole report); (b) `SELECT NOTE_TYPE, COUNT(*) … GROUP BY 1` (G10); (c) read `INSIGHTS_DASHBOARD_CONTAINER` (§2.2). **Also: grant P&C a warehouse, so specs ship with rows as evidence** | Snowflake team / Data platform | **Yes** |
 | O2 | **Enumerate the addition-reason picklist and `HousemaidPurposesForBonusAdditionalDescription` from the database.** The §3 M6 table is recovered from **code references**, so a reason that exists in the picklist but is referenced nowhere in code is missing from it — and an unmapped reason is amber by construction, which is safe but understates coverage. Also needs `PICKLISTS_INFO`'s own column names and types, never profiled | Snowflake team, after O1 | **Yes** |
-| O3 | **Three Ask the Code follow-ups**, each one question: (a) N7 — the payroll lock-window table and column; (b) N12 — what `RafflePerformerJob` reads to pick winners; (c) whether `HOUSEMAID_MANAGER_NOTES.AMOUNT` is always AED (O12) | P&C, with a fresh token | **Yes** |
+| O3 | **Three Ask the Code follow-ups**, each one question: (a) N7 — the payroll lock-window table and column; (b) ~~N12 — what `RafflePerformerJob` reads to pick winners~~ **answered 2026-09-08, conversation 45932; became O3b**; (c) whether `HOUSEMAID_MANAGER_NOTES.AMOUNT` is always AED (O12) | P&C, with a fresh token | **Yes** |
+| O3b | **Ingest the five raffle tables** — `RaffleDraw`, `RaffleDrawParticipant`, `RaffleDrawPrizeGrand`, `RaffleTicketLog`, `RaffleDrawLog` (`com.magnamedia.entity.raffledraw`, module `erp/magnamedia-housemaid-management`). Verified 2026-09-08: **zero** objects matching `%RAFFLE%`, `%PRIZE%` or `%DRAW%` exist account-wide. This is the **whole** of what blocks group F — the rule is code-verified and needs no business owner (N12). Minimum viable set: participant (`draw`, `housemaid`, `isWinner`, `winOn`, `prize`, `points`), draw (`drawDate`, `status`) and prize (`worth`, `isGrand`) | Data team | **Yes** for group F |
 | O4 | Is `HOUSEMAIDS_TICKETS` still written to? `MAX(PURCHASE_DATE)`. `ID` tops at 14,564 — small enough to suspect a dead source, which would silently disable group A4 | Snowflake team, after O1 | Yes for A4 |
 | O5 | **Resolve X1** before any use of `EXPENSES_REQUESTS.RELATED_TO_ID` | Data team | **Yes** for the expense link |
 | O6 | **Timezone** of `NOTE_DATE` and the payslip dates. `TIMESTAMP_NTZ` carries none; if the ERP writes UTC, a note at 02:00 Dubai truncates to the previous day and can cross a lock-window edge | ERP team | **Yes** |

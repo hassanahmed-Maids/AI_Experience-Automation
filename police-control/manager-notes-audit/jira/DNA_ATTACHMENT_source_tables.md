@@ -339,7 +339,7 @@ None blocks the model; each one leaves a group rule returning BLOCKED, and its n
 | **N7** | The payroll lock window per month | Route 1 branch 2 | `MONTHLYPAYMENTRULES`, exact column `unverified` |
 | **N10** | Effective-dated salary history | Recomputing part-month salary (group D) | `mmdb` revision tables |
 | **N11** | Referral / signing scheme prices, effective-dated | Testing the amount (group C) | The referral scheme owner |
-| **N12** | Raffle winners per draw | Group F | `RafflePerformerJob` writes the notes — start there |
+| **N12** | Raffle winners per draw | Group F | 🟢 **Found 2026-09-08.** Source is the ERP module `magnamedia-housemaid-management`, package `com.magnamedia.entity.raffledraw`: `RaffleDrawParticipant` (`draw`, `housemaid`, `isWinner`, `winOn`, `prize`, `points`), `RaffleDraw` (`drawDate`, `status`), `RaffleDrawPrizeGrand` (`worth`, `isGrand`), `RaffleTicketLog`, `RaffleDrawLog`. **None is in the warehouse** — zero objects match `%RAFFLE%`/`%PRIZE%`/`%DRAW%` account-wide. This is an ingestion ask |
 | **N13** | A written loyalty rule | Group B | Does not exist anywhere; this is a business decision |
 | **N14** | Payment type → allowed expense heads | T5 | P&C + Payroll |
 | **N15** | Contract type → allowed payment types, all four types | T7 | P&C + Payroll |
@@ -468,7 +468,7 @@ This table is the configuration. Nothing below it knows what a payment type is.
 | `anti_attrition_incentive` | UNRULED |
 | `prorated_salary`, `mv_prorated_salary`, `previously_held_salary`, `mv_extra_salary`, `last_day_cc_switch_adjustment` | RECOMP · ELIG |
 | `salary_dispute` | CORR · UNRULED *(the justification half has no field)* |
-| `raffle_prize` | ROSTER |
+| `raffle_prize` | ROSTER · CEIL · UNIQ |
 | `taxi_reimbursement`, `medical_assistant`, `Maids_at_other_expenses`, `lost_luggage_compensation` | CORR · ROSTER |
 | `forgive_deduction` | PAIR |
 | `cover_deduction_limit`, `cover_negative_salary` | RECOMP |

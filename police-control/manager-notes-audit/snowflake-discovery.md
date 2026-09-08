@@ -280,7 +280,7 @@ SHOW OBJECTS LIKE '%INSIGHTS%' IN ACCOUNT; -- INSIGHTS_DASHBOARD_CONTAINER, ...
 SHOW OBJECTS LIKE '%PICKLIST%' IN ACCOUNT; -- CORE_SILVER.PICKLISTS_INFO, ...
 ```
 
-- **Raffle: nothing exists.** Zero objects account-wide. The winners list is not in the
+- **Raffle: nothing exists *in the warehouse*.** Zero objects account-wide (re-verified 2026-09-08 for `%RAFFLE%`, `%PRIZE%` and `%DRAW%`). 🔴 But it does exist in the **ERP** — five `raffledraw` tables in `magnamedia-housemaid-management` (N12). So this is an un-ingested source, not an absent one. The winners list is not in the
   warehouse under that name.
 - **Referral: real reference data exists.**
   `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES` is built from the *same*
