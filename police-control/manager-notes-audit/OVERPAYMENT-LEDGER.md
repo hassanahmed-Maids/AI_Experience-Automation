@@ -3,7 +3,7 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-08 — ~AED 228,700 of money lost, against AED 7,197,642 examined (3.2%).**
+**Confirmed 2026-09-08 — ~AED 229,100 of money lost, against AED 7,197,642 examined (3.2%).**
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
 **3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
@@ -30,6 +30,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Prorated salary paid to maids outside the eligibility window | **2,976** | not deserved | 25 notes — 18 whose salary start predates the note by a median 650 days, 7 whose salary start is *after* it. **Resolved as-of the note date** (PS1c), down from 78 on a current-state read |
 | Airfare paid above its nationality tier | **500** | off-rule | 1 Kenyan note at 2,000 against a 1,500 tier — **the only one in 1,518** |
 | 🔴 **Accommodation Relocation paid to a live-in maid** | **4,700** | not deserved | 6 notes, 6 maids. The rule is CC live-out only; TF6 cleared the CC half, TF7 broke on this one. **Resolved as-of the note date — and the as-of read is the whole finding:** 5 of 66 notes carry a different `LIVE_OUT` than today, so a current-state read would have flagged 5 notes of which 2 were wrong, while missing 3 of the 6 real ones |
+| Live-out transport allowance paid to a live-in maid | 392 | not deserved | 3 notes. The other **317 of 320 clear** — AED 71,457 — and 36 of them resolve to a different flag than today, so the clear is earned rather than an artifact |
 
 ### Control violated — a rule broken, the money may still be owed
 
@@ -58,9 +59,8 @@ a control that exists on paper and is not on the path the money takes.
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | ⚠️ **Raffle: is the entrant list ~1,400 or ~6,700?** | 180,000 *(the whole type)* | **One number, not an ingestion.** 88 repeat winners is **1.02× chance** for a pool of 1,400 and **4.09×** for 6,738. R3 shows MAID_VISA wins at 0.29× its share and three nationalities never win, so the real pool is far smaller than the paid population. **If the draw enters ~1,400 maids, group F is clean.** *(An earlier version of this row called the draw non-uniform on the 6,738 figure — retracted.)* |
 | Raffle Prize | 180,000 | The five raffle tables (N12) — **48 winners every month for 12 months** |
-| 🔴 **Live-out Transportation Assistance paid to a live-in maid** | **≤71,850** | TF13. 320 notes, **85% of all taxi money**, isolated at last — `EXPENSE_TYPE = 'Live-out Transportation Assistance'`. An allowance for a commute the maid was not making. Blocked since the spec was written; the flag (TF5) and the key (TF11) both landed this session |
-| 🔴 **Advances on loan-enabled heads with no loan booked** | **≤219,143** | TF14. `ALLOW_TO_ADD_LOAN = TRUE` on every head behind all five types, and two are named "Loan" outright — Medical runs through *PCR Test & medical assistance Loan*, MOHRE through *WPS Compliance Loan*. Money advanced as an ADDITION with no loan written against it was never recoverable. The L-group's "0% to 115%" problem, unmeasurable until config was read |
-| 🟡 **Medical self-approval — 46.6%, 2 identities** | 12,266 | TF15. Held twice now. `APPROVAL_METHOD = APPROVAL_REQUIRED` on `PT 100`, so approval is owed on every request — but `APPROVE_HOLDER` decides it: if the requester **is** the designated approver, self-approval is the design, not a breach |
+| 🔴 **Advances on the two heads named "Loan", with no loan booked** | **≤30,220** | TF14, **filtered**. Medical (*PCR Test & medical assistance Loan*) books a loan on **3 of 88**; MOHRE (*WPS Compliance Loan*) on **2 of 46**. Accommodation Relocation books **65 of 66 — 98.5%** — so the mechanism demonstrably works. ⚠️ `ALLOW_TO_ADD_LOAN` reads *may*, not *must*, so an unbooked loan is not automatically a finding; these two heads are named for what the money is. **TF16 tests whether anything was ever taken back.** *(An earlier version of this row said ≤219,143 — it summed rows where the head allows no loan at all. Corrected before publication.)* |
+| Self-approval where the approver was **not** the head's designated holder | 16,831 | TF15, resolved. 31 notes: Airfare 8,500 · Medical 3,995 · Bonus 2,000 · Salary Dispute 1,726 · MOHRE 610. **Control violated, not money lost** — the payments may still be owed |
 | MV prorated paid twice to 3 maids | 1,245 | Whether each had two pre-collected contracts terminate |
 
 ## What has been cleared, on evidence
@@ -68,6 +68,18 @@ a control that exists on paper and is not on the path the money takes.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **The approval gate, across AED 2.8m — 100% compliant (TF15).** On all eleven head/type
+  combinations, **zero** requests were unapproved where the head requires approval, and **zero**
+  exceeded an `APPROVAL_REQUIRED_ON_LIMIT` threshold without one. **This retracts my own concern
+  from an earlier round** — I had flagged "Maids.at: 217 of 273 notes with no approver, 40% of the
+  type, a gate being skipped." Maids.at is `APPROVAL_REQUIRED_ON_LIMIT` with a limit of 200, and
+  below it an unapproved request is *correct*. Reading a note's `APPROVED_BY` without the head's
+  approval method invented an AED 20,532 finding out of a clean control.
+- 🟢 **Taxi self-approval — zero breaches.** All 120 self-approved taxi notes were approved by the
+  head's **designated approver**. The single identity holding 100% of them, which looked exactly
+  like the anti-attrition batch job, was the person config appoints to approve that head.
+- 🟢 **AED 71,457 of live-out transport (TF13)** — 317 of 320 notes went to a maid who was live-out
+  that day, resolved as-of.
 - 🟢 **The tail five, on the authorisation spine (TF1).** Taxi, Accommodation Relocation, Maids.at,
   Medical and MOHRE — **944 notes, AED 219,143, every single one linked to a PAID expense request.**
   Zero with no request, zero on a rejected or cancelled one, zero refunded after the note was

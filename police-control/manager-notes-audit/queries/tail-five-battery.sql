@@ -654,3 +654,113 @@ FROM j
 GROUP BY 1, 2, 3, 4
 HAVING COUNT(*) >= 10
 ORDER BY aed_required_unapproved + aed_over_limit + aed_self_not_holder DESC;
+
+
+-- =====================================================================================
+-- ROUND 5 — three tests, three findings REMOVED. Including one this file created itself.
+--
+-- TF13 🟢 AED 71,850 CLEARS. 317 of 320 live-out transport notes went to a maid who was
+--      live-out that day; 3 notes / AED 392 did not. 36 GREENs resolve to a different flag
+--      than the maid carries today, so the as-of join was doing real work -- the clear is
+--      earned, not an artifact. The largest untested population in the tail is clean.
+--
+-- TF14 🔴🔴 READ THIS BEFORE READING THE RESULT. My own column is misnamed and would have
+--      produced the biggest false finding of the session. `aed_never_recoverable` is
+--      meaningless on any row where HEAD_ALLOWS_LOAN = FALSE: anti-attrition (AED 1,829,536),
+--      Bonus (225,791), Airfare (137,500) and Abu Dhabi (18,250) are GRANTS. No loan is
+--      booked because no loan may be booked. Summing the column reports AED 2.2m of
+--      "unrecovered" money that was never lent. **The filter is the finding; the column is not.**
+--
+--      On the TRUE rows the picture is real, and it has its own control built in:
+--        Accommodation Relocation  65 of 66 loans booked  = 98.5%  <- THE MECHANISM WORKS
+--        Live-out Transportation  122 of 320             = 38%
+--        Maids.at other expenses   77 of 273             = 28%
+--        Salary Dispute            41 of 970             =  4.2%
+--        MOHRE / WPS Compliance Loan  2 of 46            =  4.3%   AED 9,385 unbooked
+--        Medical / PCR Test & medical assistance Loan  3 of 88 = 3.4%  AED 20,835 unbooked
+--      ⚠️ ALLOW_TO_ADD_LOAN reads "may", not "must" -- an unbooked loan is not automatically
+--      a finding. But TWO heads are named "Loan" outright, so their money is an ADVANCE by
+--      definition. AED 30,220 on those two, against a 98.5% benchmark. TF16 tests recovery.
+--
+-- TF15 🟢🟢 THE APPROVAL GATE IS CLEAN, AND IT RETRACTS MY OWN CONCERN FROM TWO ROUNDS AGO.
+--      REQUIRED_but_unapproved = 0 and OVER_LIMIT_unapproved = 0 on ALL ELEVEN head/type
+--      combinations, AED 2.8m. I had flagged "Maids.at: 217 of 273 notes with no approver,
+--      40% of the type -- a gate that exists and is being skipped." IT IS NOT. Maids.at is
+--      APPROVAL_REQUIRED_ON_LIMIT with a limit of 200; below it an unapproved request is
+--      CORRECT. Same for taxi's 114. Reading the note's APPROVED_BY without the head's
+--      approval method invented a AED 20,532 finding out of a compliant control.
+--
+--      🟢 AND APPROVE_HOLDER COLLAPSES THE SELF-APPROVAL FINDING:
+--        Taxi   120 self-approvals -> 120 BY DESIGN, 0 breaches. The single identity holding
+--               100% was the head's DESIGNATED APPROVER. Taxi goes to ZERO.
+--        Medical 41 -> 25 by design, 16 real. AED 12,266 -> AED 3,995, a 67% cut.
+--      Real self-approval breaches, job excluded: Airfare 8,500 + Medical 3,995 + Bonus 2,000
+--      + Salary Dispute 1,726 + MOHRE 610 = **AED 16,831 across 31 notes.**
+--      Anti-attrition's 8,093 are excluded as the batch job TF8 identified -- APPROVE_HOLDER
+--      does not excuse them, concentration explains them.
+-- =====================================================================================
+
+
+-- TF16. 🔴 WAS THE ADVANCE EVER RECOVERED? The only test that can settle TF14 without a
+--       business answer. Two heads are named "Loan"; AED 30,220 of their money was paid as
+--       an addition with no loan booked. If nothing was ever deducted back, it was a gift.
+--
+--       🟢 THE QUERY VALIDATES ITSELF. Accommodation Relocation is carried as a POSITIVE
+--       CONTROL: 65 of its 66 notes DO book a loan, so if deduction notes are the recovery
+--       mechanism, that row must light up. If the control shows no deductions either, then
+--       deductions are not how loans are recovered and THIS TEST IS VOID, not negative --
+--       exactly the failure TF4 made when zero join matches read as clean.
+--
+--       Note types are grouped rather than assumed: the recovery vocabulary is learned here.
+WITH advances AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT,
+           x.EXPENSE_TYPE AS head,
+           IFF(x.LOAN_AMOUNT > 0, 'loan booked', 'NO loan booked') AS loan_side
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.AMOUNT > 0
+      AND x.EXPENSE_TYPE IN ('PCR Test & medical assistance Loan',
+                             'WPS Compliance Loan',
+                             'Accommodation Relocation')
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND n.NOTE_DATE <= CURRENT_DATE()
+), later AS (
+    SELECT HOUSEMAID_ID, NOTE_DATE::DATE AS d, NOTE_TYPE, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE <> 'ADDITION'
+), per_note AS (
+    SELECT a.note_id, a.head, a.loan_side, a.AMOUNT,
+           COUNT(l.d)                                   AS later_non_additions,
+           COALESCE(SUM(l.AMOUNT), 0)                   AS aed_taken_back,
+           LISTAGG(DISTINCT l.NOTE_TYPE, ' | ')
+             WITHIN GROUP (ORDER BY l.NOTE_TYPE)        AS note_types_seen
+    FROM advances a
+    LEFT JOIN later l
+           ON l.HOUSEMAID_ID = a.HOUSEMAID_ID
+          AND l.d >= a.note_day
+          AND l.d <= DATEADD('month', 12, a.note_day)
+    GROUP BY 1, 2, 3, 4
+)
+SELECT head, loan_side,
+       COUNT(*)                                            AS notes,
+       ROUND(SUM(AMOUNT))                                  AS aed_advanced,
+       COUNT_IF(later_non_additions = 0)                   AS NOTHING_EVER_TAKEN_BACK,
+       ROUND(SUM(IFF(later_non_additions = 0, AMOUNT, 0))) AS aed_never_recovered,
+       COUNT_IF(later_non_additions > 0)                   AS something_deducted_later,
+       ROUND(SUM(aed_taken_back))                          AS aed_deducted_total,
+       MAX(note_types_seen)                                AS recovery_vocabulary
+FROM per_note
+GROUP BY 1, 2
+ORDER BY head, loan_side;
+
+
+-- TF17. 🟡 THE FALLBACK, and it costs one small result. If TF16's control row shows no
+--       deductions, loans are recovered somewhere other than the notes table and TF16 is
+--       void. This names where to look, so that outcome costs a query rather than a round.
+SELECT TABLE_SCHEMA, TABLE_NAME, COUNT(*) AS columns,
+       LISTAGG(COLUMN_NAME, ' | ') WITHIN GROUP (ORDER BY ORDINAL_POSITION) AS cols
+FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
+WHERE (TABLE_NAME ILIKE '%LOAN%' OR TABLE_NAME ILIKE '%DEDUCT%'
+    OR TABLE_NAME ILIKE '%INSTALL%' OR TABLE_NAME ILIKE '%REPAY%')
+GROUP BY 1, 2
+ORDER BY 1, 2;
