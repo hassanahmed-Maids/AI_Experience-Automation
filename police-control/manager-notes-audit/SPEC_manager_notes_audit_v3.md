@@ -1735,15 +1735,15 @@ residual; G7 reports N14–N16 absent.
 
 ## 6. Open Items
 
-| # | Item | **O61** | 🔴 **`Bonus` attribution broke in 2024-05 and is still broken** — 2.2% unattributed before, 85.4% at peak, **48.2% now**, against Taxi's 0% across 36 months. This is the only *worsening* control in the audit and the only one with a datable onset. Find what changed | P&C + Dev | Not blocking — it **is** a finding |
+| # | Item | Owner | Blocking? |
+| --- | --- | --- | --- |
+| **O61** | 🔴 **`Bonus` attribution broke in 2024-05 and is still broken** — 2.2% unattributed before, 85.4% at peak, **48.2% now**, against Taxi's 0% across 36 months. This is the only *worsening* control in the audit and the only one with a datable onset. Find what changed | P&C + Dev | Not blocking — it **is** a finding |
 | **O62** | **Explain 2025-05 Salary Dispute**: 610 notes in a 100–200 month, 424 of them unattributed, AED 50,381. A bulk load or a mass correction; either way it needs an owner and it is the bulk of that type's unattributed history | P&C + Data | No |
 | **O63** | **Scope the pre-2023 backlog.** ~3,669 unattributed Salary Dispute notes predate 2023-09. Decide in or out of remediation — the monthly dashboard should not carry them | P&C | No |
 | **O64** | **B4 needs enrolment *and exit* dates, not just `INCENTIVE_AMOUNT`** (supersedes the O23 scope), **plus the divisor rule from the code**: in 30-day months 890 notes divide by the calendar month and 250 by a fixed 31, both job-created. Without both, B4 cannot be written | Dev + Data | **Yes — blocks B4** |
 | **O65** | **Confirm note 184233** (maid 97470, 2026-07-17, AED 900): enrolment dated after the payment. B1b's first hit, a hard RED, needs a human verdict | P&C | No |
 | **O66** | **A single approver signs off the manual anti-attrition path** (34 of 35 sampled). Governance, alongside O22 and Q4 | P&C + Payroll | No |
 | **O67** | **Reject future-dated notes.** At least one exists. Add the explicit rule rather than relying on M0 branch 3 catching it by accident | Data | No |
-| Owner | Blocking? |
-| --- | --- | --- | --- |
 | O1 | **Row-level verification of §2.1 is outstanding.** Names, types, source expressions and profiled ranges are verified from the catalog; **row counts, freshness, cardinality and population are verified nowhere** — the P&C role has no warehouse. First three queries once granted: (a) `COUNT(*)` vs `COUNT(DISTINCT ID)` on `HOUSEMAID_MANAGER_NOTES` (G2 — the grain of the whole report); (b) `SELECT NOTE_TYPE, COUNT(*) … GROUP BY 1` (G10); (c) read `INSIGHTS_DASHBOARD_CONTAINER` (§2.2). **Also: grant P&C a warehouse, so specs ship with rows as evidence** | Snowflake team / Data platform | **Yes** |
 | O2 | **Enumerate the addition-reason picklist and `HousemaidPurposesForBonusAdditionalDescription` from the database.** The §3 M6 table is recovered from **code references**, so a reason that exists in the picklist but is referenced nowhere in code is missing from it — and an unmapped reason is amber by construction, which is safe but understates coverage. Also needs `PICKLISTS_INFO`'s own column names and types, never profiled | Snowflake team, after O1 | **Yes** |
 | O3 | **Three Ask the Code follow-ups**, each one question: (a) N7 — the payroll lock-window table and column; (b) ~~N12 — what `RafflePerformerJob` reads to pick winners~~ **answered 2026-09-08, conversation 45932; became O3b**; (c) whether `HOUSEMAID_MANAGER_NOTES.AMOUNT` is always AED (O12) | P&C, with a fresh token | **Yes** |
