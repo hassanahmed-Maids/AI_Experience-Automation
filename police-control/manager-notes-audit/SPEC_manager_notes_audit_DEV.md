@@ -15,13 +15,13 @@ ERP source. Eleven queries changed the logic in eight places. The five that chan
 
 1. 🔴 **Never reject a future-dated note.** The earlier revision said to. `Airfare Ticket` runs to
    **2028-06-02** and is **38.1% of all addition money** — the rule would delete the largest type in
-   the audit. Its date is very likely the *travel* date (§4, O69).
+   the audit. Its date is very likely the *travel* date (§4).
 2. 🔴 **`NOTE_DATE` carries a time.** `NOTE_DATE = LAST_DAY(NOTE_DATE)` is false for **every** row and
-   returns a clean, plausible, meaningless result. Always `NOTE_DATE::DATE` (§6).
+   returns a clean, plausible, meaningless result. Always `NOTE_DATE::DATE` (the group rules).
 3. 🔴 **A job's run days are observed, never assumed.** August's monthly batch ran on **2026-09-01**,
-   not 08-31 — 918 notes, the largest in the series (§6).
+   not 08-31 — 918 notes, the largest in the series (the group rules).
 4. 🔴 **Never RED a note for missing attribution off a hardcoded type list.** 850 of the 862
-   unattributed notes are `Bonus`, machine-created by design. Measure origin per type (§7, S1).
+   unattributed notes are `Bonus`, machine-created by design. Measure origin per type (the group rules, S1).
 5. 🔴 **`anti_attrition_incentive` has a rule now** — eight tests, six runnable on the grant. Four
    earlier candidates were tried and closed off by data; they are listed so they are not
    re-attempted (§8).
@@ -72,7 +72,7 @@ of the money.** The rest cannot be judged — not because those payments are wro
 rule or the reference data needed to judge them has never been written down, and in one case
 (the loyalty payment) does not exist anywhere in the company. **That is the most valuable thing
 this reports**, and the design must not let it read as a pass. It is why coverage leads the KPI
-strip and why amber always carries its reason. §12 lists what is missing and who owns it.
+strip and why amber always carries its reason. the group rules lists what is missing and who owns it.
 
 **The one engineering risk worth naming up front.** The failure mode this design exists to
 prevent is: *something is marked as blocked on the screen while the underlying numbers still
@@ -90,7 +90,7 @@ judged separately.
 
 **Output: one note-level table**, computed once, carrying exactly one verdict per note. Every
 tile, chart, filter, row colour and export column aggregates that table. Nothing anywhere
-re-derives eligibility (§7).
+re-derives eligibility (the group rules).
 
 **Refresh: monthly, manual. Never scheduled** — recurring warehouse jobs go through the ERP team.
 
@@ -152,12 +152,12 @@ nor `PAID_ON_PAYROLL_MONTH`. Those are written only for carried-forward *must-be
 `PAID_ON_PAYROLL_MONTH`. **Filtering on `PAID = true` drops most of the population and the month
 reports clean.**
 
-🔴 **Cast before any date comparison.** `NOTE_DATE` is a timestamp; `LAST_DAY()` returns midnight,
+🔴 **Cast before any date comparison.** `NOTE_DATE` is a timestamp; `LAST_DAY` returns midnight,
 so `NOTE_DATE = LAST_DAY(NOTE_DATE)` is false for every row and yields a well-formed, plausible,
 entirely meaningless split — one written this way put **3,728 of 3,728 notes on one side** and looked
 correct. Use `NOTE_DATE::DATE`.
 
-🔴 **Airfare breaks this section and it is not yours to fix (O69).** `Airfare Ticket` carries notes
+🔴 **Airfare breaks this section and it is not yours to fix.** `Airfare Ticket` carries notes
 dated up to **2028-06-02**, 21 months ahead, and is the largest type by money. If `NOTE_DATE` is the
 travel date rather than the payment date, every one of those notes resolves to a payroll month no
 auditor will ever open. **Resolve `audit_month` per payment type**, and until payroll answers, airfare
@@ -175,7 +175,7 @@ notes whose date exceeds the audit month land AMBER with the reason stated.
 > confident *what* exists, we could not verify *exactly where* it lands, nor its population,
 > freshness or cardinality. You have the access we didn't. Confirm each source as you wire it
 > up, treat anything marked *confirm* as a genuine open question rather than a formality, and
-> run §12's three checks before publishing a number.
+> run the group rules's three checks before publishing a number.
 
 ### In Snowflake
 
@@ -222,10 +222,10 @@ Read these from **`mmdb_transformed.payrollmanagernotes`** unless noted. Scope h
 |---|---|---|---|
 | N10 | effective-dated salary history — the salary in force on a past date, not the current profile value | group D | `mmdb` revision tables are the likely home; confirm the shape |
 | N11 | ~~referral and signing bonus scheme prices~~ — 🔴 **largely resolved.** The referral scheme is stated (§8 C); a signing bonus has **no price by construction**. And an authorised-amount source exists: **`HOUSEMAID_REFERRALS.AMOUNT`** is what the referral record authorised, against which `MAIDS_REFERRALS_BONUSES.BONUS_AMOUNT` (paid) can be compared — C6 | group C | still open: what the **AED 1,200** is, and whether the amounts ever changed. ⚠️ `MAIDS_REFERRALS_BONUSES` is built **from `payrollmanagernotes` itself**, filtered `AMOUNT != 0 AND AMOUNT IS NOT NULL` — circular as a price source, and that filter deletes exactly the notes T3 flags. Use it for the paid amount only |
-| N12 | ~~raffle winners per draw~~ — 🟢 **resolved 2026-09-08 (conversation 45932, all modules).** The whole subsystem exists in **`erp/magnamedia-housemaid-management`**, not payroll: `RafflePerformerJob` draws winners weighted by ticket points and `addPrizesToPayroll()` writes the note with `amount = prize.worth`. Winners are `RaffleDrawParticipant` rows with `isWinner = true`; prize amounts come from parameters `raffle_first_prize` (2,000) and `raffle_second_prize` (200) | group F | **No longer a knowledge gap — an ingestion.** None of the five `raffledraw` tables is in the warehouse (verified: zero objects matching `%RAFFLE%`/`%PRIZE%`/`%DRAW%` account-wide). Group F is fully specified against them |
-| N13 | ~~the loyalty rule~~ — 🟢 **resolved 2026-09-08 (conversation 45934, all modules).** The rule is in **`erp/magnamedia-housemaid-management`**: `MaidIncentiveExperimentJob` pays every enrolled, active, non-MV maid on the last day of the month, amount = `MaidManagerActionLog.incentiveAmount × daysBetween ÷ totalMonthDaysTillNow`. It reaches payroll indirectly via expense code `AAI - 01`, which is why a payroll-module search found only the routing list | group B | **Not a business ask any more.** `HOUSEMAID_MANAGERACTIONLOGS` is already granted (gives B1/B2/B3/B6); B4/B5 need `INCENTIVE_AMOUNT` exposed on it — one column (O23) |
+| N12 | ~~raffle winners per draw~~ — 🟢 **resolved 2026-09-08 (conversation 45932, all modules).** The whole subsystem exists in **`erp/magnamedia-housemaid-management`**, not payroll: `RafflePerformerJob` draws winners weighted by ticket points and `addPrizesToPayroll` writes the note with `amount = prize.worth`. Winners are `RaffleDrawParticipant` rows with `isWinner = true`; prize amounts come from parameters `raffle_first_prize` (2,000) and `raffle_second_prize` (200) | group F | **No longer a knowledge gap — an ingestion.** None of the five `raffledraw` tables is in the warehouse (verified: zero objects matching `%RAFFLE%`/`%PRIZE%`/`%DRAW%` account-wide). Group F is fully specified against them |
+| N13 | ~~the loyalty rule~~ — 🟢 **resolved 2026-09-08 (conversation 45934, all modules).** The rule is in **`erp/magnamedia-housemaid-management`**: `MaidIncentiveExperimentJob` pays every enrolled, active, non-MV maid on the last day of the month, amount = `MaidManagerActionLog.incentiveAmount × daysBetween ÷ totalMonthDaysTillNow`. It reaches payroll indirectly via expense code `AAI - 01`, which is why a payroll-module search found only the routing list | group B | **Not a business ask any more.** `HOUSEMAID_MANAGERACTIONLOGS` is already granted (gives B1/B2/B3/B6); B4/B5 need `INCENTIVE_AMOUNT` exposed on it — one column |
 | N14 | payment type → allowed expense heads | T5 | P&C + Payroll |
-| N15 | contract type → allowed payment types (all **four** types, see §6) | T7 | P&C + Payroll |
+| N15 | contract type → allowed payment types (all **four** types, see the group rules) | T7 | P&C + Payroll |
 | N16 | payment types that always carry an expense record | T4 | P&C + Payroll — **but two are already answered**, see below |
 | **N17** | 🔴 **contract-type timeline per maid** — every CC/MV interval with start and end dates | group A (A2, A3) | `HOUSEMAIDS_INFO_REVISION` has the right columns (`OLD_HOUSEMAID_TYPE`, `HOUSEMAID_TYPE`, `SWITCH_HOUSEMAID_TYPE_DATE`) and **all of them are empty**. Two working routes: `mmdb.housemaids_revisions` (which the VISA models already read for `FIRST_HOUSEMAID_TYPE`), or the `to_type` column behind `BI_HOUSEMAID_STATUS_LOGS` |
 | **N18** | 🔴 **row-level loans** paired to additions | group L | no raw or silver loans table exists — only three gold views. ⚠️ loan **repayment** cannot be verified at all: it runs through deductions, which are out of scope because that feed stopped recording. L1 proves the loan was *created*, never *recovered* |
@@ -342,7 +342,7 @@ Exactly one group runs per note. Unmapped → BLOCKED → amber.
 warehouse's own `ADDITION_CATEGORY` profile carries live categories absent from it — **Accommodation
 Relocation, Sim card Loan, WPS Compliance Loan, PCR Test & medical assistance Loan, Live-out
 Transportation Assistance, NOL Card**, plus several Part-Time Cleaners categories — and that profile
-is itself truncated. They are group **L** below. Reading the picklist (check 2 in §12) is what closes
+is itself truncated. They are group **L** below. Reading the picklist (check 2 in the group rules) is what closes
 this. Do not code a fixed list of reasons.
 
 | `ADDITION_REASON_ID` code | Group | Buildable |
@@ -490,7 +490,7 @@ for a metric here, that definition wins verbatim, with all of its filters.
 
 A blocking guard renders **in place of** the KPI strip, not beside it.
 
-**Why G9 matters.** The ERP's own auditor (`HousemaidsExceptions.generateHousemaidExceptions()`)
+**Why G9 matters.** The ERP's own auditor (`HousemaidsExceptions.generateHousemaidExceptions`)
 detects over-limit airfare and repeated additions, but queries only notes where
 `CONFIRMED_*_BY_AUDITOR = false`. Once someone confirms one, it leaves the ERP's list **while the
 payment stays over the limit**. Inheriting that filter blinds this report to exactly the
@@ -522,46 +522,3 @@ and states only non-salary columns are read.
 
 **Maker–checker.** The status column is a write-back — that makes this an application, not a
 dashboard. Decide before building (Q6).
-
-## 12. Before you can finish
-
-Everything in §5's first two tables is available now. These are the pieces that are not, and
-none of them is a query away:
-
-| | What | Who |
-|---|---|---|
-| 1 | **N14, N15, N16** — the three reference mappings. Without them T4, T5 and T7 stay BLOCKED and their notes amber | P&C + Payroll |
-| 2 | **N10–N11** — salary history and scheme prices. Each one gates a group rule. *(N12 raffle is resolved — it now needs a warehouse ingestion, not an answer)* | respective owners |
-| 3 | ~~**N13** — a written loyalty rule~~ **resolved 2026-09-08: the rule exists, in code (`MaidIncentiveExperimentJob`). Q4 withdrawn.** What replaces it is O23, one column on an already-granted view | Data team |
-| 4 | **Timezone of `NOTE_DATE`** and the payslip dates. `TIMESTAMP_NTZ` carries none; if the ERP writes UTC, a note at 02:00 Dubai truncates to the previous day and crosses a lock-window edge | ERP team |
-| 5 | **Confirm the note amount is AED.** The note table has no currency column, so the whole spec assumes it. If that is wrong, every comparison, M2, M11 and both tie-outs are wrong in an unknown direction | ERP team |
-| 6 | **The `MONTHLYPAYMENTRULES` lock column** (N7) | ERP team |
-
-**Three checks worth running first**, which also close out §5's verification note:
-
-```sql
--- 1. the grain the whole report rests on (G2)
-SELECT COUNT(*), COUNT(DISTINCT ID)
-FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES;
-
--- 2. is money moving through a note type this scope excludes? (G10)
-SELECT NOTE_TYPE, COUNT(*) FROM ... GROUP BY 1;
-
--- 3. does an approved definition already exist for any metric in §9?
-SELECT * FROM BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER LIMIT 50;
-```
-
-## 13. Open decisions (P&C)
-
-**Q1** M13 confidence floor — start 80%, per payment type. Decides red vs amber on unmatched notes.
-**Q2** T4 tolerance — AED 0.01 is a float guard, not materiality. Want a materiality band?
-**Q3** System-generated additions (group I) in scope or out?
-**Q4** 🔴 **Narrowed 2026-09-08.** The loyalty payment is no longer unauditable — it has eight tests,
-six runnable (§8), and its justification does exist: a required free-text box on the enrolment record,
-**100% filled and 96% distinct**. What is left for the business is sharper than "write a rule":
-*should enrolment require a **categorised** reason and a linked complaint, as the sibling
-`resignation_retraction` bonus already does?* That mechanism exists next door, on the smaller of the
-two retention payments. Separately: **one approver signs off 34 of the 35 hand-added anti-attrition
-payments** sampled — a single point of approval on the largest type by count.
-**Q5** Salary-bearing rows — band on screen, or full amount?
-**Q6** Write-back in the first release, or read-only status tracked outside the tool?

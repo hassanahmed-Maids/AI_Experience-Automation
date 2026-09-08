@@ -96,7 +96,7 @@ single addition takes — what runs today, what is blocked and on whom.</p>
 <div class="band">
   <div class="kpi c"><b>44,169</b><span>addition notes in the source</span></div>
   <div class="kpi g"><b>4 of 6</b><span>stages run today</span></div>
-  <div class="kpi a"><b>6</b><span>asks stand between this and full coverage</span></div>
+  <div class="kpi a"><b>13 / 9</b><span>types with a full rule &middot; with baseline checks</span></div>
   <div class="kpi r"><b>2</b><span>defects that return a clean, meaningless result</span></div>
 </div>
 
@@ -116,13 +116,6 @@ an error &mdash; they are the reason this reads as a pipeline and not a checklis
 <p class="sl">One column, computed once. Every tile, chart, filter and export aggregates it and nothing re-derives eligibility.</p><ul><li class="i-ok">RED ⟸ any applicable test returned RED</li><li class="i-ok">AMBER ⟸ not red, and any applicable test was BLOCKED</li><li class="i-ok">GREEN ⟺ every applicable test ran and returned GREEN</li><li class="i-ok">🔴 A test that could not run is not a test that passed — and an unmapped payment type yields an empty check plan, so it arrives AMBER, never a silent green</li></ul></section><section class="stage s-live">
 <div class="sh"><span class="sn mono">06</span><h3>Metrics</h3><span class="pill p-grn">runs today</span></div>
 <p class="sl">Ten named metrics the auditor reads, aggregating the one verdict column. M7 + M8 + M9 = M1 exactly; amounts sum to M2 to the cent.</p><ul><li class="i-ok">M1 Cases · M2 Money · M7 Findings · M8 Unverifiable · M9 Cleared</li><li class="i-ok">M10 Coverage · M11 Amount at Risk · M12 Duplicate groups</li><li class="i-ok">M13 Expense match rate — per payment type, with an 80% floor per type</li><li class="i-ok">M14 Completeness exceptions — one row per maid × payroll month</li></ul></section>
-
-<h2>What is blocked, and on whom</h2>
-<p>None of it is a guess about what exists. Every column named below is code-verified in the ERP; it
-needs bringing across, not building.</p>
-<div class="tw"><table>
-<thead><tr><th>Ask</th><th>Why it blocks</th><th>Owner</th></tr></thead>
-<tbody><tr><td><b>Warehouse grant</b><span class="mono">O1</span></td><td>The P&C role has no warehouse. <code>SHOW</code> and column comments work; every row-level scan fails.</td><td class="own">Data platform</td></tr><tr><td><b><code>EXPENSES_REQUESTS</code> grant</b><span class="mono">§11</span></td><td>Not granted to the P&C role, so the whole corroboration archetype — seven payment types — stays blocked even after O1.</td><td class="own">Data platform</td></tr><tr><td><b>Enrolment + exit dates</b><span class="mono">O64</span></td><td>Supersedes the earlier ask for <code>INCENTIVE_AMOUNT</code> alone: 30% of anti-attrition notes are prorated, over two divisors, so the recompute needs the dates and the divisor rule.</td><td class="own">Dev + Data</td></tr><tr><td><b><code>DELIGHTER_TODO</code></b><span class="mono">O34</span></td><td>Carries the categorised resignation reason and the hard FK from the retraction bonus to its complaint. Also the only route to resolving Bonus's 850 unattributed notes.</td><td class="own">Data</td></tr><tr><td><b>Complaint-type tags</b><span class="mono">O35</span></td><td>The code says the <code>transportation</code> tag, not the type name, is the source of truth for taxi corroboration.</td><td class="own">Data</td></tr><tr><td><b>Three reference lists</b><span class="mono">N14/N15/N16</span></td><td>Payment type → allowed expense heads; contract type → allowed payment types; which types always carry an expense record. Business rules, not data.</td><td class="own">Payroll</td></tr></tbody></table></div>
 
 <footer><strong>Spec v3, 2026-09-08.</strong> The first version corrected by querying live data
 rather than reading catalog metadata and ERP source alone &mdash; eleven queries that changed the

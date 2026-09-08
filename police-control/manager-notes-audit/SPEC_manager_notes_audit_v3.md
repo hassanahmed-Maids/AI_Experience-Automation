@@ -8,7 +8,7 @@
 | **UI mockup** | https://claude.ai/code/artifact/75d6c4b8-ee4e-431a-aa8a-b19daa19e051 |
 | **Delivered on** | MaidsInsights. Snowflake is the warehouse underneath — not interchangeable |
 | **Evidence log** | `snowflake-discovery.md` (catalog claims) · Ask the Code conversations 45815–45818, 45932, 45934, 45948, 45949 (code claims) · `COMPLAINTS-CORROBORATION-DESIGN.md` §3f–§3s (live-data claims) · `AUDIT_v2_2026-09-08.md` (the audit this version answers) |
-| **Status** | Draft — blocked on the warehouse grant (O1). 12 requestor decisions open (§7). Answers all 3 critical and 5 major findings of the v2 audit |
+| **Status** | Draft — blocked on the warehouse grant. 12 requestor decisions open (the group rules). Answers all 3 critical and 5 major findings of the v2 audit |
 | **Last amended** | **2026-09-08** — first version written against **live query results** rather than catalog metadata and code alone. See "What changed 2026-09-08 (v3)" |
 
 ### What changed 2026-09-08 (v3)
@@ -98,7 +98,7 @@ facts came out of Snowflake. Six of them change the logic.
 1. 🔴 **Airfare is `cc_months >= 22`, CC only — not the code's `% 24 == 22`.** The code rule is true
    one month in twenty-four and never reads contract type; it agrees with the business only at
    months 22, 46 and 70. Building on it would have flagged or withheld judgement on most legitimate
-   airfare payments. A2 and A3 are rewritten; the divergence itself becomes **O17**.
+   airfare payments. A2 and A3 are rewritten; the divergence itself is the finding.
 2. 🔴 **CC tenure bridges a short MV break.** An MV interval under a year keeps the earlier CC
    service; a year or longer resets the clock. This needs a **contract-type timeline** (N17), which
    `HOUSEMAIDS_INFO_REVISION` is built for and is entirely empty — two working routes named instead.
@@ -106,19 +106,19 @@ facts came out of Snowflake. Six of them change the logic.
    500/500 for MV, on the referred maid completing 30 days with the client, and the referred maid
    must not already be with the company — *George's most common rejection reason*. Group C is
    rewritten at the **referral-event** grain. **AED 1,200 is profiled in two tables and is not in
-   the scheme (O18).**
+   the scheme.**
 4. 🔴 **A signing bonus has no price by construction** — "promised by retractors", negotiated per
    case. v2's inference ("paid on signing or renewing") was wrong. And referral and signing bonus
    are **entangled in free text** (H15), so `PURPOSE_ID` does not separate them.
 5. 🔴 **The payment-type list is incomplete.** Accommodation Relocation, Sim card Loan, WPS
    Compliance Loan, PCR Test & medical assistance Loan, Live-out Transportation Assistance, NOL Card
    and Part-Time Cleaners categories are live in the warehouse and absent from the code-recovered
-   list — **O2 confirmed**. Specified as the new **group L**, whose pairing rule
+   list — **an outstanding ask confirmed**. Specified as the new **group L**, whose pairing rule
    (`addition = loan`) is **already breaking**: the loan-to-addition ratio profiles from 0 % to
    114.75 %.
-6. 🔴 **`EXPENSES_REQUESTS` is not granted to the role (O20).** `SHOW WAREHOUSES` returns zero rows
+6. 🔴 **`EXPENSES_REQUESTS` is not granted to the role.** `SHOW WAREHOUSES` returns zero rows
    and `SHOW GRANTS TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE` returns 668 grants — 426 view SELECTs,
-   zero warehouses. So O1 is one grant; but a warehouse alone will **not** unblock T4, T5, group G,
+   zero warehouses. So an outstanding ask is one grant; but a warehouse alone will **not** unblock T4, T5, group G,
    group E or M13, because the expense view is not readable.
 
 Also settled: the payroll **lock window is not in Snowflake by any route** — no `%PAYMENT_RULE%`
@@ -164,7 +164,7 @@ dated up to 2028-06-02**, 21 months ahead, spanning 34 active months inside a 12
 note date is almost certainly the *travel* date, not the payment date. A rule rejecting notes dated
 after the audit month would delete 38% of the money this report exists to examine — a scope filter
 that removes the evidence. Such notes land **AMBER** through M0 branch 3 with the reason *"paid month
-cannot be established"*, and resolving the date semantics **per payment type** is O69.
+cannot be established"*, and resolving the date semantics **per payment type**.
 
 **Grain.** **One row per manager note.** Not per maid, not per month, not per payment type. A maid
 who received four additions in a month is four separate cases, judged separately. Edits do not
@@ -206,7 +206,7 @@ Deliberately never scheduled: recurring warehouse processes go through the ERP t
 Snowflake is not a governed system of record. This spec is the handoff for anything recurring.
 
 **Relationship to the ERP's own payroll auditor.** Part of this audit already runs inside the
-ERP. `HousemaidsExceptions.generateHousemaidExceptions()` raises
+ERP. `HousemaidsExceptions.generateHousemaidExceptions` raises
 `HOUSEMAID_FILIPINO_AIRFARE_TICKET`, `HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET` and
 `HOUSEMAID_REPETITIVE_ADDED_PAYMENTS`, and an auditor clears them by setting
 `CONFIRMED_AMOUNT_BY_AUDITOR` / `CONFIRMED_REPEATED_BY_AUDITOR` to `true`.
@@ -221,7 +221,7 @@ reason. It is **financial data about an identified employee**. No maid name, pho
 contact detail, passport number, EID, address or **salary** appears in the report, the export or
 the mockup — read access to `HOUSEMAIDS_INFO.BASIC_SALARY` does not authorise displaying it. Maids
 are identified by internal id only, which is what an auditor needs to work a case. The addition
-amount **is** the subject of the audit and is shown. Access statement needed — O9.
+amount **is** the subject of the audit and is shown. Access statement needed
 
 ---
 
@@ -229,13 +229,13 @@ amount **is** the subject of the audit and is shown. Access statement needed —
 
 > **Verification note.** Two independent verification paths, and a third that is empty.
 > **(a) Snowflake catalog** — the P&C role (`PAYROLL_AND_MONEY_CONTROL_ROLE`) has **no warehouse
-> grant**: `SHOW WAREHOUSES` returns 0 rows and `CURRENT_WAREHOUSE()` is empty. `SHOW`, `GET_DDL`
+> grant**: `SHOW WAREHOUSES` returns 0 rows and `CURRENT_WAREHOUSE` is empty. `SHOW`, `GET_DDL`
 > and column-comment reads succeed; every row-level scan fails. Table, column, type,
 > `source_expression`, extracted `WHERE` clause and profiled `allowed_values` claims below come
 > from that catalog. **(b) ERP source code** — claims about ERP behaviour, native column names,
 > enums and business rules are verified via Ask the Code (conversations 45815–45818) and marked
 > *(code-verified)*. **(c) Rows** — row counts, freshness, cardinality and population are
-> verified **nowhere**. Every such claim is marked `NEEDS COMPUTE` and is O1.
+> verified **nowhere**. Every such claim is marked `NEEDS COMPUTE`.
 
 ### 2.1 Verified — already in Snowflake
 
@@ -246,7 +246,7 @@ amount **is** the subject of the audit and is shown. Access statement needed —
 | D3 | Amount | same | `AMOUNT` `REAL` | Catalog range `−3032 – 44230.26`. Negatives are real and in scope |
 | **D4** | **Payment type** | same | `REASON` `TEXT` | `COALESCE(a.NAME, d.NAME)` from `mmdb.picklists_items` on `ADDITION_REASON_ID` / `DEDUCTION_REASON_ID`. 🔴 **This is the resolved NAME, not the code.** Routing on it is fragile — see N5 |
 | D5 | Free-text reason | same | `NOTE_REASON` `TEXT` | ← `p.NOTE_REASONE` (the typo is in the source). Input to the E2 judgement field |
-| D6 | Note date | same | `NOTE_DATE` `TIMESTAMP_NTZ` | Catalog min `2016-11-21`. 🔴 **Timezone unstated — O6.** Load-bearing: for most notes this *is* the paid-month anchor (M0) |
+| D6 | Note date | same | `NOTE_DATE` `TIMESTAMP_NTZ` | Catalog min `2016-11-21`. 🔴 **Timezone unstated** Load-bearing: for most notes this *is* the paid-month anchor (M0) |
 | D7 | Requester / approver carried from the expense side | same | `REQUESTED_BY`, `APPROVED_BY` `TEXT` | ← `ep.REQUESTED_BY`, `ep.APPROVED_BY`. 🔴 **Arrives through the heuristic join, so it inherits H1's fan-out** |
 | — | ~~Note author~~ | same | `MANAGER` `FIXED(38,0)` | ⚠️ **Profiled "no non-null values" — dead.** *(code-verified why: `EMPLOYEE_MANAGER_ID` is not mapped in the current JPA entity.)* The real column is `CREATOR` — N6 |
 | **D8** | **Payslip month, and the payslip's own additions total** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` | `HOUSEMAID_ID`, `PAYROLL_MONTH` `DATE`, `ADDITIONS` `REAL` | From `mmdb.housemaidpayrolllogs`; `ADDITIONS` ← `MANAGER_ADDITIONS`, which counts **only `NOTE_TYPE='ADDITION'`** *(code-verified)*. **This is the tie-out anchor (G1) and the only expected-population source in the design**. 🔴 `ADDITIONS` profiles **−1,516 to 8,800** — a payslip's manager-additions total **can be negative**, so G1's residual arithmetic and M14's over/under split must both handle it |
@@ -264,7 +264,7 @@ amount **is** the subject of the audit and is shown. Access statement needed —
 | D17 | Expense head | same, + `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_HIERARCHY` | `EXPENSE_TYPE` `TEXT` | Name resolved from `mmdb.expenses` by INNER JOIN — which is *how* the secure exclusion happens |
 | — | ~~Approval date~~ | same | `STATUS_CHANGE_DATE` | ⚠️ Catalog min **`2025-12-16`** — history truncated. Cannot date an approval for an earlier audit month. Use `CREATION_DATE` (min `2021-10-21`) |
 | D18 | Referral evidence | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES`, `…HOUSEMAID_REFERRALS` | referral id, referred maid, bonus-requested date, cancelled date | `MAIDS_REFERRALS_BONUSES` is built from the **same** `payrollmanagernotes` source, filtered `NOTE_TYPE='ADDITION' AND pi3.NAME='Referral bonus' AND AMOUNT != 0`. 🔴 It records what was **paid**, never what was **due** — auditing paid against paid proves nothing |
-| D19 | Tickets purchased | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS` | `HOUSEMAID_ID`, `TICKET_TYPE`, `BUYER`, `ORIGINAL_FARE`, `FARE_IN_REF_CURRENCY`, `CURRENCY_ID`, `EXCHANGE_RATE`, `PURCHASE_DATE`, `REFUNDED`, `IS_DELETED`, `IS_LATEST_HM_TICKET` | `TICKET_TYPE ∈ {TO_DUBAI, TO_EXIT, TO_MANILA, TERMINATION, PREWORK_VACATION, VACATION, OFFICE_STAFF, OFFICE_TICKET}`; `BUYER ∈ {PRIVATE, MAIDCC}`. `ID` tops at 14,564 — small. `NEEDS COMPUTE`: still written to? (O4). `IS_DELETED` TEXT `'00'/'01'` |
+| D19 | Tickets purchased | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_TICKETS` | `HOUSEMAID_ID`, `TICKET_TYPE`, `BUYER`, `ORIGINAL_FARE`, `FARE_IN_REF_CURRENCY`, `CURRENCY_ID`, `EXCHANGE_RATE`, `PURCHASE_DATE`, `REFUNDED`, `IS_DELETED`, `IS_LATEST_HM_TICKET` | `TICKET_TYPE ∈ {TO_DUBAI, TO_EXIT, TO_MANILA, TERMINATION, PREWORK_VACATION, VACATION, OFFICE_STAFF, OFFICE_TICKET}`; `BUYER ∈ {PRIVATE, MAIDCC}`. `ID` tops at 14,564 — small. `NEEDS COMPUTE`: still written to?. `IS_DELETED` TEXT `'00'/'01'` |
 | D20 | Vacations | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_VACATIONS` | vacation start/end, contract | For the airfare repeat cycle |
 | D21 | Payment-type reference | `BA_VIEWS.CORE_SILVER.PICKLISTS_INFO` | picklist item id, code, name | Resolves `ADDITION_REASON_ID` and `PURPOSE_ID` to codes. `NEEDS COMPUTE` to enumerate — the §3 M2 mapping is code-referenced, not picklist-read |
 
@@ -279,7 +279,7 @@ artefacts is wrong today — X1.
 
 | Metric | Source of definition | Reused verbatim? |
 | --- | --- | --- |
-| — | `BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER` | **Check not performed.** The container **exists** (`SHOW OBJECTS LIKE '%INSIGHTS%' IN ACCOUNT`) but cannot be read without a warehouse (O1) |
+| — | `BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER` | **Check not performed.** The container **exists** (`SHOW OBJECTS LIKE '%INSIGHTS%' IN ACCOUNT`) but cannot be read without a warehouse |
 
 This is an **outstanding** check, not a negative result. Until it runs, M1–M10 are labelled **new
 Police & Control definitions, not approved KPIs**, and should be added to the Data Catalog once
@@ -325,7 +325,7 @@ reports the month clean. M0 defines the correct two-branch rule.
 #### N3 — Refund and reversal links · `IS_REFUND` `BOOLEAN`, `REFUNDED_NOTE_ID` `BIGINT`, `ADDITION_PAYROLL_MANAGER_NOTE_DEDUCTION_SOURCE_ID` `BIGINT`
 *(code-verified)* `/ManagerNotes/bulkrefund` creates a **new** row and leaves the original
 untouched, linking back via `REFUNDED_NOTE_ID`. `OLD_NOTE_ID` exists but is **dead code** — the
-only `setOldNote(...)` is in commented-out logic — so a normal edit does **not** leave a
+only `setOldNote(.)` is in commented-out logic — so a normal edit does **not** leave a
 duplicate-looking pair. `ADDITION_PAYROLL_MANAGER_NOTE_DEDUCTION_SOURCE_ID` is read for
 `forgive_deduction` display but **not populated by current automation**, so it cannot be relied on.
 
@@ -344,7 +344,7 @@ share the same addition reason `bonus`** and are separated only by `PURPOSE_ID`
 reason alone applies the referral rule to signing bonuses and vice versa. Routing on the resolved
 **name** (D4) is worse still — a rename silently re-routes every note.
 ⚠️ `HousemaidPurposesForBonusAdditionalDescription` is **not seeded in the repo**, so its full item
-list cannot be recovered from code — O2.
+list cannot be recovered from code
 
 #### N6 — Note author · `CREATOR` `BIGINT` (FK → `USERS.ID`), `CREATION_DATE` `DATETIME`, `LAST_MODIFIER`, `LAST_MODIFICATION_DATE`
 Answers "who made this addition", which is unanswerable today. ⚠️ Two decoys: `EMPLOYEE_MANAGER_ID`
@@ -354,7 +354,7 @@ NULL), and `FROM_MANAGER_ID` is a **picklist item, not a user**.
 #### N7 — Payroll lock window · `MONTHLYPAYMENTRULES` (lock date per payroll month)
 M0's branch 2 and the ERP's own auditor window both depend on the lock dates bounding a payroll
 month. `HOUSEMAIDS_INFO.LAST_PAYROLL_LOCK_DATE` is entirely NULL, so it cannot serve. Exact
-column name `UNVERIFIED` — one Ask the Code follow-up closes it (O3).
+column name `UNVERIFIED` — one Ask the Code follow-up closes it.
 
 #### N8 — Airfare limits · `PARAMETERS.CODE` / `PARAMETERS.VALUE`
 *(code-verified)* Two rows carry the flight-home cap:
@@ -394,8 +394,7 @@ retractor.
 authorised **on the referral record**; `MAIDS_REFERRALS_BONUSES.BONUS_AMOUNT` is what the note
 actually paid. Comparing them is a conformance test needing no scheme document (C6).
 
-⚠️ **Still open.** (a) **AED 1,200** is profiled in both tables and is not in the stated scheme —
-O18; 250, 1,500 and 2,000 also appear on the payment side, 0 on the referral side, with **no counts
+⚠️ **Still open.** (a) **AED 1,200** is profiled in both tables and is not in the stated scheme; 250, 1,500 and 2,000 also appear on the payment side, 0 on the referral side, with **no counts
 available**. (b) Whether these were always the amounts — an unchanged scheme is assumed, and if it
 changed, historical months need the then-current values. (c) `MAIDS_REFERRALS_BONUSES` is **built
 from `payrollmanagernotes` itself**, filtered `AMOUNT != 0 AND AMOUNT IS NOT NULL` — it is circular
@@ -415,19 +414,19 @@ was evidence. This one is.
 **How a winner is chosen.** Scheduled job **`RafflePerformerJob`** (job definition
 `job_to_start_raffle_draw`) picks up the current month's `RaffleDraw` when its `drawDate`/`drawTime`
 arrives and its status is `PENDING`. It builds a pool holding **one entry per ticket point** per
-participant — so odds are weighted by tickets — shuffles it, and draws with `Random.nextInt(...)`,
+participant — so odds are weighted by tickets — shuffles it, and draws with `Random.nextInt(.)`,
 setting `isWinner = true`, `winOn = now` and a prize on the chosen `RaffleDrawParticipant`.
 Second-prize winners are drawn first; existing first-prize winners are then removed from the pool
-before the first-prize picks. On completion it calls `addPrizesToPayroll()` and marks the draw
+before the first-prize picks. On completion it calls `addPrizesToPayroll` and marks the draw
 `FINISHED`.
 
-**What creates the note.** `RafflePerformerJob.addPrizesToPayroll()` is the **only** automatic
+**What creates the note.** `RafflePerformerJob.addPrizesToPayroll` is the **only** automatic
 writer of a `PayrollManagerNote` with `additionReason = raffle_prize`. It sets
-`noteType = ADDITION`, `amount = prize.getWorth()`, the winning housemaid, and re-assigns the creator
+`noteType = ADDITION`, `amount = prize.getWorth`, the winning housemaid, and re-assigns the creator
 to the ERP system user when the creator is null or `admin`. It also fires the Customer.io event
 `raffle_winner_selected`. The two other code references to `raffle_prize` are read-only:
 `ChatGPTController.getLastRafflePrize` and
-`PayrollHousemaidFinalSettlementController.calculateAdditionsWithoutRaffleAndReferral(...)`, which
+`PayrollHousemaidFinalSettlementController.calculateAdditionsWithoutRaffleAndReferral(.)`, which
 **excludes** raffle additions from a final settlement. The generic manual endpoint can still set the
 reason by hand — that is the path an audit exists to catch.
 
@@ -475,18 +474,18 @@ came from a payroll-module search finding only `HousemaidPayrollPaymentServiceV2
 **Nothing sets `additionReason = anti_attrition_incentive` directly.** The notes are produced by a
 two-stage pipeline, which is why a string search in payroll found nothing:
 
-1. **`MaidIncentiveExperimentJob.processIncentiveExperimentNotes()`** (job definition
+1. **`MaidIncentiveExperimentJob.processIncentiveExperimentNotes`** (job definition
    `maid_incentive_experiment_job`, *"Maid Incentive Experiment Job"*) posts a **SALARY expense
    request** to accounting with `expense.code = "AAI - 01"`, `expenseRequestType = MAID_PAYMENT`.
-   A second producer, `AbuDhabiMaidIncentiveExpenseJob` → `MaidIncentiveService.processAbuDhabiIncentives()`,
+   A second producer, `AbuDhabiMaidIncentiveExpenseJob` → `MaidIncentiveService.processAbuDhabiIncentives`,
    feeds the same expense code.
-2. **`ManagerNoteService.processExpenseRequestTodo()`** (payroll, L113–174) then creates the
+2. **`ManagerNoteService.processExpenseRequestTodo`** (payroll, L113–174) then creates the
    `PayrollManagerNote` when the SALARY expense is confirmed, copying the reason from
    `Expense.salaryAdditionType`. **The literal string `anti_attrition_incentive` lives only in the
    accounting Expense config for `AAI - 01`** — DB config, not source. That is the whole reason the
    payroll search came up empty.
 
-**Eligibility** — `MaidManagerActionLogRepository.findHousemaidsWithIncentiveNotes(...)`, batched 50/page:
+**Eligibility** — `MaidManagerActionLogRepository.findHousemaidsWithIncentiveNotes(.)`, batched 50/page:
 
 - `h.housemaidType <> MAID_VISA` — **CC only** (a second confirmed row for N15)
 - `h.status NOT IN Housemaid.rejectedStatuses`
@@ -518,7 +517,7 @@ on the expense, becomes `expenseRequestTodo.requestedBy`, and then the note's cr
 has **no `approvedBy` column at all**, and SALARY expense additions are **auto-confirmed — there is no
 approval gate**. So the "one person requests and approves 7,684 notes" pattern in the data is a
 **batch service account, not a human self-approving**. 🔴 The finding is not a segregation-of-duties
-breach; it is that **AED 1.8m/year passes with no human approval step by design** (new O22).
+breach; it is that **AED 1.8m/year passes with no human approval step by design** (new).
 
 **Two values still cannot be read from code**, because both are DB config, not source: the
 `AAI - 01` → `anti_attrition_incentive` mapping (accounting `Expense.salaryAdditionType`) and the
@@ -531,9 +530,9 @@ is **withdrawn**: the rule is written, in code.
 
 #### N14 — Payment type → allowed expense heads
 🟢 **ANSWERED 2026-09-08 — from code and confirmed in data. This is no longer a business ask.**
-The mapping *is* the accounting **`Expense.salaryAdditionType`** column: `processExpenseRequestTodo()`
+The mapping *is* the accounting **`Expense.salaryAdditionType`** column: `processExpenseRequestTodo`
 copies it verbatim onto the note, so the set of expenses carrying a given `salaryAdditionType` **is**
-that payment type's allowed category list. Read the Expense table (O25). Confirmed against 12 months
+that payment type's allowed category list. Read the Expense table. Confirmed against 12 months
 of free text — each type maps to exactly one category, except taxi which has two:
 
 | Payment type | Allowed expense category | Coverage |
@@ -563,7 +562,7 @@ two. Effective-dated. **Owner to name.**
 Accommodation Relocation is **CC live-out only**. Both are evaluated **as of the note date**, not
 against the profile-current type.
 
-🔴 **And the warehouse has already settled H5/O8.** Several models carry
+🔴 **And the warehouse has already settled H5/.** Several models carry
 `IFF(h.HOUSEMAID_TYPE = 'MAID_VISA', 'MV', 'CC')`, with one comment stating *"'CC' (all other types,
 including Normal, FREEDOM_OPERATOR, and WALKIN)"*. The rest of the company treats those two as CC.
 **Whether a `FREEDOM_OPERATOR` or `WALKIN` month counts as a CC month for airfare tenure is P&C's to
@@ -640,7 +639,7 @@ or a mockup — the same rule §1 applies to `HOUSEMAIDS_INFO`.
 | **H9** | `BENEFICIARY_NAME` and `RELATED_TO_NAME` return **`''`, not NULL**, when nothing matched | `IS NULL` misses them; they read as present-and-blank |
 | **H10** | `PAID_ON_DATE` is TEXT parsed by a 3-format `TRY_TO_DATE` chain (D9) | A 4th format yields NULL silently — the note drops out of its month rather than erroring |
 | **H11** | **`PARAMETERS.VALUE` is TEXT and not effective-dated** (N8) | A string/number comparison matches nothing; a cap changed mid-year retroactively re-judges settled months |
-| **H12** | **Timezone unstated** on `NOTE_DATE` and the payslip dates (`TIMESTAMP_NTZ`) | A note near midnight on the 1st or 31st crosses a month boundary — O6 |
+| **H12** | **Timezone unstated** on `NOTE_DATE` and the payslip dates (`TIMESTAMP_NTZ`) | A note near midnight on the 1st or 31st crosses a month boundary |
 | **H13** | **Referral and signing bonus share reason `bonus`** (N5) | Each is judged by the other's rule |
 | **H14** | The ERP's own auditor filters on `CONFIRMED_* = false` (N9) | Inheriting that filter blinds this report to exactly the payments a human waved through — G9 |
 | **H15** | 🔴 **Referral and signing bonus are entangled in free text.** `MAIDS_REFERRALS_BONUSES` classifies an MV referral by exact-matching the note reason *"Signing bonus for this MV maid because she was referred by an MV maid"* | `PURPOSE_ID` alone does **not** separate the two (contra N5). One wording change silently reclassifies the population, with no error |
@@ -652,7 +651,7 @@ or a mockup — the same rule §1 applies to `HOUSEMAIDS_INFO`.
 
 All amounts in **AED**, 2 dp, rounded at row level and summed after — never rounded on a total.
 ⚠️ **The note's currency is an assumption.** `HOUSEMAID_MANAGER_NOTES` has no currency column
-(D1–D7), so every note `AMOUNT` is taken as AED. Confirm — O12. Every metric below is a **new
+(D1–D7), so every note `AMOUNT` is taken as AED. Confirm Every metric below is a **new
 Police & Control definition pending the §2.2 check**, not an approved KPI.
 
 ### M0 — Audit month (the paid-month rule)
@@ -676,7 +675,7 @@ Police & Control definition pending the §2.2 check**, not an approved KPI.
   `HOUSEMAID_PAYROLL_HISTORY.PAYROLL_MONTH`, so G1 joins on equal keys. `PAID_ON_DATE_FORMATTED`
   is a calendar settlement date and is **displayed, never used to window**.
 - **Timezone.** `NOTE_DATE` is `TIMESTAMP_NTZ` with no stated zone (H12). Truncate once, centrally,
-  in the zone O6 settles, and list every note within 3 hours of a lock-window edge as a data defect.
+  in the zone an outstanding ask settles, and list every note within 3 hours of a lock-window edge as a data defect.
 - 🔴 **`NOTE_DATE` carries a time, so cast before any date equality.**
   `NOTE_DATE = LAST_DAY(NOTE_DATE)` compares `08:15:00` against midnight and is **false for every
   row** — it returns a well-formed, plausible, entirely meaningless result, which is the dangerous
@@ -729,7 +728,7 @@ and all outcomes are written to `TEST_TRACE`.
 | **T1** | Is the maid's profile readable? | never | no `HOUSEMAIDS_INFO` row · `IS_DELETED = '01'` · `HOUSEMAID_TYPE ∉ {Normal, MAID_VISA}` (H5) · a needed date is epoch-zero (H6) | never |
 | **T2** | Is a payment type recorded? | `ADDITION_REASON_ID IS NULL` → **F4** | `ADDITION_REASON_ID` set but resolves to no picklist row | never |
 | **T3** | Is the amount usable? | never | `AMOUNT IS NULL` → *"amount not recorded"* · `AMOUNT = 0` → *"zero-amount addition"* · `AMOUNT < 0` → *"negative addition — money taken back"* | `AMOUNT > 0` |
-| **T4** | Authorised expense record, and does the amount agree? | matched, authorised, currencies equal, and `\|note − request\|` > tolerance → **F1** · matched but not authorised (see below) → **F4** · unmatched, reason ∈ N16, and that reason's M13 ≥ floor → **F4** | unmatched and M13 < floor · unmatched and reason ∉ N16 or N16 absent · multiple candidates (H1) · currencies differ and no FX (H7) · N4/O3 unresolved | reason ∉ N16 and N16 present |
+| **T4** | Authorised expense record, and does the amount agree? | matched, authorised, currencies equal, and `\|note − request\|` > tolerance → **F1** · matched but not authorised (see below) → **F4** · unmatched, reason ∈ N16, and that reason's M13 ≥ floor → **F4** | unmatched and M13 < floor · unmatched and reason ∉ N16 or N16 absent · multiple candidates (H1) · currencies differ and no FX (H7) · the N4 link unresolved | reason ∉ N16 and N16 present |
 | **T5** | Expense head consistent with payment type? | matched and head ∉ N14 list for that reason → **F3** | N14 absent, or the reason is not in it · T4 did not match | T4 returned N_A |
 | **T6** | Duplicate? | a duplicate group exists → **F2** on every member | the entitlement window for the reason is unknown · the window extends outside loaded history | never |
 | **T7** | May this contract type receive this payment? | reason ∉ N15 list for `HOUSEMAID_TYPE` → **F3** | N15 absent, or the reason/type pair is not in it · T1 blocked | never |
@@ -864,7 +863,7 @@ period*. Meanwhile group C alone needs four different mechanisms.
 
 **Classified by mechanism, twelve bespoke group rules collapse into nine reusable functions plus a
 configuration table.** A new payment type then becomes a row in that table rather than new code —
-which matters, because the payment-type list is known to be incomplete (O2) and the warehouse's own
+which matters, because the payment-type list is known to be incomplete and the warehouse's own
 category profile is truncated.
 
 Every archetype obeys the same contract as every test in M3: `RED(type)` · `GREEN` ·
@@ -942,7 +941,7 @@ as silent greens.
 **What the reframing exposes.** Grouped by archetype rather than by payment type, **UNIQ, RECON and
 the airfare CEIL are unblocked today** — every input they need is already granted. Duplicate
 detection, the payslip tie-out, the referral-event tie-out and the airfare cap are therefore
-buildable the day O1 lands, with no modelling work waiting on anyone. Everything else is blocked on
+buildable the day an outstanding ask lands, with no modelling work waiting on anyone. Everything else is blocked on
 six archetypes, and **ROSTER + UNRULED together cover fourteen payment types** — neither of which
 engineering can unblock. The largest lever on coverage is a decision, not a pipeline.
 
@@ -953,7 +952,7 @@ would otherwise silently re-route every note. A reason mapped to no group is **B
 verdict 9, never green.
 
 The addition reasons **recovered from the ERP code** *(code-verified; the picklist itself has still
-not been read — O2)*. 🔴 **This list is incomplete by an unknown amount.** As of 2026-09-07 the
+not been read)*. 🔴 **This list is incomplete by an unknown amount.** As of 2026-09-07 the
 warehouse's own `ADDITION_CATEGORY` profile carries live categories absent from it — Accommodation
 Relocation, Sim card Loan, WPS Compliance Loan, PCR Test & medical assistance Loan, Live-out
 Transportation Assistance, NOL Card, and several Part-Time Cleaners categories — and that profile is
@@ -963,7 +962,7 @@ count.
 | Addition reason `CODE` | Name | Group | Buildable today? |
 | --- | --- | --- | --- |
 | `airfare_ticket` | Airfare Ticket | **A — Flight home** | **Yes** (N8 lands the cap) |
-| `anti_attrition_incentive` | Anti-attrition Incentive | **B — Loyalty** | **Yes — 4 of 6 tests need only the grant; B4/B5 need one column** (N13, O23) |
+| `anti_attrition_incentive` | Anti-attrition Incentive | **B — Loyalty** | **Yes — 4 of 6 tests need only the grant; B4/B5 need one column** (N13) |
 | `bonus` + purpose `referral_bonus` | Referral bonus | **C — Referral** | Partly — event yes (D18), price no (N11) |
 | `bonus` + other/no purpose | Signing bonus | **C — Signing** | Partly — price no (N11) |
 | `renewal_bonus` | Renewal Bonus | **H — unmapped** | No |
@@ -1010,7 +1009,7 @@ count.
 >
 > Also corrected: the amount is an **exact per-nationality value** (`Nationality` tag
 > `ScheduledAnnualVacationAmount`, else parameter `default_ticket_allowance_amount`), not a cap. The
-> observed tiers are **2,000 / 1,500 / 1,000** — **AED 1,350 does not appear in a single note** (O26).
+> observed tiers are **2,000 / 1,500 / 1,000** — **AED 1,350 does not appear in a single note**.
 
 - 🔴 **A2 — CC tenure.** *(business rule, George Abboud via Hassan Ahmed, 2026-09-07 — replaces
   v2's "months ≥ 6".)* `cc_months >= 22`, where `cc_months` is accumulated **CC** service as of the
@@ -1024,14 +1023,14 @@ count.
   MV then → **RED (F3)**. BLOCKED if her type as of that date cannot be established. **Never read
   the profile-current `HOUSEMAID_TYPE`** — it is as wrong here as a current salary is in group D.
 - **A4 — duplicate against a purchased ticket.** Cash in lieu paid **and** a `MAIDCC`-bought ticket
-  (D19) for the same journey → RED (F2). BLOCKED if D19 is stale (O4).
+  (D19) for the same journey → RED (F2). BLOCKED if D19 is stale.
 
 🔴 **What the ERP does instead, and why this spec does not copy it.**
 `HousemaidsVacationAllowanceController` gates on `months % 24 == 22` *(code-verified)* — true one
 month in twenty-four, counted from `START_DATE`, contract type never consulted. That agrees with the
 business rule only at months 22, 46 and 70 and disagrees at every other month above 22, so a spec
 built on the code would have withheld judgement on — or flagged — the majority of legitimate airfare
-payments. **The divergence is itself a finding** (O17): either the ERP is denying eligible maids, or
+payments. **The divergence is itself a finding**: either the ERP is denying eligible maids, or
 the controller governs a path that manager notes do not take.
 
 ⚠️ **Recurrence is unsettled (Q7).** "Minimum 22 months" is a floor for the *first* ticket and says
@@ -1073,7 +1072,7 @@ follows is what survived contact with 9,167 real payments.
   the job cannot have produced it. **(ELIG)**
 - **B3 — active.** Her status is not in `Housemaid.rejectedStatuses` at the note date. **(ELIG)**
 - **B4 — the amount recomputes. 🔴 BLOCKED, and the ask is bigger than v2 stated.**
-  v2 asked for `INCENTIVE_AMOUNT` (O23). That is **not sufficient**: 30%+ of notes are prorated, so
+  v2 asked for `INCENTIVE_AMOUNT`. That is **not sufficient**: 30%+ of notes are prorated, so
   the check is `tier × days ÷ divisor`, which needs the **enrolment and exit dates** as well.
   And the divisor is not constant — in 30-day months **890 notes divide by the calendar month and
   250 by a fixed 31**, both created by the job. Until the dates land *and* the divisor rule is
@@ -1114,7 +1113,7 @@ that carries the type's real justification (B7) is among them.**
 🔴 **A governance finding that no test produces.** Of the 156 hand-added anti-attrition payments in
 twelve months, a **single approver signs off 34 of the 35** that reached the sample queue. Whatever
 the batch does automatically, the entire manual path for the largest payment type funnels through
-one person's approval — on a type whose justification is a free-text box. That is for §7, not for a
+one person's approval — on a type whose justification is a free-text box. That is for the group rules, not for a
 verdict column.
 
 **Group C — Referral / signing.** 🔴 **Scheme supplied 2026-09-07 (George Abboud via Hassan
@@ -1139,7 +1138,7 @@ machinery as a duplicate group.
   `HOUSEMAID_REFERRALS.AMOUNT` (authorised on the referral record). Disagreement → **RED (F1)**.
   🔴 This is the price source v2 said did not exist.
 - 🔴 **AED 1,200 is unexplained and must not be judged.** It is profiled in **both** tables; the
-  payment side also shows 250, 1,500 and 2,000, and the referral side shows 0. Until O18 answers,
+  payment side also shows 250, 1,500 and 2,000, and the referral side shows 0. Until the scheme owner answers,
   an amount outside `{500, 1000}` is **BLOCKED**, never RED. Counts are unknown — `allowed_values`
   carries distinct values only.
 - ⚠️ **No referral record exists before 2025-02-20**, while bonus payments run from 2022-04-21.
@@ -1198,7 +1197,7 @@ stored held amount and is now free-entry is exactly what this audit exists to ch
 Q16: is the MAID_VISA-only guard still the intent, now that nothing enforces it?
 
 One live consumer still reads these notes and is worth borrowing from:
-`PayrollExceptionsReportService.getMaidsWereOnVacation(...)` already joins the note amount as
+`PayrollExceptionsReportService.getMaidsWereOnVacation(.)` already joins the note amount as
 `heldSalary` against `HousemaidPayrollLog.totalSalary`. **That is this check, already written, on the
 ERP side.**
 
@@ -1314,7 +1313,7 @@ Do not confuse this with the genuinely unruled types: nothing here needs a busin
 `IS NOT NULL` alone clears a reimbursement that nobody approved.
 
 🔴 **Group L — Loan-paired advances.** *(New 2026-09-07.)* **These payment types are absent from
-the 24 recovered from code — O2 is no longer theoretical.** They were found in
+the 24 recovered from code is no longer theoretical.** They were found in
 `BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY.ADDITION_CATEGORY`, whose profiled
 value list is itself **truncated**, so more exist.
 
@@ -1338,8 +1337,8 @@ value list is itself **truncated**, so more exist.
   treating the other unlisted categories (Sim card Loan, WPS Compliance Loan, PCR & medical Loan,
   NOL Card) as payment types, **each must be traced back to the reason or reasons it actually
   groups**. Some may be genuine missing reasons; some may be labels over reasons the list already
-  has. **O2 — reading the picklist — is what settles this**, and it is now the single most important
-  open item in §6.
+  has. **an outstanding ask — reading the picklist — is what settles this**, and it is now the single most important
+  open item in the group rules.
 - **L4 — Part-Time Cleaners Expenses** (NOL Card, Accommodation Relocation, Other Purpose Cash
   Advance). A **different population** from housemaids — scope decision **Q11** before any test runs.
 
@@ -1764,136 +1763,3 @@ perfectly on the inflated total. Only `COUNT(*) = COUNT(DISTINCT ID)` sees it.
 852 unverifiable across 12 blocking reasons · 407 cleared · coverage 34.5 % of cases and 8.3 % of
 money · 3 completeness exceptions worth AED 1,240 · G2, G3, G4, G5, G9 pass; G1 leaves the M14
 residual; G7 reports N14–N16 absent.
-
----
-
-## 6. Open Items
-
-| # | Item | Owner | Blocking? |
-| --- | --- | --- | --- |
-| **O61** | 🔴 **`Bonus` attribution broke in 2024-05 and is still broken** — 2.2% unattributed before, 85.4% at peak, **48.2% now**, against Taxi's 0% across 36 months. This is the only *worsening* control in the audit and the only one with a datable onset. Find what changed | P&C + Dev | Not blocking — it **is** a finding |
-| **O62** | **Explain 2025-05 Salary Dispute**: 610 notes in a 100–200 month, 424 of them unattributed, AED 50,381. A bulk load or a mass correction; either way it needs an owner and it is the bulk of that type's unattributed history | P&C + Data | No |
-| **O63** | **Scope the pre-2023 backlog.** ~3,669 unattributed Salary Dispute notes predate 2023-09. Decide in or out of remediation — the monthly dashboard should not carry them | P&C | No |
-| **O64** | **B4 needs enrolment *and exit* dates, not just `INCENTIVE_AMOUNT`** (supersedes the O23 scope), **plus the divisor rule from the code**: in 30-day months 890 notes divide by the calendar month and 250 by a fixed 31, both job-created. Without both, B4 cannot be written | Dev + Data | **Yes — blocks B4** |
-| **O65** | **Confirm note 184233** (maid 97470, 2026-07-17, AED 900): enrolment dated after the payment. B1b's first hit, a hard RED, needs a human verdict | P&C | No |
-| **O66** | **A single approver signs off the manual anti-attrition path** (34 of 35 sampled). Governance, alongside O22 and Q4 | P&C + Payroll | No |
-| **O67** | **Reject future-dated notes.** At least one exists. Add the explicit rule rather than relying on M0 branch 3 catching it by accident | Data | No |
-| O1 | **Row-level verification of §2.1 is outstanding.** Names, types, source expressions and profiled ranges are verified from the catalog; **row counts, freshness, cardinality and population are verified nowhere** — the P&C role has no warehouse. First three queries once granted: (a) `COUNT(*)` vs `COUNT(DISTINCT ID)` on `HOUSEMAID_MANAGER_NOTES` (G2 — the grain of the whole report); (b) `SELECT NOTE_TYPE, COUNT(*) … GROUP BY 1` (G10); (c) read `INSIGHTS_DASHBOARD_CONTAINER` (§2.2). **Also: grant P&C a warehouse, so specs ship with rows as evidence** | Snowflake team / Data platform | **Yes** |
-| O2 | **Enumerate the addition-reason picklist and `HousemaidPurposesForBonusAdditionalDescription` from the database.** The §3 M6 table is recovered from **code references**, so a reason that exists in the picklist but is referenced nowhere in code is missing from it — and an unmapped reason is amber by construction, which is safe but understates coverage. Also needs `PICKLISTS_INFO`'s own column names and types, never profiled | Snowflake team, after O1 | **Yes** |
-| O3 | **Three Ask the Code follow-ups**, each one question: (a) N7 — the payroll lock-window table and column; (b) ~~N12 — what `RafflePerformerJob` reads to pick winners~~ **answered 2026-09-08, conversation 45932; became O3b**; (c) whether `HOUSEMAID_MANAGER_NOTES.AMOUNT` is always AED (O12) | P&C, with a fresh token | **Yes** |
-| O3b | **Ingest the five raffle tables** — `RaffleDraw`, `RaffleDrawParticipant`, `RaffleDrawPrizeGrand`, `RaffleTicketLog`, `RaffleDrawLog` (`com.magnamedia.entity.raffledraw`, module `erp/magnamedia-housemaid-management`). Verified 2026-09-08: **zero** objects matching `%RAFFLE%`, `%PRIZE%` or `%DRAW%` exist account-wide. This is the **whole** of what blocks group F — the rule is code-verified and needs no business owner (N12). Minimum viable set: participant (`draw`, `housemaid`, `isWinner`, `winOn`, `prize`, `points`), draw (`drawDate`, `status`) and prize (`worth`, `isGrand`) | Data team | **Yes** for group F |
-| O22 | **AED 1.8m a year passes with no human approval step, by design.** *(code + data, 2026-09-08.)* Anti-attrition notes are created by a batch job under service account **2226**; SALARY expense additions are **auto-confirmed** and `PayrollManagerNote` has no `approvedBy` column. 88.3% of notes (86.7% of the money) show the same name as requester and approver — that is the service account, not a person self-approving. The control question is whether an unattended monthly batch paying ~AED 207k should have any review at all | P&C + Payroll | Not blocking — it **is** a finding |
-| O23 | **Expose `INCENTIVE_AMOUNT` (and `INCENTIVE_REQUEST_DATE`, `CONTRACT_ID`) on `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS`.** The view is already granted and already carries `ACTION_TYPE`/`HOUSEMAID_ID`/`ACTION_DATE`, but its `AMOUNT` column maps to `a.DEDUCTION_AMOUNT`, not `a.INCENTIVE_AMOUNT` — so the enrolment amount, the one input B4 and B5 recompute against, is invisible. **One column, not an ingestion.** Also read `MAID_INCENTIVE_CONFIGS_PARAM.amount_values` live: 795 notes (AED 310k) imply enrolment amounts of 400 and 500, outside the code default `100,150,200,250,300,350` | Data team | **Yes** for B4/B5 |
-| O24 | **167 maid-months carry two notes inside the *same* batch run** (256 maid-months with >1 note overall, AED 75,120). The job guards per **contract**, not per maid, so a maid on two contracts in one month is legitimate — but that has to be confirmed, and `CONTRACT_ID` is not exposed (O23). Until then B6 cannot separate a double-pay from a two-contract month | Data team, then P&C | **Yes** for B6 |
-| O4 | Is `HOUSEMAIDS_TICKETS` still written to? `MAX(PURCHASE_DATE)`. `ID` tops at 14,564 — small enough to suspect a dead source, which would silently disable group A4 | Snowflake team, after O1 | Yes for A4 |
-| O5 | **Resolve X1** before any use of `EXPENSES_REQUESTS.RELATED_TO_ID` | Data team | **Yes** for the expense link |
-| O6 | **Timezone** of `NOTE_DATE` and the payslip dates. `TIMESTAMP_NTZ` carries none; if the ERP writes UTC, a note at 02:00 Dubai truncates to the previous day and can cross a lock-window edge | ERP team | **Yes** |
-| O7 | **N14, N15, N16 do not exist.** Someone must own and write payment-type→allowed-heads, contract-type→allowed-payment-types, and which types always carry an expense record. Until then T4, T5 and T7 are BLOCKED and their notes amber | P&C + Payroll | **Yes** for T5/T7 |
-| O8 | Confirm `Normal` = company contract and `MAID_VISA` = MaidVisa, and rule on `FREEDOM_OPERATOR` / `WALKIN` (currently amber, H5) | P&C + Payroll | Yes for T1/T7 |
-| O9 | **N10** — effective-dated salary history for group D. Candidate: `HOUSEMAIDS_INFO_REVISION` | Data team | Yes for group D |
-| O10 | **N11** — referral and signing bonus scheme prices, effective-dated | Referral scheme owner | Yes for group C |
-| O11 | **N8's parameters are not effective-dated.** A cap changed mid-year retroactively re-judges settled months (H11, G8). Decide whether to snapshot the value per run or source a dated history | Payroll + Data team | Yes for group A |
-| O12 | **Confirm the note's currency.** `HOUSEMAID_MANAGER_NOTES` has no currency column, so the whole spec assumes AED. If wrong, every amount comparison, M2, M11 and both tie-outs are wrong in an unknown direction | ERP team (O3c) | **Yes** |
-| O13 | **Columns listed but consumed by nothing** — decide "required" or "context only" for each: D9 `IS_TRANSFERRED`, D10 exclusion reasons, D13 `NET_HIRED_DATE`, D15 `EXCLUDED_FROM_PAYROLL`, D16 `PAYMENT_METHOD` / `EXPENSE_PAYMENT_ID` / `REQUESTED_BY`, D7, and N6's author columns (the repeat-offender view N6 justifies is specified nowhere). `EXCLUDED_FROM_PAYROLL` deserves a real decision — a paid addition on a payroll-excluded maid looks like a finding worth testing | P&C | No |
-| O14 | Agree the first audit month and the backfill window (N-items are specified from 2024-01-01) | P&C | No |
-| O15 | **Access statement** for the dashboard and the CSV export, given §1's sensitivity class and the staff-name exposure in §4 | P&C / Data platform | No |
-| O16 | Report **X1** and **X2** to the Data team independently of this audit | P&C | No |
-| **O17** | 🔴 **The ERP's airfare gate and the business rule disagree.** Code gates `months % 24 == 22`; the rule is `cc_months >= 22`, CC only. Establish whether the ERP is denying eligible maids or whether `HousemaidsVacationAllowanceController` governs a path manager notes do not take | P&C + ERP team | **Yes** for group A |
-| **O18** | 🔴 **AED 1,200 referral bonus is unexplained** — profiled in both `MAIDS_REFERRALS_BONUSES.BONUS_AMOUNT` and `HOUSEMAID_REFERRALS.AMOUNT`, absent from the stated scheme; 250 / 1,500 / 2,000 also appear on the payment side and 0 on the referral side. **No counts are available** until O1 | P&C, with George Abboud | **Yes** for C2/C6 |
-| **O19** | 🔴 **Obtain the full list of bonus rejection reasons.** George named the top one (referred maid already with the company); the rejection reasons *are* group C's rule set, and the audit's target is payments that met one and were paid anyway | P&C, with George Abboud | **Yes** for group C |
-| **O20** | 🔴 **`BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` is not granted to `PAYROLL_AND_MONEY_CONTROL_ROLE`** — the schema has USAGE but only `TRANSACTIONS` is SELECT-able. A warehouse grant alone will **not** unblock T4, T5, group G, group E or M13 | Data platform | **Yes**, with O1 |
-| **O21** | Expose the contract-type timeline (N17), the `live_out` flag (N19) and a row-level loan source (N18) | Data team | **Yes** for groups A and L |
-
-**X1.** `BI_PAYROLL_MAID_SALARY_ADDITIONS_BY_CATEGORY` joins `EXPENSES_REQUESTS.RELATED_TO_ID` to a
-**manager-note id** while that column is documented as a **housemaid id**; ranges overlap, so a
-wrong reading matches rows and raises no error, and every column of the view profiles as all-NULL.
-**X2.** `HOUSEMAID_MANAGER_NOTES` may emit more rows than there are notes (H1), and its `MANAGER`
-column is entirely NULL because the underlying `EMPLOYEE_MANAGER_ID` is unmapped in the JPA entity
-*(code-verified)*.
-
----
-
-## 7. Requestor decisions still open
-
-These are Police & Control's to make, not the Snowflake team's.
-
-**Q1 — the M13 confidence floor.** Blocking, because it decides whether an unmatched note is a red
-"no basis" or an amber "unverifiable". v2's interim value is **80 %**, per payment type per month.
-Below it, T4 cannot return red for that type. Needs a calibration pass over history once O1 lands,
-then your sign-off. Setting it lower surfaces more money and risks accusing someone on a bad match;
-setting it higher is safer and reports less.
-
-**Q2 — the T4 amount tolerance.** v2 uses **AED 0.01**, which is a float-artefact guard, not a
-materiality threshold. If P&C wants a materiality band — "a gap under AED X is not worth a case" —
-say so and it becomes a stated filter with its business justification, rather than an
-undocumented rounding behaviour.
-
-**Q3 — system-generated additions.** `forgive_deduction`, `cover_deduction_limit` and
-`cover_negative_salary` are written by automation, not by a manager. The ERP's own
-repeated-additions rule excludes the latter two *(code-verified)*, which suggests the business
-treats them as non-discretionary. They are still money on a payslip. **In scope (currently amber,
-62 cases / AED 26,900 on the illustrative month), or out?** Excluding them is defensible; doing it
-silently is not.
-
-**Q4 — the loyalty rule.** This is not a data request. `anti_attrition_incentive` has **no
-eligibility or amount rule anywhere in the ERP** *(code-verified)*, and on the illustrative month
-it is 206 cases and AED 164,900 of permanently unverifiable money — the largest single block of
-amber. Either a rule gets written, or the report states each month that the largest category of
-manager additions cannot be audited. **Both are legitimate; neither should be accidental.**
-
-**Q5 — salary-bearing rows.** For `prorated_salary`, `mv_prorated_salary`,
-`previously_held_salary` and `mv_extra_salary`, the note amount **is** a salary figure. v2's
-default shows a band on screen and the exact figure only in the reviewed drill-down. Confirm, or
-override and accept salary figures in the case table and the CSV export.
-
-**Q13 — is `HOUSEMAID_FINAL_SETTLEMENT_DETAILS_SHEET` maintained and current?** Blocking for the
-partial-hold half of `previously_held_salary`. Its columns are human labels with spaces
-(`"Prorated Salary kept on hold (FS Collected)"`) and typed `TEXT`, which usually means a
-sheet-derived source rather than a system table. If it is stale or hand-kept, the partial-hold check
-cannot rely on it and that branch must BLOCK rather than red.
-
-**Q14 — is one payslip row always one whole month?** Blocking for the hold rule and for G2's cousin.
-If a maid can hold **two** rows for one `PAYROLL_MONTH`, then a partial hold could be represented as
-one transferred row and one not — a **third** hold mechanism the rule above does not cover. This is
-one query once compute lands: `COUNT(*)` against `COUNT(DISTINCT HOUSEMAID_ID, PAYROLL_MONTH)` on
-`HOUSEMAID_PAYROLL_HISTORY`.
-
-**Q15 — does `previously_held_salary` ever reverse a deduction or a negative addition,** rather than
-a hold? `DEDUCTIONS` (0–2,800) reduces the net without any hold being recorded, and a payslip's
-`ADDITIONS` total can go negative (−1,516). If either is ever released under this reason, they belong
-in the candidate set — awkwardly, because the `DEDUCTION` note feed stopped recording, so a deduction
-released this way could never be evidenced.
-
-**Q7 — the airfare rule's edges.** Blocking for group A. George gave the floor (22 months CC) and
-the bridging rule (an MV break under a year bridges, longer resets). Four edges are undefined:
-(a) do the **MV months themselves count** toward the 22, or only summed CC time — for CC 8 → MV 11 →
-CC 8 that is 16 months against 27; (b) **exactly 12 months** falls in neither "less than" nor "more
-than"; (c) with **multiple switches**, is each gap judged independently — two 7-month MV spells both
-bridge — or is cumulative MV time what matters; (d) what governs the **second** ticket, which also
-sets T6's duplicate window. And separately: does the 22-month floor apply to **termination
-repatriation** as well as vacation flights?
-
-**Q8 — the MV referral exception.** Blocking for C2. "In some cases one maid could get the 1k" has
-no stated condition. Without one, a 1,000 payment to an MV referrer cannot be distinguished from an
-error and the exception swallows the rule. If no condition exists, the honest design is 500/500 as
-the norm and 1,000/0 **amber** pending a case-by-case justification. Also confirm the total is
-**always 1,000** — the per-event tie-out (C1) rests entirely on it.
-
-**Q9 — "must not already be with the company".** Blocking for C4. Never been with the company, or
-not *currently* with it? A maid who left two years ago and is referred back gets opposite verdicts
-under the two readings.
-
-**Q10 — do `FREEDOM_OPERATOR` and `WALKIN` months count as CC months?** Blocking for A2. The
-warehouse convention is that they are CC. P&C may diverge, but it must be a written choice, not a
-discovery.
-
-**Q11 — are part-time cleaners in scope?** Blocking for group L4. The audit is currently defined
-over housemaids; the warehouse shows Part-Time Cleaners Expenses categories receiving additions.
-
-**Q12 — a minimum denominator for the M13 floor.** Blocking alongside Q1. The floor is evaluated per
-payment type **per month** with no minimum count, so a low-volume type flips its whole verdict rule
-on one note: `lost_luggage_compensation` at 5 of 6 is 83% and above the floor, at 4 of 6 is 67% and
-below it. Set a minimum count, a rolling window, or both.
-
-**Q6 — write-back.** The maker–checker status column is a write, which makes this a small
-application rather than a dashboard. In v1 or out? The build shape depends on the answer.

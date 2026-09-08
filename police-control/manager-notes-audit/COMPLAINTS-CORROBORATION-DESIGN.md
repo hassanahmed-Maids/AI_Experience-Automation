@@ -12,7 +12,7 @@ only place the justification exists at all.
 ## 1. The linkage reality: there is no foreign key
 
 **Confirmed across every module.** `PayrollManagerNote`, `ExpenseRequestTodo`, `EmployeeLoan` and
-`Expense` carry **no complaint column**. `processExpenseRequestTodo()` copies
+`Expense` carry **no complaint column**. `processExpenseRequestTodo` copies
 `Expense.salaryAdditionType` and `purposeAdditionalDescription` — never a complaint reference. The
 `ExpenseRelatedToType` enum is `MAID, APPLICANT, OFFICE_STAFF, TEAM, COMPANY, NOT_DETERMINED` —
 **there is no `COMPLAINT` value.**
@@ -358,7 +358,7 @@ box is not the *weakest* justification for AED 1.83m a year, it is the **only** 
 
 **The run-rate is up ~36%.** AED 621,322 in three months annualises to ~AED 2.49m against the AED
 1.83m recorded for the trailing twelve. Either anti-attrition is growing fast or the quarter is
-unrepresentative. Not a finding — but O37's governance question is about more money than §3 says.
+unrepresentative. Not a finding — but an outstanding ask's governance question is about more money than §3 says.
 
 **Band 4 is inflated at the recent edge.** Notes from the last 14 days have not yet lived through
 their own +14-day forward window, so their complaint counts are truncated and they fall into bands 3
@@ -396,18 +396,18 @@ type's own far field (30–89 days out, where nothing causal should remain):
 
 | Days before note | Anti-attrition | vs far field | Salary Dispute | vs far field |
 |---|---:|---:|---:|---:|
-| −14..−2 *(after the note)* | 16.4/day | 1.49× | 3.7/day | 6.4× |
-| **0..14** | 16.1/day | **1.46×** | **11.6/day** | **19.9×** |
-| 15..29 | **19.3/day** | **1.75×** | 1.8/day | 3.1× |
-| 30..44 | 9.7/day | 0.88× | 1.1/day | 1.9× |
-| 45..59 | 11.9/day | 1.08× | 0.3/day | 0.6× |
-| 60..74 | 11.2/day | 1.02× | 0.7/day | 1.3× |
-| 75..89 | 11.2/day | 1.02× | 0.1/day | 0.2× |
+| −14.−2 *(after the note)* | 16.4/day | 1.49× | 3.7/day | 6.4× |
+| **0.14** | 16.1/day | **1.46×** | **11.6/day** | **19.9×** |
+| 15.29 | **19.3/day** | **1.75×** | 1.8/day | 3.1× |
+| 30.44 | 9.7/day | 0.88× | 1.1/day | 1.9× |
+| 45.59 | 11.9/day | 1.08× | 0.3/day | 0.6× |
+| 60.74 | 11.2/day | 1.02× | 0.7/day | 1.3× |
+| 75.89 | 11.2/day | 1.02× | 0.1/day | 0.2× |
 
 **Salary dispute is the textbook shape:** a 19.9× spike in the fortnight before the payment, decaying
 monotonically to nothing. The complaint drives the payment, visibly, at day scale.
 
-**Anti-attrition has no spike at all.** It has a broad, mild plateau — ~1.5× across the whole −14..+29
+**Anti-attrition has no spike at all.** It has a broad, mild plateau — ~1.5× across the whole −14.+29
 range — and then flat. **Its peak bin is 15–29 days, not 0–14.** A causal driver does not peak
 *further* from the event than the bin next to it; a monthly cycle brushing against a monthly batch
 does exactly that. This is §3c's 30.8-day mean seen in profile.
@@ -430,7 +430,7 @@ Five independent methods — no FK *(code)*, 1 reference in 9,167 *(query 5)*, 1
 *(query 2)*, 1.00× chance-adjusted coupling *(6a-iii)*, no proximity spike *(6a-ii)* — agree.
 **Anti-attrition enrolment is not conversation-driven. The free-text `notes` box on the enrolment
 record is the only justification that exists**, and the corroboration layer cannot supply a second
-one. That closes the design question; what remains is O37, which is governance, not data.
+one. That closes the design question; what remains., which is governance, not data.
 
 The complaint check ships for salary dispute (and the §4 types that behave like it) and is **N_A for
 anti-attrition** — not AMBER, not "absent evidence". Testing it there would score noise.
@@ -506,7 +506,7 @@ justifying record *at the time*" are different tests, and only the second one is
 
 **Maid 132742** appears three times: **2026-06-11 (AED 300), 2026-06-30 (AED 300)** and 2026-07-31
 (AED 300). Two payments in June. This is the B6 once-per-contract-per-month guard, which
-`anti-attrition-cases.sql` flagged as unresolvable without `CONTRACT_ID` (O23) — 167 such cases in
+`anti-attrition-cases.sql` flagged as unresolvable without `CONTRACT_ID` — 167 such cases in
 twelve months. But this one carries a second signal the review list did not have: **the June 11 note
 is off-batch**, so it did not come from the month-end job at all. A hand-added payment landing in the
 same month as the batch payment is a much stronger candidate than either signal alone.
@@ -564,7 +564,7 @@ type must be split before B4/B5 can be written. Two rows are an anecdote; 9,167 
 
 **30% of anti-attrition notes are prorated (AED 274,379).** B4/B5 therefore cannot be written as
 `AMOUNT = tier` — it must be `AMOUNT = tier × days_enrolled ÷ days_in_month`, which needs the
-enrolment and exit dates, not just `INCENTIVE_AMOUNT`. O23 as scoped would not have been enough to
+enrolment and exit dates, not just `INCENTIVE_AMOUNT`. an outstanding ask as scoped would not have been enough to
 write the check, and that gap was invisible while the type looked like a flat tier table.
 
 ### Two things 6d surfaced that nobody was looking for
@@ -642,7 +642,7 @@ two divisors actually differ.
 months classified as `off_batch`. That is impossible on its face: the band-3 queue is full of notes
 dated **2026-06-30**, June has 30 days, so those are month-end notes and belong in this population.
 
-**`NOTE_DATE` carries a time component.** `LAST_DAY()` returns a DATE at midnight, so
+**`NOTE_DATE` carries a time component.** `LAST_DAY` returns a DATE at midnight, so
 `NOTE_DATE = LAST_DAY(NOTE_DATE)` compares `2026-06-30 08:15:00` against `2026-06-30 00:00:00` and is
 false for every row. The predicate could not return true, and a filter that can never fire returns
 a clean, plausible, entirely meaningless split.
@@ -727,7 +727,7 @@ last calendar day is wrong for at least one month in twelve.**
 
 **The programme is growing fast: 409 notes on the first batch, 918 on the last — +124% in a year**,
 rising every single month without exception. §3i's "run-rate up ~36%" was measured on money and
-understated it. Whatever O37 decides about governance, it decides it for a payment type that has
+understated it. Whatever an outstanding ask decides about governance, it decides it for a payment type that has
 doubled in twelve months.
 
 ## 3n. 🔴 The check: 0 of 9,011 job payments fail it, 35 of 156 hand-added ones do
@@ -750,7 +750,7 @@ different route, on a different definition of "off batch", now confirmed by obse
 ### Why this is the best check in the anti-attrition file
 
 Everything else here needs a judgement. The complaint test is N_A (§3g). The enrolment test passes
-almost always (§3h). The recompute check cannot be written yet (O44). **This one needs no judgement
+almost always (§3h). The recompute check cannot be written yet. **This one needs no judgement
 at all**: the payment system defines correct behaviour by exhibiting it 9,011 times, and 35 payments
 do something it never does.
 
@@ -766,7 +766,7 @@ enrolment justification is already a free-text box (§3) and whose volume has do
 by the same person is the strongest single combination available anywhere in this dataset. That
 intersection is the first thing to read off 6h part B.
 
-## 3o. 🔴 Reading the 35: the check detects HAND-TYPED, not WRONG. O50 withdrawn.
+## 3o. 🔴 Reading the 35: the check detects HAND-TYPED, not WRONG. an outstanding ask withdrawn.
 
 The list is 33 whole integers plus two one-decimal values. **The job writes two-decimal computed
 values; a person types whole dirhams.** A test with a 0.2 tolerance on `amount × d` therefore flags
@@ -794,9 +794,9 @@ correct, and I will not.
 **The strict test separates machine precision from human precision. It does not test correctness.**
 0 of 9,011 job notes fail because the job emits exact two-decimal values; 35 hand-added notes fail
 because a person rounded. Whether any of those 35 is the *right* amount cannot be decided from the
-amount alone — it needs the tier and the days, which is O44.
+amount alone — it needs the tier and the days, which.
 
-**So O50 is withdrawn.** Shipped as a spec check it would report 35 payments as findings on the
+**So an outstanding ask is withdrawn.** Shipped as a spec check it would report 35 payments as findings on the
 evidence that a human typed them, which the note date already says more directly and without the
 arithmetic. It fails the plugin's own check #1: a signal that cannot distinguish a defect from a
 data-entry convention is not a finding.
@@ -859,11 +859,11 @@ opposite sign, and it is more insidious because it feels conservative.
 The narrowed rule blocks in exactly one place: the approver's name matches the requester's, *and*
 several staff share that first name, so it cannot be called either way. Everything else resolves.
 
-## 3q. 🔴 O51's premise was wrong — and S1 found something far bigger
+## 3q. 🔴 an outstanding ask's premise was wrong — and S1 found something far bigger
 
 **`R_self_approved_name_form` returns 0 notes. On every payment type.**
 
-The whole basis of O51 was that self-approvals were slipping through as mismatched name forms
+The whole basis of an outstanding ask was that self-approvals were slipping through as mismatched name forms
 ("manale" approving "manale hamasny"). They are not. The one self-approval in §3o's 35-row sample
 used the identical full form on both sides, and the bare short form only ever appears approving
 *other* people's requests — which is correctly segregated. **I generalised a mechanism from a single
@@ -933,7 +933,7 @@ and AED 3,484 in twelve months**, against 4,211 notes and AED 1.29m all-time. It
 **Attribution was fixed at some point, and S1 has been reporting a legacy backlog as a live control
 failure.**
 
-**The missing date filter was not a comparability nit.** I logged O54 as a tidiness item — "these
+**The missing date filter was not a comparability nit.** I logged an outstanding ask as a tidiness item — "these
 must not appear on one dashboard". It was inflating the headline number **4.7×** and pointing the
 audit at a problem that has largely stopped. A metric with no time window does not merely mislead on
 scale; it misidentifies which findings are still happening, which is the only thing that determines
@@ -962,11 +962,11 @@ says it has two halves with different origins.
 
 So 1d's verdict for Bonus is **BLOCKED, not GREEN** — and that is the honest reading, not a
 disappointing one. Resolving it needs the expense-request link (`EXPENSES_REQUESTS`, D4) or the
-un-ingested `DELIGHTER_TODO` (O34), not another concentration statistic.
+un-ingested `DELIGHTER_TODO`, not another concentration statistic.
 
-## 3s. O36 clears the anti-attrition check; O56 shows Bonus is BREAKING, not legacy
+## 3s. an outstanding ask clears the anti-attrition check; an outstanding ask shows Bonus is BREAKING, not legacy
 
-### 🟢 O36 — the enrolment box is usable, and the largest payment type has a check after all
+### 🟢 an outstanding ask — the enrolment box is usable, and the largest payment type has a check after all
 
 `ACTION_TYPE = 'Maid Incentive Experiment'` confirmed (3,755 records, 2,982 maids, since
 2024-03-23). Over 12 months, 2,806 enrolment records:
@@ -990,14 +990,14 @@ Calibrate expectations: a 43-character median is one short sentence, not a justi
 can categorise a stated reason; it cannot verify one. And 43 records are under 10 characters — a
 small junk tail to exclude, not to interpret.
 
-### 🔴 O56 — I was wrong that "attribution got fixed". It got fixed for two types and broke for Bonus
+### 🔴 an outstanding ask — I was wrong that "attribution got fixed". It got fixed for two types and broke for Bonus
 
 | Bonus era | Unattributed |
 |---|---:|
-| 2023-09 .. 2024-04 | 9 / 412 = **2.2%** |
-| 2024-05 .. 2025-03 | 159 / 649 = **24.5%** |
-| 2025-04 .. 2026-03 | 982 / 1,150 = **85.4%** |
-| 2026-04 .. 2026-09 | 239 / 496 = **48.2%** |
+| 2023-09. 2024-04 | 9 / 412 = **2.2%** |
+| 2024-05. 2025-03 | 159 / 649 = **24.5%** |
+| 2025-04. 2026-03 | 982 / 1,150 = **85.4%** |
+| 2026-04. 2026-09 | 239 / 496 = **48.2%** |
 
 **Bonus attribution did not decay from a legacy state — it broke.** It ran at 2% for the first eight
 months, began failing around 2024-05, escalated to a 98% peak in 2025-10, and still runs at 48%.
@@ -1027,7 +1027,7 @@ live/dead triage or the segregation check's hardcoded list:
 
 ### 🔴 The retraction: "reject future-dated notes" would delete the largest money type
 
-I recommended it twice — as O67, and as acceptance criterion 19 on the AE ticket. **It is wrong.**
+I recommended it twice — as, and as acceptance criterion 19 on the AE ticket. **It is wrong.**
 
 **`Airfare Ticket` spans 34 active months inside a 12-month window, with its last note dated
 2028-06-02 — 21 months in the future.** And airfare is **AED 2,733,500, 38.1% of all addition
@@ -1122,7 +1122,7 @@ to decide which complaints are worth opening — and have the AI Agent read `COM
 (already HTML-stripped, `ITERATION`-ordered) plus `COMPLAINT_DESCRIPTION` for anything that becomes a
 finding.
 
-There is already an AI-assigned category: `ComplaintService.extractGptComplaintInfo()` parses a
+There is already an AI-assigned category: `ComplaintService.extractGptComplaintInfo` parses a
 structured block (`Last update / Complaint type / Complaint reason / …`) back out of the summary into
 a `To-do: <TYPE> – <REASON>` label, configured by `PARAM_GPT_COMPLAINT_EXTRACTION_CONFIG`. Same
 caution applies — useful as a prior, not as evidence.
@@ -1136,36 +1136,3 @@ reach today.
 Complaint text carries personal circumstances — health, family, disputes — about named individuals.
 **The AI Agent reads it; the audit never republishes it.** The AI Agent returns a verdict, a category and a
 complaint id. Findings cite the id. No free text reaches an export, a dashboard or an inbox.
-
-## 6. What is blocked
-
-| # | Ask | Unblocks |
-|---|---|---|
-| ~~O33~~ | ~~Run query 3 (coverage)~~ — **done.** It inverted the design (§3b): coverage is 94–100%, so presence can never be a RED. Superseded by **O38** | — |
-| ~~O38~~ | ~~Run query 6a~~ — **done, §3f.** Salary dispute clears chance at 1.46×; anti-attrition sits at 0.89× and is not corroborated at all | the queue |
-| ~~O40~~ | ~~Run 6d~~ — **done, §3j.** One mechanism with proration, not two. The split claim is withdrawn |  — |
-| ~~O42~~ | ~~Size the AED 0 notes~~ — **done, §3l.** 14 notes, 0.15%, AED 0. Immaterial; no rate in this document changes | — |
-| ~~O43~~ | ~~Review the 298 unexplained amounts~~ — **explained, §3k.** They prorate over a fixed 31 and are all hand-added. Superseded by O45 | — |
-| ~~O45~~ | ~~Run 6f~~ — **void, §3l.** The month-end predicate can never be true; the split measured nothing. Superseded by O46 |  — |
-| ~~O46~~ | ~~Run 6g~~ — **done, §3m.** Both divisors are the job's own. The manual path fails differently: 29% of hand-added amounts fit no rule vs 0.0% of the job's | — |
-| ~~O48~~ | ~~Size the no-rule hand-added notes~~ — **done, §3n.** 35 of 156 (22.4%, AED 8,675) vs 0 of 9,011 job notes. Part B lists them | — |
-| ~~O50~~ | ~~Ship the no-rule check~~ — **withdrawn, §3o.** It detects whole-dirham typing, not error. The note date says the same thing more directly | — |
-| ~~O51~~ | ~~Fix S1's identity comparison~~ — **done, and the premise was wrong (§3q).** The name-form class is empty; the old check was not under-reporting that way | — |
-| ~~O53~~ | ~~AED 2.86m unattributed~~ — **79% of it is older than 12 months (§3r).** Live figure is 862 notes / AED 613,759, and 850 of those are Bonus. Salary Dispute collapses from 4,211 notes to 12 | — |
-| ~~O56~~ | ~~Date the fix~~ — **done, §3s, and it inverted §3r.** Bonus attribution BROKE in 2024-05 and still runs 48%; Taxi is perfect; Salary Dispute is one bulk month (2025-05) plus a pre-2023 backlog | — |
-| **O58** | 🔴 **Bonus attribution is an active failure, not legacy** — 2% → 85% → 48%. Find what changed around 2024-05. This is the live control finding in the file | the only worsening control in the audit |
-| **O59** | Explain **2025-05 Salary Dispute**: 610 notes in a 100–200 month, 424 unattributed, AED 50,381. Bulk load or mass correction — either way it needs an owner | scoping the legacy backlog |
-| **O60** | Reject **future-dated notes**. One Bonus note is dated 2026-10; no check currently rejects it | any period-based check |
-| **O57** | Resolve **Bonus's 850 unattributed notes** (AED 610,275) via the expense-request link (`EXPENSES_REQUESTS`, D4) or `DELIGHTER_TODO` (O34). Concentration cannot separate event-driven automation from a person | the only live unattributed block |
-| **O54** | Add a **12-month window to S1** — 🔴 upgraded from tidiness: the missing filter inflated the headline 4.7× and pointed the audit at a problem that has largely stopped (§3r) | every S1 number, and which findings are live |
-| **O55** | Replace S1's hardcoded "human types" list with the **empirical batch-day split** per type. `Bonus` is partly machine-generated, so part of its 58% unattributed is by design | the S1 denominator |
-| **O52** | 🔴 **A single approver signs off the entire manual anti-attrition path** (34 of 35). Raise with the rule owners alongside O37 | the control question on 27% of live addition money |
-| **O49** | 🔴 **Sweep the audit for month-end assumptions.** August's batch ran on 09-01, so any `LAST_DAY` test misfiles 918 notes. Batch days must be observed, never assumed | every batch-vs-manual check in the spec |
-| ~~O47~~ | ~~Re-check the hand-added population~~ — **checked, §3l.** Both other files cast `::DATE` and define batch days empirically. Unaffected | — |
-| **O44** | B4/B5 need enrolment **and exit dates**, not just `INCENTIVE_AMOUNT`: 30%+ of notes are prorated, so the check is `tier × days ÷ divisor` — and per §3k the divisor is not the same for both origins. Re-scope O23 | the anti-attrition recompute check |
-| **O41** | Confirm note **184233** (maid 97470): enrolment dated after the payment. Hard RED, needs a human verdict | the ENROLLED_AFTER_PAYMENT rule |
-| ~~O39~~ | ~~Run 6a-iii and 6a-ii~~ — **done, §3g.** Anti-attrition 1.00× chance, salary dispute 2.33×; no proximity spike on anti-attrition. The design question is closed | — |
-| **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |
-| **O35** | Expose the `ComplaintType` **`tags`** join (`COMPLAINT_TYPES_TAGS`) — the code says the `transportation` tag, not the type name, is the single source of truth | taxi corroboration done the way the ERP does it |
-| ~~O36~~ | ~~Confirm the enrolment NOTES box~~ — **done, §3s. 🟢 100% filled, 96% distinct, median 43 chars.** Job 1 is viable and anti-attrition has a working check | — |
-| **O37** | **Governance:** should `anti_attrition_incentive` enrolment require a linked complaint and a categorised reason, as `resignation_retraction` already does? Not a data question | 27% of live addition money |

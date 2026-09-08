@@ -44,7 +44,7 @@ They produce the one verdict column the ten aggregate.
 ### How to build it — nine checks, not twenty-five rules
 
 Each returns `RED(type)` · `GREEN` · `BLOCKED(reason)` · `N_A`. **Definitions, the per-type check
-plan, the two-pass algorithm and what each is blocked on: attachment §12.**
+plan, the two-pass algorithm and what each is blocked on: attachment the group rules.**
 
 **CEIL** ceiling · **ELIG** eligibility as of the note date · **CORR** corroborating record ·
 **RECOMP** recompute from a rate and a period · **PAIR** counter-entry present and equal ·
@@ -150,36 +150,6 @@ BLOCKED where origin is unresolved. Never RED off a hardcoded "human types" list
 it must never resolve to the first candidate: **7,020 of 7,878 matched notes (89%) belong to maids
 holding more than one expense request** (DNA-9464). Multiple candidates → unverifiable, not matched.
 Full route and blind spots: source-tables doc §5.
-
-### Data asks, none of them blocking
-
-**N10** salary history · **N12** raffle winners · **N17** contract-type timeline · **N18** row-level
-loans · **N19** the `live_out` flag. Each gates one archetype and no more — attachment §12 maps them.
-Routes: attachment §9 and §11. **Amber is a result this report publishes, not a failure of it.**
-
-### Two things that need a decision, not engineering
-
-**~~The loyalty payment has no rule anywhere in the company~~ — 🔴 superseded 2026-09-08.** It has
-one, and this is the biggest single change in the revision. `anti_attrition_incentive` is **59% of
-the audited population by count**, and it now carries **eight tests, six of them Phase 1** (spec v3,
-group B). Four candidate checks were tried and closed off by data — the complaint corroboration
-scores **1.00× chance, i.e. zero signal**; the enrolment-exists test passes 1,000 times in 1,001;
-`AMOUNT = tier` cannot be written because 30% of notes are prorated over two divisors. What replaced
-them: **an enrolment must pre-date the payment it justifies** (found a case on its first run), and
-**an AI Agent reads the enrolment reason box** — which is 100% filled and 96% distinct, so it carries
-real content. What remains for the business is narrower and sharper: *should enrolment require a
-categorised reason, as the sibling retraction bonus already does?*
-
-**Three reference mappings do not exist** — payment type → allowed expense heads, contract type →
-allowed payment types, and which types always carry an expense record. Business rules, not data;
-until they exist those tests return BLOCKED. 🔴 **The referral scheme has since been supplied by
-payroll** — attachment §11 — and it changes the grain: referral bonus is judged per **referral
-event**, not per note. `HOUSEMAID_REFERRALS.AMOUNT` is the authorised amount to compare paid
-against. ⚠️ **Two entries of the third are settled:** airfare
-and office-work additions are booked straight onto salary with no payment behind them
-(*"Direct adjustment"*, 565 in six months — DNA-9464). Without that, every flight-home payment is
-red-flagged "no basis".
-
 ### On sensitivity — so it does not stall at intake
 
 **Nothing here widens what any role can already see.** No name, phone, contact detail, EID, passport
@@ -228,7 +198,7 @@ That reports what was added, by category. This audits whether each addition was 
 6. **Amber always carries its reason.** `COUNT(AMBER) = COUNT(non-null BLOCKING_REASON)`, and the
    reason buckets sum to M8 in count and money.
 7. **The auditor's own flags are not used.** Zero occurrences of `CONFIRMED_AMOUNT_BY_AUDITOR` or
-   `CONFIRMED_REPEATED_BY_AUDITOR` in any filter or test — display only. Why: attachment §7.
+   `CONFIRMED_REPEATED_BY_AUDITOR` in any filter or test — display only. Why: attachment the group rules.
 8. **Note-type integrity.** `COUNT(*)` where `NOTE_TYPE IN ('EXTRA_SHIFT','BONUS','SALARY_RAISE',
    'REDUCTION')` in the audit window is **0**.
 9. **The payslip reconciles.** Per maid × audit month, all that payslip's `ADDITION` notes sum to
