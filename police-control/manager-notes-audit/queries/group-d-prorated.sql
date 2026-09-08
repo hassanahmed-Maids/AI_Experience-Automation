@@ -141,3 +141,84 @@ ORDER BY notes DESC;
 --   🟢 The 210 MV prorated notes to CC maids that D3 flagged need no query: the code's
 --   eligibility is "MAID_VISA **or MV switched to CC**", so a CC maid holding one is correct.
 --   AED 788,069 — the largest body of money no test had ever touched — comes back clean.
+
+-- PS1/D0 RESULTS 2026-09-08:
+--   started 27th+ of the prior month — eligible .. 539 notes · 510 maids · AED 87,051 · median 3 days
+--   🔴 start date nowhere near the note ..........  78 notes ·  68 maids · AED 10,856 · median 682 days
+--   started that month, before the 27th ..........   2 notes ·   2 maids · AED    929 · median 16 days
+--   The eligible group is textbook: median THREE DAYS from salary start to the note.
+--   ⚠️ THE 78 ARE PROVISIONAL. D0 confirms REPLACEMENT_SALARY_START_DATE exists on
+--   HOUSEMAIDS_INFO, and the code prefers it over START_DATE. A maid with a recent
+--   replacement start looks 682 days stale on START_DATE alone and is perfectly eligible.
+--   PS1b re-runs on the right column. Nothing from PS1's 78 is a finding until it does.
+--   D0 also unlocks the amount test: BASIC_SALARY, PRIMARY_SALARY and ACCOMMODATION_SALARY
+--   are all on HOUSEMAIDS_INFO, and HOUSEMAID_PAYROLL_HISTORY carries monthly TOTAL_SALARY.
+
+-- PS1b. The eligibility window, on the column the code actually reads.
+WITH ps AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT,
+           COALESCE(h.REPLACEMENT_SALARY_START_DATE, h.START_DATE)::DATE AS salary_start,
+           h.START_DATE::DATE                                            AS raw_start,
+           h.REPLACEMENT_SALARY_START_DATE::DATE                         AS replacement_start
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Prorated salary' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+)
+SELECT CASE
+         WHEN salary_start IS NULL OR salary_start < '1971-01-01'      THEN 'BLOCKED — epoch-zero salary start (H6)'
+         WHEN DAY(salary_start) >= 27
+              AND DATEDIFF('day', salary_start, note_day) BETWEEN 0 AND 40
+                                                                        THEN '🟢 eligible — started 27th+ of the prior month'
+         WHEN DATEDIFF('day', salary_start, note_day) BETWEEN 0 AND 40  THEN '⚠️ started that month, before the 27th'
+         ELSE                                                                '🔴 salary start nowhere near the note — not eligible'
+       END                                              AS verdict,
+       COUNT(*)                                         AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)                     AS maids,
+       ROUND(SUM(AMOUNT))                               AS aed,
+       COUNT_IF(replacement_start IS NOT NULL)          AS had_a_replacement_start,
+       ROUND(MEDIAN(DATEDIFF('day', salary_start, note_day))) AS median_days_start_to_note
+FROM ps
+GROUP BY 1
+ORDER BY aed DESC;
+
+-- PS3. 🔴 THE AMOUNT. Code: round( salary / daysInPreviousMonth x daysWorked ), where
+--   daysWorked = salary start -> the 1st of the payroll month. The window is at most ~5 days,
+--   so the note can never approach a full month's salary.
+--   CC maids prorate over several salary groups (basic, accommodation, live-out), so the
+--   ceiling uses basic + accommodation and a 25% cap — deliberately GENEROUS, meaning anything
+--   flagged is a real outlier rather than a modelling artefact.
+WITH ps AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS note_day, n.AMOUNT,
+           COALESCE(h.REPLACEMENT_SALARY_START_DATE, h.START_DATE)::DATE AS salary_start,
+           COALESCE(h.PRIMARY_SALARY, h.BASIC_SALARY, 0)
+             + COALESCE(h.ACCOMMODATION_SALARY, 0)                       AS monthly_salary
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Prorated salary' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+), calc AS (
+    SELECT ps.*,
+           DAY(LAST_DAY(DATEADD('month', -1, note_day)))            AS days_in_prev_month,
+           GREATEST(DATEDIFF('day', salary_start, note_day), 0)     AS days_worked,
+           monthly_salary / NULLIF(DAY(LAST_DAY(DATEADD('month',-1,note_day))), 0)
+             * GREATEST(DATEDIFF('day', salary_start, note_day), 0) AS expected
+    FROM ps
+)
+SELECT CASE
+         WHEN monthly_salary <= 0                          THEN 'BLOCKED — no salary on file'
+         WHEN days_worked > 40                             THEN 'BLOCKED — start date not in the window (PS1b)'
+         WHEN AMOUNT > monthly_salary * 0.25               THEN '🔴 OVER a quarter of a monthly salary — impossible under the formula'
+         WHEN expected > 0 AND AMOUNT > expected * 1.10    THEN '🔴 above the formula by more than 10%'
+         WHEN expected > 0 AND AMOUNT < expected * 0.90    THEN 'below the formula by more than 10%'
+         ELSE                                                   '🟢 matches the formula within 10%'
+       END                                          AS verdict,
+       COUNT(*)                                     AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)                 AS maids,
+       ROUND(SUM(AMOUNT))                           AS aed,
+       ROUND(SUM(GREATEST(AMOUNT - expected, 0)))   AS aed_ABOVE_THE_FORMULA,
+       ROUND(MEDIAN(AMOUNT))                        AS median_paid,
+       ROUND(MEDIAN(expected))                      AS median_expected
+FROM calc
+GROUP BY 1
+ORDER BY aed_ABOVE_THE_FORMULA DESC, aed DESC;
