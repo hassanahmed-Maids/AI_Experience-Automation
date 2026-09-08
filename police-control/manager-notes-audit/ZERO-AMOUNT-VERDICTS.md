@@ -320,9 +320,33 @@ A bounded incident, not a rate.
 noticed and 19 of 77 were made good. **58 were not**, and at the corrected cohort's average of
 AED 1,737 that is **roughly AED 100,000 outstanding to 58 people, three weeks old.**
 
-⚠️ **The AED 100,000 is an estimate from the corrected cohort, not a computed entitlement.** The
-airfare amount is a flat per-nationality constant, so A7b's tiers give the real figure. **The count of
-58 is exact; the amount is not.**
+### 💰 The figure, computed — **AED 103,500 outstanding to 58 maids**
+
+A7b returned the tiers, so the estimate is superseded:
+
+| Nationality | Zeroed | Tier | Entitlement |
+|---|---:|---:|---:|
+| Filipina | 42 | 2,000 | 84,000 |
+| Ethiopian | 20 | 1,500 | 30,000 |
+| Ugandan | 8 | 1,500 | 12,000 |
+| Kenyan | 7 | 1,500 | 10,500 |
+| **77 maids** | | | **136,500** |
+| *less paid to 19* | | | *(33,000)* |
+| 🔴 **Outstanding** | **58** | | **103,500** |
+
+The count is exact. The amount assumes each of the 19 corrections was a full entitlement — **if any
+were partial, more is owed, never less.**
+
+### 🔴 It is not a config error, so it can recur
+
+**Every affected nationality has its own tier**, so none of them falls back to the global default —
+and **Filipina and Ethiopian each both succeeded and failed inside the window** (5 and 1 paid
+correctly). A wrong parameter or a broken tag fails *consistently*. This failed *intermittently across
+all four*.
+
+**So there is no value to correct.** The fix is to find why amount resolution failed for eight days,
+which is an ask-the-code question — and entirely separate from paying the 58, which needs nothing but
+the list.
 
 **Verdict: RED — and unlike every other finding in this register, the remedy is a payment, not a code
 change.** It is an order of magnitude beyond V1 (18 maids, ~AED 4,250), and it was found by asking a

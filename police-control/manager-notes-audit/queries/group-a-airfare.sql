@@ -351,3 +351,56 @@ ORDER BY maids DESC;
 --   roughly AED 100,000 owed to 58 people, outstanding for three weeks.
 --   ⚠️ The AED 100,000 is an estimate from the corrected cohort's average, not a computed
 --   entitlement. The count of 58 is exact; the amount is not. A7b gives the real figure.
+
+-- A7b RESULT 2026-09-08 — 🔴 NOT A CONFIG ERROR. ALL FOUR NATIONALITIES, INTERMITTENTLY.
+--   Filipina   47 notes · 42 zero ·  5 paid at 2,000 · tier 2,000 (from 891 notes)
+--   Ethiopian  21 notes · 20 zero ·  1 paid at 1,500 · tier 1,500 (from 362 notes)
+--   Ugandan     8 notes ·  8 zero ·  0 paid          · tier 1,500 (from 101 notes)
+--   Kenyan      7 notes ·  7 zero ·  0 paid          · tier 1,500 (from 139 notes)
+--   Every affected nationality has its OWN tier, so none of them relies on the global default
+--   — and Filipina and Ethiopian each BOTH succeeded and failed inside the window. A wrong
+--   parameter or a broken tag fails consistently. This failed intermittently across all four.
+--   🔴 So the fix is not "correct a value": it is find why amount resolution failed for eight
+--   days. That is an ask-the-code question, and it is separate from paying the maids.
+--
+--   💰 THE ENTITLEMENT, COMPUTED (superseding the AED 100,000 estimate):
+--     42 x 2,000  +  20 x 1,500  +  8 x 1,500  +  7 x 1,500  =  AED 136,500 for 77 maids
+--     less AED 33,000 already paid to 19  =>  🔴 AED 103,500 OUTSTANDING TO 58 MAIDS
+--   The count is exact. The amount assumes each of the 19 corrections was a full entitlement;
+--   if any were partial, more is owed, never less.
+
+-- A7d. 💰 THE REMEDIATION LIST — the deliverable for payroll. One row per unpaid maid with
+--   what she is owed. Run it, hand it over, and do not publish it: it is a payment list.
+WITH zeroed AS (
+    SELECT DISTINCT n.HOUSEMAID_ID, n.NOTE_DATE::DATE AS zero_day,
+           COALESCE(h.NATIONALITY, '(unknown)') AS nationality
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket' AND n.AMOUNT = 0
+      AND n.NOTE_DATE >= '2026-08-15' AND n.NOTE_DATE < '2026-08-27'
+), tiers AS (
+    SELECT COALESCE(h.NATIONALITY, '(unknown)') AS nationality, MODE(n.AMOUNT) AS tier
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Airfare Ticket' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    GROUP BY 1
+), corrected AS (
+    SELECT z.HOUSEMAID_ID, SUM(n.AMOUNT) AS paid_since
+    FROM zeroed z
+    JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+      ON n.HOUSEMAID_ID = z.HOUSEMAID_ID AND n.NOTE_TYPE = 'ADDITION'
+     AND n.REASON = 'Airfare Ticket' AND n.AMOUNT > 0 AND n.NOTE_DATE::DATE > z.zero_day
+    GROUP BY 1
+)
+SELECT z.HOUSEMAID_ID              AS maid_id,
+       z.nationality,
+       z.zero_day                  AS airfare_zeroed_on,
+       t.tier                      AS entitlement_aed,
+       COALESCE(c.paid_since, 0)   AS paid_since_aed,
+       t.tier - COALESCE(c.paid_since, 0) AS still_owed_aed
+FROM zeroed z
+LEFT JOIN tiers t     ON t.nationality  = z.nationality
+LEFT JOIN corrected c ON c.HOUSEMAID_ID = z.HOUSEMAID_ID
+WHERE COALESCE(c.paid_since, 0) < t.tier
+ORDER BY still_owed_aed DESC, z.nationality, z.zero_day;
