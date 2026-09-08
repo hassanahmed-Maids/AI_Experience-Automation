@@ -258,3 +258,19 @@ SELECT n.note_day,
 FROM n JOIN the_req t ON n.req = t.req
 GROUP BY 1, 2
 ORDER BY 1, 2;
+
+-- Z8 RESULT 2026-09-08: only two manager-note objects exist account-wide -
+--   CLIENT_MANAGER_NOTES and HOUSEMAID_MANAGER_NOTES, both views. 🔴 NO ENVERS AUDIT TABLE IS
+--   INGESTED, so born-zero vs zeroed-later cannot be answered from the warehouse. V10 becomes a
+--   named ingestion ask - and the most valuable of the three outstanding, because it makes note
+--   history auditable at all rather than unblocking a single check.
+
+-- Z9 RESULT 2026-09-08 — 🔴 THE ABU DHABI FINDING, SETTLED. One requester, five month-end runs:
+--     2026-04-30  Bonus                 20 notes  AED 4,750   0 zeros  20 maids
+--     2026-05-31  Bonus                 20 notes  AED 4,750   0 zeros  20 maids
+--     2026-06-30  Bonus                 19 notes  AED 4,550   0 zeros  19 maids
+--     2026-07-31  Bonus                 18 notes  AED 4,200   0 zeros  18 maids
+--     2026-08-31  Abu Dhabi Incentive   18 notes  AED     0  18 zeros  18 maids
+--   The payment type changed AND the amount went to zero in the SAME run. The four prior months
+--   establish the entitlement at ~AED 236/maid/month. Underpayment ~AED 4,200-4,300, 18 maids,
+--   one month. Apr-Jul total AED 18,250 reconciles exactly with Z7's figure for this requester.

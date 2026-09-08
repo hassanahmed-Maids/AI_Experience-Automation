@@ -230,9 +230,11 @@ splits all 510 into born-zero and zeroed-later, which no query so far could.
 produce no `AuditorAction` at all.** The visible audit trail misses precisely the paths most likely to
 have written these notes.
 
-**Verdict: BLOCKED on one ingestion check (Z8).** If the Envers tables are in the warehouse this
-resolves today; if not, it joins the raffle tables and `HousemaidExtraFields` as a named ingestion ask
-— and it is the most valuable of the three, because it makes note history auditable at all.
+**Verdict: BLOCKED — Z8 answered, and the answer is no.** Only two manager-note objects exist
+account-wide, `CLIENT_MANAGER_NOTES` and `HOUSEMAID_MANAGER_NOTES`, both views. **No Envers audit
+table is ingested**, so born-zero versus zeroed-later cannot be settled from the warehouse. It joins
+the raffle tables and `HousemaidExtraFields` as a named ingestion ask — **and it is the most valuable
+of the three, because it makes note history auditable at all rather than unblocking one check.**
 
 ## What zero notes actually do in payroll
 
@@ -240,3 +242,52 @@ Excluded from payslip lines and must-be-paid selection (both filter `amount > 0.
 money. But the regular-additions query has **no** amount filter, and the mark-as-paid loop touches
 notes irrespective of amount — **a zero note can be flagged paid and linked to a
 `PayrollAccountantTodo`.** Cosmetically present, financially inert.
+
+---
+
+# V1 · FINAL · 🔴 RED — the Abu Dhabi programme was relabelled and stopped paying in the same run
+
+**Z9 settles it.** One requester, five consecutive month-end runs, the same cohort of 18–20 maids:
+
+| Run | Payment type | Notes | AED | Zeros | Per maid |
+|---|---|---:|---:|---:|---:|
+| 2026-04-30 | Bonus | 20 | 4,750 | 0 | 237.50 |
+| 2026-05-31 | Bonus | 20 | 4,750 | 0 | 237.50 |
+| 2026-06-30 | Bonus | 19 | 4,550 | 0 | 239.47 |
+| 2026-07-31 | Bonus | 18 | 4,200 | 0 | 233.33 |
+| **2026-08-31** | **Abu Dhabi Incentive** | **18** | **0** | **18** | **0.00** |
+
+**The payment type changed and the amount collapsed to zero in the same run.** April–July totals
+AED 18,250, reconciling exactly with Z7's figure for this requester.
+
+## 🔴 The withdrawn claim is restored, on different evidence
+
+This morning I said *"at least 15 maids are owed money and did not receive it"*, then **withdrew it as
+unsupported** when the code showed the job cannot post a zero. **The withdrawal was correct — the
+evidence I had did not support it.** Z9 supports it, by a route I had not used: **the four preceding
+runs prove the entitlement.** These maids were paid ~AED 236 each, every month, for four months, and
+then nothing.
+
+**Size: roughly AED 4,200–4,300, 18 maids, one month.** Small money, a real service failure, and
+**September's run (2026-09-30) has not happened yet** — unfixed, it recurs.
+
+## 🔴 Two further consequences
+
+**1. "New programme" was wrong.** I said this was a newly-enabled incentive whose first run paid
+nobody. **It has been running since at least April under the `Bonus` label.** What is new is the
+*label*, not the programme.
+
+**2. The `Bonus` payment type is contaminated.** ~77 notes across four months carry `Bonus` but are
+Abu Dhabi incentives. Every `Bonus` figure in this audit — its 5.8% zero rate, its rules, its
+population — includes them. **A relabelling mid-year silently re-partitions the census**, and nothing
+in the audit design would have caught it.
+
+## The mechanism remains open, and does not block the fix
+
+The addition reason comes from `Expense.salaryAdditionType`, so a **configuration change on or before
+2026-08-31 moved this batch onto a different expense** — and the amount broke in the same run. Whether
+the new expense zeroes the amount, or the job sent zero, or the note was written by another path
+(V8: twenty creation paths, two guards) is **DB configuration and not answerable from source**.
+
+**It does not need to be answered to act.** The owner of that config change knows what they changed.
+**Verdict: RED — final, sized, and with 18 people at the end of it.**
