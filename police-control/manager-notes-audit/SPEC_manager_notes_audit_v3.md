@@ -11,6 +11,27 @@
 | **Status** | Draft — blocked on the warehouse grant. 12 requestor decisions open (the group rules). Answers all 3 critical and 5 major findings of the v2 audit |
 | **Last amended** | **2026-09-08** — first version written against **live query results** rather than catalog metadata and code alone. See "What changed 2026-09-08 (v3)" |
 
+### What changed 2026-09-08, later — folded in from two live runs and eight code conversations
+
+The August and twelve-month runs, plus ask-the-code sessions 45932–46017, changed the spec in five
+structural ways. They are listed here because each came from something the audit got wrong first.
+
+1. 🔴 **M3c — population-level tests.** A whole class of defect is invisible to every per-note test.
+   Five new tests run once per payment type per run; **P3, relabelling, is the one to build first.**
+2. 🔴 **Provenance columns are untrusted** (§2 hygiene). `ACTION_DATE` is user-editable,
+   `USER_WHO_LAST_MODIFIED` is always populated, `REQUESTED_BY` names a run and not a route. All three
+   were used as evidence before being checked, and all three were wrong.
+3. 🔴 **`AMOUNT` is not a validated field.** Twenty creation paths, two guards, no constraint. T3 is
+   load-bearing, not an edge case.
+4. 🔴 **A note outlives its expense request** — no void listener, no foreign key back. **T4 has a hole
+   the `EXPENSES_REQUESTS` grant will not close**, and its GREEN means *"a request existed"*, never
+   *"the payment is still justified"*.
+5. 🔴 **N23 — Envers note history**, now the most valuable ingestion outstanding: the audit cannot
+   currently tell a note that was born wrong from one changed later, for any note.
+
+**Coverage, stated plainly: over twelve months the audit examined roughly a tenth of the money.** The
+rest passed the tests that could run, which is not a pass. Full ledger in `AUDIT-COVERAGE-LEDGER.md`.
+
 ### What changed 2026-09-08 (v3)
 
 **v1 and v2 were built on catalog metadata and ERP code. v3 is the first version corrected by
@@ -685,6 +706,31 @@ direct id, per period, and apply M4's confidence-floor treatment to C2.
 `CREATOR` / `LAST_MODIFIER` are staff **full names, not ids**. None may reach the report, the export
 or a mockup — the same rule §1 applies to `HOUSEMAIDS_INFO`.
 
+#### N23 — 🔴 **Manager-note revision history (Hibernate Envers)** — *new 2026-09-08, and the most valuable ingestion outstanding*
+
+`PayrollManagerNote` is annotated `@org.hibernate.envers.Audited` *(code-verified, conv. 46017)*, so
+**every revision — including an amount before it was edited — is retained in the Envers audit tables.**
+None of them is in the warehouse: `SHOW TERSE OBJECTS LIKE '%MANAGER_NOTE%' IN ACCOUNT` returns
+exactly two rows, both current-state views.
+
+**The alternative trail does not cover this.** `AuditorAction` rows are written only when
+`logActionRequired` is true **and** the acting user holds position `payroll_auditor` — and
+`logActionRequired` is set only by `customDelete`. **Background tasks, service methods and the generic
+`PUT /ManagerNotes` produce no `AuditorAction` at all**, which is precisely the set of paths most
+likely to have written a disputed note.
+
+**What it unblocks:** every point-in-time question about a note, for every payment type — *was this
+note born this way or changed later*, *what was the amount before*, *who changed it and when*. The
+audit currently cannot distinguish a note that was wrong when written from one that was edited
+afterwards, for any note at all. **Worth more than the other three ingestions combined**, because it
+converts a whole class of future question rather than unblocking one group.
+
+#### N24 — `HousemaidExtraFields` — *confirmed missing 2026-09-08*
+
+`abuDhabiIncentiveType`, `abuDhabiIncentiveOffered`, `lastAbuDhabiIncentiveProcessedDate`.
+`SHOW TERSE OBJECTS LIKE '%EXTRA_FIELD%' IN ACCOUNT` returns zero rows. Blocks any check on the Abu
+Dhabi incentive route and any attempt to size what it should have paid.
+
 #### Join keys
 
 | From | To | Key | Types | Risk |
@@ -695,6 +741,35 @@ or a mockup — the same rule §1 applies to `HOUSEMAIDS_INFO`.
 | D1 | D21 | `ADDITION_REASON_ID` / `PURPOSE_ID` → `PICKLISTS_INFO.ID` | `BIGINT` → `FIXED(38,0)` | needs N5; do not route on the name |
 | D1 | D19 | `HOUSEMAID_ID` + window | `FIXED(38,0)` | for the airfare duplicate test |
 | N8 | — | `PARAMETERS.CODE` literal | `TEXT` **value** | cast before comparing to a `REAL` amount |
+
+#### 🔴 Provenance columns are untrusted until the writing code says otherwise
+*Added 2026-09-08. Three columns were used as evidence before being checked, and all three were wrong.*
+
+| Column | Looks like | Actually |
+|---|---|---|
+| `HOUSEMAID_MANAGERACTIONLOGS.ACTION_DATE` | an enrolment timestamp | **User-editable.** Stamped only in `createEntity`; `updateEntity` accepts whatever the caller sends. The paying code orders by `creationDate` and never reads it |
+| `HOUSEMAID_MANAGERACTIONLOGS.USER_WHO_LAST_MODIFIED` | who edited the row | **Populated on 100% of rows**, including the 96.7% never edited. Stamped on create. Carries no information about editing |
+| `HOUSEMAID_MANAGER_NOTES.REQUESTED_BY` | which route created the note | **Identifies a *run*, not a route.** The anti-attrition job's configured requester changed at least twice in twelve months, so a non-modal requester is not a manual entry |
+
+**Rule: before any check treats a column as provenance — a timestamp, an author, an approver — name
+the code that writes it and confirm when.** Check a candidate column's fill rate on rows known not to
+have been touched; a provenance column that is always populated is telling you nothing. **Identify a
+batch by its shape — many notes, few days — never by who is stamped on it.**
+
+#### 🔴 `AMOUNT` is not a validated field
+*Added 2026-09-08 (conv. 46017).* **Twenty code paths create a `PayrollManagerNote`; two refuse a
+zero.** The column is a nullable `Double` with no bean validation, no `@PrePersist`/`@PreUpdate` and
+no DB constraint. `processExpenseRequestTodo` copies the request amount verbatim; the generic
+`PUT /ManagerNotes` and `POST /ManagerNotes/bulkcreate` accept whatever a client sends.
+**Zero and NULL are structurally reachable on every payment type**, so T3 is not an edge case — it is
+load-bearing, and no rule may assume `AMOUNT > 0` without saying what it does when that fails.
+
+#### 🔴 A note outlives the expense request that justified it
+*Added 2026-09-08 (conv. 46017).* Nothing reacts when an `ExpenseRequestTodo` is cancelled, rejected
+or reversed, and **the note carries no foreign key back to the request**. **This is a hole in T4 that
+the `EXPENSES_REQUESTS` grant will not close:** even once granted, T4 can match a note to a request's
+*current state* and still not know the request was later withdrawn. Any T4 GREEN must therefore be
+read as *"an authorised request existed"*, never *"the payment is still justified"*.
 
 #### Known data hygiene issues
 
@@ -861,6 +936,33 @@ owners:
 **Every control-failure metric publishes a 24-month monthly series beside its current value.** One
 sparkline per finding class. Without it the dashboard reports a mostly-closed historical problem and
 a live one as the same number, and the auditor cannot tell which month's work is theirs.
+
+### M3c — Population-level tests 🔴 *new in v3, added 2026-09-08 from the live runs*
+
+**Every test in M3 and M6 judges one note. A whole class of defect is invisible to all of them.**
+`Abu Dhabi Incentive` was 18 notes, 100% zero, from one run: each note was individually AMBER —
+correctly — and nothing could see that *every note of that type in that run was worth nothing*.
+These tests run **once per (payment type × run)**, not per note, and their verdict attaches to the
+run.
+
+| | Test | RED when | Why a per-note test cannot see it |
+|---|---|---|---|
+| **P1** | **Whole-run zero** | 100% of a payment type's notes in a run have `AMOUNT = 0` (and the type has ≥5 notes) | Each note is a legitimate AMBER; the pattern is only visible across them |
+| **P2** | **Census drift** | A payment type's monthly note count changes by more than ±60% against its trailing 3-month median, or a type appears or disappears | A new or vanished type is not a bad note |
+| **P3** | 🔴 **Relabelling** | A requester's notes move from one payment type to another between consecutive runs while its cohort size holds | **The batch that posted `Bonus` in April–July posted `Abu Dhabi Incentive` on 31 August. ~77 notes sit in the wrong type and every `Bonus` figure includes them.** No per-note test could ever detect this |
+| **P4** | **Run doubled** | Two runs of the same type inside one batch cycle | The individual notes are each valid |
+| **P5** | **Amount distribution shift** | The modal amount of a type changes between runs | A changed tier is legitimate; an unannounced one is not |
+
+**P3 is the one to build first.** It is cheap — group by `(REQUESTED_BY, run day, payment type)` and
+look for a cohort that moves — and it is the only guard against the census silently re-partitioning
+itself, which corrupts *every* per-type metric in the report at once.
+
+**Batch runs must be derived, never assumed.** A "run" is a `NOTE_DATE::DATE` carrying more than *n*
+notes of one type, observed from the data. August's ran on **2026-09-01**, not on any month-end.
+
+**A population-level RED does not turn its notes red.** The notes keep their own verdicts; the run
+carries the finding. Otherwise one config change would paint 900 notes red and bury the individual
+work.
 
 ### M4 — The note→expense match, and the confidence floor
 
