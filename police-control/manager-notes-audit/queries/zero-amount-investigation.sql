@@ -219,3 +219,42 @@ FROM n
 JOIN ad_requesters a ON a.req IS NOT DISTINCT FROM n.req
 GROUP BY n.req
 ORDER BY abu_dhabi_notes DESC, all_their_notes DESC;
+
+-- Z7 RESULT 2026-09-08: ONE requester made all 18 Abu Dhabi notes. Its shape is a BATCH, not a
+--   person: 95 notes over exactly 5 days (2026-04-30 .. 2026-08-31 = five consecutive month-ends),
+--   2 payment types, AED 18,250 across its 77 non-zero notes. Every zero it ever made is one of
+--   the 18, all on 2026-08-31.
+--
+-- ask-the-code 46017 (payroll in scope this time): 20 paths create a PayrollManagerNote and only
+--   2 refuse a zero. amount is a nullable Double with no validation, no @PrePersist/@PreUpdate and
+--   no DB constraint. processExpenseRequestTodo copies getAmount() verbatim. The zero-instead-of-
+--   delete pattern exists only for DEDUCTION notes, so it does NOT explain 510 zero ADDITIONS.
+--   🟢 PayrollManagerNote is @Audited (Hibernate Envers) - every revision is retained, so the
+--   born-zero vs zeroed-later question IS answerable if the audit tables are ingested.
+
+-- Z8. Is the Envers audit table for manager notes in the warehouse? This one query decides
+--     whether the 510 can be split into born-zero and zeroed-later, or whether that becomes an
+--     ingestion ask like the raffle tables and HousemaidExtraFields.
+SHOW TERSE OBJECTS LIKE '%MANAGER_NOTE%' IN ACCOUNT;
+
+-- Z9. Which payment type is the second one the Abu Dhabi requester touches, and what does its
+--     five-month-end pattern look like? Identifies the batch by its own behaviour. Ranked, unnamed.
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REASON,
+           NULLIF(TRIM(REQUESTED_BY), '') AS req
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+), the_req AS (
+    SELECT req FROM n WHERE REASON = 'Abu Dhabi Incentive' AND req IS NOT NULL
+    GROUP BY req ORDER BY COUNT(*) DESC LIMIT 1
+)
+SELECT n.note_day,
+       COALESCE(n.REASON, '(none)')  AS payment_type,
+       COUNT(*)                      AS notes,
+       ROUND(SUM(n.AMOUNT))          AS aed,
+       COUNT_IF(n.AMOUNT = 0)        AS zeros,
+       COUNT(DISTINCT n.HOUSEMAID_ID) AS maids
+FROM n JOIN the_req t ON n.req = t.req
+GROUP BY 1, 2
+ORDER BY 1, 2;
