@@ -643,6 +643,83 @@ currently indistinguishable from a real one in every count.
 
 ---
 
+# Note 174632 — the outlier that wasn't, and what it taught us
+
+I flagged note 174632 as *"the single most anomalous note in the live set"* and said it was the row
+to open first, on the strength of 9.93σ against a type average of AED 356. **Opening it shows the
+opposite: it is the best-documented note in the entire dataset.**
+
+Its free text carries a complete, itemised calculation for a maid whose papers failed — pulled from
+two clients, cancelled, reprocessed, stuck on ILOE, ending visa-unsuccessful:
+
+```
+December  1-16  [With client]  3200/31 × 16 = 1651.61
+December 17-22  [Available]    1200/31 ×  6 =  232.26
+December 23-31  [With client]  3200/31 ×  9 =  929.03      subtotal 2812.90
+January   1- 9  [With client]  3200/31 ×  9 =  929.03
+January  10-26  [Available]    1200/31 × 17 =  658.06
+January     27  [Available]    forgiven in the forgiveness page, excluded
+January  28-31  [Available]    1200/31 ×  4 =  154.84      subtotal 1741.94
+                                                     TOTAL  4554.84
+```
+
+**AED 4,554.84 — exact to the fils.** Requested by one person, approved by a different one, with two
+todo references attached. It is better controlled than the median salary dispute.
+
+**The lesson is methodological and it applies to the whole audit: a statistical outlier is not a
+finding.** Ranking by sigma finds unusual *amounts*, and unusual amounts are exactly what a
+legitimate multi-month reconstruction produces. An outlier list is a place to look, never a verdict —
+and this spec should never present one as though it were.
+
+## What the investigation produced instead — three real findings
+
+**1. `salary_dispute` is recomputable for the documented subset.** This spec records it as UNRULED
+with no reconciliation target. That is true of the *system* — but not of the note. Note 174632 carries
+its own target: two daily rates (**AED 3,200/month with a client, AED 1,200/month available**) and the
+day counts. **An agent that parses the itemised text and re-adds it can verify these exactly.** That
+turns the largest unruled category from "unverifiable" into "verifiable wherever the reviewer showed
+their work" — and, just as usefully, isolates the notes where they did not.
+
+**2. A cross-payment-type consistency check exists and nobody is running it.** The note says
+*"January 27 — I forgave this in the forgiveness page hence not included in the computation."* A day
+excluded from a salary-dispute calculation **should appear as a `forgive_deduction` note** for that
+maid on that date. Present in both, or in neither, is correct; present in one only is double-payment
+or under-payment. This is a PAIR test spanning two payment types, and it is runnable today.
+
+**3. The genuine findings are in approval, not amount.** Ranked by *who signed it* rather than by
+sigma, the top of the salary-dispute list looks very different:
+
+| Note | Date | Amount | Requester | Approver | |
+|---|---|---:|---|---|---|
+| **105164** | 2024-06-25 | **8,800.00** | Dana Al Sulaiman | Dana Al Sulaiman | 🔴 **self-approved** |
+| 110607 | 2024-08-23 | 7,518.00 | — | — | 🔴 **neither recorded** |
+| 174632 | 2026-02-16 | 4,554.84 | Jed Torres | Medhat.N | ✅ documented, two-person |
+| 109533 | 2024-07-31 | 4,500.00 | — | — | 🔴 **neither recorded** |
+| 25925 | 2019-08-26 | 3,800.00 | — | — | 🔴 neither recorded |
+| 67493 | 2021-12-18 | 3,020.00 | Mussab AlMandil | Mussab AlMandil, Jad | 🔴 **self-approved** |
+
+**The largest salary dispute ever written — AED 8,800 — was requested and approved by the same
+person.** That is the row to open first, and it is a different row from the one sigma pointed at.
+
+Two more from the same pass: **21 of one requester's 681 salary disputes (3%) were approved by
+himself**, and **maid 22356 received AED 2,500 four separate times** (Feb 2021, May 2021, Jul 2021,
+Feb 2022) — same maid, same round amount, four occasions.
+
+**New test — S1 (segregation).** On any payment type where a human is the requester:
+`LOWER(REQUESTED_BY) = LOWER(APPROVED_BY)` → **RED**, and `REQUESTED_BY IS NULL AND APPROVED_BY IS
+NULL` on a human-entered type → **RED**. This costs nothing, runs on columns already granted, and
+catches the two largest salary disputes in the company's history. It should be in Phase 1.
+
+## The reference vocabulary in the free text
+
+Notes carry structured references that the corroboration layer can key on:
+`Ex121720` (expense), `open-todo/560563`, `todo;561948`, `comp;383297`, `open-complaint/247252`.
+**Note 174632 references todos, not complaints** — so the linkage design must handle both, and
+`comp;`/`open-complaint/` will not cover every note. Query 5 in the complaints discovery pack tests
+how far each reference type reaches.
+
+---
+
 # Cross-cutting findings
 
 ## F1 — `POST /payrollmanagernote` has no authorisation check
