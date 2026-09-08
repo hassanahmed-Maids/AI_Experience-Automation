@@ -486,6 +486,63 @@ reader stitching two blocks together has moved the scope filter into the handove
 place neither the code nor the review can see it. 6b is now self-contained and carries a
 `-- <<< do not drop` marker on the filter.
 
+## 3i. What the corrected band-3 queue actually surfaced
+
+The re-run is clean — every row is one of the two payment types, and no note lists more complaint
+types than its own windowed count. Four observations, in descending order of value.
+
+### 🔴 `ENROLLED_AFTER_PAYMENT` fired on its first run
+
+**Note 184233, maid 97470, 2026-07-17, AED 900** — the enrolment record post-dates the payment it is
+supposed to justify. One case in the top 300, and the check that caught it did not exist two hours
+ago: the unbounded enrolment lookup treated "has an enrolment record ever" as a pass, so this read as
+`enrolled` before. **It is a hard RED on code**, not a heuristic — the job cannot pay against an
+enrolment that had not yet happened.
+
+Generalises: `EXISTS`-style controls need a temporal predicate. "Has a justifying record" and "had a
+justifying record *at the time*" are different tests, and only the second one is a control.
+
+### 🔴 Two payments to one maid inside one calendar month, and one of them off-batch
+
+**Maid 132742** appears three times: **2026-06-11 (AED 300), 2026-06-30 (AED 300)** and 2026-07-31
+(AED 300). Two payments in June. This is the B6 once-per-contract-per-month guard, which
+`anti-attrition-cases.sql` flagged as unresolvable without `CONTRACT_ID` (O23) — 167 such cases in
+twelve months. But this one carries a second signal the review list did not have: **the June 11 note
+is off-batch**, so it did not come from the month-end job at all. A hand-added payment landing in the
+same month as the batch payment is a much stronger candidate than either signal alone.
+
+### The month-end batch is visible at row level
+
+Anti-attrition note dates in the queue are almost entirely **2026-06-30** and **2026-07-31**. The
+exceptions — 2026-06-11, 07-04, 07-06, 08-02, 08-07, 08-12 — are the hand-added notes that bypassed
+`MaidIncentiveExperimentJob` entirely (156 in twelve months, AED 37,576). **This is §3c's month-end
+batch confirmed at the individual note, not inferred from an average**, and it is why the 30.8-day
+complaint coupling was mechanical. The off-batch subset is small, human-entered, and unguarded by the
+job's own checks — the highest-value slice of the anti-attrition queue.
+
+### 🔴 Anti-attrition amounts carry two different mechanisms
+
+Most amounts are tier-like: 300, 350, 400, 500. But the queue also contains non-round values that are
+**exact daily fractions of a round monthly figure, divided by the actual length of that month**:
+
+| Amount | × days | Monthly figure |
+|---:|---|---:|
+| 373.33 | × 30 | 11,200 |
+| 361.29 | × 31 | **11,200** |
+| 338.33 | × 30 | 10,150 |
+| 322.58 | × 31 | 10,000 |
+
+**373.33 and 361.29 are the same 11,200 divided by June's 30 days and July's 31.** That is not a tier
+and not a coincidence — it is a day-based computation. And 10,000–11,200 is salary-scale, an order of
+magnitude above a 300–500 incentive, so these amounts are **one day of a monthly salary filed under
+the anti-attrition reason**.
+
+Per the deep-dive's own rule, *a MIX inside one payment type means two mechanisms are sharing one
+payment reason, and that is a finding in itself.* It also means B4/B5 (recompute, allowed-amount)
+cannot be written as a tier check even once `INCENTIVE_AMOUNT` is exposed under O23 — the type must
+first be split. **Query 6d sizes the split.** *(486 and 338.33 fit no clean divisor; 6d will say
+whether they are a third mechanism or noise.)*
+
 ## 4. The corroboration map — expected complaint types per payment
 
 Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
@@ -558,6 +615,8 @@ complaint id. Findings cite the id. No free text reaches an export, a dashboard 
 |---|---|---|
 | ~~O33~~ | ~~Run query 3 (coverage)~~ — **done.** It inverted the design (§3b): coverage is 94–100%, so presence can never be a RED. Superseded by **O38** | — |
 | ~~O38~~ | ~~Run query 6a~~ — **done, §3f.** Salary dispute clears chance at 1.46×; anti-attrition sits at 0.89× and is not corroborated at all | the queue |
+| **O40** | Run **6d** — split anti-attrition amounts into tier vs day-prorated vs unexplained. Blocks B4/B5, which cannot be a tier check while two mechanisms share one reason | the anti-attrition amount checks |
+| **O41** | Confirm note **184233** (maid 97470): enrolment dated after the payment. Hard RED, needs a human verdict | the ENROLLED_AFTER_PAYMENT rule |
 | ~~O39~~ | ~~Run 6a-iii and 6a-ii~~ — **done, §3g.** Anti-attrition 1.00× chance, salary dispute 2.33×; no proximity spike on anti-attrition. The design question is closed | — |
 | **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |
 | **O35** | Expose the `ComplaintType` **`tags`** join (`COMPLAINT_TYPES_TAGS`) — the code says the `transportation` tag, not the type name, is the single source of truth | taxi corroboration done the way the ERP does it |

@@ -521,3 +521,57 @@ WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
                       FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
                       WHERE ID = $note_id LIMIT 1)
 ORDER BY ACTION_DATE;
+
+
+-- =====================================================================================
+-- 6d. ANTI-ATTRITION AMOUNT SHAPE — tier, day-prorated, or unexplained (§3i).
+--     SELF-CONTAINED. ~4 rows + a small tail.
+--
+--     The band-3 queue showed 373.33 and 361.29 in the same population: 11,200/30 and
+--     11,200/31 — the same monthly figure divided by the actual length of each month.
+--     11,200 is salary-scale, not incentive-scale (tiers run 300-500), so a subset of
+--     notes filed as Anti-attrition Incentive is a DAY OF SALARY, not an incentive.
+--
+--     A MIX inside one payment type means two mechanisms share one payment reason. Until
+--     this is split, B4/B5 (recompute / allowed-amount) cannot be written as a tier
+--     check, even once INCENTIVE_AMOUNT is exposed under O23.
+-- =====================================================================================
+WITH n AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE='ADDITION'
+      AND REASON = 'Anti-attrition Incentive'        -- <<< do not drop
+      AND NOTE_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE)=1
+), shaped AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE, AMOUNT,
+           DAY(LAST_DAY(NOTE_DATE))            AS days_in_month,
+           AMOUNT * DAY(LAST_DAY(NOTE_DATE))   AS implied_monthly,
+           CASE
+             WHEN AMOUNT = ROUND(AMOUNT) AND MOD(AMOUNT, 50) = 0
+                  THEN '1_TIER_round'
+             -- a day of a round monthly figure, divided by THIS month's length
+             WHEN ABS(AMOUNT*DAY(LAST_DAY(NOTE_DATE))
+                      - ROUND(AMOUNT*DAY(LAST_DAY(NOTE_DATE)))) < 0.5
+              AND MOD(ROUND(AMOUNT*DAY(LAST_DAY(NOTE_DATE))), 50) = 0
+                  THEN '2_DAY_PRORATED'
+             ELSE '3_UNEXPLAINED'
+           END AS shape
+    FROM n
+)
+SELECT shape,
+       COUNT(*)                          AS notes,
+       ROUND(SUM(AMOUNT))                AS aed,
+       ROUND(MIN(AMOUNT),2)              AS min_amt,
+       ROUND(MAX(AMOUNT),2)              AS max_amt,
+       ROUND(MEDIAN(implied_monthly))    AS median_implied_monthly,
+       COUNT(DISTINCT HOUSEMAID_ID)      AS maids
+FROM shaped GROUP BY 1 ORDER BY 1;
+
+-- 6d-ii. The distinct day-prorated monthly figures — salary-scale confirms the split.
+--        Run only if 6d shows a material 2_DAY_PRORATED bucket.
+--        Same CTEs; final SELECT:
+--   SELECT ROUND(implied_monthly) AS implied_monthly, COUNT(*) AS notes,
+--          ROUND(SUM(AMOUNT)) AS aed, COUNT(DISTINCT HOUSEMAID_ID) AS maids
+--   FROM shaped WHERE shape='2_DAY_PRORATED'
+--   GROUP BY 1 ORDER BY notes DESC LIMIT 25;
