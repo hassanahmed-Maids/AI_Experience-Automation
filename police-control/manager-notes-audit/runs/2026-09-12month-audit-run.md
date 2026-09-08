@@ -195,3 +195,49 @@ One question. It downgraded my loudest finding from RED to AMBER, and returned t
 of its own — each of which applies to **every** anti-attrition note, not to 53 of them. **The
 downgrade is the point: the check was measuring an editable field and reporting it as an audit trail.**
 Written into the spec as N13-corrected and as traps 19–21.
+
+---
+
+# B1b re-run on the right column — 🔴 42 stand, AED 9,019
+
+`CREATION_DATE` turned out to be on the view already, so the correction cost one query rather than a
+data ask.
+
+| | ACTION_DATE (as run) | CREATION_DATE (correct) |
+|---|---:|---:|
+| B1b notes | 53 | **42** |
+| AED | 11,419 | **9,019** |
+
+**The 42 are a strict subset of the 53.** Using the right column cleared 11 and created none. B1b is
+RED again — and now the semantic doubt is closed instead of open, which is why 42 is a stronger
+finding than 53 was. Separately, **B1 — no enrolment row at all — is 11 notes.**
+
+## The artefact theory is dead on independent evidence
+
+Of **3,757** incentive enrolment rows, **3,632 (96.7%) have `ACTION_DATE = CREATION_DATE`**. 121 are
+back-dated (median 18 days, max 102); 4 run ahead of creation (median 91, max 204). The field is
+editable in principle and almost never edited. The 42 were never going to be explained by date edits.
+
+## 🔴 A correction to what I said one message earlier
+
+I claimed `USER_WHO_LAST_MODIFIED` would make an edited enrolment row identifiable. **It does not.**
+It is populated on **100% of rows in every bucket** — all 3,632 same-day rows included — so it is
+stamped at creation, not only at modification. It carries no information about editing, and no
+mutation check can be built on it. **Whether the enrolment trail is mutable stays unanswerable from
+the warehouse**, which leaves explanation 1 (delete-and-recreate) neither confirmed nor excluded.
+
+Written up as trap 22: *before using a provenance column as evidence, check its fill rate on rows you
+know were never touched.* This is the second column in one day that looked like an audit trail and
+was not.
+
+## What is still open on the 42
+
+- **F2** — did they come through the batch or the manual `AAI - 01` route? The batch stamps one
+  configured service account on every note, so a different `REQUESTED_BY` is the discriminator.
+  `REQUESTED_BY` / `APPROVED_BY` are on the notes view; `USER_WHO_CREATED_NOTE` is not (it is on the
+  action-logs view — my first F2 referenced the wrong table).
+- **F5** — the gap profile and the repeat-maid concentration, recomputed on `CREATION_DATE`. The
+  "12 maids, 44 notes, median 49 days" figures in this file were measured on `ACTION_DATE` and are
+  **superseded pending F5**.
+- **F3** — blocked. `HousemaidExtraFields` is not in the warehouse, so the Abu Dhabi route can be
+  neither confirmed nor excluded. A named ingestion ask, like the raffle tables.

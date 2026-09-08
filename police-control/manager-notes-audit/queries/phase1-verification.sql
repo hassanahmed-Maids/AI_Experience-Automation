@@ -497,3 +497,80 @@ ORDER BY ORDINAL_POSITION;
 --     lastAbuDhabiIncentiveProcessedDate) is not in the warehouse, so the Abu Dhabi route
 --     cannot be confirmed or excluded from data. Same shape as the raffle tables in group F:
 --     BLOCKED on a named ingestion, not on a business owner.
+
+-- F1b/F1c RESULTS 2026-09-08 (12 months, 9,167 anti-attrition notes):
+--   B1  no enrolment row at all ............ 11
+--   B1b by ACTION_DATE ..................... 53   AED 11,419
+--   B1b by CREATION_DATE ................... 42   AED  9,019   <- the real number
+--   cleared by using the right column ...... 11
+--   The 42 are a strict subset of the 53 — the fix clears cases, it creates none.
+--   F1c: of 3,757 incentive enrolment rows, 3,632 (96.7%) have ACTION_DATE = CREATION_DATE,
+--   121 back-dated (median 18d, max 102), 4 ahead (median 91d, max 204).
+--   🔴 USER_WHO_LAST_MODIFIED is populated on 100% of rows in EVERY bucket, same-day included.
+--   It is stamped on create, not only on edit — it cannot identify an edited row. Do not
+--   build a mutation check on it.
+
+-- F2. Did the 42 come through the batch, or through the manual AAI - 01 expense route?
+--     The notes view exposes REQUESTED_BY / APPROVED_BY (TEXT, empty-string sentinels) —
+--     USER_WHO_CREATED_NOTE is on the action-logs view, not here.
+--     Returns counts against the modal requester without naming anyone: the batch stamps one
+--     configured service account on every note, so "modal" IS the batch.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), enrol AS (
+    SELECT HOUSEMAID_ID, MIN(CREATION_DATE)::DATE AS first_created
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
+    GROUP BY 1
+), flagged AS (
+    SELECT p.*, IFF(e.first_created > p.note_day, 1, 0) AS is_b1b,
+           NULLIF(TRIM(p.REQUESTED_BY), '') AS req
+    FROM paid p LEFT JOIN enrol e ON e.HOUSEMAID_ID = p.HOUSEMAID_ID
+), modal AS (
+    SELECT req FROM flagged WHERE req IS NOT NULL
+    GROUP BY req ORDER BY COUNT(*) DESC LIMIT 1
+)
+SELECT COUNT(*)                                                       AS all_notes,
+       COUNT_IF(f.req = m.req)                                        AS all_from_modal_requester,
+       COUNT_IF(f.req IS NULL)                                        AS all_no_requester,
+       COUNT(DISTINCT IFF(f.req <> m.req, f.req, NULL))               AS other_requesters_distinct,
+       SUM(f.is_b1b)                                                  AS b1b_notes,
+       COUNT_IF(f.is_b1b = 1 AND f.req = m.req)                       AS b1b_from_modal_requester,
+       COUNT_IF(f.is_b1b = 1 AND f.req IS NOT NULL AND f.req <> m.req) AS b1b_from_other_requester,
+       COUNT_IF(f.is_b1b = 1 AND f.req IS NULL)                       AS b1b_no_requester
+FROM flagged f CROSS JOIN modal m;
+
+-- F5. The 42 re-characterised against CREATION_DATE. Aggregates only, no identifiers —
+--     this replaces the gap profile in the run report, which was measured on ACTION_DATE.
+WITH paid AS (
+    SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
+), enrol AS (
+    SELECT HOUSEMAID_ID, MIN(CREATION_DATE)::DATE AS first_created
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS
+    WHERE ACTION_TYPE ILIKE '%Incentive%Experiment%'
+    GROUP BY 1
+), b1b AS (
+    SELECT p.HOUSEMAID_ID, p.AMOUNT,
+           DATEDIFF('day', p.note_day, e.first_created) AS gap_days
+    FROM paid p JOIN enrol e ON e.HOUSEMAID_ID = p.HOUSEMAID_ID
+    WHERE e.first_created > p.note_day
+)
+SELECT COUNT(*)                        AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)    AS maids,
+       ROUND(SUM(AMOUNT))              AS aed,
+       MEDIAN(gap_days)                AS median_gap_days,
+       MAX(gap_days)                   AS max_gap_days,
+       COUNT_IF(gap_days <= 3)         AS within_3_days,
+       COUNT_IF(gap_days >= 30)        AS at_least_30_days,
+       COUNT_IF(gap_days >= 90)        AS at_least_90_days,
+       (SELECT COUNT(*) FROM (SELECT HOUSEMAID_ID FROM b1b GROUP BY 1 HAVING COUNT(*) > 1))
+                                       AS maids_paid_more_than_once
+FROM b1b;

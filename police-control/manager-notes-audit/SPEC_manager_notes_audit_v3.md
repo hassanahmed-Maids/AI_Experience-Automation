@@ -569,11 +569,30 @@ a good one. And `MaidManagerActionLogService.correctIncentiveHistoricalData` re-
 (`extractIncentiveAmountFromNote`) **and saves without re-validating**. A back-fill utility sets the
 number driving AED 1.83m a year, from prose.
 
-**What this changes in the audit.** B1b's 53 are downgraded from a payment finding to a **column
-finding plus a population to re-test** — pending F1–F3, they are AMBER, not RED. Three findings stand
-regardless, and none of them needed the 53: enrolment is not re-checked at payment, the amount is not
-re-checked at payment, and the field the trail rests on is user-editable. **Trap 19: a date column is
-not a timestamp until the code that writes it says so.**
+**Re-tested 2026-09-08 — 🔴 42 survive, AED 9,019.** F1b ran B1b against `CREATION_DATE`, the column
+the paying code orders enrolments by. **The right column clears 11 of the 53 and leaves 42**, a strict
+subset — the correction removes cases, it invents none. B1b is **RED at 42 notes / AED 9,019**, and
+the semantic doubt that hung over the 53 is now closed rather than open, which makes the smaller
+number the stronger finding.
+
+F1c settles it independently: of **3,757** incentive enrolment rows, **3,632 (96.7%) carry
+`ACTION_DATE = CREATION_DATE`**; 121 are back-dated (median 18 days, max 102) and 4 run ahead. The
+column is editable in principle and barely edited in practice, so the 42 were never going to be a
+date-editing artefact.
+
+🔴 **`USER_WHO_LAST_MODIFIED` cannot detect an edit.** It is populated on **100% of rows in every
+bucket, same-day rows included** — stamped on create, not only on update. **No mutation check may be
+built on it**, and the "is the trail mutable" question stays unanswerable from the warehouse.
+
+**B1 — no enrolment row at all — is 11 notes.** Those are the population F2 discriminates: the batch
+stamps one configured service account on every note it makes, so a different `REQUESTED_BY` means the
+manual `AAI - 01` route, where no enrolment check exists on any path.
+
+**What this changes in the audit.** Three findings stand that never needed the 42: enrolment is not
+re-checked at payment, the amount is not re-checked at payment, and the field the audit trail rests on
+is user-editable. **Trap 19: a date column is not a timestamp until the code that writes it says so —
+and the correction is worth running even when it costs you cases, because 42 with the doubt closed
+beats 53 with it open.**
 
 #### N14 — Payment type → allowed expense heads
 🟢 **ANSWERED 2026-09-08 — from code and confirmed in data. This is no longer a business ask.**
