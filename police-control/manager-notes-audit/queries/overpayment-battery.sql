@@ -692,3 +692,30 @@ SELECT CASE
 FROM pairs
 GROUP BY 1
 ORDER BY aed DESC;
+
+-- O4b/O4c RESULTS 2026-09-08 — 🔴 A NULL RESULT, AND THE BASELINE CAUGHT IT BEFORE PUBLICATION.
+--   980 dispute notes · AED 385,984
+--     with a complaint in the band ... 890 (90.8%)
+--     chance ......................... 821.5 (83.8%)
+--     🔴 TIMES_CHANCE ................ 1.08
+--   THE TEST HAS NO POWER ON THIS TYPE. These maids complain often enough that a complaint in
+--   any 38-day band is near-certain, so corroboration cannot distinguish a justified dispute
+--   from an unjustified one.
+--   Both framings would have been wrong:
+--     "90.8% of salary disputes are corroborated"  -> reads as strong validation. It is 1.08x.
+--     "9.2% have no complaint, AED 31,200"          -> reads as a finding. Chance predicts 16.2%
+--                                                      WITHOUT one, so the observed rate is
+--                                                      BETTER than chance, not worse.
+--   O4c: only 5 notes / AED 1,592 have no complaint anywhere in the maid's history. At this
+--   density that is the tail of the distribution, not a population.
+--
+-- 🟢 METHODOLOGICAL RULE: a corroborator that is near-ubiquitous cannot corroborate. Before
+--   building a corroboration test, measure the corroborator's BASE RATE in the population. If
+--   chance already exceeds ~70%, no window and no threshold will give the test power — abandon
+--   it rather than tune it.
+--
+-- 🟢 SALARY DISPUTE DOES NOT NEED THIS TEST. It is the most gated type in the audit: 1,073 of
+--   1,084 notes carry an exact FK to an EXPENSE REQUEST, and every one of those is PAID. O1
+--   already measured note against request and found AED 1,213 of disagreement across 3 notes.
+--   The approval trail IS the entitlement evidence, and it is stronger than any complaint
+--   proxy. The type closes on evidence already gathered.

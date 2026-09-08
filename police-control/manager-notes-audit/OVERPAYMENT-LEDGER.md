@@ -54,6 +54,11 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
+- 🟢 **AED 385,984 of Salary Dispute — on its approval trail, not on complaints.** 1,073 of 1,084
+  notes carry an exact FK to an expense request and every one is PAID; O1 found AED 1,213 of
+  disagreement across 3 notes. The complaint test was run and scored **1.08× chance** — no power,
+  because 83.8% would hit by coincidence. **The approval gate is the entitlement evidence, and it is
+  stronger than any complaint proxy.**
 - 🟢 **AED 13,616 of Last Day CC Switch Adjustment — the entire type, and the cleanest in the
   audit.** 213 of 213 notes dated month-end as the rule requires, and 213 of 213 matched to a CC→MV
   switch **on the note date itself** (LD1, LD3).
