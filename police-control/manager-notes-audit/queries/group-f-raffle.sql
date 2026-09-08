@@ -142,3 +142,34 @@ ORDER BY aed DESC;
 --     🔴 TERMINATED BEFORE THE DRAW ... 15 wins ·  13 maids · AED   3,000 · median 558 DAYS
 --     Eighteen months gone, and still drawn. Unlike R2 this needs no interpretation: a prize
 --     paid to someone who left is money out with nobody entitled to it.
+
+-- R3b. The same bias test on NATIONALITY. Added after R2 showed the draw is not uniform:
+--   once weighting is established, the useful question is WHAT it is weighted toward, and
+--   contract type is only one axis. Same proxy pool, same caveat — a gap is a question.
+WITH pool AS (
+    SELECT COALESCE(h.NATIONALITY, '(unknown)') AS nationality,
+           COUNT(DISTINCT n.HOUSEMAID_ID)       AS maids_in_pool
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION'
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+    GROUP BY 1
+), winners AS (
+    SELECT COALESCE(h.NATIONALITY, '(unknown)') AS nationality,
+           COUNT(*) AS wins, ROUND(SUM(n.AMOUNT)) AS aed
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Raffle Prize'
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND n.NOTE_DATE <= CURRENT_DATE()
+    GROUP BY 1
+)
+SELECT p.nationality, p.maids_in_pool,
+       ROUND(100.0 * p.maids_in_pool / SUM(p.maids_in_pool) OVER (), 1)       AS pct_of_pool,
+       COALESCE(w.wins, 0)                                                    AS wins,
+       ROUND(100.0 * COALESCE(w.wins,0) / SUM(COALESCE(w.wins,0)) OVER (), 1) AS pct_of_wins,
+       ROUND( (100.0 * COALESCE(w.wins,0) / NULLIF(SUM(COALESCE(w.wins,0)) OVER (),0))
+            / NULLIF(100.0 * p.maids_in_pool / SUM(p.maids_in_pool) OVER (), 0), 2) AS times_expected,
+       COALESCE(w.aed, 0)                                                     AS aed
+FROM pool p LEFT JOIN winners w ON w.nationality = p.nationality
+WHERE p.maids_in_pool >= 20
+ORDER BY times_expected DESC NULLS LAST;
