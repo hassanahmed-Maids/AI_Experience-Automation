@@ -119,3 +119,76 @@ examined 8% of the money.**
 5. **78 notes** — August's airfare zeros. Bounded, dated, and worth a root cause.
 6. **185721** — confirm the AED 103 forgive-deduction note exists for July 11.
 7. **41 notes** — genuine duplicate candidates.
+
+---
+
+# Corroboration pass — adjudicated
+
+Run on complaint **taxonomy and dates only**. No complaint text was read, and none needs to be for
+this verdict.
+
+## 🔴 The chance baseline changed three of the four answers
+
+| Type | Band 1 of matched | *k* | Chance | **Lift** |
+|---|---:|---:|---:|---:|
+| Accommodation Relocation | 97% | 1.37 | 36.9% | **2.63×** |
+| Salary Dispute | 96% | 1.63 | 42.3% | **2.27×** |
+| Medical Assistance | 100% | 2.30 | 53.9% | 1.86× *(n=10)* |
+| **Taxi Reimbursement** | **89%** | **5.33** | **83.4%** | **1.06×** |
+
+**Taxi has the highest raw coupling rate and the weakest real signal.** Maids average **5.3**
+transport complaints in the window — `Taxi canceled` alone is a 9,490-complaint type — so one sits
+near the payment by chance 83% of the time. Unadjusted, a dashboard would read *"89% of taxi
+reimbursements corroborated"*. Adjusted, timing carries almost nothing. **For taxi, presence proves
+nothing; only absence is informative.**
+
+**Salary Dispute came in at 2.27× against the twelve-month benchmark of 2.33×.** The corroboration
+model reproduced itself on an independent month, which is the strongest evidence so far that this
+check is measuring something real.
+
+## 🔴 The map is wrong, and reading the cases is what found it
+
+Three complaint types appear in band 3 that plainly belong to the payment they sit under:
+
+| Complaint type seen | Should be expected for |
+|---|---|
+| `Switch Maid To Live-in` | Accommodation Relocation — the map has only *Live-out* |
+| `Renewal/Resignation Salary Raise` | Salary Dispute |
+| `Request bank details & Refund` | Salary Dispute |
+
+**Band 3 is therefore overstated.** Some of these 33 notes are corroborated by a complaint type the
+map does not list. Fix the map before any of this reaches an auditor, or the report opens cases that
+the evidence already answers.
+
+## The cases, worst first
+
+**🔴 Maid 97219 — two Medical Assistance payments, AED 900, three days apart, and not one complaint
+of any kind on her record.** Notes 186154 (AED 400, 08-28) and 186214 (AED 500, 08-31). Medical
+Assistance is the type where half of all payments carry `Maid is sick or injured` at 6.4× lift. This
+maid has nothing at all — no sickness, no appointment, no complaint. **She is also a duplicate
+candidate on the same pair.** Two independent checks fire on one maid: the strongest case in the
+month.
+
+**🔴 Note 185544 — Salary Dispute, maid 129946, AED 1,200, zero complaints.** The largest
+uncorroborated salary dispute, on a type that clears chance at 2.27×.
+
+**🔴 Note 186123 — Salary Dispute, maid 108732, AED 184 — fails two checks.** Its free text is a URL
+and nothing else *(no working shown)*, and the maid has **24 complaints in the window, none about
+salary**. Small money, but it is the clearest example of a payment with neither an explanation nor a
+corroborating record.
+
+**Accommodation Relocation is a flat AED 800** — six of six non-zero notes. That makes a ceiling check
+available immediately, with no ingestion needed. **Four of the seven band-3 cases carry
+resignation-family complaints** (`Maid Wants To Resign`, `does not want to work with client`) rather
+than accommodation ones — which raises a question the audit was not designed to ask: *are maids being
+relocated as a retention measure?* If so the payment is real and the map is simply pointing at the
+wrong evidence.
+
+**Two more zero-amount notes**, in types nobody was looking at: 185767 (Accommodation, AED 0, on a
+maid with 27 complaints) and 185522 (Salary Dispute, AED 0). Together with August's 78 airfare zeros
+and note 185724's *"paid manually"*, zero-value notes are now a pattern across four payment types,
+not an airfare quirk.
+
+**Taxi's eleven are reported but not pursued** — at 1.06× the type cannot support an absence finding
+this month. Worth one observation: **six of the eleven carry `Maid cash advance`**, which may be the
+same journey recorded under a different heading.
