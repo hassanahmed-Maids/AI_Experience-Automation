@@ -764,3 +764,80 @@ WHERE (TABLE_NAME ILIKE '%LOAN%' OR TABLE_NAME ILIKE '%DEDUCT%'
     OR TABLE_NAME ILIKE '%INSTALL%' OR TABLE_NAME ILIKE '%REPAY%')
 GROUP BY 1, 2
 ORDER BY 1, 2;
+
+
+-- =====================================================================================
+-- ROUND 6 — TF16 IS VOID (as designed), and TF17 found that the metric already exists,
+-- approved, in the gold layer. That changes what may be published.
+--
+-- TF16 ⚪ VOID, NOT NEGATIVE — THE POSITIVE CONTROL DID NOT LIGHT UP. Accommodation
+--      Relocation books a loan on 65 of 66 notes, and **all 65 show NOTHING taken back**:
+--      aed_deducted_total = 0. If the known-good population shows no recovery either, then
+--      deduction notes are NOT the recovery mechanism and this test cannot score anything.
+--      Reported as void. Had the control been left out, "AED 30,220 never recovered" would
+--      have read as a finding and every figure in it would have been an artifact of looking
+--      in the wrong table -- the same shape as TF4's zero join matches.
+--      (One detail kept for later: 5 WPS notes DO have later DEDUCTION rows, and they sum to
+--      AED 0. Zero-amount deduction notes, which is the V8/V9 zero-amount thread, not this one.)
+--
+-- TF17 🔴 STOP — THE METRIC IS ALREADY AN APPROVED KPI AND I RECONSTRUCTED IT BY HAND.
+--      HOUSEMAID_MANAGEMENT_GOLD carries:
+--        BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY
+--            -> ADDITION_COUNT, ADDITION_AMOUNT, ADDITION_LOAN_AMOUNT,
+--               LOAN_PERCENTAGE_OF_ADDITIONS, by ADDITION_CATEGORY and SUBJECT_MONTH.
+--               This IS TF14's question, already modelled.
+--        BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS
+--            -> MAIDS_WITH_OUTSTANDING_BALANCE, actual vs POSSIBLE_DEDUCTION_DENOMINATOR.
+--               This IS TF16's question -- recovery -- already modelled.
+--        BI_MEDICAL_LOANS -> per-maid medical loans with STATUS and LOAN_AMOUNT.
+--
+--      ⚠️ TF14's 3.4% and 4.3% are therefore an UNVERIFIED AD HOC RECONSTRUCTION of an
+--      approved KPI, not the KPI. They must not be published as the loan rate. The approved
+--      definition is the one that governs; the view's own logic IS that definition, so the
+--      correct move is to READ THE VIEW rather than re-derive it.
+--      ⚠️ BI_MEDICAL_LOANS carries HOUSEMAID_NAME and REQUESTED_BY. Aggregate only --
+--      no personal data leaves these queries.
+-- =====================================================================================
+
+
+-- TF18. 🟡 REQUIRED BEFORE ANY LOAN FIGURE IS PUBLISHED. Find the approved definition for
+--       the loan-vs-additions and loan-deduction KPIs in the catalog, so the audit quotes
+--       the sanctioned logic and its filters rather than my hand-built version of it.
+SELECT *
+FROM BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER
+WHERE LOWER(CONCAT_WS(' ', *)) LIKE ANY ('%loan%', '%deduction%', '%addition%')
+ORDER BY 1;
+
+
+-- TF19. 🔴 TF14's QUESTION, ASKED OF THE APPROVED VIEW INSTEAD OF REBUILT BY HAND.
+--       If the approved loan percentage for the medical and WPS categories matches the
+--       3.4% / 4.3% TF14 computed, the finding stands on sanctioned logic. If it differs,
+--       the approved number wins and TF14's is retracted.
+SELECT SUBJECT_MONTH,
+       MAID_TYPE,
+       PAYMENT_METHOD,
+       ADDITION_CATEGORY,
+       ADDITION_COUNT,
+       ADDITION_AMOUNT,
+       ADDITION_LOAN_AMOUNT,
+       LOAN_PERCENTAGE_OF_ADDITIONS
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY
+WHERE SUBJECT_MONTH >= DATEADD('month', -12, CURRENT_DATE())
+ORDER BY SUBJECT_MONTH DESC, ADDITION_AMOUNT DESC;
+
+
+-- TF20. 🔴 TF16's QUESTION — RECOVERY — ASKED OF THE APPROVED VIEW. Deduction notes were
+--       the wrong place to look; this view models actual deductions against what COULD have
+--       been deducted, with the outstanding balance beside it. That is the real answer to
+--       "was the advance ever taken back", and it is somebody's sanctioned metric already.
+SELECT SUBJECT_MONTH,
+       MAID_TYPE,
+       METRIC_NAME,
+       MAIDS_WITH_OUTSTANDING_BALANCE,
+       METRIC_AMOUNT,
+       PERCENTAGE,
+       TOTAL_LOANS_DENOMINATOR,
+       POSSIBLE_DEDUCTION_DENOMINATOR
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_GOLD.BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS
+WHERE SUBJECT_MONTH >= DATEADD('month', -12, CURRENT_DATE())
+ORDER BY SUBJECT_MONTH DESC, METRIC_SORT;
