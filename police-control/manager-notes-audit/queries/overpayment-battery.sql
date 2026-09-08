@@ -475,3 +475,57 @@ ORDER BY aed_OVER DESC;
 --   overlapping populations measured two ways. O8's figure is the defensible one — it is
 --   validated by 466 maids matching their entitlement to the penny. O10's same-day pattern is
 --   CORROBORATION of the same problem, not additional money.
+
+-- O9 RESULT 2026-09-08 — AED 849,316 of bonus, resolved from the referral side:
+--   matched to a referral-bonus record ..... 571 notes · 507 maids · AED 494,700 · avg 866
+--   🔴 no referral-bonus record at all ..... 537 notes · 462 maids · AED 337,116 · avg 628
+--   ⚠️ referrer has bonuses, none this date   22 notes ·  22 maids · AED  16,500 · avg 750
+--   referral bonus same day, other amount ..   1 note                · AED   1,000
+--   Larger than O8's 407 / AED 251,721 because O9 requires a bonus PAYMENT record, not just a
+--   referral. The average differs sharply (628 vs 866), so the unmatched group is a different
+--   population rather than noise — consistent with signing bonuses, which is not a verdict.
+
+-- O11. 🔴 THE DECISIVE TEST ON AED 337,116. A SIGNING bonus is paid to a maid near her OWN
+--   start; a REFERRAL bonus is paid to an established maid for bringing someone else. So the
+--   distance from each unmatched note to that maid's own start date separates them without
+--   PURPOSE_ID and without any reference list.
+--   ⚠️ H6: START_DATE bottoms out at 1970-01-01 for unknown. Epoch-zero is BLOCKED, never
+--   treated as a real date — service arithmetic on it returns a confident wrong answer.
+WITH bonus AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
+), rb AS (
+    SELECT l.HOUSEMAID_ID AS referrer_id, b.PAYROLL_NOTE_DATE::DATE AS rb_day, b.BONUS_AMOUNT AS rb_amount
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_BONUSES b
+    JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS l
+      ON l.REFERRED_MAID_ID = b.REFERRED_HOUSEMAID_ID
+    WHERE b.PAYROLL_NOTE_DATE IS NOT NULL AND l.HOUSEMAID_ID IS NOT NULL
+), per_note AS (
+    SELECT n.note_id, n.HOUSEMAID_ID, n.note_day, n.AMOUNT,
+           MAX(IFF(r.referrer_id IS NOT NULL, 1, 0)) AS referrer_has_any,
+           MAX(IFF(ABS(DATEDIFF('day', r.rb_day, n.note_day)) <= 1, 1, 0)) AS same_day
+    FROM bonus n
+    LEFT JOIN rb r ON r.referrer_id = n.HOUSEMAID_ID
+    GROUP BY 1, 2, 3, 4
+), unmatched AS (
+    SELECT * FROM per_note WHERE referrer_has_any = 0 AND same_day = 0
+)
+SELECT CASE
+         WHEN h.START_DATE IS NULL
+           OR h.START_DATE < '1971-01-01'                          THEN 'BLOCKED — start date is epoch-zero (H6)'
+         WHEN DATEDIFF('day', h.START_DATE, u.note_day) < -30      THEN '🔴 paid BEFORE she started'
+         WHEN DATEDIFF('day', h.START_DATE, u.note_day) <= 180     THEN '🟢 within 6 months of her own start — signing bonus'
+         WHEN DATEDIFF('day', h.START_DATE, u.note_day) <= 365     THEN '⚠️ 6–12 months after her start'
+         ELSE                                                           '🔴 over a year in, and no referral — UNJUSTIFIED candidate'
+       END                                     AS reading,
+       COUNT(*)                                AS bonus_notes,
+       COUNT(DISTINCT u.HOUSEMAID_ID)          AS maids,
+       ROUND(SUM(u.AMOUNT))                    AS aed,
+       ROUND(AVG(u.AMOUNT))                    AS avg_bonus,
+       ROUND(MEDIAN(DATEDIFF('day', h.START_DATE, u.note_day))) AS median_days_after_start
+FROM unmatched u
+LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = u.HOUSEMAID_ID
+GROUP BY 1
+ORDER BY aed DESC;

@@ -32,7 +32,8 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Population | AED | What would settle it |
 |---|---:|---|
 | Bonus with a referral but no bonus request | 70,895 | Whether `IS_REQUESTED_BONUS` is reliably set |
-| Bonus with no referral at all | 251,721 | **O9** — matches from the referral side, no `PURPOSE_ID` needed |
+| Bonus with no referral-bonus record | **337,116** | **O11** — distance to the maid's own start date separates a signing bonus from an unjustified one |
+| Bonus where the referrer has bonuses but none on that date | 16,500 | O9 flagged it; needs the same start-date cut |
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | Raffle: 17 same-amount wins inside 31 days | 3,400 | The raffle tables (N12). **A random draw should not repeat like this** |
 | Raffle Prize | 180,000 | The five raffle tables (N12) — **48 winners every month for 12 months** |
