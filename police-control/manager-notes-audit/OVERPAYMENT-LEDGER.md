@@ -43,7 +43,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Bonus, 6–12 months into service, no referral | 42,900 | Between the signing profile (avg 500) and the referral one (866) at avg 596 — genuinely ambiguous |
 | Bonus where the referrer has bonuses but none on that date | 16,500 | O9 flagged it; needs the same start-date cut |
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
-| 🔴 **Raffle: the draw is not uniform** | 180,000 *(the whole type)* | **N12.** 88 repeat winners against 21.5 expected — **4.09× chance on the tightest pool**, 26× for triple-winners, one maid with 5 wins. `RaffleDrawParticipant.points` means a **weighted** draw is plausible and repeat winners would then be by design. **The ingestion is what separates a documented weighting from an unexplained one** |
+| ⚠️ **Raffle: is the entrant list ~1,400 or ~6,700?** | 180,000 *(the whole type)* | **One number, not an ingestion.** 88 repeat winners is **1.02× chance** for a pool of 1,400 and **4.09×** for 6,738. R3 shows MAID_VISA wins at 0.29× its share and three nationalities never win, so the real pool is far smaller than the paid population. **If the draw enters ~1,400 maids, group F is clean.** *(An earlier version of this row called the draw non-uniform on the 6,738 figure — retracted.)* |
 | Raffle Prize | 180,000 | The five raffle tables (N12) — **48 winners every month for 12 months** |
 | MV prorated paid twice to 3 maids | 1,245 | Whether each had two pre-collected contracts terminate |
 

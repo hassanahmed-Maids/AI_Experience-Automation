@@ -173,3 +173,32 @@ SELECT p.nationality, p.maids_in_pool,
 FROM pool p LEFT JOIN winners w ON w.nationality = p.nationality
 WHERE p.maids_in_pool >= 20
 ORDER BY times_expected DESC NULLS LAST;
+
+-- R1/R3/R3b RESULTS 2026-09-08 — 🔴 THESE RETRACT R2's HEADLINE.
+--   R1: the structure is rigid and by design. EVERY month: 48 wins, 48 DISTINCT winners (no
+--   maid twice in one draw), ONE draw day (the 10th, bar Mar 18 / Jun 12 / Aug 11), two
+--   amounts (200 and 2,000), AED 15,000 exactly. Solving 200a + 2000b = 15000 with a+b = 48
+--   gives a=45, b=3: 🟢 45 prizes of 200 and 3 grand prizes of 2,000, every month.
+--   R3, wins vs share of the paid-maid pool:
+--     WALKIN ...........   51 maids (0.8%) ·  30 wins ( 5.2%) · 6.88x
+--     FREEDOM_OPERATOR .  811 maids (12.0%) · 231 wins (40.1%) · 3.33x
+--     Normal ........... 3,506 maids (52.0%) · 257 wins (44.6%) · 0.86x
+--     MAID_VISA ........ 2,370 maids (35.2%) ·  58 wins (10.1%) · 0.29x
+--   R3b: Ethiopian 2.56x · Ugandan 1.45x · Filipina 0.77x · Kenyan 0.51x · Indian 0.13x ·
+--        Nepali / Sri Lankan / Zimbabwean 0.00x (no wins at all)
+--
+-- 🔴 RETRACTION. R2 reported the draw as 4.09x chance and "not uniform". That figure came
+--   entirely from pool A = 6,738 paid maids. R3 shows that pool is WRONG: MAID_VISA wins at
+--   0.29x its share and three nationalities never win at all, so large groups are not in the
+--   draw. Solving for the pool that makes 88 repeats the CHANCE outcome:
+--     pool 1,400 -> 86.5 expected -> 1.02x     pool 2,500 -> 53.5 -> 1.64x
+--     pool 1,500 -> 81.9 expected -> 1.07x     pool 6,738 -> 21.5 -> 4.09x
+--   🟢 THE DRAW BEHAVES LIKE A UNIFORM DRAW FROM ABOUT 1,400 MAIDS. Nothing in the data
+--   suggests it is rigged; it suggests the eligible population is roughly a fifth of the
+--   maids who get paid. This is trap 17 — a rate without its chance baseline — firing on a
+--   test written to avoid trap 17, because the baseline used the wrong denominator.
+--
+-- 🟢 N12, RE-PRICED AGAIN, AND NOW IT IS ONE NUMBER: **how many maids are entered in each
+--   monthly draw?** If it is ~1,400, group F is clean and needs nothing further. If it is
+--   ~6,700, the repeat rate is 4x chance and the draw needs explaining. One figure settles
+--   AED 180,000, and it does not require the five tables — only the entrant count.
