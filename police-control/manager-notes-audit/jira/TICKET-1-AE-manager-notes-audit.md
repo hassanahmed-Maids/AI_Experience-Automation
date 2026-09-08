@@ -3,6 +3,8 @@
 **Issue type:** `Analytic Engineer Task` *(file it as this, not "New Request")*
 **Project:** DNA · **Routing:** Analytics Engineering — Belal Alsayed
 **Summary:** `Manager notes audit — model the ten Police & Control metrics at note grain in silver/gold`
+**Revised 2026-09-08** — spec v3. Row-level results now exist for part of this (see *Verification note*),
+and they changed the logic in eight places. Everything below reflects that.
 
 ---
 
@@ -97,18 +99,51 @@ live addition categories absent from the attachment's list, and that profile is 
 
 **Column inventories, types, profiled ranges and the model SQL: attached source-tables doc.**
 
-### Verification note
+### Verification note — 🔴 **changed 2026-09-08, read this before pricing the work**
 
-Table, column, type and enum claims come from the Snowflake catalog and the ERP source code. **None
-has been confirmed against rows** — an access limitation on our side meant no row-level query could
-run (**DNA-9437**). What exists is known; where exactly it lands and how populated it is, is not.
-*Done when* 1, 2 and 8 close that out.
+The earlier version of this ticket said *no claim here has been confirmed against rows*. **That is no
+longer true for part of it.** Fourteen row-level queries have since run against `BA_VIEWS`, and the
+results **changed the logic in eight places and withdrew two claims** the spec previously made
+confidently. The facts below are now measured, not inferred:
+
+| Measured | Value |
+| --- | --- |
+| `anti_attrition_incentive` volume | **9,167 notes / 12 months, AED 1,829,735** — ~59% of the audited population by count, 29% by money |
+| Its amount space | 67% flat tier · 30% prorated · **0.4% unexplained**; buckets reconcile to the note and the dirham |
+| Enrolment reason box (`HOUSEMAID_MANAGERACTIONLOGS.NOTES`) | **100% filled, 96% distinct values, median 43 chars** — the group B check is viable |
+| Segregation of duties, 10 human types | **1,170 self-approved (AED 244,730)** · **7,147 with neither name (AED 2,864,088)** all-time, **862 (AED 613,759)** in 12 months |
+| Attribution over time | `Bonus` **2.2% → 85.4% → 48.2%** unattributed; `Taxi Reimbursement` **0% across 36 months** |
+| Batch behaviour | The monthly job's run days are **observable**; August's ran on **2026-09-01**, not 08-31 |
+
+**Still unverified:** everything not in that table — most of §2's column-level claims, freshness, and
+the `EXPENSES_REQUESTS` join, which remains ungranted. *Done when* 1, 2 and 8 still close those out.
+
+⚠️ **The access limitation (DNA-9437) is not resolved** — these ran on a separate ad-hoc route, one
+query at a time, and are not a substitute for the grant. The point is that where numbers exist below,
+they are real.
 
 ### Two things that will silently produce wrong numbers
 
 **`PAID = true` is not "was paid".** For most routine additions the ERP writes neither `PAID` nor
 `PAID_ON_PAYROLL_MONTH`. **Scoping the population on it drops the majority of notes and the month
 reports clean.** The audit month resolves in three branches instead — source-tables doc §5.
+
+**🔴 `NOTE_DATE` carries a time, so cast before any date equality.**
+`NOTE_DATE = LAST_DAY(NOTE_DATE)` compares a timestamp against midnight and is **false for every
+row** — it returns a clean, plausible, entirely meaningless result. A batch-vs-manual split written
+this way put **3,728 of 3,728 notes on one side** and looked correct. Always `NOTE_DATE::DATE`.
+
+**🔴 A job's run days are observed, never assumed.** The anti-attrition batch ran on **2026-09-01**,
+not the last day of August — 918 notes, the largest run in the series. Any rule that identifies
+machine-created notes by "the last calendar day of the month" misfiles all of them. Derive run days
+from the data (`GROUP BY NOTE_DATE::DATE HAVING COUNT(*) > n`), which reproduced the known
+hand-added population **to the note**.
+
+**🔴 Machine-created notes have no requester or approver, by design.** A rule that reds an addition
+for carrying neither name will fire on them: of 862 such notes in twelve months, **850 are `Bonus`**,
+whose retraction half is written by `DelighterService`. Determine origin **per payment type from the
+data** — a type's attributed notes are a control group for its unattributed ones — and return
+BLOCKED where origin is unresolved. Never RED off a hardcoded "human types" list.
 
 **There is no key from a note to the expense payment.** The match is a heuristic on
 `RELATED_TO_ID = note.HOUSEMAID_ID` — the key DNA-9464 adopted, so it is production-validated — and
@@ -124,9 +159,16 @@ Routes: attachment §9 and §11. **Amber is a result this report publishes, not 
 
 ### Two things that need a decision, not engineering
 
-**The loyalty payment has no rule anywhere in the company** — `anti_attrition_incentive`'s only
-reference in the ERP is a payment-routing list. It is the largest single category of unverifiable
-money. Either a rule gets written, or the report says so every month.
+**~~The loyalty payment has no rule anywhere in the company~~ — 🔴 superseded 2026-09-08.** It has
+one, and this is the biggest single change in the revision. `anti_attrition_incentive` is **59% of
+the audited population by count**, and it now carries **eight tests, six of them Phase 1** (spec v3,
+group B). Four candidate checks were tried and closed off by data — the complaint corroboration
+scores **1.00× chance, i.e. zero signal**; the enrolment-exists test passes 1,000 times in 1,001;
+`AMOUNT = tier` cannot be written because 30% of notes are prorated over two divisors. What replaced
+them: **an enrolment must pre-date the payment it justifies** (found a case on its first run), and
+**an agent reads the enrolment reason box** — which is 100% filled and 96% distinct, so it carries
+real content. What remains for the business is narrower and sharper: *should enrolment require a
+categorised reason, as the sibling retraction bonus already does?*
 
 **Three reference mappings do not exist** — payment type → allowed expense heads, contract type →
 allowed payment types, and which types always carry an expense record. Business rules, not data;
@@ -151,9 +193,10 @@ types the note amount **is** a salary figure: the model carries it, the dashboar
 
 | File | What it is |
 | --- | --- |
-| **`DNA_ATTACHMENT_source_tables.md`** | **Start here.** Data points with types and profiled ranges, the two link routes, the ERP rules, the payment-type codes, a fifteen-row trap table, the outstanding checks — and **§11, the business rules from payroll**, which override the code in two places |
+| **`DNA_ATTACHMENT_source_tables.md`** | **Start here.** Data points with types and profiled ranges, the two link routes, the ERP rules, the payment-type codes, an eighteen-row trap table, the outstanding checks — and **§11, the business rules from payroll**, which override the code in two places |
 | **`SPEC_manager_notes_audit_DEV.md`** | The full logic — population, audit-month resolution, test battery, verdict algebra, group rules, metrics, run guards |
-| **`SPEC_manager_notes_audit_v2.md`** | Long-form, reasoning behind every rule. Not needed to start |
+| **`SPEC_manager_notes_audit_v3.md`** | Long-form, reasoning behind every rule, and the eight places live data changed it. Not needed to start. Browsable version: `spec-reader-v3.html` |
+| `SPEC_manager_notes_audit_v2.md` | The previous version, kept for diffing. **Do not build from it** — its S1 numbers are wrong by two orders of magnitude |
 
 ### Not a duplicate
 
@@ -197,3 +240,22 @@ That reports what was added, by category. This audits whether each addition was 
 12. **Loan-paired types tie out.** For the loan-paired categories, `addition_amount = loan_amount`;
     every deviation is a row in the output, not a rounding note.
 13. **History reaches back to 2024-01-01.**
+14. 🔴 **Every metric is windowed.** No metric spans the whole table while its neighbours are monthly.
+    The segregation check in particular: un-windowed it reports **AED 2.86m**, of which **79% predates
+    twelve months** — a mostly-closed historical backlog rendered as this month's work. Windowed, the
+    same check reports AED 613,759.
+15. 🔴 **No date equality against an uncast `NOTE_DATE`.** Zero occurrences of `NOTE_DATE =` where the
+    right side is a `DATE`; every such comparison casts `NOTE_DATE::DATE` first.
+16. 🔴 **Machine origin is measured, not listed.** No test reds a note for missing attribution unless
+    that payment type is *measurably* human-created from its own note-date distribution. A hardcoded
+    "human types" list appearing in a verdict path fails this criterion.
+17. 🔴 **Every window-based test publishes its chance rate** beside its observed rate, computed per
+    subject from that subject's own record count — not from a cohort average, which is a Jensen trap
+    (estimating rather than measuring it produced 1.46× against a true 2.33× in a real case). A test
+    whose observed rate does not clear its chance rate is reported as **N_A**, not as a weak signal.
+18. 🔴 **Control-failure metrics carry a 24-month series**, not a single month's count. A point count
+    renders a control that broke (`Bonus`, 2.2% → 85.4% → 48.2%), a backlog being worked off
+    (`Salary Dispute`, 4,211 all-time → 12 in twelve months) and one that holds (`Taxi`, 0% across 36
+    months) as the same number — and only the first needs an owner this week.
+19. **Future-dated notes are rejected as a feed defect**, not carried as unverifiable cases. At least
+    one exists today.
