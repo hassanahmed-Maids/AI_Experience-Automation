@@ -1,0 +1,176 @@
+# Complaints as the corroboration layer — design
+
+**Date:** 2026-09-08 · **Evidence:** ERP interrogations 45948 + 45949 (all modules), warehouse
+metadata, and queries 1b / 5 / 5b over live data.
+
+The audit currently judges a payment against *records* — an expense, an enrolment, a draw. It does
+not look at what anyone **said**. Complaints hold that, and for several payment types they are the
+only place the justification exists at all.
+
+---
+
+## 1. The linkage reality: there is no foreign key
+
+**Confirmed across every module.** `PayrollManagerNote`, `ExpenseRequestTodo`, `EmployeeLoan` and
+`Expense` carry **no complaint column**. `processExpenseRequestTodo()` copies
+`Expense.salaryAdditionType` and `purposeAdditionalDescription` — never a complaint reference. The
+`ExpenseRelatedToType` enum is `MAID, APPLICANT, OFFICE_STAFF, TEAM, COMPANY, NOT_DETERMINED` —
+**there is no `COMPLAINT` value.**
+
+Three exceptions, and only three:
+
+| Path | Reaches a complaint | Covers |
+|---|---|---|
+| `PayrollManagerNote → MaidManagerWorkOrder → Replacement → Complaint` | **real FK** | replacement-driven **deductions** only — out of scope for additions |
+| `DelighterToDo.rbComplaint` (column `RB_COMPLAINT_ID`) | **real FK** | the resignation-retraction bonus — see §3 |
+| `comp;NNNNNN` / `open-complaint/NNNNNN` in the note free text | text reference | a handful of notes — see §2 |
+
+**So corroboration is a heuristic join: `HOUSEMAID_ID` + a date window + semantic match on the
+complaint type.** That is workable, but it means a missing complaint can only ever be an AMBER unless
+query 3 shows very high coverage for that type. Query 3 is still outstanding and is the gate on this
+whole design.
+
+## 2. How far the text references reach
+
+| Payment type | Notes | `comp;` | `open-complaint/` | mentions "complaint" |
+|---|---:|---:|---:|---:|
+| Salary Dispute | 1,084 | 6 | **108** | **143** |
+| Taxi Reimbursement | 498 | 0 | 23 | 27 |
+| Airfare Ticket | 1,647 | 9 | 9 | 18 |
+| Bonus | 1,205 | 1 | 9 | 13 |
+| MOHRE requirement additions | 82 | 1 | 3 | 13 |
+| **Anti-attrition Incentive** | **9,167** | **0** | **1** | **1** |
+| Raffle · Prorated · MV Prorated · Forgive · Office Work · Medical · Last-Day CC · Accommodation | — | **0** | **0** | **0** |
+
+**Where a `comp;` reference exists it is perfect: 18 of 18 resolved to a real complaint, and all 18 to
+the same maid.** 100% precision, near-zero recall. So use it as a **validation anchor** for the
+heuristic join — measure the heuristic's accuracy on the 18 notes where truth is known — never as the
+join itself.
+
+Salary Dispute is the type most linked to a conversation (13% of notes mention one), which fits: a
+dispute *starts* as a complaint. Everything machine-generated references nothing, as expected.
+
+## 3. 🔴 The finding: two retention mechanisms, and only one is evidenced
+
+This is the direct answer to *"an anti-attrition example should have entries in complaints stating the
+maid wants to leave and the reason."*
+
+### The resignation-retraction bonus — fully evidenced, end to end
+
+```
+Complaint (primaryType = Maid_Wants_To_Resign__c)
+   └── DelighterToDo.rbComplaint  ← REAL FK
+         taskName = CHECK_MAID_INSISTING_TO_RESIGN
+         resignationReason  ← A CATEGORISED PICKLIST  (yaya_dont_work_to_work_anymore_reasons)
+         maidResignationReason  ← free-text fallback
+   └── Complaint.initialDescription = "Resignation case - {reason name}"
+         │
+         └── POST /delighterToDo/retractResignation/{id}?retractMethod=ONE_TIME_BONUS
+               └── DelighterService.handleRetractDelighterWithOneTimeBonus
+                     └── addExpenseRequestForHousemaid(purposeAdditionalDescription = resignation_retraction)
+                           └── ManagerNoteService.processExpenseRequestTodo → the `bonus` note
+```
+
+**The categorised leave reason you asked for already exists** — `DelighterToDo.resignationReason`, a
+picklist. Every retraction bonus is traceable to a complaint, a todo, and a categorised reason.
+
+### The anti-attrition incentive — AED 1.83m a year, evidenced by a free-text box
+
+*(code-verified, conversation 45949.)* `MaidManagerActionLog` — the enrolment record — has:
+
+- **no Complaint FK**
+- **`workOrder` never set**, so even the indirect `MaidManagerWorkOrder → Complaint` path is empty
+- `client` and `contract` auto-filled from the maid's active contract, **not from any complaint**
+- **one required free-text field, `notes`** — creation throws if it is null
+
+That is the entire justification. And the data agrees: **1 of 9,167 notes mentions a complaint.**
+
+**So the company operates two retention payments. The smaller one is fully documented with a
+categorised reason and an auditable chain. The larger one — 27% of live addition money — records why
+in a text box, and links to nothing.** That asymmetry is a finding in its own right, and it is a
+governance question, not a data gap: the mechanism to do this properly already exists next door.
+
+**What makes it checkable anyway:** `MAIDMANAGERACTIONLOG.NOTES` **is** exposed in the warehouse
+(`BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS.NOTES`). An agent can read it and
+judge whether it states a retention reason — and separately look for a `Maid Wants To Resign` /
+`MV Retention` complaint on that maid as supporting evidence.
+
+⚠️ **`MV Retention` (type 257, 4,054 complaints) must not be used for anti-attrition.** Anti-attrition
+is CC-only (`housemaidType <> MAID_VISA`). An MV-retention complaint behind a CC incentive is a
+contradiction, not a corroboration.
+
+## 4. The corroboration map — expected complaint types per payment
+
+Built from the real taxonomy (query 1b, 18-month volumes) and the code's type codes.
+
+| Payment type | Expected complaint types (id · name · volume) | Strength |
+|---|---|---|
+| **Anti-attrition Incentive** | 24 `Maid Wants To Resign` (5,058) · 154 same name (48) · 137 `Maid doesn't want to work with the client anymore` (3,023) · 38 `Maid does not want to work with client` (2,368) · 88 `Maid does not want to renew with the company` (129) · 426 `Maid Doesn't Want To Renew` (104) · 284 `Refusal to Work (RTW)` (1,586). **Exclude 257 `MV Retention`** | supporting only — the enrolment `notes` is the primary evidence |
+| **Bonus** — retraction half | 24 `Maid Wants To Resign` **via `DelighterToDo.rbComplaint`** | **hard FK** |
+| **Bonus** — referral half | none. Referrals are never complaints *(code-verified)* | N_A — do not test |
+| **Salary Dispute** | 193 `Missing Salary Inquiry` (3,423) · 320 `Salary release request` (3,174) · 322 `Salary Calculation Issue` (363) · 321 `Maid's last salary with the company` (146) · 330 `Loan Waivers & Deduction Corrections` (93) · 77 `Money Disputes` (2,423) · 323 `Manager note Addition not released` (9) · 156/420 overstay fines (220) | strong — 13% carry an explicit reference |
+| **MV Prorated Salary** | **337 `Last MV Salary Disputes` (151)** · 321 `Maid's last salary with the company` (146) | precise — a near-exact semantic match |
+| **Taxi Reimbursement** | 238 `Taxi canceled` (9,490) · **243 `Live-out transportation issues` (842)** · 303 `Housemaid Arrival & Transportation Check-Ins` (12,214). Code: the `transportation` **tag** on `ComplaintType` is the single source of truth | strong |
+| **Accommodation Relocation** | 397 `Satwa Relocation` (25) · 162 `Complaint About Accommodation` (2,119) · 348 `Live-out Maid Staying in Accommodation` (94) · 280 `Switch Maid To Live-out` (432) | strong — and the only check on the unenforced CC live-out rule |
+| **Medical Assistance** | 57 `Maid is sick or injured` (20,467) · 270 `Follow up for medical appointment` (1,611) · 493 `Maid Health Issue`. Codes: `Work_Injury_Sickness__c`, `Maid_s_Repeat_Medical__c` | strong |
+| **Airfare Ticket** | **336 `Airfare & Vacation Compensation` (35)** · 103 `Vacation Policy` (624) · 177 `Travel assist` (1,018) | weak — it is renewal-driven, not complaint-driven |
+| **Maids.at other expenses** | 339 `Maid cash advance` (2,892) · 119 `Maid related question` (90,625) | weak — too generic to test |
+| **Raffle · Prorated salary · Forgive Deduction · Office Work · Last Day CC Switch** | none expected — all machine-generated from payroll state | **N_A — never test** |
+
+**The N_A row matters as much as the others.** Requiring a complaint behind a machine-generated
+payment would produce thousands of false findings on day one.
+
+## 5. What the AI agent should actually do
+
+Three jobs, in descending order of value:
+
+**Job 1 — judge the enrolment reason (anti-attrition).** Read `HOUSEMAID_MANAGERACTIONLOGS.NOTES`
+and return: does this state a retention reason? Which category (client conflict / salary / homesick /
+family / workload / competing offer / none stated)? **Because no categorised field exists, the agent
+*creates* the category** — and that categorisation is itself a deliverable the business does not have
+today.
+
+**Job 2 — verify the arithmetic reviewers wrote down (salary dispute).** Per note 174632, reviewers
+often write the full itemised calculation into the free text. The agent parses it, re-adds it, and
+confirms the total. Where no working is shown, report *"reviewer did not show their work"* — a
+category the business can act on.
+
+**Job 3 — corroborate against the conversation.** Given a note and the complaints on that maid in the
+window, decide whether any of them supports this payment, and return a verdict plus the complaint id
+it relied on. **Never a bare yes/no — always the evidence.**
+
+### What to feed it, and what not to
+
+`Complaint.summary` is GPT-written by `ComplaintsSummaryService.updateSummaryAndRecentSummaryComplaints`,
+model **`gpt-4.1-nano` at temperature 0.9, topP 0.5** (a `gpt-4` variant also exists).
+
+🔴 **Do not build a verdict on that summary.** Temperature 0.9 is high for summarisation, and an audit
+finding that traces back to a creative-sampled paraphrase is not defensible. Use it to **triage** —
+to decide which complaints are worth opening — and have the agent read `COMPLAINT_COMMENTS.TEXT`
+(already HTML-stripped, `ITERATION`-ordered) plus `COMPLAINT_DESCRIPTION` for anything that becomes a
+finding.
+
+There is already an AI-assigned category: `ComplaintService.extractGptComplaintInfo()` parses a
+structured block (`Last update / Complaint type / Complaint reason / …`) back out of the summary into
+a `To-do: <TYPE> – <REASON>` label, configured by `PARAM_GPT_COMPLAINT_EXTRACTION_CONFIG`. Same
+caution applies — useful as a prior, not as evidence.
+
+**Not in the warehouse:** WhatsApp transcripts and call recordings live externally, referenced by
+`ComplaintExtraDetails.chatId` / `callId` and `ExpertZiwoRecord`. The richest conversation is out of
+reach today.
+
+### The privacy boundary, which is a design constraint not a footnote
+
+Complaint text carries personal circumstances — health, family, disputes — about named individuals.
+**The agent reads it; the audit never republishes it.** The agent returns a verdict, a category and a
+complaint id. Findings cite the id. No free text reaches an export, a dashboard or an inbox.
+
+## 6. What is blocked
+
+| # | Ask | Unblocks |
+|---|---|---|
+| **O33** | **Run query 3 (coverage).** Nothing here can be graded RED until we know what share of each type has any complaint at all | the entire design |
+| **O34** | Ingest **`DELIGHTER_TODO`** — `rbComplaint`, `taskName`, **`resignationReason`** (the categorised leave reason), `maidResignationReason` | the retraction-bonus chain, end to end |
+| **O35** | Expose the `ComplaintType` **`tags`** join (`COMPLAINT_TYPES_TAGS`) — the code says the `transportation` tag, not the type name, is the single source of truth | taxi corroboration done the way the ERP does it |
+| **O36** | Confirm `HOUSEMAID_MANAGERACTIONLOGS.NOTES` is populated and readable at volume | anti-attrition Job 1 |
+| **O37** | **Governance:** should `anti_attrition_incentive` enrolment require a linked complaint and a categorised reason, as `resignation_retraction` already does? Not a data question | 27% of live addition money |
