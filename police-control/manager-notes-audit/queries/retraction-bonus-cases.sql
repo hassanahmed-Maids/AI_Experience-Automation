@@ -9,8 +9,8 @@
 --    belong in a chat transcript. Same handling as the 58-maid remediation list.
 -- ⚠️ NAMES ARE SELECTED, at the requestor's instruction (2026-09-09). BENEFICIARY_NAME is the
 --    verified column and comes from the linked expense request, so it is NULL wherever no
---    request is linked. A name column on HOUSEMAIDS_INFO has NOT been verified in-session —
---    run the sweep at the bottom of this file and add it as the fallback rather than guessing.
+--    request is linked, so it falls back to HOUSEMAIDS_INFO.NAME — verified 2026-09-09
+--    (that view also carries FIRST_NAME / MIDDLE_NAME / LAST_NAME).
 --    Keep the output in the warehouse or a file for payroll; it does not belong in a chat
 --    transcript, and the forwarding risk is the reason to strip names again before sharing on.
 -- ⚠️ NOTE_REASON is free text and is included ONLY because it is the evidence for the
@@ -28,7 +28,7 @@
 
 SELECT n.ID                                              AS note_id,
        n.HOUSEMAID_ID,
-       x.BENEFICIARY_NAME                                AS maid_name,        -- NULL if no request
+       COALESCE(x.BENEFICIARY_NAME, h.NAME)              AS maid_name,
        n.NOTE_DATE::DATE                                 AS note_day,
        n.AMOUNT                                          AS aed,
        n.NOTE_REASON                                     AS narrative,          -- the classifier
@@ -76,12 +76,7 @@ QUALIFY ROW_NUMBER() OVER (
 ORDER BY note_day DESC;
 
 
--- NAME-COLUMN SWEEP. Run this first. BENEFICIARY_NAME above only resolves where an expense
--- request is linked; if any of the ten come back '(no request linked)', add the verified
--- HOUSEMAIDS_INFO name column from this result as a COALESCE fallback.
-SELECT COLUMN_NAME, DATA_TYPE
-FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'HOUSEMAID_MANAGEMENT_SILVER'
-  AND TABLE_NAME   = 'HOUSEMAIDS_INFO'
-  AND COLUMN_NAME ILIKE '%NAME%'
-ORDER BY ORDINAL_POSITION;
+-- NAME-COLUMN SWEEP — RESOLVED 2026-09-09. HOUSEMAIDS_INFO carries NAME, FIRST_NAME,
+-- MIDDLE_NAME, LAST_NAME. `NAME` is the COALESCE fallback used above, so maid_name now
+-- resolves for every row rather than only those with a linked expense request — which is the
+-- point, since the unlinked ones are the subset most worth looking at.
