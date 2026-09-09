@@ -1,4 +1,4 @@
-<title>Live Payment Types</title>
+<title>Manager Notes — Payment Types</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
@@ -61,216 +61,311 @@ code{font-family:"IBM Plex Mono",monospace; font-size:.87em; background:var(--co
   border:1px solid var(--line); border-radius:3px; padding:1px 4px}
 </style>
 <style>
-.tw{overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--panel); margin:0}
-table{border-collapse:collapse; width:100%; font-size:13px}
-th,td{text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top}
-th{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3);
-  background:var(--panel-2); font-weight:600; white-space:nowrap; position:sticky; top:0}
-th.s{cursor:pointer} th.s:hover{color:var(--ink)}
-tbody tr:last-child td{border-bottom:0}
-td.nm b{display:block; font-weight:600; font-size:13.5px}
-td.nm span{display:block; color:var(--ink-3); font-size:12px; line-height:1.45; margin-top:3px; max-width:46ch}
-td.num{text-align:right; white-space:nowrap; font-size:13.5px}
-tr[data-st="red"] td:first-child{box-shadow:inset 2px 0 0 var(--red)}
-tr[data-st="amber"] td:first-child{box-shadow:inset 2px 0 0 var(--amber)}
-tr[data-st="green"] td:first-child{box-shadow:inset 2px 0 0 var(--green)}
-tr[data-st="mut"] td:first-child{box-shadow:inset 2px 0 0 var(--line-2)}
-tr[data-meas="0"] td.num{color:var(--ink-3)}
-.ctl{display:flex; flex-wrap:wrap; gap:9px; align-items:center; margin:0 0 14px}
-.chip{font:inherit; font-size:12.5px; font-weight:500; color:var(--ink-2); background:var(--panel);
-  border:1px solid var(--line-2); border-radius:999px; padding:5px 12px; cursor:pointer}
-.chip[aria-pressed="true"]{color:var(--accent); background:var(--accent-wash); font-weight:600;
-  border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
-.hidden{display:none}
-.rule{margin:14px 0 0; padding:12px 15px; border-left:2px solid var(--amber);
-  background:var(--amber-wash); border-radius:0 4px 4px 0; font-size:13.2px; line-height:1.55;
-  max-width:74ch}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:18px}
+th{text-align:left;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+   font-weight:600;padding:0 10px 8px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.num{text-align:right;white-space:nowrap}
+td.note{color:var(--ink-2);font-size:12.5px;line-height:1.5;min-width:270px}
+.pill{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.06em;padding:2px 7px;
+  border-radius:3px;white-space:nowrap}
+.pill.red{background:var(--red-wash);color:var(--red)}
+.pill.amber{background:var(--amber-wash);color:var(--amber)}
+.pill.green{background:var(--green-wash);color:var(--green)}
+.pill.slate{background:var(--panel-2);color:var(--slate)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin:26px 0 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 15px}
+.kpi .k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.kpi .v{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:600;margin-top:5px;
+  letter-spacing:-.02em}
+.kpi .s{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 18px;margin-top:20px}
+.card.warn{border-left:3px solid var(--amber)}
+.card h3{margin:0 0 8px;font-size:14px}
+.card p{margin:0 0 8px;color:var(--ink-2);font-size:13px;line-height:1.6}
+.scroll{overflow-x:auto}
+code{background:var(--code-bg);padding:1px 4px;border-radius:3px;font-family:"IBM Plex Mono",monospace;font-size:12px}
 </style>
 <div class="wrap">
-<div class="eyebrow">Police &amp; Control &middot; Manager Notes Audit</div>
-<h1>The live payment types, and what can actually be checked</h1>
-<p class="lede">What each payment type is worth, whether a corroborating record exists behind it,
-whether anyone is named on it, and which of its checks can run today. Grey figures were not measured
-in this pass and are marked as such rather than estimated.</p>
-<p class="rule"><b>How these 18 were chosen &mdash; the rule is not &ldquo;everything active&rdquo;.</b>
-Fourteen are the live set from the live/dead triage over 44,151 notes: they carry <b>AED 6.76m, 99.7%
-of live addition money</b>. The other four &mdash; MOHRE, VIP Bonus, Passport Assistance, Lost Luggage
-&mdash; are here only because the segregation check&rsquo;s payment-type list happened to include them.
-All 18 have activity in the last 12 months, but <b>49 further picklist types are excluded</b> and some
-of those will have a handful of notes too. <b>The money is covered; a complete count of active types is
-not yet verified</b> &mdash; one query settles it (O68).</p>
+<div class="eyebrow">Police &amp; Control · Manager Notes Audit</div>
+<h1>Payment types, as they actually are</h1>
+<p class="lede">Every figure on this page came back from a query against the warehouse on
+<strong>9 September 2026</strong>. Nothing is estimated and nothing is carried over from an earlier
+draft — the version this replaces showed 18 payment types and pre-census amounts.</p>
 
-<div class="band">
-  <div class="kpi c"><b>AED 6.76m</b><span>additions across 12 months</span></div>
-  <div class="kpi r"><b>59%</b><span>of notes are one type: anti-attrition</span></div>
-  <div class="kpi a"><b>14 of 18</b><span>are the live set; 4 more ride along on the S1 list</span></div>
-  <div class="kpi g"><b>2.33&times;</b><span>best measured corroboration (salary dispute)</span></div>
+<div class="kpis">
+  <div class="kpi"><div class="k">Payment types</div><div class="v">24</div><div class="s">live in the window</div></div>
+  <div class="kpi"><div class="k">Notes</div><div class="v">16,831</div><div class="s">additions, amount &gt; 0</div></div>
+  <div class="kpi"><div class="k">Money</div><div class="v">6.79m</div><div class="s">AED, 12 months</div></div>
+  <div class="kpi"><div class="k">Confirmed findings</div><div class="v">~103k</div><div class="s">AED — 1.5% of the money</div></div>
+  <div class="kpi"><div class="k">Withdrawn</div><div class="v">~20:1</div><div class="s">against confirmed</div></div>
 </div>
 
-<h2>Every type, ranked by volume</h2>
-<p>The corroboration column is a lift over a random maid, not a raw rate &mdash; a payment can sit at
-94% complaint coverage and still carry no signal at all.</p>
-<div class="ctl">
-  <button class="chip" id="f1" aria-pressed="false">Has a finding</button>
-  <button class="chip" id="f2" aria-pressed="false">Measured this pass</button>
-  <button class="chip" id="f3" aria-pressed="false">Blocked</button>
-  <button class="chip" id="ft" aria-pressed="false">Dark</button>
+<div class="card warn">
+<h3>Read the verdict column carefully — four of these are not findings</h3>
+<p><strong>CLEARED</strong> means every test that <em>could</em> run passed. It does not mean audited:
+group entitlement rules are separate, and several types have none that can run yet.
+<strong>CANDIDATES</strong> are real populations awaiting an input. A type with no findings has not
+been proven correct.</p>
+<p>Fourteen candidate findings were raised and withdrawn during this audit — roughly twenty dirhams
+withdrawn for every one confirmed. <strong>Every finding built on a proxy shrank when the real
+classifier arrived; none grew.</strong> The ones that held were measured directly against a rule the
+code or the business states.</p>
 </div>
-<div class="tw"><table>
-<thead><tr>
-<th>Payment type</th><th class="s num" data-k="n">Notes / 12m</th><th class="s num" data-k="a">AED</th>
-<th>Group</th><th>Corroboration</th><th>Attribution</th><th>Checks</th>
-</tr></thead>
-<tbody id="tb"><tr data-st="red" data-meas="1" data-n="9167" data-a="1829735">
-<td class="nm"><b>Anti-attrition Incentive</b><span>Largest type by count. Complaint check N_A; enrolment-exists passes 1,000 in 1,001; tier recompute blocked. The real check reads the enrolment reason box.</span></td>
-<td class="num mono">9,167</td><td class="num mono">1,829,735</td>
-<td>B · Loyalty</td>
-<td><span class="pill p-amb">1.00x chance — zero signal</span></td>
-<td><span class="pill p-mut">batch job, no human step</span></td>
-<td><span class="pill p-red">6 of 8 Phase 1</span></td></tr><tr data-st="amber" data-meas="0" data-n="1647" data-a="-1">
-<td class="nm"><b>Airfare Ticket</b><span>Nationality tier cap is testable today against PARAMETERS. Tiers observed 2000 / 1500 / 1000.</span></td>
-<td class="num mono">1,647</td><td class="num mono">—</td>
-<td>A · Ceiling</td>
-<td><span class="pill p-mut">2.3x density, renewal-driven</span></td>
-<td><span class="pill p-mut">machine, null by design</span></td>
-<td><span class="pill p-amb">CEIL runnable</span></td></tr><tr data-st="red" data-meas="1" data-n="1205" data-a="-1">
-<td class="nm"><b>Bonus</b><span>Attribution broke around 2024-05 and peaked at 98%. The retraction half has a hard FK to a complaint; the referral half legitimately has none.</span></td>
-<td class="num mono">1,205</td><td class="num mono">—</td>
-<td>C · Referral / signing</td>
-<td><span class="pill p-amb">1.2x — referrals are never complaints</span></td>
-<td><span class="pill p-red">48% unattributed, and worsening</span></td>
-<td><span class="pill p-red">split by half</span></td></tr><tr data-st="amber" data-meas="1" data-n="1084" data-a="-1">
-<td class="nm"><b>Salary Dispute</b><span>The corroboration check works here: 53% carry an expected complaint type and 90% of those within 15 days. Reviewers often write the arithmetic into the note.</span></td>
-<td class="num mono">1,084</td><td class="num mono">—</td>
-<td>E · Salary correction</td>
-<td><span class="pill p-grn">2.33x chance — real coupling</span></td>
-<td><span class="pill p-grn">9% self-approved</span></td>
-<td><span class="pill p-amb">E1-E4 + S1</span></td></tr><tr data-st="amber" data-meas="1" data-n="502" data-a="84394">
-<td class="nm"><b>Taxi Reimbursement</b><span>The cleanest attribution record in the audit — proof the field can be populated reliably. Corroboration needs the complaint-type tag join.</span></td>
-<td class="num mono">502</td><td class="num mono">84,394</td>
-<td>A · Corroborate</td>
-<td><span class="pill p-grn">5.6x density</span></td>
-<td><span class="pill p-grn">0% unattributed in 36 months</span></td>
-<td><span class="pill p-amb">blocked on tags</span></td></tr><tr data-st="amber" data-meas="1" data-n="342" data-a="51260">
-<td class="nm"><b>Maids.at other expenses</b><span>The data named this type: OWWA / OEC Philippine overseas-worker paperwork. The spec had never said what it was for.</span></td>
-<td class="num mono">342</td><td class="num mono">51,260</td>
-<td>— </td>
-<td><span class="pill p-mut">2.0x, too generic to test</span></td>
-<td><span class="pill p-grn">68% raised, never approved</span></td>
-<td><span class="pill p-amb">review</span></td></tr><tr data-st="red" data-meas="1" data-n="89" data-a="21882">
-<td class="nm"><b>Medical Assistance</b><span>Highest self-approval rate in the audit. Density alone read as background noise; type-match showed the opposite — a quiet maid with exactly the right complaint.</span></td>
-<td class="num mono">89</td><td class="num mono">21,882</td>
-<td>A · Corroborate</td>
-<td><span class="pill p-grn">6.4x type-match</span></td>
-<td><span class="pill p-red">47% self-approved</span></td>
-<td><span class="pill p-red">runnable</span></td></tr><tr data-st="green" data-meas="1" data-n="82" data-a="10239">
-<td class="nm"><b>MOHRE requirement additions</b><span>Small, well-attributed, 92% segregated.</span></td>
-<td class="num mono">82</td><td class="num mono">10,239</td>
-<td>—</td>
-<td><span class="pill p-mut">not profiled</span></td>
-<td><span class="pill p-grn">3% self-approved</span></td>
-<td><span class="pill p-grn">runnable</span></td></tr><tr data-st="amber" data-meas="1" data-n="69" data-a="51600">
-<td class="nm"><b>Accommodation Relocation</b><span>Strongest complaint association measured. Also the only check on the unenforced CC live-out rule.</span></td>
-<td class="num mono">69</td><td class="num mono">51,600</td>
-<td>A · Corroborate</td>
-<td><span class="pill p-grn">7.3x — strongest in the set</span></td>
-<td><span class="pill p-grn">4% self-approved</span></td>
-<td><span class="pill p-amb">runnable</span></td></tr><tr data-st="red" data-meas="1" data-n="6" data-a="4100">
-<td class="nm"><b>VIP Bonus</b><span>Tiny volume, but two of five payments are self-approved.</span></td>
-<td class="num mono">6</td><td class="num mono">4,100</td>
-<td>—</td>
-<td><span class="pill p-amb">not profiled</span></td>
-<td><span class="pill p-red">39% self-approved</span></td>
-<td><span class="pill p-red">runnable</span></td></tr><tr data-st="green" data-meas="1" data-n="3" data-a="1855">
-<td class="nm"><b>Passport Assistance</b><span>Clean.</span></td>
-<td class="num mono">3</td><td class="num mono">1,855</td>
-<td>—</td>
-<td><span class="pill p-amb">not profiled</span></td>
-<td><span class="pill p-grn">100% segregated</span></td>
-<td><span class="pill p-grn">runnable</span></td></tr><tr data-st="amber" data-meas="1" data-n="3" data-a="600">
-<td class="nm"><b>Lost Luggage Compensation</b><span>Tiny volume; most carry no approver.</span></td>
-<td class="num mono">3</td><td class="num mono">600</td>
-<td>—</td>
-<td><span class="pill p-amb">not profiled</span></td>
-<td><span class="pill p-grn">59% raised, never approved</span></td>
-<td><span class="pill p-amb">runnable</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
-<td class="nm"><b>Prorated salary</b><span>Not measured this session. Machine-generated from payroll state.</span></td>
-<td class="num mono">—</td><td class="num mono">—</td>
-<td>D · Recompute</td>
-<td><span class="pill p-mut">2.0x</span></td>
-<td><span class="pill p-mut">machine</span></td>
-<td><span class="pill p-mut">RECOMP blocked</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
-<td class="nm"><b>MV Prorated Salary</b><span>Not measured this session. The tightest temporal coupling in the whole corroboration study — 0.1 days.</span></td>
-<td class="num mono">—</td><td class="num mono">—</td>
-<td>D · Recompute</td>
-<td><span class="pill p-grn">10.2x on Maid's termination, 0.1 days</span></td>
-<td><span class="pill p-mut">machine</span></td>
-<td><span class="pill p-mut">RECOMP blocked</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
-<td class="nm"><b>Forgive Deduction</b><span>Not measured this session. Must pair with a salary-dispute exclusion (E4).</span></td>
-<td class="num mono">—</td><td class="num mono">—</td>
-<td>PAIR</td>
-<td><span class="pill p-grn">5.4x</span></td>
-<td><span class="pill p-mut">machine</span></td>
-<td><span class="pill p-mut">PAIR runnable</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
-<td class="nm"><b>Last Day CC Switch Adjustment</b><span>Not measured this session. 58% carry the CC-to-MaidVisa switch complaint the code predicts.</span></td>
-<td class="num mono">—</td><td class="num mono">—</td>
-<td>D · Recompute</td>
-<td><span class="pill p-grn">3.2x, validates the code exactly</span></td>
-<td><span class="pill p-mut">machine</span></td>
-<td><span class="pill p-mut">RECOMP blocked</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
-<td class="nm"><b>Raffle Prize</b><span>Random draw, so its complaint density is the background rate for any maid. Used as the null cohort every other lift is measured against.</span></td>
-<td class="num mono">—</td><td class="num mono">—</td>
-<td>— null cohort</td>
-<td><span class="pill p-acc">1.0x by construction</span></td>
-<td><span class="pill p-mut">machine</span></td>
-<td><span class="pill p-mut">the control group</span></td></tr><tr data-st="mut" data-meas="0" data-n="-1" data-a="-1">
-<td class="nm"><b>Office Work Addition</b><span>A separate check owns office work.</span></td>
-<td class="num mono">—</td><td class="num mono">—</td>
-<td>out of scope</td>
-<td><span class="pill p-mut">1.7x</span></td>
-<td><span class="pill p-mut">machine</span></td>
-<td><span class="pill p-mut">excluded</span></td></tr></tbody></table></div>
 
-<footer><strong>Measured 2026-09-08</strong> against <code>BA_VIEWS</code>, 12-month window.
-Volumes and AED for the greyed rows were not queried in this pass &mdash; they are shown as
-&ldquo;&mdash;&rdquo; rather than carried over from an earlier estimate. Corroboration lifts come from
-the complaint study; the raffle prize is the null cohort every other lift is measured against, which
-is why it reads 1.0&times; by construction.</footer>
+<div class="scroll">
+<table>
+<thead><tr><th>Payment type</th><th class="num">Notes</th><th class="num">AED</th><th class="num">Share</th>
+<th>Verdict</th><th class="num">Confirmed</th><th>What the audit found</th></tr></thead>
+<tbody>
+<tr>
+<td><strong>Airfare Ticket</strong></td>
+<td class="mono num">1,302</td>
+<td class="mono num">2,335,000</td>
+<td class="mono num">34.4%</td>
+<td><span class="pill red">FINDINGS</span></td>
+<td class="mono num">57,500</td>
+<td class="note">Duplicates via the unguarded manual route 49,500 · automatic guard failed 3,000 · above nationality tier 500 · MV against a CC-only rule 4,500 <em>(down from a 137,500 point read — 97% confound)</em></td>
+</tr>
+<tr>
+<td><strong>Anti-attrition Incentive</strong></td>
+<td class="mono num">9,153</td>
+<td class="mono num">1,829,735</td>
+<td class="mono num">26.9%</td>
+<td><span class="pill red">FINDINGS</span></td>
+<td class="mono num">31,890</td>
+<td class="note">Paid to a maid in a no-show or terminated state 13,257 · MV against a CC-only rule 5,726 · before any enrolment existed 9,019 · selection-lag 3,050 · same-day excess 838</td>
+</tr>
+<tr>
+<td><strong>Bonus</strong></td>
+<td class="mono num">1,131</td>
+<td class="mono num">849,316</td>
+<td class="mono num">12.5%</td>
+<td><span class="pill amber">CANDIDATES</span></td>
+<td class="mono num">—</td>
+<td class="note">Two candidates: narrative claims a referral with none on record <strong>56,000</strong>, unclassified narrative and no referral <strong>100,310</strong>. Control: a deprecated, config-disabled retraction path is still paying — 10 notes, 7,126</td>
+</tr>
+<tr>
+<td><strong>MV Prorated Salary</strong></td>
+<td class="mono num">769</td>
+<td class="mono num">788,068</td>
+<td class="mono num">11.6%</td>
+<td><span class="pill green">CLEARED</span></td>
+<td class="mono num">0</td>
+<td class="note"><strong>Zero violations.</strong> The NO_SHOW / PENDING_FOR_TERMINATION concentration is the type working correctly — it <em>is</em> the exit settlement</td>
+</tr>
+<tr>
+<td><strong>Salary Dispute</strong></td>
+<td class="mono num">980</td>
+<td class="mono num">385,985</td>
+<td class="mono num">5.7%</td>
+<td><span class="pill green">CLEARED</span></td>
+<td class="mono num">1,213</td>
+<td class="note">Closed on its approval trail: 1,073 of 1,084 notes carry an exact FK to a PAID request. The complaint test scored <strong>1.08× chance</strong> and was abandoned</td>
+</tr>
+<tr>
+<td><strong>Raffle Prize</strong></td>
+<td class="mono num">576</td>
+<td class="mono num">180,000</td>
+<td class="mono num">2.6%</td>
+<td><span class="pill green">CLEARED</span></td>
+<td class="mono num">0</td>
+<td class="note">Entrant pool is ~1,400 distinct maids, not 6,700 — 88 repeat winners is <strong>1.02× chance</strong>, and weighted odds put the expectation higher still. The terminated-winner finding was retracted: all 15 had been re-hired</td>
+</tr>
+<tr>
+<td><strong>Prorated salary</strong></td>
+<td class="mono num">619</td>
+<td class="mono num">98,836</td>
+<td class="mono num">1.5%</td>
+<td><span class="pill red">FINDINGS</span></td>
+<td class="mono num">2,976</td>
+<td class="note">25 notes outside the eligibility window, resolved as-of — down from 78 on a current-state read</td>
+</tr>
+<tr>
+<td><strong>Taxi Reimbursement</strong></td>
+<td class="mono num">471</td>
+<td class="mono num">84,163</td>
+<td class="mono num">1.2%</td>
+<td><span class="pill amber">CANDIDATES</span></td>
+<td class="mono num">392</td>
+<td class="note">Authorisation clean. Live-out transport to a live-in maid 392 of 71,850 tested</td>
+</tr>
+<tr>
+<td><strong>Forgive Deduction</strong></td>
+<td class="mono num">1,027</td>
+<td class="mono num">53,288</td>
+<td class="mono num">0.8%</td>
+<td><span class="pill red">FINDINGS</span></td>
+<td class="mono num">2,492</td>
+<td class="note">3 maid-months at 15–21 days forgiven. Both hard ceilings held</td>
+</tr>
+<tr>
+<td><strong>Accommodation Relocation</strong></td>
+<td class="mono num">66</td>
+<td class="mono num">51,600</td>
+<td class="mono num">0.8%</td>
+<td><span class="pill red">FINDINGS</span></td>
+<td class="mono num">3,900</td>
+<td class="note">5 notes to a live-in maid against a CC-live-out-only rule. 83% paid while SURPLUS is <em>correct</em> — between placements is why a relocation happens</td>
+</tr>
+<tr>
+<td><strong>Maids.at other expenses</strong></td>
+<td class="mono num">273</td>
+<td class="mono num">51,260</td>
+<td class="mono num">0.8%</td>
+<td><span class="pill green">CLEARED</span></td>
+<td class="mono num">0</td>
+<td class="note">All 273 on a PAID request; approval gate compliant</td>
+</tr>
+<tr>
+<td><strong>Office Work Addition</strong></td>
+<td class="mono num">92</td>
+<td class="mono num">29,684</td>
+<td class="mono num">0.4%</td>
+<td><span class="pill amber">CANDIDATES</span></td>
+<td class="mono num">—</td>
+<td class="note"><strong>Its previous clear is void.</strong> It rested on a marker where 57.4% of holders are terminated. By status only 15 of 92 were assigned when paid — 13,140 needs the work date, not the payment date</td>
+</tr>
+<tr>
+<td><strong>Medical Assistance</strong></td>
+<td class="mono num">88</td>
+<td class="mono num">21,884</td>
+<td class="mono num">0.3%</td>
+<td><span class="pill green">CLEARED</span></td>
+<td class="mono num">0</td>
+<td class="note">All 88 on a PAID request. Loan-mode advances book a loan 100% of the time</td>
+</tr>
+<tr>
+<td><strong>Last Day CC Switch Adjustment</strong></td>
+<td class="mono num">213</td>
+<td class="mono num">13,616</td>
+<td class="mono num">0.2%</td>
+<td><span class="pill green">CLEARED</span></td>
+<td class="mono num">0</td>
+<td class="note">213 of 213. Validates at write time</td>
+</tr>
+<tr>
+<td><strong>MOHRE requirement additions</strong></td>
+<td class="mono num">46</td>
+<td class="mono num">10,239</td>
+<td class="mono num">0.2%</td>
+<td><span class="pill green">CLEARED</span></td>
+<td class="mono num">0</td>
+<td class="note">All 46 on a PAID request. The head is <code>WCL</code> / “Salary Mistake” / WPS Compliance Loan — the payslip names a regulator for a payroll-error advance</td>
+</tr>
+<tr>
+<td><strong>VIP Bonus</strong></td>
+<td class="mono num">6</td>
+<td class="mono num">4,100</td>
+<td class="mono num">0.1%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>(no reason recorded)</strong></td>
+<td class="mono num">8</td>
+<td class="mono num">3,900</td>
+<td class="mono num">0.1%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>Passport Assistance</strong></td>
+<td class="mono num">3</td>
+<td class="mono num">1,855</td>
+<td class="mono num">0.0%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>Lost Luggage Compensation</strong></td>
+<td class="mono num">3</td>
+<td class="mono num">600</td>
+<td class="mono num">0.0%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>MV Extra Salary</strong></td>
+<td class="mono num">1</td>
+<td class="mono num">300</td>
+<td class="mono num">0.0%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>Flight ticket</strong></td>
+<td class="mono num">1</td>
+<td class="mono num">150</td>
+<td class="mono num">0.0%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>Cash Assistance for Cleaner's other facilities</strong></td>
+<td class="mono num">1</td>
+<td class="mono num">50</td>
+<td class="mono num">0.0%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>Transportation Fare Reimbursement</strong></td>
+<td class="mono num">1</td>
+<td class="mono num">41</td>
+<td class="mono num">0.0%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+<tr>
+<td><strong>Sim card</strong></td>
+<td class="mono num">1</td>
+<td class="mono num">5</td>
+<td class="mono num">0.0%</td>
+<td><span class="pill slate">BASELINE</span></td>
+<td class="mono num">—</td>
+<td class="note">Baseline tests only — no group rule. Below the volume floor for a type-specific battery</td>
+</tr>
+</tbody>
+</table>
 </div>
-<script>
-(function(){
-  var tb=document.getElementById('tb'), rows=[].slice.call(tb.rows);
-  var f1=document.getElementById('f1'), f2=document.getElementById('f2'), f3=document.getElementById('f3');
-  function on(b){return b.getAttribute('aria-pressed')==='true';}
-  function apply(){
-    rows.forEach(function(r){
-      var ok=true;
-      if(on(f1) && !/red|amber/.test(r.dataset.st)) ok=false;
-      if(on(f2) && r.dataset.meas!=='1') ok=false;
-      if(on(f3) && r.textContent.toLowerCase().indexOf('blocked')===-1) ok=false;
-      r.classList.toggle('hidden',!ok);
-    });
-  }
-  [f1,f2,f3].forEach(function(b){b.addEventListener('click',function(){
-    b.setAttribute('aria-pressed', on(b)?'false':'true'); apply();
-  });});
-  var dir={};
-  [].slice.call(document.querySelectorAll('th.s')).forEach(function(th){
-    th.addEventListener('click',function(){
-      var k=th.dataset.k; dir[k]=!dir[k];
-      rows.sort(function(x,y){
-        var a=+x.dataset[k], b=+y.dataset[k];
-        return dir[k] ? a-b : b-a;
-      }).forEach(function(r){tb.appendChild(r);});
-    });
-  });
-  var ft=document.getElementById('ft');
-  function dark(){var s=document.documentElement.getAttribute('data-theme');
-    return s ? s==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;}
-  function sync(){ft.setAttribute('aria-pressed',dark()?'true':'false'); ft.textContent=dark()?'Light':'Dark';}
-  sync();
-  ft.addEventListener('click',function(){
-    document.documentElement.setAttribute('data-theme', dark()?'light':'dark'); sync();
-  });
-})();
-</script>
+
+<div class="card">
+<h3>What this page excludes, priced</h3>
+<p><strong>Future-dated notes.</strong> Every test filters <code>NOTE_DATE &lt;= CURRENT_DATE()</code>,
+which removes <strong>216 airfare notes / AED 385,000</strong> dated as far ahead as 2028-06-02. Never
+failed, never passed, never examined.</p>
+<p><strong>Everything before September 2025.</strong> The window is twelve months of roughly four
+years. For Bonus alone that leaves <strong>AED 1,992,552 — 70% of every bonus dirham ever paid</strong>
+— outside the audit entirely.</p>
+<p><strong>Deductions.</strong> <code>NOTE_TYPE = 'ADDITION'</code> appears in 151 query blocks. Money
+taken <em>from</em> a maid has never been examined by anything.</p>
+</div>
+
+<div class="card">
+<h3>The finding that outlives the numbers</h3>
+<p><strong>Current state is not history.</strong> Six findings rested on a column describing a maid
+today, standing in for what was true on the day she was paid. Every one moved when a log replaced the
+column — airfare 137,500 → <strong>4,500</strong>, bonus 143,965 → candidates, raffle 3,000 →
+<strong>0</strong>, relocation 4,700 → 3,900, anti-attrition 2,476 → <strong>5,726</strong>, office
+work a clear → <strong>void</strong>. Four shrank, one grew, one inverted.</p>
+<p>Anything in the company reading <code>HOUSEMAIDS_INFO</code> to describe a past date is wrong the
+same way. The fix is one join pattern against <code>HOUSEMAID_STATUS_LOGS</code> and
+<code>HOUSEMAID_TYPE_LOGS</code>, which are interval tables.</p>
+</div>
+
+<p class="lede" style="font-size:13px;margin-top:22px;color:var(--ink-3)">
+Sources: <code>queries/AUDIT-RUN.sql</code> · <code>queries/status-history.sql</code> ·
+<code>queries/tail-five-battery.sql</code> · <code>queries/airfare-entitlement-cut.sql</code> ·
+<code>queries/bonus-purpose-taxonomy.sql</code> · <code>queries/source-conflicts.sql</code>.
+Method and the fourteen withdrawn findings: <code>SPEC_manager_notes_audit_METHOD.md</code>.
+</p>
+</div>
