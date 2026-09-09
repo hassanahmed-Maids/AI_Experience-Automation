@@ -188,3 +188,77 @@ LEFT JOIN refs r ON r.maid_id = b.HOUSEMAID_ID
 LEFT JOIN first_seen f ON f.HOUSEMAID_ID = b.HOUSEMAID_ID
 GROUP BY 1, 2, 3
 ORDER BY aed DESC;
+
+
+-- =====================================================================================
+-- BN-FIX RESULT 2026-09-09 — and a route back in that does NOT need the ingestion.
+--
+-- The view has ELEVEN columns, entire:
+--   ID · HOUSEMAID_ID · NOTE_TYPE · AMOUNT · NOTE_REASON · REASON · NOTE_DATE · MANAGER
+--   · EXPENSE_ID · REQUESTED_BY · APPROVED_BY
+--
+-- 🔴 NONE of N1-N6 landed. No PURPOSE_ID, no ADDITION_REASON_ID, no CREATION_DATE, no
+--    CREATOR, no APPLIED / PAID / PAYROLL_MONTH / IS_REFUND. Six ingestion asks are still
+--    open, and the whole audit has been working off a MINIMAL PROJECTION of the payroll
+--    table without that being written down anywhere. BN-FIX2 confirms it: `PURPOSE_ID`
+--    exists in FAMILY_REFUNDS, TAXIS and FAMILY_REFUNDS_SUBSET — just never for manager notes.
+--
+-- 🟢 BUT ASK 46023 GAVE US THE WAY IN, AND I MISSED IT WHILE CHASING PURPOSE_ID. The signing
+--    bonus path "sets noteReasone = 'Singing Bonus'" (the ERP's own typo), and the retracting-
+--    resignation path passes the literal "one-time retracting resignation bonus" as its expense
+--    description, which processExpenseRequestTodo copies into the note. **`NOTE_REASON` is on
+--    this view.** So the three-way split is recoverable by CLASSIFYING the narrative — no
+--    ingestion, no proxy.
+--
+-- ⚠️ AND THE FREE-TEXT RULE APPLIES IN FULL. E8: NOTE_REASON carries amounts, cancellation
+--    reasons and at least one passport number. The standing rule is shapes before rows, counts
+--    before text. BN3 therefore MATCHES on the text and RETURNS ONLY the derived class and its
+--    totals. No row of narrative leaves the query, and the unmatched bucket is reported as a
+--    COUNT so the residual is visible without being read.
+--
+-- 🟡 ALSO NEWLY USABLE: `MANAGER` (NUMBER). The airfare code sets fromManager = "jad" on every
+--    automatic note, so MANAGER is a producer id. Concentration on it is a cleaner machine-vs-
+--    human discriminator than REQUESTED_BY (which names a RUN, not a route) or the midnight
+--    timestamp (dead here — the known batch job sits at 0.0%). Carried as a column in BN3.
+-- =====================================================================================
+
+
+-- BN3. 🔴 THE BONUS TAXONOMY, RECOVERED FROM THE NARRATIVE. Replaces BN1/BN2.
+--      Classifies on the two literals the code writes, plus referral wording, and reports the
+--      residual as a count. Ordered so the audit's own candidates land in named buckets:
+--      the AED 143,965 population should surface as 'unclassified' + no referral + long tenure.
+WITH b AS (
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.AMOUNT, n.MANAGER,
+           n.NOTE_DATE::DATE AS note_day,
+           DATEDIFF('day', h.START_DATE::DATE, n.NOTE_DATE::DATE) AS days_into_service,
+           CASE
+             WHEN n.NOTE_REASON ILIKE '%retract%'                      THEN 'retracting resignation'
+             WHEN n.NOTE_REASON ILIKE '%sing%ing bonus%'
+               OR n.NOTE_REASON ILIKE '%signing%'                      THEN 'signing / joining'
+             WHEN n.NOTE_REASON ILIKE '%referr%'                       THEN 'referral'
+             WHEN n.NOTE_REASON IS NULL OR TRIM(n.NOTE_REASON) = ''    THEN 'no narrative at all'
+             ELSE                                                           'unclassified narrative'
+           END AS bonus_kind
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h ON h.ID = n.HOUSEMAID_ID
+    WHERE n.NOTE_TYPE = 'ADDITION' AND n.REASON = 'Bonus' AND n.AMOUNT > 0
+      AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND n.NOTE_DATE <= CURRENT_DATE()
+), refs AS (
+    SELECT REFERRING_MAID_ID AS maid_id, COUNT(*) AS referrals
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_JOINERS_INFO
+    WHERE REFERRING_MAID_ID IS NOT NULL
+    GROUP BY 1
+)
+SELECT b.bonus_kind,
+       IFF(r.maid_id IS NOT NULL, 'has a referral', 'NO referral') AS referral_side,
+       COUNT(*)                                     AS notes,
+       COUNT(DISTINCT b.HOUSEMAID_ID)               AS maids,
+       ROUND(SUM(b.AMOUNT))                         AS aed,
+       ROUND(AVG(b.AMOUNT))                         AS avg_amount,
+       ROUND(MEDIAN(b.days_into_service))           AS median_days_into_service,
+       COUNT_IF(b.days_into_service <= 60)          AS within_60d_of_joining,
+       COUNT(DISTINCT b.MANAGER)                    AS distinct_managers
+FROM b LEFT JOIN refs r ON r.maid_id = b.HOUSEMAID_ID
+GROUP BY 1, 2
+ORDER BY aed DESC;
