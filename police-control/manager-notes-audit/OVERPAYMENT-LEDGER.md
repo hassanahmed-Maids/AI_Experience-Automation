@@ -3,7 +3,7 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-09 — ~AED 106,100, after BN3 retracted the largest row in the table.**
+**Confirmed 2026-09-09 — ~AED 103,100.**
 Against AED 7,197,642 examined.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
@@ -27,7 +27,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Note exceeds its approved expense request | 1,304 | off-rule | 4 notes of 11,819 linked |
 | Anti-attrition same-day excess over entitlement | 838 | paid twice | 17 groups |
 | Forgive Deduction: 15–21 days forgiven in a single month | **2,492** | off-rule | 3 maid-months, 55 notes. One note is one day, so 21 notes means two thirds of a month was unpaid then written back. **Both hard ceilings held** — no maid-month exceeded the days in the month or a month's salary |
-| Raffle prizes to maids terminated before the draw | **3,000** | not deserved | 15 wins, 13 maids, **median 558 days** after they left |
+| ⚪ **RETRACTED — "raffle prizes to maids terminated before the draw"** | **0** | — | **RFC1: all 15 were re-hired.** Every one of the 15 notes shows status activity *after* the termination date — **1,039 status changes across the 13 maids** — and all 15 resolve to `WITH_CLIENT` on the draw date. `HOUSEMAIDS_INFO.DATE_OF_TERMINATION` is current state and is **not cleared on re-hire**, so a returning maid reads as "terminated 558 days ago" forever. The prizes went to maids actively placed with a client |
 | Prorated salary paid to maids outside the eligibility window | **2,976** | not deserved | 25 notes — 18 whose salary start predates the note by a median 650 days, 7 whose salary start is *after* it. **Resolved as-of the note date** (PS1c), down from 78 on a current-state read |
 | Airfare paid above its nationality tier | **500** | off-rule | 1 Kenyan note at 2,000 against a 1,500 tier — **the only one in 1,518** |
 | 🔴 **Anti-attrition paid to a maid in a NO-SHOW or terminated state** | **13,257** | not deserved | **110 notes (S4).** 68 `NO_SHOW_WENT_OUT_DID_NOT_RETURN` (8,147) · 21 `NO_SHOW_LEFT_CLIENT_HOME` (3,672) · 13 `NO_SHOW_FOR_TERMINATION` (748) · 6 `NO_SHOW` (419) · 2 `EMPLOYEMENT_TERMINATED` (271). The code filters `status not in rejectedStatuses` **at selection**, then pays two hops later — the same select-once flaw behind the AED 3,050 selection-lag finding, measured properly for the first time. A retention incentive to a maid who has absconded |
@@ -132,12 +132,39 @@ clears the E10 worry about `START_DATE`: on this population the anchor behaves c
 ⚠️ `MANAGER` is **NULL on every bonus note** (`distinct_managers = 0` in all eight rows). The
 producer-id idea dies here — another column present in the schema and empty in practice.
 
+## 🔴 `ASSIGNED_OFFICE_WORK_REASON_ID` does not mean what the audit assumed — OW5b is void
+
+OWC2 asked the base-rate question of every maid currently carrying that reason id:
+
+| Current status of maids carrying the office-work reason | Maids | % |
+|---|---:|---:|
+| **EMPLOYEMENT_TERMINATED** | 1,463 | **57.4%** |
+| WITH_CLIENT | 866 | 34.0% |
+| WITH_CLIENT_NOT_PICKED | 91 | 3.6% |
+| **ASSIGNED_OFFICE_WORK** | **20** | **0.8%** |
+
+**The column is a marker that is never cleared.** Fewer than one in a hundred of its holders is actually
+in office-work status, and a clear majority have left the company. Carrying the reason id is not
+evidence that a maid was doing office work on any given day.
+
+**So OW5b's "92/92 assigned, cleared" proves nothing** — not because the count was wrong, but because
+the column it rested on cannot support the claim. *(Separately, re-reading the same revision table here
+returns "reason set" on only 11 of the 92, against OW5b's 92. One of the two revision reads is also
+wrong — moot now, but recorded rather than tidied away.)*
+
+**What replaces it:** by status, only **15 of 92** office-work notes were `ASSIGNED_OFFICE_WORK` when
+paid. **62 were `WITH_CLIENT`, AED 13,140.** That is a candidate, not a finding — an office-work
+addition may legitimately be paid *after* the work, and this audit has already been caught once by a
+note date that is not the event date (airfare's `payrollDueDate`). It needs the work date, not the
+payment date.
+
 ## Candidates — real populations, not yet verdicts
 
 | Population | AED | What would settle it |
 |---|---:|---|
 | 🟡 **Bonus whose narrative claims a referral, with no referral on record** | **56,000** | 70 notes, avg **800** — the referral rate — and median **418 days** into service, so not a signing bonus. **A candidate, not a finding:** the referrer↔referred pairing is `COALESCE(direct, latest-by-phone, latest-by-WhatsApp)`, a heuristic, so "no referral" is a floor rather than a fact |
 | 🟡 **Bonus with an unclassified narrative and no referral** | **100,310** | 148 notes, avg **678** — squarely between the signing rate (500) and the referral rate (866), median 290 days in. Genuinely ambiguous; the previous "42,900 ambiguous" row is superseded by this one |
+| 🟡 **Office Work Addition paid while `WITH_CLIENT`** | **13,140** | 62 of 92 notes. Needs the date the work was done, not the date it was paid — the OW5b clear that used to cover this is void (above) |
 | Bonus with a referral but no bonus request | 70,895 | Whether `IS_REQUESTED_BONUS` is reliably set |
 | Forgive Deduction above one day's salary | ≤1,756 | **Recorded as inconclusive, not a finding.** The 43 notes have a median one-day figure of 18 — the signature of a partial-month payroll row understating the rate |
 | Bonus where the referrer has bonuses but none on that date | 16,500 | O9 flagged it; needs the same start-date cut |
