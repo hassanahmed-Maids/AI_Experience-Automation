@@ -21,6 +21,7 @@ went unasked.
 | # | Question | The failure it prevents |
 |---|---|---|
 | **P0** | **Is this even in scope?** Read the spec's exclusions before writing the query. | Three rounds spent perfecting a number the spec excludes |
+| **P1a** | **Has this column appeared in a schema result, or a query that ran, IN THIS SESSION?** If not, it does not go in a delivered query. | Three guessed columns in one file, two of them already retracted earlier the same day |
 | **P1** | **What does this column actually contain?** Profile it before joining on it. | A name that reads like a taxonomy holding a workflow state |
 | **P2** | **Is this flag a permission or an obligation?** *May* and *must* look identical in a boolean. | Reporting grants as unrecovered debt |
 | **P3** | **Is this number a threshold, a ceiling, or a target?** Read it with the column that governs it. | Turning compliant payments into a finding |
@@ -98,6 +99,30 @@ workaround for a missing column rather than a test of anything.
 > **Rule.** A citation must be re-read at the moment it is cited, not recalled. And a document
 > describing a *wanted* column and a document describing an *existing* one look identical three weeks
 > later — so ingestion asks must be written in a form that cannot be mistaken for a schema.
+
+---
+
+### E1c · The same wrong column, guessed twice, after being retracted once
+
+`MAIDS_REFERRALS_JOINERS_INFO.REFERRING_MAID_ID` does not exist. It was tried, it failed, and the
+correction was written down — `HOUSEMAID_REFERRALS_ENRICHED` carries `REFERRING_MAID_ID`;
+`HOUSEMAID_REFERRALS` carries `HOUSEMAID_ID` for the referrer. Both routes were already proven by
+queries that ran.
+
+**It was then reused from memory in BN3**, in the same file as E1b, one query later.
+
+Three guessed columns in one file — `PURPOSE_ID`, `START_DATE` as a stable anchor, and this — of which
+two had already been corrected earlier the same day. The pattern is not carelessness about schemas; it
+is **recall standing in for lookup**, and recall is confidently wrong in exactly the cases where a
+column *sounds* like it should exist.
+
+> **Rule (P1a).** A column goes into a delivered query only if it appeared in a schema result, or in a
+> query that demonstrably ran, **in this session**. Not in a spec, not in an ingestion ask, not in
+> memory. The lookup costs one small query; the alternative costs the reader's trust in every column
+> name in the file.
+
+Corollary applied here: the dead version of O3 is left **broken and labelled** rather than quietly
+patched, so the correction stays legible to whoever reads the file next.
 
 ---
 

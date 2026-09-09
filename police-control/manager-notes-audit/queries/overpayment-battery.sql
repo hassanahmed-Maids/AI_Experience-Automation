@@ -78,6 +78,9 @@ WITH bonus AS (
     WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE()) AND NOTE_DATE <= CURRENT_DATE()
 ), refs AS (
+    -- 🔴 DEAD CODE — DO NOT RUN. MAIDS_REFERRALS_JOINERS_INFO has no REFERRING_MAID_ID.
+    -- Superseded by O3b below, which uses HOUSEMAID_REFERRALS_ENRICHED. Kept only so the
+    -- correction stays legible; it is left broken deliberately rather than quietly patched.
     SELECT REFERRING_MAID_ID AS maid_id, COUNT(*) AS referrals_ever,
            MIN(REFERRED_MAID_JOINING_DATE::DATE) AS first_joiner,
            MAX(REFERRED_MAID_JOINING_DATE::DATE) AS last_joiner

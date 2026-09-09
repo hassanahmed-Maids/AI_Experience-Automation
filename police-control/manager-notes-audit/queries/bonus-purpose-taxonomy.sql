@@ -120,9 +120,15 @@ WITH b AS (
       AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
       AND n.NOTE_DATE <= CURRENT_DATE()
 ), refs AS (
-    SELECT REFERRING_MAID_ID AS maid_id, COUNT(*) AS referrals
-    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_JOINERS_INFO
-    WHERE REFERRING_MAID_ID IS NOT NULL
+    -- VERIFIED, not guessed: this is the join O9 ran with. The referrer is
+    -- HOUSEMAID_REFERRALS.HOUSEMAID_ID; the referred maid is REFERRED_MAID_ID.
+    -- `MAIDS_REFERRALS_JOINERS_INFO.REFERRING_MAID_ID` DOES NOT EXIST -- it was tried and
+    -- retracted earlier in this session, and then reused twice from memory anyway.
+    -- ⚠️ This view also carries the referred maid's name and phone and staff full names.
+    -- Only the id is selected here, and only to be counted.
+    SELECT HOUSEMAID_ID AS maid_id, COUNT(*) AS referrals
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL
     GROUP BY 1
 )
 SELECT b.purpose,
@@ -156,9 +162,15 @@ WITH b AS (
       AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
       AND n.NOTE_DATE <= CURRENT_DATE()
 ), refs AS (
-    SELECT REFERRING_MAID_ID AS maid_id, COUNT(*) AS referrals
-    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_JOINERS_INFO
-    WHERE REFERRING_MAID_ID IS NOT NULL
+    -- VERIFIED, not guessed: this is the join O9 ran with. The referrer is
+    -- HOUSEMAID_REFERRALS.HOUSEMAID_ID; the referred maid is REFERRED_MAID_ID.
+    -- `MAIDS_REFERRALS_JOINERS_INFO.REFERRING_MAID_ID` DOES NOT EXIST -- it was tried and
+    -- retracted earlier in this session, and then reused twice from memory anyway.
+    -- ⚠️ This view also carries the referred maid's name and phone and staff full names.
+    -- Only the id is selected here, and only to be counted.
+    SELECT HOUSEMAID_ID AS maid_id, COUNT(*) AS referrals
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL
     GROUP BY 1
 ), first_seen AS (
     -- second, independent tenure anchor: the maid's earliest status transition. START_DATE is
@@ -245,9 +257,15 @@ WITH b AS (
       AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
       AND n.NOTE_DATE <= CURRENT_DATE()
 ), refs AS (
-    SELECT REFERRING_MAID_ID AS maid_id, COUNT(*) AS referrals
-    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_JOINERS_INFO
-    WHERE REFERRING_MAID_ID IS NOT NULL
+    -- VERIFIED, not guessed: this is the join O9 ran with. The referrer is
+    -- HOUSEMAID_REFERRALS.HOUSEMAID_ID; the referred maid is REFERRED_MAID_ID.
+    -- `MAIDS_REFERRALS_JOINERS_INFO.REFERRING_MAID_ID` DOES NOT EXIST -- it was tried and
+    -- retracted earlier in this session, and then reused twice from memory anyway.
+    -- ⚠️ This view also carries the referred maid's name and phone and staff full names.
+    -- Only the id is selected here, and only to be counted.
+    SELECT HOUSEMAID_ID AS maid_id, COUNT(*) AS referrals
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL
     GROUP BY 1
 )
 SELECT b.bonus_kind,
