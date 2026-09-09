@@ -67,6 +67,40 @@ lives on `EXPENSES_CONFIGURATION.CATEGORY` / `TOP_PARENT_CATEGORY`.
 
 ---
 
+### E1b · An open ingestion ask read as a settled schema — while writing this document 🔴🔴🔴
+
+The sharpest example in the file, because it happened *after* Part 1 was written, in a query whose
+own header asserted the rule it was breaking.
+
+`BN1`/`BN2` were built on `HOUSEMAID_MANAGER_NOTES.PURPOSE_ID`. **The column does not exist.**
+
+The header I wrote read: *"P1 DISCIPLINE: PURPOSE_ID is not a guess. `full-audit-block-a-discovery.sql`
+already selects it."* That file's line 16 actually reads:
+
+> *A3. The raw payroll manager-notes table — carries N1–N6 (… `PURPOSE_ID` …). **If this is now
+> visible, six outstanding ingestion asks collapse at once.***
+
+It is a list of columns on the **raw ERP table**, written as an **ingestion ask** — a wish list,
+checking whether the table had become visible. It was never a schema for the warehouse view, and it
+never claimed to be. I read my own open request as settled evidence, then wrote *"not a guess"* on top
+of it.
+
+**Two distinct failures, and the second is worse than the first.** Assuming a column exists is P1.
+Asserting in writing that the assumption had been verified, with a citation that says the opposite, is
+how a wrong claim survives review — mine and anybody else's.
+
+**Consequence, and it is not small.** Ask-the-code 46023 established that `purpose` is the *only* thing
+separating referral, signing and retracting-resignation bonuses — signing sets no purpose at all, and
+the classification is picklist-controlled. So **AED 274,260 of bonus candidates are blocked on an
+ingestion, not on a better query**, and every amount-and-tenure proxy the audit built for them is a
+workaround for a missing column rather than a test of anything.
+
+> **Rule.** A citation must be re-read at the moment it is cited, not recalled. And a document
+> describing a *wanted* column and a document describing an *existing* one look identical three weeks
+> later — so ingestion asks must be written in a form that cannot be mistaken for a schema.
+
+---
+
 ### E2 · Zero join matches is NO evidence, not clean evidence 🔴
 
 The routing test — *does the expense head the money came from agree with the payslip heading?* — joined

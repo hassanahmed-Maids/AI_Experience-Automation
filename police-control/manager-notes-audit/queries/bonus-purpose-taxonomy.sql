@@ -23,10 +23,54 @@
 --   AED  16,500  referrer has bonuses but none on that date
 -- PURPOSE_ID answers directly what those four were triangulating at.
 --
--- ⚠️ P1 DISCIPLINE: PURPOSE_ID is not a guess. `full-audit-block-a-discovery.sql` already
--- selects it, and decisions.md records `referral_bonus` as an observed VALUE of it - so the
--- column exists and appears to carry resolved names rather than raw ids. BN1 profiles it
--- before BN2 leans on it.
+-- 🔴🔴 BN1/BN2 FAILED 2026-09-09: `invalid identifier 'N.PURPOSE_ID'`. THE COLUMN DOES NOT
+--    EXIST ON THIS VIEW, AND THE HEADER THAT USED TO SIT HERE SAID "PURPOSE_ID is not a guess".
+--    It was a guess. The citation was `full-audit-block-a-discovery.sql`, whose line 16 reads:
+--        "A3. The raw payroll manager-notes table -- carries N1-N6 (... PURPOSE_ID ...).
+--         If this is now visible, six outstanding ingestion asks collapse at once."
+--    That is a list of columns on the RAW ERP TABLE, written as an INGESTION ASK -- a wish list,
+--    checking whether the table had become visible. It is not a schema for
+--    HOUSEMAID_MANAGER_NOTES and never claimed to be. I read my own open request as settled
+--    evidence, then wrote "not a guess" on top of it.
+--
+--    ⚠️ CONSEQUENCE FOR GROUP C: **the bonus taxonomy cannot be resolved by query at all.**
+--    Ask-the-code 46023 established that purpose is the ONLY thing separating referral, signing
+--    and retracting-resignation bonuses (signing sets no purpose; the classification is
+--    picklist-controlled). If PURPOSE_ID is not in the warehouse then AED 274,260 of bonus
+--    candidates are blocked on an INGESTION, not on a better query -- and every amount-and-
+--    tenure proxy the audit built for them is a workaround for a missing column, not a test.
+--
+--    🟡 BN0 DID RUN, and it found the time window matters more here than anywhere yet:
+--        older than the 12m window ... 3,333 notes · AED 1,992,552 · from 2018-02-25
+--        inside the window .......... 1,131 notes · AED   849,316
+--        future-dated ...............     3 notes · AED     2,000
+--    **70% of every bonus dirham ever paid sits outside the audit window** -- 2.3x what has been
+--    examined. Unlike airfare's future-dated hole this one is known in principle, but it had
+--    never been priced for a single payment type until now.
+-- =====================================================================================
+
+
+-- BN-FIX. THE QUERY THAT SHOULD HAVE OPENED THIS FILE. Every column on the notes view, so the
+--         next person reads the schema instead of inferring it. Small, and it settles which of
+--         N1-N6 actually landed.
+SELECT COLUMN_NAME, DATA_TYPE, ORDINAL_POSITION
+FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'HOUSEMAID_MANAGEMENT_SILVER'
+  AND TABLE_NAME   = 'HOUSEMAID_MANAGER_NOTES'
+ORDER BY ORDINAL_POSITION;
+
+
+-- BN-FIX2. IS THE RAW TABLE VISIBLE ANYWHERE? If `payrollmanagernotes`, or any view carrying a
+--          purpose / addition-reason id, has been ingested since block A ran, group C unblocks
+--          with no new request. Sweeps by COLUMN as well as by table name, since the raw table
+--          may have been exposed under a different one.
+SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE
+FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
+WHERE COLUMN_NAME ILIKE '%PURPOSE%'
+   OR COLUMN_NAME ILIKE '%ADDITION_REASON%'
+   OR TABLE_NAME  ILIKE '%MANAGER_NOTE%'
+   OR TABLE_NAME  ILIKE '%MANAGERNOTE%'
+ORDER BY TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME;
 -- =====================================================================================
 
 
