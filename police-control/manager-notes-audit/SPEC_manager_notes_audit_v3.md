@@ -243,6 +243,60 @@ amount **is** the subject of the audit and is shown. Access statement needed
 
 ---
 
+## 1b. 🔴 Binding constraint on every test in §1 and §3 — current state is not history
+
+**The ERP's maid record carries state that is never reconciled backwards.** Six findings in this
+audit rested on a current-state column standing in for a historical fact. **Every one moved when a log
+replaced the column** — four shrank, one grew, one inverted:
+
+| Finding | On the current-state column | On the log | Column at fault |
+|---|---:|---:|---|
+| Airfare to MV maids | 137,500 | **4,500** | `HOUSEMAID_TYPE` |
+| Bonus at referral rates, no referral | 143,965 | **candidates** | `START_DATE`, referral link |
+| Raffle prizes to terminated maids | 3,000 | **0** | `DATE_OF_TERMINATION` |
+| Relocation to a live-in maid | 4,700 | **3,900** | `LIVE_OUT` |
+| Anti-attrition to MV maids | 2,476 | **5,726** | `HOUSEMAID_TYPE` |
+| Office work "92/92 assigned, cleared" | *a clear* | **void** | `ASSIGNED_OFFICE_WORK_REASON_ID` |
+
+### Two distinct failure modes, and they need different tests
+
+**Mode 1 — stale on change.** The column was right once and was never updated.
+`DATE_OF_TERMINATION` is not cleared when a maid is re-hired, so 13 maids read as *"terminated 558 days
+ago"* while showing **1,039 status changes since** and sitting in `WITH_CLIENT` on the day they won.
+`HOUSEMAID_TYPE` and `LIVE_OUT` are simply overwritten on switch. **Mode 1 mis-dates: it reports a
+different set, not a smaller one** — on 66 relocation notes a point read flagged 5 of which 2 were
+false, while missing 3 of the 6 real ones.
+
+**Mode 2 — never cleared.** The column accumulates and never resets, so its *base rate* is
+uninformative. Of every maid carrying `ASSIGNED_OFFICE_WORK_REASON_ID`, **57.4% are
+`EMPLOYEMENT_TERMINATED` and 0.8% are actually in office-work status.** **Mode 2 mis-means:** the value
+is not stale, it simply never implied what the test assumed. No log fixes this one — only a base rate
+exposes it.
+
+### The rule
+
+1. **Any predicate about a maid at a past date reads from a log, never from `HOUSEMAIDS_INFO`.**
+   `HOUSEMAID_STATUS_LOGS` and `HOUSEMAID_TYPE_LOGS` are **interval tables** — `CHANGE_DATE` *and*
+   `NEXT_CHANGE_DATE` — so the read is plain containment and needs no window function:
+   `note_day >= CHANGE_DATE AND (NEXT_CHANGE_DATE IS NULL OR note_day < NEXT_CHANGE_DATE)`.
+2. **If no log exists for that attribute, the test is BLOCKED, not approximate.** An approximation of an
+   entitlement is a finding-shaped object with no evidence behind it.
+3. **Before using any flag or marker as evidence, measure its base rate across the whole population.**
+   If holders are mostly people the flag should not describe, it is a marker, not a state.
+4. **Carry the diagnostic in the same result:** count how many rows resolve to a *past* interval. If
+   none do, the join is decorative and the answer is a point read wearing a costume. That one column
+   caught the airfare error before publication.
+
+`HOUSEMAIDS_INFO_REVISION` (Envers) is the **fallback, not the first choice**: it records *that a row
+changed*, where a log records *what the value became*, with the interval already closed.
+
+🟢 **N17 is RESOLVED by this.** `HOUSEMAID_TYPE_LOGS` (`HOUSEMAID_ID, FROM_TYPE, TO_TYPE,
+CHANGE_DATE, PREV_CHANGE_DATE, NEXT_CHANGE_DATE`) is the CC/MV contract-type timeline this spec has
+been asking a person for. **Group A unblocks.** N19 (`LIVE_OUT`) is likewise resolved, and the type log
+carries `CC Live In` / `CC Live Out` / `MV` directly — one column where the spec assumed two.
+
+---
+
 ## 2. Data Points Needed
 
 > **Verification note.** Two independent verification paths, and a third that is empty.

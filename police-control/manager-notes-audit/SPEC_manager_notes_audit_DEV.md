@@ -269,6 +269,55 @@ exactly 1  -> matched
 Publish the match rate (M13) **per payment type per month**. Below the floor (start at 80%), T4
 cannot return red for that type. **A low match rate means unverified, never clean.**
 
+## 5b. 🔴 CURRENT STATE IS NOT HISTORY — the audit's main structural finding
+
+**The ERP's maid record carries state that is never reconciled backwards.** Six findings in this
+audit rested on a current-state column standing in for a historical fact. **Every one moved when a log
+replaced the column** — four shrank, one grew, one inverted:
+
+| Finding | On the current-state column | On the log | Column at fault |
+|---|---:|---:|---|
+| Airfare to MV maids | 137,500 | **4,500** | `HOUSEMAID_TYPE` |
+| Bonus at referral rates, no referral | 143,965 | **candidates** | `START_DATE`, referral link |
+| Raffle prizes to terminated maids | 3,000 | **0** | `DATE_OF_TERMINATION` |
+| Relocation to a live-in maid | 4,700 | **3,900** | `LIVE_OUT` |
+| Anti-attrition to MV maids | 2,476 | **5,726** | `HOUSEMAID_TYPE` |
+| Office work "92/92 assigned, cleared" | *a clear* | **void** | `ASSIGNED_OFFICE_WORK_REASON_ID` |
+
+### Two distinct failure modes, and they need different tests
+
+**Mode 1 — stale on change.** The column was right once and was never updated.
+`DATE_OF_TERMINATION` is not cleared when a maid is re-hired, so 13 maids read as *"terminated 558 days
+ago"* while showing **1,039 status changes since** and sitting in `WITH_CLIENT` on the day they won.
+`HOUSEMAID_TYPE` and `LIVE_OUT` are simply overwritten on switch. **Mode 1 mis-dates: it reports a
+different set, not a smaller one** — on 66 relocation notes a point read flagged 5 of which 2 were
+false, while missing 3 of the 6 real ones.
+
+**Mode 2 — never cleared.** The column accumulates and never resets, so its *base rate* is
+uninformative. Of every maid carrying `ASSIGNED_OFFICE_WORK_REASON_ID`, **57.4% are
+`EMPLOYEMENT_TERMINATED` and 0.8% are actually in office-work status.** **Mode 2 mis-means:** the value
+is not stale, it simply never implied what the test assumed. No log fixes this one — only a base rate
+exposes it.
+
+### The rule
+
+1. **Any predicate about a maid at a past date reads from a log, never from `HOUSEMAIDS_INFO`.**
+   `HOUSEMAID_STATUS_LOGS` and `HOUSEMAID_TYPE_LOGS` are **interval tables** — `CHANGE_DATE` *and*
+   `NEXT_CHANGE_DATE` — so the read is plain containment and needs no window function:
+   `note_day >= CHANGE_DATE AND (NEXT_CHANGE_DATE IS NULL OR note_day < NEXT_CHANGE_DATE)`.
+2. **If no log exists for that attribute, the test is BLOCKED, not approximate.** An approximation of an
+   entitlement is a finding-shaped object with no evidence behind it.
+3. **Before using any flag or marker as evidence, measure its base rate across the whole population.**
+   If holders are mostly people the flag should not describe, it is a marker, not a state.
+4. **Carry the diagnostic in the same result:** count how many rows resolve to a *past* interval. If
+   none do, the join is decorative and the answer is a point read wearing a costume. That one column
+   caught the airfare error before publication.
+
+`HOUSEMAIDS_INFO_REVISION` (Envers) is the **fallback, not the first choice**: it records *that a row
+changed*, where a log records *what the value became*, with the interval already closed.
+
+---
+
 ## 6. Traps that return a wrong answer instead of an error
 
 | | |
@@ -292,6 +341,8 @@ cannot return red for that type. **A low match rate means unverified, never clea
 | **The loan on the REQUEST is not the loan on the ADDITION** | `EXPENSES_REQUESTS.LOAN_AMOUNT` is largely empty; the sanctioned `ADDITION_LOAN_AMOUNT` is where payroll books it. Reading the first gave 3.4% where the approved KPI gives 85–100% |
 | **Sweep the gold layer BEFORE hand-building a metric** | `BI_PAYROLL_MAID_SALARY_ADDITIONS_AS_LOAN_IMPACT_BY_CATEGORY` already publishes `LOAN_PERCENTAGE_OF_ADDITIONS`, and `BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS` already publishes recovery. Two rounds of hand-built work reconstructed approved KPIs. **A reconstruction of an approved KPI is not the KPI** and must not be published as one — read the view, whose own logic is the sanctioned definition |
 | **A void test and a negative test look identical in the output** | TF16's control row (65 booked loans) showed zero recovery, proving deduction notes are the wrong table. Without the control, "AED 30,220 never recovered" reads as a finding. **Every absence test carries a population known to show the presence, or it cannot be scored** |
+| **Current state is not history** | See §5b. Six findings moved when a log replaced the column. Any past-date predicate reads from `HOUSEMAID_STATUS_LOGS` / `HOUSEMAID_TYPE_LOGS`; no log means BLOCKED, not approximate |
+| **A never-cleared marker mis-MEANS, it is not merely stale** | 57.4% of `ASSIGNED_OFFICE_WORK_REASON_ID` holders are terminated and 0.8% are in office-work status. A log cannot fix this; only a base rate exposes it |
 | **A permission flag is not an obligation** | `ALLOW_TO_ADD_LOAN` reads *may*, not *must*. An unbooked loan on a loan-enabled head is not a finding by itself — and on a head where the flag is FALSE, "no loan booked" is 100% of rows and means nothing at all. **Filter by the flag before aggregating, or the column reports grants as unrecovered debt** (this cost AED 2.2m of false finding, caught pre-publication) |
 | **Name the output column after what it PROVES, not what it counts** | A column called `aed_never_recoverable` counted "no loan row exists". On grant heads that is every row. The name, not the logic, is what would have been published |
 | **Carry a positive control inside the query** | A test for an absence needs a population known to show the presence. Accommodation Relocation books 65 of 66 loans, so it proves the mechanism works and the low rates elsewhere are real. Without it, "no loans booked" cannot be distinguished from "loans are not recorded here" |

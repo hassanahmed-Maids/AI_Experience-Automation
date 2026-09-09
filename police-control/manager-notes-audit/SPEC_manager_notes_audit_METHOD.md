@@ -480,6 +480,31 @@ submitted — the answers existed server-side and the caller had thrown away the
 
 ---
 
+## Part 2b — The one finding that outlives every number above
+
+Fourteen worked examples, and they are not fourteen independent mistakes. **Six of them are the same
+mistake**, and together they are the most useful thing this audit produced:
+
+> **The ERP's maid record carries state that is never reconciled backwards. Every finding built on a
+> current-state column moved when a log replaced it** — airfare 137,500 → 4,500 · bonus 143,965 →
+> candidates · raffle 3,000 → 0 · relocation 4,700 → 3,900 · anti-attrition 2,476 → 5,726 · office
+> work, a clear → void. Four shrank, one grew, one inverted.
+
+That is worth more than any single overpayment, because it is **actionable outside this audit**:
+anything in the company reading `HOUSEMAIDS_INFO` to describe a past date is wrong in the same way, and
+the fix — read `HOUSEMAID_STATUS_LOGS` / `HOUSEMAID_TYPE_LOGS`, which are interval tables — is one join
+pattern.
+
+**The two modes need different defences.** *Stale on change* (`DATE_OF_TERMINATION` not cleared on
+re-hire; `HOUSEMAID_TYPE`, `LIVE_OUT` overwritten) **mis-dates**, and a log fixes it. *Never cleared*
+(`ASSIGNED_OFFICE_WORK_REASON_ID`: 57.4% of holders terminated, 0.8% in office-work status)
+**mis-means**, and no log fixes it — only a base rate exposes it.
+
+The full statement, with the rule and the diagnostic, is §5b of `SPEC_manager_notes_audit_DEV.md`,
+§1b of `SPEC_manager_notes_audit_v3.md`, and E9 of `AUDIT-COVERAGE-LEDGER.md`.
+
+---
+
 ## Part 3 — The scoreboard
 
 What these fourteen would have cost, had each been published on its face:

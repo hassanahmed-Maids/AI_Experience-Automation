@@ -63,6 +63,16 @@ AND (l.NEXT_CHANGE_DATE IS NULL OR n.note_day < l.NEXT_CHANGE_DATE::DATE)
 | `BI_HOUSEMAID_STATUS_LOGS` | the above + `ERP_USER_NAME, HOUSEMAID_TYPE, MAID_NATIONALITY, EXCLUDED_NOSHOW_IN_ACCOMMODATION` | status with type/nationality attached |
 | `FACT_MAID_TERMINATIONS` | `HOUSEMAID_ID, TERMINATION_DATE, TERMINATION_CATEGORY, LIVING_TYPE` | left-the-company date |
 
+🔴 **Known never-cleared / stale columns on `HOUSEMAIDS_INFO` — do not use any of these to describe a
+past date.** Verified 2026-09-09 against the logs:
+
+| Column | Failure | Evidence |
+|---|---|---|
+| `DATE_OF_TERMINATION` | **not cleared on re-hire** | 13 maids read as terminated a median 558 days earlier while showing 1,039 status changes since, and sitting in `WITH_CLIENT` |
+| `ASSIGNED_OFFICE_WORK_REASON_ID` | **never cleared at all** | 57.4% of holders are `EMPLOYEMENT_TERMINATED`; **0.8%** are in office-work status |
+| `HOUSEMAID_TYPE` | overwritten on CC/MV switch | use `HOUSEMAID_TYPE_LOGS` |
+| `LIVE_OUT` | overwritten | `HOUSEMAID_TYPE_LOGS` carries `CC Live In`/`CC Live Out`/`MV` directly |
+
 🔴 **`HOUSEMAIDS_INFO_REVISION` is the fallback, not the first choice.** It is an Envers audit table:
 it records *that a row changed*, where these record *what the value became*, with the interval already
 closed. Any point-in-time question should try a log first. The manager-notes audit built three as-of
