@@ -1909,11 +1909,31 @@ approver ids not names, salary-bearing rows banded.
 
 ---
 
-## 5b. Real worked examples — run against the warehouse, 2026-09-09
+## 5. Worked Examples — real, run against the warehouse 2026-09-09
 
-§5 below is explicitly synthetic (*"nothing has been read from the warehouse"*). These are not. Every
-figure here came back from a query in `queries/`, and each shows a different verdict shape the audit
-actually produces. Aggregates only — no maid or staff identity leaves this document.
+> 🔴 **Replaced 2026-09-09.** The previous §5 was explicitly synthetic — *"Ids and amounts are
+> synthetic; nothing has been read from the warehouse."* It illustrated a verdict model that the live
+> runs have since changed, and it read as though the audit had produced those numbers. **It is deleted,
+> not archived**, because a synthetic example sitting under a heading called *Worked Examples* is the
+> single most misreadable thing this spec contained.
+
+Every figure below came back from a query in `queries/`. Aggregates only — no maid or staff identity
+leaves this document. The five are chosen to show five **verdict shapes**, not five findings: a spec
+that only ever illustrates RED teaches the reader to expect findings.
+
+**The verdict vocabulary these establish, which §3's metrics must be able to express:**
+
+| Verdict | Means | Example |
+|---|---|---|
+| **GREEN** | every applicable test ran and passed | R-A |
+| **RED** | a rule the code or the business states was broken | R-B |
+| **CANDIDATE** | a real population, not yet a verdict | R-C's 197 AMBER |
+| **VOID** | the test could not score — *not* a pass | R-D |
+| **BLOCKED** | the input does not exist in the warehouse | R-C's entitlement date |
+| **REPORTED** | true, material, and somebody else's metric | R-E |
+
+⚠️ **VOID and BLOCKED are not GREEN, and the report must never render them as one.** Four of the six
+shapes above are non-findings that would each read as a finding, or as a clear, if collapsed.
 
 ### R-A · A type that clears — the tail five (`queries/tail-five-battery.sql`, TF1)
 
@@ -1991,140 +2011,3 @@ does not.
 
 ---
 
-## 5. Worked Examples
-
-Illustrative. Ids and amounts are synthetic and internally consistent; nothing has been read from
-the warehouse. The month is **2026-08**: M1 = 1,300 · M2 = 512,400 (positive 519,880, negative
-−7,480) · M7 = 41 / 28,900 · M8 = 852 / 469,120 · M9 = 407 / 14,380 · M10.cases = 34.5 % ·
-M10.money = 8.3 % · M11 = 21,640 · M12 = 6 · M13 = 71 % (3 types below floor) · M14 = 3 / 1,240.
-
-### Example A — Cleared (Green)
-
-| Input | Value |
-| --- | --- |
-| Note | 118198, maid 44711, `HOUSEMAID_TYPE = Normal` |
-| Payment type | `taxi_reimbursement` — Transportation Fare Reimbursement |
-| Amount | AED 380.00 |
-| Paid month | 2026-08, **recorded** (`PAID_ON_PAYROLL_MONTH`) |
-| Matched request | 151204, `REQUEST_STATUS = PAID`, `REFUNDED = false`, AED 380.00, currency AED |
-| Beneficiary | `BENEFICIARY_TYPE = MAID`, id matches |
-| Approver | user 4471 (name resolved only in the drill-down) |
-
-**Arithmetic.** T1 green · T2 green · T3 N_A (amount > 0) · T4 matched, authorised, 380.00 − 380.00
-= **0.00** within the AED 0.01 tolerance → green · T5 head in N14 → green · T6 no group → green ·
-T7 `taxi_reimbursement` allowed for `Normal` → green · Group G: G1 ✓ G2 ✓ G3 `NULLIF(TRIM(APPROVED_BY),'')`
-is not null ✓.
-
-Every applicable test **ran** and returned green → **GREEN**. Gap AED 0.00. M11 contribution 0.00.
-
-### Example B — Finding (Red, F1) — and the reason G9 exists
-
-| Input | Value |
-| --- | --- |
-| Note | 118420, maid 38820, `NATIONALITY` picklist code `philippines` |
-| Payment type | `airfare_ticket` |
-| Amount | AED 2,400.00 |
-| Cap | `PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` = `"2000"` → 2000.00 |
-| Service | 29 months since `START_DATE` |
-| Internal sign-off | `CONFIRMED_AMOUNT_BY_AUDITOR = true` — **already signed off in the ERP** |
-
-**Arithmetic.** Group A test A1: 2,400.00 **>** 2,000.00 → **RED (F1)**, over by **AED 400.00**.
-A2: 29 ≥ 6 → green. A3: 29 % 24 = 5, not 22 → the cycle test **blocks**, reason *"outside the
-entitlement cycle"* — but one red already decides the verdict.
-
-**Verdict RED.** M11 contribution **AED 400.00** (the gap, not the amount).
-
-**Why this example carries the spec.** The ERP's own detection queries notes where
-`CONFIRMED_AMOUNT_BY_AUDITOR = false` *(code-verified)*. This note has been confirmed, so it has
-**left the ERP's exception list** while remaining AED 400 over the limit. If this report inherited
-that filter it would show nothing here. **G9 forbids it**, and the sign-off is rendered in the
-drill-down labelled *context — does not clear this case*. This is the whole argument for an
-independent second check, in one row.
-
-### Example C — Unverifiable (Amber), and the most valuable row on the page
-
-| Input | Value |
-| --- | --- |
-| Note | 118655, maid 51002, `HOUSEMAID_TYPE = Normal` |
-| Payment type | `anti_attrition_incentive` — the loyalty payment |
-| Amount | AED 1,000.00 |
-
-**Arithmetic. 🔴 Rewritten in v3 — this example previously said "no rule to run".** Group B now has
-eight tests. T1–T7 green or N_A. B1 green (an enrolment record exists), **B1b green** (it predates
-the payment), B2/B3 green, B6 green. **B4 returns `BLOCKED("recompute needs enrolment and exit
-dates, and the divisor rule")` and B5 returns `BLOCKED("INCENTIVE_AMOUNT not exposed")`.**
-
-Under M5, one blocked applicable test makes the note **AMBER**, though eleven tests returned green.
-**M8 += 1 case, AED 1,000.00. M9 += 0.** It is not a pass — and the amber reason is now a *named,
-costed ingestion ask* rather than "nobody wrote a rule".
-
-**What changed and why it matters to the reader.** v2's amber said *the company has no rule for this
-payment*. That was true of the **amount**, and it is still true — but it was wrong about the
-**justification**, which does exist, in a free-text box on the enrolment record, 100% filled and 96%
-distinct. B7 reads it. So the loyalty bucket splits in two: cases blocked on an ingestion ask (B4/B5)
-and cases where B7 found **no retention reason stated at all** — and only the second is a finding
-about the business rather than about the warehouse.
-
-⚠️ **This example is a single note; do not read the group from it.** Group B covers **9,167 notes a
-year, 59% of the population by count and AED 1.83m** — see §1.
-
-### Example D — Negative addition (Amber, reported)
-
-| Input | Value |
-| --- | --- |
-| Note | 118290, maid 47120 |
-| Payment type | `salary_dispute` |
-| Amount | **−AED 450.00** |
-
-T3 blocks with *"negative addition — money taken back"* → **AMBER**, label **NEGATIVE — REPORTED**.
-
-It contributes **−450.00 to `M2.negative`**, **0 to M11**, and one case to M8's negative bucket
-(22 cases, −AED 7,480). It is never netted against a positive finding, and it is never a fourth
-verdict: v1's `REPORTED` state belonged to no metric, so these notes rendered amber on screen and
-counted nowhere — G6 now forbids that.
-
-### Example E — The confidence floor, and why it is per payment type
-
-| Input | Value |
-| --- | --- |
-| Note | 118501, maid 40155, `HOUSEMAID_TYPE = MAID_VISA` |
-| Payment type | `salary_dispute` — salary correction |
-| Amount | AED 700.00 |
-| Candidate expense records | none |
-| M13 for `salary_dispute`, 2026-08 | **62 %** (aggregate across all types: 71 %) |
-
-T4 does **not** return RED "no basis". 62 % is below the 80 % floor, so it returns
-`BLOCKED("expense-record match unreliable for this payment type — 62 %")` → **AMBER**.
-
-Had `salary_dispute` matched at 94 %, the identical note would have been **RED (F4)**.
-
-**The row's message uses 62 %, the type's own rate — not the 71 % aggregate.** v1's mockup showed
-the aggregate on the row, which is a different number about a different population, and would have
-had an auditor arguing a case on a statistic that did not apply to it.
-
-### Example F — Two candidates, and why first-match is forbidden
-
-| Input | Value |
-| --- | --- |
-| Note | 118377, maid 39004 |
-| Payment type | `medical_assistant` |
-| Amount | AED 1,150.00 |
-| Candidates | request 149210 (AED 1,150.00, `PAID`) **and** request 149655 (AED 640.00, `CANCELED`) |
-
-Two candidate requests share the maid and the expense category. M4 returns
-`BLOCKED("multiple candidate expense records")` → **AMBER**.
-
-Taking the first match manufactures the answer: sorted one way it matches 1,150.00 and the note
-goes **GREEN**; sorted the other it matches a cancelled 640.00 request and the note goes **RED**.
-Same data, opposite conclusions, no error either way.
-
-**The guard that catches the underlying cause is G2, not G3.** If the view's own join fans one note
-into two rows, both rows receive verdicts and both are in the population, so G3's identity holds
-perfectly on the inflated total. Only `COUNT(*) = COUNT(DISTINCT ID)` sees it.
-
-### August 2026 expectation
-
-1,300 cases · 41 findings (F1 17, F2 12 in 6 duplicate groups, F3 5, F4 7) · AED 21,640 at risk ·
-852 unverifiable across 12 blocking reasons · 407 cleared · coverage 34.5 % of cases and 8.3 % of
-money · 3 completeness exceptions worth AED 1,240 · G2, G3, G4, G5, G9 pass; G1 leaves the M14
-residual; G7 reports N14–N16 absent.
