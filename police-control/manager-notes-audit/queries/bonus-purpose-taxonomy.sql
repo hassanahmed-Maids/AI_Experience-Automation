@@ -30,6 +30,36 @@
 -- =====================================================================================
 
 
+-- ⚠️ REVISED 2026-09-09, AFTER THE AIRFARE ROUND. Three things learned since these were
+--    drafted apply here and are folded in below:
+--    (a) E10c — every test in this audit carries `NOTE_DATE <= CURRENT_DATE()`, and on airfare
+--        that filter turned out to hide 216 notes / AED 385,000 that nothing had ever examined.
+--        BN0 counts what it hides for Bonus BEFORE BN1/BN2 apply it.
+--    (b) E10 — `HOUSEMAIDS_INFO.START_DATE` is CURRENT state. If it is overwritten when a maid
+--        starts a new contract, "days into service" is measured from the wrong anchor, and that
+--        is the proxy the AED 143,965 finding rests on. BN2 now carries a SECOND tenure measure
+--        from the status log beside it, so the two can disagree visibly instead of silently.
+--    (c) The notes view has exactly ONE timestamp (`NOTE_DATE`, AF1), so there is no note
+--        creation date to fall back on. The two tenure anchors below are all there is.
+
+
+-- BN0. WHAT DOES THE STANDING FILTER HIDE? One small query, run first. On airfare the same
+--      question found AED 385,000 nobody had looked at.
+SELECT CASE WHEN NOTE_DATE > CURRENT_DATE()                              THEN 'FUTURE-dated'
+            WHEN NOTE_DATE < DATEADD('month', -12, CURRENT_DATE())       THEN 'older than the window'
+            ELSE                                                              'inside the 12m window'
+       END                              AS dating,
+       COUNT(*)                         AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)     AS maids,
+       ROUND(SUM(AMOUNT))               AS aed,
+       MIN(NOTE_DATE)::DATE             AS earliest,
+       MAX(NOTE_DATE)::DATE             AS latest
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+GROUP BY 1
+ORDER BY notes DESC;
+
+
 -- BN1. 🔴 THE TAXONOMY, AT LAST. One row per purpose value, with the two signals the audit
 --      has been using as PROXIES for purpose sitting beside it - so their agreement (or
 --      disagreement) with the real classification is visible in the same result.
@@ -73,7 +103,7 @@ ORDER BY aed DESC;
 --      classification the code actually uses instead of on its shadow.
 --      A signing bonus paid 765 days into service is not a signing bonus.
 WITH b AS (
-    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.AMOUNT,
+    SELECT n.ID AS note_id, n.HOUSEMAID_ID, n.AMOUNT, n.NOTE_DATE::DATE AS note_day,
            COALESCE(n.PURPOSE_ID::STRING, '(no purpose set)') AS purpose,
            DATEDIFF('day', h.START_DATE::DATE, n.NOTE_DATE::DATE) AS days_into_service
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
@@ -86,6 +116,12 @@ WITH b AS (
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.MAIDS_REFERRALS_JOINERS_INFO
     WHERE REFERRING_MAID_ID IS NOT NULL
     GROUP BY 1
+), first_seen AS (
+    -- second, independent tenure anchor: the maid's earliest status transition. START_DATE is
+    -- current state and may be overwritten on a new contract; this cannot be.
+    SELECT HOUSEMAID_ID, MIN(CHANGE_DATE)::DATE AS first_status_day
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_STATUS_LOGS
+    GROUP BY 1
 )
 SELECT b.purpose,
        CASE WHEN b.days_into_service IS NULL THEN 'BLOCKED - no start date'
@@ -97,7 +133,14 @@ SELECT b.purpose,
        COUNT(*)                                             AS notes,
        COUNT(DISTINCT b.HOUSEMAID_ID)                       AS maids,
        ROUND(SUM(b.AMOUNT))                                 AS aed,
-       ROUND(AVG(b.AMOUNT))                                 AS avg_amount
-FROM b LEFT JOIN refs r ON r.maid_id = b.HOUSEMAID_ID
+       ROUND(AVG(b.AMOUNT))                                 AS avg_amount,
+       -- THE SELF-DIAGNOSTIC: the same tenure measured from the status log. If these two
+       -- disagree materially the START_DATE anchor is unsound and the band above is fiction.
+       ROUND(MEDIAN(DATEDIFF('day', f.first_status_day, b.note_day))) AS median_days_by_status_log,
+       COUNT_IF(ABS(b.days_into_service
+                    - DATEDIFF('day', f.first_status_day, b.note_day)) > 90) AS anchors_disagree_over_90d
+FROM b
+LEFT JOIN refs r ON r.maid_id = b.HOUSEMAID_ID
+LEFT JOIN first_seen f ON f.HOUSEMAID_ID = b.HOUSEMAID_ID
 GROUP BY 1, 2, 3
 ORDER BY aed DESC;
