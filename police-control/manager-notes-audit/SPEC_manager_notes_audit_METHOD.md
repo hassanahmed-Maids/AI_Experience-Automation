@@ -319,6 +319,27 @@ mechanism**. The test scores nothing.
 
 ---
 
+### E13b · Sweep the knowledge base you already wrote
+
+`docs/snowflake.md` line 44 lists `HOUSEMAID_STATUS_LOGS`, `HOUSEMAID_TYPE_LOGS` and
+`FACT_MAID_TERMINATIONS` among the verified maid tables. The DEV spec names
+`BI_HOUSEMAID_STATUS_LOGS.to_type` as a working route for **N17**, the contract-type timeline that
+has blocked group A — airfare, **AED 2.3m** — since the spec was written.
+
+**The audit used none of them.** Every as-of join was built on `HOUSEMAIDS_INFO_REVISION`, an Envers
+audit table, while a purpose-built status log sat in the knowledge base. It took the requestor
+mentioning it in passing.
+
+E13's rule was "sweep the gold layer before hand-building a metric." This is its twin and it is worse,
+because the sweep had already been done and written down. A knowledge base that is not re-read is a
+knowledge base that does not exist.
+
+> **Rule.** Before building any point-in-time join, re-read `docs/snowflake.md` for a purpose-built
+> log. An Envers revision table is the fallback, not the first choice — it records *that a row
+> changed*, where a status log records *what the status became*.
+
+---
+
 ### E13 · Sweep the gold layer before hand-building a metric
 
 Two rounds of hand-built work reconstructed metrics that already existed, approved:
