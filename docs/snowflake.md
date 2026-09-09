@@ -42,6 +42,39 @@ Verified ~98% match by mobile (3674/3734), ~90% by whatsapp; use mobile first, w
 
 - Clients: `CLIENT_MANAGEMENT_SILVER.CLIENTS_LIVE` (current), `CLIENTS` (history). Gold: `CLIENT_MANAGEMENT_GOLD.BI_ACTIVE_CONTRACTS_PER_DAY`, `BI_CLIENTS_SCHEDULED_FOR_TERMINATION`, `BI_CLIENT_ATTRITION_LOGS`, etc.
 - Maids: `HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO` (+ `_REVISION`), `HOUSEMAID_STATUS_LOGS`, `HOUSEMAID_TYPE_LOGS`, `HOUSEMAID_VACATIONS`, `FACT_MAID_TERMINATIONS`.
+
+### Point-in-time reads — use the logs, not the Envers revision table (verified 2026-09-09)
+
+`HOUSEMAID_STATUS_LOGS`, `HOUSEMAID_TYPE_LOGS` and the gold `BI_HOUSEMAID_STATUS_LOGS` /
+`BI_HISTORICAL_STATUS_LOGS` are **interval tables**, not event tables — each row carries
+`CHANGE_DATE` **and `NEXT_CHANGE_DATE`**. So an as-of read is plain interval containment and needs no
+window function:
+
+```sql
+ON  l.HOUSEMAID_ID = n.HOUSEMAID_ID
+AND n.note_day >= l.CHANGE_DATE::DATE
+AND (l.NEXT_CHANGE_DATE IS NULL OR n.note_day < l.NEXT_CHANGE_DATE::DATE)
+```
+
+| Table | Columns | Use for |
+|---|---|---|
+| `HOUSEMAID_STATUS_LOGS` | `HOUSEMAID_ID, FROM_STATUS, TO_STATUS, CHANGE_DATE, NEXT_CHANGE_DATE, PREVIOUS_CHANGE_DATE, DESCRIPTION, ERP_USER` | status as of any date |
+| `HOUSEMAID_TYPE_LOGS` | `HOUSEMAID_ID, FROM_TYPE, TO_TYPE, CHANGE_DATE, PREV_CHANGE_DATE, NEXT_CHANGE_DATE` | **N17 — the CC/MV contract-type timeline** |
+| `BI_HOUSEMAID_STATUS_LOGS` | the above + `ERP_USER_NAME, HOUSEMAID_TYPE, MAID_NATIONALITY, EXCLUDED_NOSHOW_IN_ACCOMMODATION` | status with type/nationality attached |
+| `FACT_MAID_TERMINATIONS` | `HOUSEMAID_ID, TERMINATION_DATE, TERMINATION_CATEGORY, LIVING_TYPE` | left-the-company date |
+
+🔴 **`HOUSEMAIDS_INFO_REVISION` is the fallback, not the first choice.** It is an Envers audit table:
+it records *that a row changed*, where these record *what the value became*, with the interval already
+closed. Any point-in-time question should try a log first. The manager-notes audit built three as-of
+findings on the revision table before noticing these existed — and they had been listed on the line
+above since the file was written.
+
+🟡 **Placement ("with a client") is not a column anywhere.** Two candidate routes, in order of
+preference: a value inside the status vocabulary, or `CLIENT_MANAGEMENT_SILVER.REPLACEMENTS`
+(`HOUSEMAID_ID, CLIENT_ID, CONTRACT_ID, TAGGING_DATE, UNTAGGING_DATE`) as a placement interval, with
+`BED_ASSIGNMENTS` (`ASSIGNMENT_DATE, EXPIRY_DATE`) as its accommodation complement. Prefer the first —
+a status value is one join; reconstructing placement from tag/untag events is a model, and a model can
+be wrong.
 - Contracts: `SALES_SILVER.CONTRACTS` + `CONTRACTS_HISTORY`, `CONTRACTS_PAYMENTS_TERMS`. Replacements: `CLIENT_MANAGEMENT_SILVER.REPLACMENETS_CLIENTS_MAIDS_MTS`, `CLIENT_REPLACEMENTS`.
 - **Point-in-time:** for "did the recipient meet the condition *at send time*", prefer the `*_STATUS_LOGS` / `*_HISTORY` / `*_REVISION` tables (state as-of `SENT_DATE`). For recent (7-day) sends, current-state tables are a close proxy — state the approximation in the report.
 

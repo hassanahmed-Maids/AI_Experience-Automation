@@ -86,3 +86,121 @@ ORDER BY TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME;
 --   ⚠️ Check the log's date coverage first — H8 records that EXPENSES_REQUESTS.STATUS_CHANGE_DATE
 --   only starts 2025-12-16. A status log that starts mid-window silently turns "no change
 --   found before the note" into "she was never anything but her current status".
+
+
+-- =====================================================================================
+-- S1/S1b RESULTS 2026-09-09 — two findings, one of them large.
+--
+-- 🟢 THE LOGS ARE INTERVAL TABLES, NOT EVENT TABLES. All three carry CHANGE_DATE **and
+--    NEXT_CHANGE_DATE**. So the as-of read needs no LAG/QUALIFY window at all — it is a
+--    plain interval containment:
+--        note_day >= CHANGE_DATE AND (NEXT_CHANGE_DATE IS NULL OR note_day < NEXT_CHANGE_DATE)
+--    Simpler and exact, where the QUALIFY pattern this audit has been using is an
+--    approximation that silently picks the latest row when intervals overlap.
+--
+-- 🔴 N17 IS RESOLVED, AND IT UNBLOCKS GROUP A. `HOUSEMAID_TYPE_LOGS` is a purpose-built
+--    contract-type timeline: HOUSEMAID_ID, FROM_TYPE, TO_TYPE, CHANGE_DATE, PREV_CHANGE_DATE,
+--    NEXT_CHANGE_DATE. That is exactly the CC/MV interval history the spec has been asking a
+--    person for. **Group A — airfare, AED 2.3m — has been blocked on it since v1.**
+--    ⚠️ AND IT MEANS TWO PUBLISHED VERDICTS USED THE WRONG SOURCE. The anti-attrition
+--    "paid while MV" finding (AED 2,476) and the relocation CC check (66/66 GREEN) both
+--    resolved type from HOUSEMAIDS_INFO_REVISION — an Envers audit table — when a dedicated
+--    type log existed. Both must be re-run against HOUSEMAID_TYPE_LOGS before either stands.
+--
+-- 🟡 WITH-CLIENT DID NOT APPEAR AS A COLUMN. No placement/deployment table surfaced. Two
+--    candidate routes instead:
+--      (a) it is a VALUE in the status vocabulary (TO_STATUS) — S3 settles this in one query;
+--      (b) CLIENT_MANAGEMENT_SILVER.REPLACEMENTS carries HOUSEMAID_ID + CLIENT_ID +
+--          TAGGING_DATE + UNTAGGING_DATE, which is a placement interval in all but name;
+--          BED_ASSIGNMENTS (HOUSEMAID_ID, ASSIGNMENT_DATE, EXPIRY_DATE) is its complement —
+--          a maid in a bed is in accommodation, not with a client.
+--    Do NOT build on (b) until S3 rules out (a). A status value is one join; reconstructing
+--    placement from tag/untag events is a model, and a model can be wrong.
+-- =====================================================================================
+
+
+-- S3. 🟢 THE STATUS VOCABULARY AND ITS DATE COVERAGE — one small query that decides
+--     everything downstream. It answers "is 'with a client' a status?" directly, and it
+--     checks the trap H8 already recorded once: EXPENSES_REQUESTS.STATUS_CHANGE_DATE only
+--     begins 2025-12-16, and **a log that starts mid-window silently converts "no interval
+--     covers this note" into "she was never anything but what she is now."**
+SELECT TO_STATUS,
+       COUNT(*)                                  AS transitions,
+       COUNT(DISTINCT HOUSEMAID_ID)              AS maids,
+       MIN(CHANGE_DATE)::DATE                    AS first_seen,
+       MAX(CHANGE_DATE)::DATE                    AS last_seen,
+       COUNT_IF(NEXT_CHANGE_DATE IS NULL)        AS still_open_intervals
+FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_STATUS_LOGS
+GROUP BY 1
+ORDER BY transitions DESC;
+
+
+-- S4. 🔴 THE CROSS-CUTTING TEST THE AUDIT NEVER HAD: what was her status when we paid her?
+--     Applies to every payment type at once. Interval join, not a window function.
+--     ⚠️ THE SELF-DIAGNOSTIC IS THE LAST COLUMN AND IT IS NOT OPTIONAL. If every note
+--     resolves to the maid's still-open interval, the join is decorative and this is a
+--     current-state read wearing a costume — the E10 failure, which on one column flagged
+--     5 notes of which 2 were wrong while missing 3 of the 6 real ones.
+WITH n AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT,
+           COALESCE(REASON,'(none)') AS payment_type
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND NOTE_DATE <= CURRENT_DATE()
+), resolved AS (
+    SELECT n.note_id, n.HOUSEMAID_ID, n.payment_type, n.AMOUNT,
+           l.TO_STATUS      AS status_when_paid,
+           l.NEXT_CHANGE_DATE
+    FROM n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_STATUS_LOGS l
+           ON l.HOUSEMAID_ID = n.HOUSEMAID_ID
+          AND n.note_day >= l.CHANGE_DATE::DATE
+          AND (l.NEXT_CHANGE_DATE IS NULL OR n.note_day < l.NEXT_CHANGE_DATE::DATE)
+    -- intervals can overlap in practice; keep one row per note, the latest that contains it
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY n.note_id ORDER BY l.CHANGE_DATE DESC) = 1
+)
+SELECT payment_type,
+       COALESCE(status_when_paid, 'BLOCKED - no interval covers the note') AS status_when_paid,
+       COUNT(*)                                        AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)                    AS maids,
+       ROUND(SUM(AMOUNT))                              AS aed,
+       COUNT_IF(NEXT_CHANGE_DATE IS NOT NULL)          AS resolved_to_a_PAST_interval,
+       COUNT_IF(NEXT_CHANGE_DATE IS NULL)              AS resolved_to_the_CURRENT_one
+FROM resolved
+GROUP BY 1, 2
+ORDER BY payment_type, aed DESC;
+
+
+-- S5. 🔴 N17 AT LAST — the contract-type timeline, and the two verdicts that depend on it.
+--     Coverage first (does the log actually span the audit window, and for how many maids?),
+--     then the type-when-paid read that replaces the HOUSEMAIDS_INFO_REVISION one.
+--     Anti-attrition is CC-only by code (N13). Relocation is CC live-out only. Both were
+--     resolved from the Envers table; this is the purpose-built source.
+WITH n AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT,
+           COALESCE(REASON,'(none)') AS payment_type
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0
+      AND REASON IN ('Anti-attrition Incentive','Accommodation Relocation','Airfare Ticket')
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND NOTE_DATE <= CURRENT_DATE()
+), resolved AS (
+    SELECT n.note_id, n.HOUSEMAID_ID, n.payment_type, n.AMOUNT,
+           t.TO_TYPE AS type_when_paid, t.NEXT_CHANGE_DATE
+    FROM n
+    LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TYPE_LOGS t
+           ON t.HOUSEMAID_ID = n.HOUSEMAID_ID
+          AND n.note_day >= t.CHANGE_DATE::DATE
+          AND (t.NEXT_CHANGE_DATE IS NULL OR n.note_day < t.NEXT_CHANGE_DATE::DATE)
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY n.note_id ORDER BY t.CHANGE_DATE DESC) = 1
+)
+SELECT payment_type,
+       COALESCE(type_when_paid, 'BLOCKED - no type interval covers the note') AS type_when_paid,
+       COUNT(*)                                 AS notes,
+       COUNT(DISTINCT HOUSEMAID_ID)             AS maids,
+       ROUND(SUM(AMOUNT))                       AS aed,
+       COUNT_IF(NEXT_CHANGE_DATE IS NOT NULL)   AS resolved_to_a_PAST_interval
+FROM resolved
+GROUP BY 1, 2
+ORDER BY payment_type, aed DESC;
