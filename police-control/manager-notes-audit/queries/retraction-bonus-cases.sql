@@ -7,9 +7,12 @@
 --
 -- ⚠️ OUTPUT IS PER-MAID. Keep the result in the warehouse or a file for payroll; it does not
 --    belong in a chat transcript. Same handling as the 58-maid remediation list.
--- ⚠️ NAMES ARE DELIBERATELY NOT SELECTED. EXPENSES_REQUESTS carries BENEFICIARY_NAME and
---    REQUESTER_CLEAN_NAME; HOUSEMAID_ID is sufficient to action a case and does not put a
---    person's name in an export that will be forwarded.
+-- ⚠️ NAMES ARE SELECTED, at the requestor's instruction (2026-09-09). BENEFICIARY_NAME is the
+--    verified column and comes from the linked expense request, so it is NULL wherever no
+--    request is linked. A name column on HOUSEMAIDS_INFO has NOT been verified in-session —
+--    run the sweep at the bottom of this file and add it as the fallback rather than guessing.
+--    Keep the output in the warehouse or a file for payroll; it does not belong in a chat
+--    transcript, and the forwarding risk is the reason to strip names again before sharing on.
 -- ⚠️ NOTE_REASON is free text and is included ONLY because it is the evidence for the
 --    classification — these ten were identified by narrative, not by a structured field
 --    (PURPOSE_ID is not in the warehouse). Read it; do not republish it.
@@ -25,6 +28,7 @@
 
 SELECT n.ID                                              AS note_id,
        n.HOUSEMAID_ID,
+       x.BENEFICIARY_NAME                                AS maid_name,        -- NULL if no request
        n.NOTE_DATE::DATE                                 AS note_day,
        n.AMOUNT                                          AS aed,
        n.NOTE_REASON                                     AS narrative,          -- the classifier
@@ -70,3 +74,14 @@ WHERE n.NOTE_TYPE = 'ADDITION'
 QUALIFY ROW_NUMBER() OVER (
           PARTITION BY n.ID ORDER BY l.CHANGE_DATE DESC, t.CHANGE_DATE DESC) = 1
 ORDER BY note_day DESC;
+
+
+-- NAME-COLUMN SWEEP. Run this first. BENEFICIARY_NAME above only resolves where an expense
+-- request is linked; if any of the ten come back '(no request linked)', add the verified
+-- HOUSEMAIDS_INFO name column from this result as a COALESCE fallback.
+SELECT COLUMN_NAME, DATA_TYPE
+FROM BA_VIEWS.INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'HOUSEMAID_MANAGEMENT_SILVER'
+  AND TABLE_NAME   = 'HOUSEMAIDS_INFO'
+  AND COLUMN_NAME ILIKE '%NAME%'
+ORDER BY ORDINAL_POSITION;
