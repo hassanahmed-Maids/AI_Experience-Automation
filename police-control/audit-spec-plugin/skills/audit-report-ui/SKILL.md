@@ -15,6 +15,9 @@ metadata:
 
 # Audit Report UI
 
+> **Part of the P&C audit pipeline.** `audit-pipeline` carries the whole arc — discover → specify → execute → hand over — and the five rules that hold at every stage. Read it if you are not certain which stage this request belongs to; starting in the wrong one wastes the session.
+
+
 Build the visual half of the deliverable: a published artifact showing the finished report
 with the requestor's own worked examples as visible rows. This is what gets approved, so it
 must be honest about what the data will actually look like.

@@ -16,6 +16,9 @@ metadata:
 
 # Ask the Code
 
+> **Part of the P&C audit pipeline.** `audit-pipeline` carries the whole arc — discover → specify → execute → hand over — and the five rules that hold at every stage. Read it if you are not certain which stage this request belongs to; starting in the wrong one wastes the session.
+
+
 Query the ERP codebase in natural language. Two endpoints: submit a question, then poll for
 the answer. A bundled script handles both.
 

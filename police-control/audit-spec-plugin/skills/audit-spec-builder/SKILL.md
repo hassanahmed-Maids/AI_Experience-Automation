@@ -17,6 +17,9 @@ metadata:
 
 # Audit Spec Builder
 
+> **Part of the P&C audit pipeline.** `audit-pipeline` carries the whole arc — discover → specify → execute → hand over — and the five rules that hold at every stage. Read it if you are not certain which stage this request belongs to; starting in the wrong one wastes the session.
+
+
 Run the Police & Control spec pipeline. Every session that triggers this skill has exactly
 two mandatory deliverables — never end without both:
 

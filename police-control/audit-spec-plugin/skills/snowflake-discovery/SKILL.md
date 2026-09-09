@@ -16,6 +16,9 @@ metadata:
 
 # Snowflake Discovery
 
+> **Part of the P&C audit pipeline.** `audit-pipeline` carries the whole arc — discover → specify → execute → hand over — and the five rules that hold at every stage. Read it if you are not certain which stage this request belongs to; starting in the wrong one wastes the session.
+
+
 Establish, with evidence, which of a report's data points are already queryable in Snowflake
 and which must be ingested. Produce a per-data-point verdict, never a general impression.
 

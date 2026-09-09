@@ -192,3 +192,29 @@ BLOCKED are not passes**, and a runnable cross-cutting battery.
 Its central claim, which generalises past auditing: **a wrong finding costs more than a missed one**,
 so prefer a test that can only under-count — and **a retraction is a deliverable**, because the reason
 a finding collapsed usually transfers further than the finding would have.
+
+
+---
+
+## 0.5.0 — one front door
+
+Five skills was one too many to choose between. **`audit-pipeline` is now the single entry point**: it
+carries the arc, the rules that hold at every stage, and a routing table from what someone says to
+which skill answers it. It does no work itself.
+
+```
+business worry
+   ├─ 1  DISCOVER    snowflake-discovery · ask-the-code
+   ├─ 2  SPECIFY     audit-spec-builder · audit-report-ui
+   ├─ 3  EXECUTE     audit-execution
+   └─ 4  HAND OVER   audit-spec-builder → dna-handoff
+```
+
+The specialised skills still trigger directly when someone names a stage. `audit-pipeline` is for the
+much more common case: a request that does not say which stage it belongs to.
+
+**Why a router earns its place here.** "Check whether maids are being overpaid for taxis" is a
+*specification* request if nobody has defined *overpaid*, and an *execution* request if the rule
+already exists. Those two sessions produce completely different artefacts. Guessing wrong wastes the
+session, and the failure is invisible until the end — which is exactly the kind of error this plugin
+exists to catch everywhere else.

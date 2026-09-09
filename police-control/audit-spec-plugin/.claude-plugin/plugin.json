@@ -1,7 +1,7 @@
 {
   "name": "police-and-control-audit-specs",
-  "version": "0.4.0",
-  "description": "Takes a Police & Control business request all the way from intake to an adjudicated finding. First half: intake, Snowflake data-existence check, ERP discovery via Ask the Code, feedback loop, UI mockup, finalised spec, DNA/Jira handoff. Second half (new in 0.4.0): RUNNING the audit \u2014 a pre-flight that catches the measurement errors that actually cost rework, six reusable SQL patterns with their guards, a six-value verdict model where VOID and BLOCKED are not passes, and a catalogue of fourteen worked failures with the real before/after numbers. Carries the defects that have cost real rework on both sides.",
+  "version": "0.5.0",
+  "description": "One entry point \u2014 `audit-pipeline` \u2014 for every Police & Control audit at maids.cc, routing to five specialised skills across the full arc: discover (does the data exist, what does the ERP actually do), specify (spec + UI mockup), execute (write and run the SQL, adjudicate findings, publish or retract), and hand over (DNA/Jira ticket pack). Carries the defects that have cost real rework on both halves: eighteen specification defects, and fourteen worked execution failures with their real before/after numbers. Verdicts are six values, not two \u2014 VOID and BLOCKED are not passes.",
   "author": {
     "name": "Police & Control \u2014 maids.cc"
   },
