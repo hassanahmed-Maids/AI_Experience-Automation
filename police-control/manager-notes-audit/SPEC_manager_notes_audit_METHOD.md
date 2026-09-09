@@ -480,6 +480,94 @@ submitted — the answers existed server-side and the caller had thrown away the
 
 ---
 
+## Part 2c — The earlier rounds, compressed
+
+Part 2's examples are all from the final week. These are from before it. They cost as much and are
+easier to forget, because each was fixed once and never recurred.
+
+### C1 · No figure is a sum of tests 🔴
+
+Three headlines would have been overstated by adding overlapping tests together:
+**O6/O7 by 58%**, O8/O10, and the two bonus findings, which O12 showed overlap by **3 notes across 2
+maids** — about AED 1,400 double-counted.
+
+Two tests that both find "bonus overpayment" are usually two *measurements of one population*, not two
+populations. **De-duplicate to one verdict per note before any total is written**, and state in the
+ledger that each row is a distinct note set — otherwise the reader will add them, correctly following
+the arithmetic and wrongly following the meaning.
+
+### C2 · A chance baseline belongs per note, not on the mean 🔴
+
+The window probability `1−(1−p)^k` must be summed **per note**, using each note's own `k`. Averaging
+`k` first and applying the formula once is Jensen's inequality in miniature and it biases the baseline.
+
+Its twin: **a chance baseline on the wrong denominator.** A 105-day window with a 30-day band gives
+p = 0.286 — one corroboration test scored **1.00× chance** and had been read as *"40% corroborated"*.
+
+### C3 · Monthly rules need the batch cycle, not the calendar 🔴
+
+A duplicate rule keyed on calendar month, applied to a job whose run day crosses the month boundary,
+**inflated a count roughly 2× (516 → 259)**. August's anti-attrition run landed on 2026-09-01.
+
+The same fact in reverse produced a near-miss: a `DATE_TRUNC` rollup showed **18 notes in August
+against ~930 either side** and looked like a missing AED 200k batch. The 12 batches are 28–32 days
+apart with none missing. **Check the cadence before reporting a gap.**
+
+### C4 · A scoped code question that finds nothing is evidence about the SCOPE 🔴🔴
+
+Two spec claims were written as *"X does not exist in the ERP"* on the strength of an interrogation
+scoped to `erp/magnamedia-payroll-management`. Both were wrong and both cost a rewrite:
+
+- The **raffle** subsystem lives in `magnamedia-housemaid-management` — `RafflePerformerJob`, five
+  tables, weighted draw. The spec had said the prize was hand-entered with no draw record.
+- The **anti-attrition** rule lives there too and reaches payroll *indirectly*: no code anywhere calls
+  `setAdditionReason("anti_attrition_incentive")` — the string is accounting DB config — which is
+  precisely why a payroll-scoped string search found nothing and the spec concluded there was no rule.
+
+> **Rule.** Never record *"X does not exist"* from a scoped question. Re-ask across all modules, or
+> write the finding as *"not in module Y"*.
+
+### C5 · Structure in the data is evidence that a rule exists 🟢
+
+The counterpart to C4, and the thing that forced the re-ask. 9,167 anti-attrition notes showed a
+**~918-note batch on the last day of every month**, a **median of AED 200 in all twelve batches**, and
+about a third of amounts equal to a standard amount × days ÷ days-in-month. Data that regular cannot
+come from discretion. Re-interrogated across all modules, **99.5% of the 9,167 fit the recovered
+formula exactly.**
+
+> **Rule.** When the data says a rule exists and the code search says it does not, the search is wrong
+> until proven otherwise.
+
+### C6 · A formula copied into a document loses part of itself
+
+The Abu Dhabi integer-division hypothesis rested on a formula transcribed into an evidence file
+**without its `(double)` cast**. The source was right; the copy was wrong; the finding was built on the
+copy. **Quote source, or re-read it — never paraphrase arithmetic.**
+
+### C7 · A per-maid maximum is not an entitlement
+
+O10 used each maid's largest single payment as a proxy for what she was owed. That is sound where the
+entitlement is a per-maid constant (anti-attrition, roughly bonus) and **weak where amounts genuinely
+vary** — a maid can legitimately take two taxis in a day. Those rows were reported as *screening
+signals*, not findings, and they must stay that way.
+
+### C8 · Prefer counting to measuring; record the stop as a decision
+
+Where a per-note quantum is unknown, **count the notes rather than price them**. And when a test is
+not worth its cost — 369 hand-written zero notes, PS3, the FD amount test — **write the stop down as a
+decision with its reason.** An omission that is not recorded reads later as an oversight, and the next
+person pays to rediscover it.
+
+### C9 · The richest evidence is the least usable
+
+`NOTE_REASON` carries amounts, cancellation reasons and at least one passport number. It is
+simultaneously the best record of *why* a payment happened and the thing the audit is least permitted
+to use. **Shapes before rows, counts before text, and a documented refusal when the exposure exceeds
+the finding.** BN3 is the pattern: match on the narrative, return only the derived class and its
+totals, report the residual as a count.
+
+---
+
 ## Part 2b — The one finding that outlives every number above
 
 Fourteen worked examples, and they are not fourteen independent mistakes. **Six of them are the same
