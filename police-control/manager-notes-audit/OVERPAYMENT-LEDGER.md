@@ -3,7 +3,7 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-09 — ~AED 250,100.**
+**Confirmed 2026-09-09 — ~AED 106,100, after BN3 retracted the largest row in the table.**
 Against AED 7,197,642 examined.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
@@ -17,7 +17,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 
 | Finding | AED | Archetype | Basis |
 |---|---:|---|---|
-| 🔴 **Bonus paid at referral rates, no referral, over a year into service** | **143,965** | not deserved | 164 notes, 142 maids, **de-duplicated (O12)**. Four converging signals: no referral, no bonus record, median 765 days into service, and an average of 878 matching the referral rate (866) rather than the signing rate (500) |
+| ⚪ **RETRACTED to candidate — "bonus at referral rates, no referral, over a year in"** | *was 143,965* | — | BN3 classified the population from the narrative the code actually writes, and it does not hold together. The claim rested on *median 765 days into service* and *avg 878*. The unclassified-no-referral group is **148 notes, AED 100,310, avg 678, median 290 days** — under a year, and priced between the signing rate (500) and the referral rate (866). It is not one population and it is not characterised as the row said. Replaced by the two rows below |
 | Airfare duplicates via the unguarded manual route | **49,500** | paid twice | 29 notes inside the 5-month guard, on a path that never calls it |
 | 🔴 **Bonus over the referral entitlement** | **10,500** | not deserved | 15 maids paid AED 20,000 against 9,500 entitled — **validated by 466 maids matching to the penny** |
 | Anti-attrition paid before any enrolment existed | **9,019** | not deserved | 42 notes, measured on `CREATION_DATE` |
@@ -39,6 +39,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | | AED | Basis |
 |---|---:|---|
 | Bonus paid before the bonus was requested | 9,500 | 12 notes, de-duplicated from O6's 20 |
+| 🔴 **A deprecated, config-disabled bonus path is still paying** | 7,126 | **10 notes of retracting-resignation bonus in 12 months.** Ask 46023: the enum is `@Deprecated`, `RetractingResignationJob` filters `retractMethod = RAISE` only, the UI option is commented out, and config head `RRB-01` is **Disabled** — yet `DelighterToDoController.retractResignation` still has a live `case ONE_TIME_BONUS`. Four independent shut-offs and the money still moves. Control, not loss — the payments may be owed |
 
 ### Control violated — the invoice gate is routed around
 
@@ -106,13 +107,39 @@ Both would read as findings to anyone sorting the S4 output by money. Neither is
   *"raffle prizes to maids terminated before the draw — AED 3,000, 15 wins, median 558 days."* That
   came from a different source. One of the two is wrong.
 
+## Bonus, decomposed from the narrative (BN3) — the classification the code actually writes
+
+Ask 46023 said the signing path stamps `noteReasone = "Singing Bonus"` and the retraction path passes
+*"one-time retracting resignation bonus"*. `NOTE_REASON` is on the view, so the three kinds separate
+without the missing `PURPOSE_ID`. **1,131 notes / AED 849,316, fully partitioned:**
+
+| Kind | Referral on record | Notes | AED | Avg | Median days into service |
+|---|---|---:|---:|---:|---:|
+| referral | ✅ | 627 | 538,850 | 859 | 474 |
+| 🟡 **referral** | ❌ | **70** | **56,000** | **800** | 418 |
+| signing / joining | ❌ | 180 | 88,785 | 493 | **−4** |
+| signing / joining | ✅ | 45 | 24,595 | 547 | **−8** |
+| 🟡 unclassified | ❌ | 148 | 100,310 | 678 | 290 |
+| unclassified | ✅ | 51 | 33,650 | 660 | 677 |
+| 🔴 **retracting resignation** | ❌ | **9** | **6,626** | 736 | 729 |
+| 🔴 **retracting resignation** | ✅ | **1** | **500** | 500 | 130 |
+
+**The classification validates itself.** Referral notes price at **859/800** against the scheme's 866.
+Signing notes price at **493/547** against 500, and their median tenure is **negative** — paid four to
+eight days *before* the recorded start date, which is what a joining bonus should look like. That also
+clears the E10 worry about `START_DATE`: on this population the anchor behaves correctly.
+
+⚠️ `MANAGER` is **NULL on every bonus note** (`distinct_managers = 0` in all eight rows). The
+producer-id idea dies here — another column present in the schema and empty in practice.
+
 ## Candidates — real populations, not yet verdicts
 
 | Population | AED | What would settle it |
 |---|---:|---|
+| 🟡 **Bonus whose narrative claims a referral, with no referral on record** | **56,000** | 70 notes, avg **800** — the referral rate — and median **418 days** into service, so not a signing bonus. **A candidate, not a finding:** the referrer↔referred pairing is `COALESCE(direct, latest-by-phone, latest-by-WhatsApp)`, a heuristic, so "no referral" is a floor rather than a fact |
+| 🟡 **Bonus with an unclassified narrative and no referral** | **100,310** | 148 notes, avg **678** — squarely between the signing rate (500) and the referral rate (866), median 290 days in. Genuinely ambiguous; the previous "42,900 ambiguous" row is superseded by this one |
 | Bonus with a referral but no bonus request | 70,895 | Whether `IS_REQUESTED_BONUS` is reliably set |
 | Forgive Deduction above one day's salary | ≤1,756 | **Recorded as inconclusive, not a finding.** The 43 notes have a median one-day figure of 18 — the signature of a partial-month payroll row understating the rate |
-| Bonus, 6–12 months into service, no referral | 42,900 | Between the signing profile (avg 500) and the referral one (866) at avg 596 — genuinely ambiguous |
 | Bonus where the referrer has bonuses but none on that date | 16,500 | O9 flagged it; needs the same start-date cut |
 | New same-day duplicates: Bonus 10,000 · Salary Dispute 2,582 · Taxi 887 · Maids.at 30 | 13,499 | **O10** — the two-contract split test |
 | ✅ **RESOLVED — the raffle entrant pool is ~1,400** | **0** | Ask-the-code **46024** settles it. `findCandidatesForRafflePageable` groups **by `h.id` — one row per distinct maid**; ~6,700 is Σ ticket points, the *weighted entries*, not the head-count. Winners are de-duplicated inside a draw (`removeIf(e -> e == winnerId)` strips all of a winner's slots), so 48 winners/month are 48 distinct maids from ~1,400. **88 repeat winners scores 1.02× uniform chance at that pool — and because odds are POINT-WEIGHTED with points accumulating over tenure, the weighted expectation is *higher* than uniform, so the observed rate sits at or below chance.** Group F is clean on repeat-rate |
