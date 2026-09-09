@@ -3,7 +3,8 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-08 — ~AED 229,100 of money lost, against AED 7,197,642 examined (3.2%).**
+**Confirmed 2026-09-09 — ~AED 245,600 confirmed, plus a AED 137,500 candidate one query from a verdict.**
+Against AED 7,197,642 examined.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
 **3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
@@ -22,14 +23,15 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Anti-attrition paid before any enrolment existed | **9,019** | not deserved | 42 notes, measured on `CREATION_DATE` |
 | Selection-lag payments to already-ineligible maids | 3,050 | off-rule | 11 notes; corroborates the code's select-once flaw |
 | Airfare — the automatic guard itself failed | 3,000 | paid twice | 7 notes, automatic → automatic |
-| Anti-attrition to MV maids against a CC-only rule | 2,476 | off-rule | 11 notes, resolved point-in-time |
+| Anti-attrition to MV maids against a CC-only rule | **5,726** | off-rule | **21 notes — revised up 131% (S5).** The original 11 notes / AED 2,476 resolved contract type from `HOUSEMAIDS_INFO_REVISION`, an Envers audit table. `HOUSEMAID_TYPE_LOGS` is the purpose-built timeline with closed intervals, and it finds nearly twice as many |
 | Note exceeds its approved expense request | 1,304 | off-rule | 4 notes of 11,819 linked |
 | Anti-attrition same-day excess over entitlement | 838 | paid twice | 17 groups |
 | Forgive Deduction: 15–21 days forgiven in a single month | **2,492** | off-rule | 3 maid-months, 55 notes. One note is one day, so 21 notes means two thirds of a month was unpaid then written back. **Both hard ceilings held** — no maid-month exceeded the days in the month or a month's salary |
 | Raffle prizes to maids terminated before the draw | **3,000** | not deserved | 15 wins, 13 maids, **median 558 days** after they left |
 | Prorated salary paid to maids outside the eligibility window | **2,976** | not deserved | 25 notes — 18 whose salary start predates the note by a median 650 days, 7 whose salary start is *after* it. **Resolved as-of the note date** (PS1c), down from 78 on a current-state read |
 | Airfare paid above its nationality tier | **500** | off-rule | 1 Kenyan note at 2,000 against a 1,500 tier — **the only one in 1,518** |
-| 🔴 **Accommodation Relocation paid to a live-in maid** | **4,700** | not deserved | 6 notes, 6 maids. The rule is CC live-out only; TF6 cleared the CC half, TF7 broke on this one. **Resolved as-of the note date — and the as-of read is the whole finding:** 5 of 66 notes carry a different `LIVE_OUT` than today, so a current-state read would have flagged 5 notes of which 2 were wrong, while missing 3 of the 6 real ones |
+| 🔴 **Anti-attrition paid to a maid in a NO-SHOW or terminated state** | **13,257** | not deserved | **110 notes (S4).** 68 `NO_SHOW_WENT_OUT_DID_NOT_RETURN` (8,147) · 21 `NO_SHOW_LEFT_CLIENT_HOME` (3,672) · 13 `NO_SHOW_FOR_TERMINATION` (748) · 6 `NO_SHOW` (419) · 2 `EMPLOYEMENT_TERMINATED` (271). The code filters `status not in rejectedStatuses` **at selection**, then pays two hops later — the same select-once flaw behind the AED 3,050 selection-lag finding, measured properly for the first time. A retention incentive to a maid who has absconded |
+| 🔴 **Accommodation Relocation paid to a live-in maid** | **3,900** | not deserved | **5 notes — revised down from 6 / AED 4,700 (S5).** `HOUSEMAID_TYPE_LOGS` carries `CC Live In` / `CC Live Out` / `MV` directly, so the rule is testable in one column instead of two. The `LIVE_OUT`-flag version was close but not exact |
 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | 3 notes. The other **317 of 320 clear** — AED 71,457 — and 36 of them resolve to a different flag than today, so the clear is earned rather than an artifact |
 
 ### Control violated — a rule broken, the money may still be owed
@@ -47,6 +49,48 @@ requires no invoice — Medical through `PT 100` (PCR Test & medical assistance 
 `LOTA` and `TR 200`. The finding is not that invoices are missing. It is that the heads demanding one
 are unused while their no-invoice twins carry 100% of the money. No recovery attaches to this; it is
 a control that exists on paper and is not on the path the money takes.
+
+## 🔴 Airfare to MV maids — AED 137,500, and one query from a verdict
+
+`HOUSEMAID_TYPE_LOGS` resolves contract type as of the note date. Airfare is **CC only** (George
+Abboud, payroll, confirmed 2026-09-07). S5 returns:
+
+| Type when paid | Notes | Maids | AED |
+|---|---:|---:|---:|
+| CC Live In | 1,005 | 1,004 | 1,785,500 |
+| CC Live Out | 221 | 221 | 412,000 |
+| 🔴 **MV** | **76** | **75** | **137,500** |
+
+**It is NOT yet in the confirmed table, for a reason the self-diagnostic surfaced.** Only **1 of the
+76** resolved to a *past* type interval — the other 75 sit in the maid's still-open interval. That is
+the E10 warning firing: the as-of join is barely doing work here, because **an airfare note is dated
+`payrollDueDate`, which the code sets to a future entitlement date — some run to 2028.** A maid who was
+CC when the entitlement was granted and MV by the time the note lands would resolve as MV and be
+counted, wrongly.
+
+**The settling query:** re-resolve type as of the *entitlement* date — the `ScheduledAnnualVacation`
+creation, not the payroll due date — and keep only notes MV on both. Until then this is the largest
+single candidate in the audit and not a finding.
+
+## 🟢 Two populations that look damning and are not — recorded so nobody re-finds them
+
+- **MV Prorated Salary: AED 393,000 to maids in NO_SHOW, PENDING_FOR_TERMINATION or
+  EMPLOYEMENT_TERMINATED** — 189 + 155 + 21 notes. **This is the type working correctly.** MV prorated
+  salary *is* the exit settlement; being on the way out is the trigger, not a violation.
+- **Accommodation Relocation: 54 of 66 notes, AED 42,900 — 83% of the type — paid while `SURPLUS`.**
+  Also correct. A maid in surplus is between placements, which is *why* she is being relocated.
+
+Both would read as findings to anyone sorting the S4 output by money. Neither is one.
+
+## ⚠️ Two conflicts between sources, to resolve before either verdict stands
+
+- **Office Work Addition.** S4 says only **15 of 92 notes** were `ASSIGNED_OFFICE_WORK` when paid; 62
+  were `WITH_CLIENT`. But OW5b cleared **92/92** on `ASSIGNED_OFFICE_WORK_REASON_ID` read as-of from
+  the revision table. Two sources, opposite answers. The status log is purpose-built and wins on
+  priors — but this needs settling, not assuming.
+- **Raffle Prize.** S4 finds only **2 notes / AED 400** paid in a no-show state. The ledger carries
+  *"raffle prizes to maids terminated before the draw — AED 3,000, 15 wins, median 558 days."* That
+  came from a different source. One of the two is wrong.
 
 ## Candidates — real populations, not yet verdicts
 
