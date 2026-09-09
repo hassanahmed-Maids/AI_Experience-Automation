@@ -1909,6 +1909,88 @@ approver ids not names, salary-bearing rows banded.
 
 ---
 
+## 5b. Real worked examples — run against the warehouse, 2026-09-09
+
+§5 below is explicitly synthetic (*"nothing has been read from the warehouse"*). These are not. Every
+figure here came back from a query in `queries/`, and each shows a different verdict shape the audit
+actually produces. Aggregates only — no maid or staff identity leaves this document.
+
+### R-A · A type that clears — the tail five (`queries/tail-five-battery.sql`, TF1)
+
+Taxi · Accommodation Relocation · Maids.at · Medical · MOHRE, twelve months.
+
+| | |
+|---|---|
+| Population | **944 notes, AED 219,143** |
+| Linked to an expense request | **944 of 944** |
+| Request status | **PAID on every one** — zero rejected, dismissed or cancelled |
+| Refunded after the note | **0** |
+| Approval gate (TF15) | **100% compliant** across eleven head/type combinations |
+
+**Verdict: GREEN on authorisation.** Note what it does *not* say: cleared on the tests that could run,
+not audited. The group entitlement rules are separate.
+
+### R-B · A finding that holds — anti-attrition to a maid who had gone (`queries/status-history.sql`, S4)
+
+| Status when paid | Notes | AED |
+|---|---:|---:|
+| `NO_SHOW_WENT_OUT_DID_NOT_RETURN` | 68 | 8,147 |
+| `NO_SHOW_LEFT_CLIENT_HOME` | 21 | 3,672 |
+| `NO_SHOW_FOR_TERMINATION` | 13 | 748 |
+| `NO_SHOW` | 6 | 419 |
+| `EMPLOYEMENT_TERMINATED` | 2 | 271 |
+| **Total** | **110** | **13,257** |
+
+**Verdict: RED.** A *retention* incentive paid to a maid who had absconded. The code filters
+`status not in rejectedStatuses` **at selection** and pays two hops later — the select-once flaw,
+measured properly for the first time. It holds because the predicate is read from a log, not a column.
+
+### R-C · A candidate that collapses — the full arc (`queries/airfare-entitlement-cut.sql`)
+
+The most instructive example in the audit, because nothing about it was sloppy.
+
+1. **Point read (S5):** 76 notes / **AED 137,500** typed MV against a CC-only rule. Clean, large, and
+   consistent with a confirmed business rule.
+2. **Diagnostic fires:** only **1 of 76** resolved to a *past* type interval. The note is dated
+   `payrollDueDate`, so a maid CC at renewal and MV by the payroll cycle reads as MV.
+3. **Exact fix unavailable:** the notes view has **one timestamp** and there is no
+   `ScheduledAnnualVacation` table. There is no entitlement date to read.
+4. **Weaker question, answered exactly:** was she CC at *any* point in the 24-month entitlement window?
+
+| Verdict | Notes | AED |
+|---|---:|---:|
+| CC throughout | 1,102 | 1,975,500 |
+| CC *and* MV both in window | 197 | 355,000 |
+| **MV the whole window** | **3** | **4,500** |
+
+**Verdict: 97% confound.** A test that can only under-count is publishable; one that might over-count
+is not. The 197 AMBER notes are **permanently unresolvable** without an ingestion — that is a verdict
+too, and it belongs in the report as one.
+
+### R-D · A test that is VOID, not negative (`queries/tail-five-battery.sql`, TF16)
+
+Were un-loaned advances ever recovered? Looked for later deduction notes; found none.
+
+**The positive control — 65 relocation notes that *do* book a loan — also showed nothing.** Deduction
+notes are not the recovery mechanism. **Verdict: VOID.** Reported as unmeasured, not as clean. Without
+the control this reads as "AED 30,220 never recovered" and every figure in it is an artefact of the
+wrong table.
+
+### R-E · A number that is real and not ours (`BI_PAYROLL_LOAN_DEDUCTIONS_VS_POSSIBLE_DEDUCTIONS`)
+
+| August 2026 | Loan book | Deductible | Deducted | **Undeducted** |
+|---|---:|---:|---:|---:|
+| CC | 13,997,075 | 1,786,065 | 353,972 | **1,432,093 — 80.2%** |
+| MV | 8,992,006 | 2,582,608 | 123,453 | **2,459,154 — 95.2%** |
+
+Stable across six months. **Verdict: reported, not claimed.** It is a sanctioned dashboard metric with
+its definition in `INSIGHTS_DASHBOARD_CONTAINER`, which confirms the denominator used here is *Total
+Loans to Be Deducted*, not *Total Loans*. The audit's contribution is the **join** — advances are booked
+as loans correctly at 85–100%, and then not recovered. The booking control works; the recovery control
+does not.
+
+---
+
 ## 5. Worked Examples
 
 Illustrative. Ids and amounts are synthetic and internally consistent; nothing has been read from
