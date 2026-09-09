@@ -7,8 +7,15 @@ Four files. File Ticket 1 first, then Ticket 2 with the AE key filled in.
 | `TICKET-1-AE-manager-notes-audit.md` | New DNA ticket, type **`Analytic Engineer Task`** |
 | `DNA_ATTACHMENT_source_tables.md` | Attachment on Ticket 1 |
 | `SPEC_manager_notes_audit_DEV.md` | Attachment on Ticket 1 |
-| `SPEC_manager_notes_audit_v2.md` | Attachment on Ticket 1, for the record |
+| **`SPEC_manager_notes_audit_v3.md`** | Attachment on Ticket 1 — **v3, not v2.** §1b is a binding constraint and §5 is real worked examples |
+| 🆕 **`SPEC_manager_notes_audit_METHOD.md`** | Attachment on Ticket 1. **The most useful attachment in the pack** — the pre-flight and fourteen worked failures, each with the query that got it wrong and the corrected number. Whoever builds this model will hit the same traps |
+| 🆕 **`queries/AUDIT-RUN.sql`** | Attachment on Ticket 1 — the cross-cutting battery as one runnable statement. The behaviour to reproduce |
 | `TICKET-2-BI-manager-notes-audit-dashboard.md` | New DNA ticket, type **`BI Visualization Task`** |
+
+🔴 **Do not attach `SPEC_manager_notes_audit_v2.md`.** It was in this list "for the record"; three of
+its criticals are now moot (self-approval is out of scope) and its worked examples were synthetic.
+Attaching it invites the model to be built from it. `AUDIT_v2_2026-09-08.md` carries the dated record
+instead, with a status block on every finding.
 
 Everything below the `---` in each ticket file is the Jira description. The block above it is
 issue type and routing — set those in the fields, don't paste them.

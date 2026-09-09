@@ -7,6 +7,56 @@
 the *blocks* link. The model must merge first; DNA's own doctrine is that SQL/model work always
 blocks the visual build.
 
+**Revised 2026-09-09** — after the first full live run. The layout below is unchanged; **the verdict
+model it renders is not.** Read this block first.
+
+---
+
+## 🔴 2026-09-09 — three changes to what this dashboard must show
+
+### 1. Six verdicts, not three — and two of them must never render as green
+
+The model now emits six values. Rendering VOID or BLOCKED as a pass is the failure mode this
+dashboard is most likely to have, because both look like "nothing found":
+
+| Verdict | Renders as | Why it matters |
+|---|---|---|
+| GREEN | cleared | every applicable test ran and passed |
+| RED | finding | a stated rule was broken |
+| CANDIDATE | needs adjudication | a real population, not yet a verdict |
+| **VOID** | **its own colour, never green** | the test could not score. In the live run one test matched no rows and read as *"no defects across all five payment types"* — it had joined on a workflow-state column |
+| **BLOCKED** | **its own colour, never green** | the input does not exist in the warehouse. AED 355,000 of airfare is permanently in this state |
+| REPORTED | linked out, not counted | true and material, but somebody else's sanctioned metric |
+
+**A tile that shows only GREEN and RED will overstate coverage.** In the live run, four of six
+verdict shapes were non-findings that would each read as a finding *or* as a clear if collapsed.
+
+### 2. Coverage (M10) must state its own exclusions on the page
+
+Two populations were invisible to every test in the live audit, and neither would have shown up on a
+dashboard built to the old spec:
+
+- **216 airfare notes / AED 385,000, dated to 2028-06-02** — excluded by the standing
+  `NOTE_DATE <= CURRENT_DATE()` filter. Never failed, never passed, never examined.
+- **AED 1,992,552 of bonus** older than the 12-month window — **70% of all bonus money ever paid**.
+
+**M10 `Coverage` must show the denominator it is not covering**, as a figure on the page rather than
+a footnote. A coverage metric that silently excludes its own gaps is worse than no coverage metric.
+
+### 3. Any ratio on this page carries its chance rate beside it
+
+A corroboration test in the live run read **90.8% corroborated** and scored **1.08× chance** — no
+signal at all. Both framings of the raw number would have misled a reader, in opposite directions.
+
+**Every rate tile shows: observed · expected-by-chance · times-chance.** Where the chance rate is not
+computable, the tile says so rather than showing the bare rate.
+
+### 🟡 Figures in the mockup are stale
+
+`payment-types.html` still shows **18 payment types and pre-census figures**. The live counts are
+~25 types and the confirmed-findings total moved from AED 229,100 to **~103,100** over a single day of
+adjudication. **Do not take any number from the mockup as a target** — it is a layout reference only.
+
 ---
 
 ### What we need

@@ -387,7 +387,7 @@ missing and exceeding their additions.
 
 | # | What | Where it is |
 |---|---|---|
-| **N17** | **Contract-type timeline** per maid — every CC/MV interval with dates | `HOUSEMAIDS_INFO_REVISION` has `OLD_HOUSEMAID_TYPE`, `HOUSEMAID_TYPE`, `SWITCH_HOUSEMAID_TYPE_DATE` and **all are empty**. Working routes: `mmdb.housemaids_revisions` (the VISA models read it for `FIRST_HOUSEMAID_TYPE`), or the `to_type` column behind `BI_HOUSEMAID_STATUS_LOGS` |
+| ✅ **N17 — RESOLVED 2026-09-09** | Contract-type timeline per maid | **`HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TYPE_LOGS`** — `HOUSEMAID_ID, FROM_TYPE, TO_TYPE, CHANGE_DATE, PREV_CHANGE_DATE, NEXT_CHANGE_DATE`. Closed intervals. Carries `CC Live In`/`CC Live Out`/`MV`, so **N19 is resolved in the same column**. Verified by query, not inferred |
 | **N18** | **Row-level loans** paired to additions | No raw or silver loans table exists — only three gold views, all aggregated. ⚠️ repayment is unverifiable: it runs through deductions, which are out of scope |
 | **N19** | **`live_out` flag**, effective-dated | Not on `HOUSEMAID_TYPE`; the gold layer derives `CC Live In / CC Live Out / MV` from a separate `live_out` flag |
 
@@ -482,3 +482,49 @@ therefore **BLOCKED by construction**, not by anyone remembering to handle it. S
 list is incomplete and the warehouse's category profile is truncated, new types **will** appear —
 this property is what keeps them arriving as amber-with-a-reason instead of silent greens. **Do not
 add a default branch.**
+
+
+---
+
+## Verified schema, 2026-09-09 — read by query, not inferred
+
+Added after the first full live run. Everything here came back from `INFORMATION_SCHEMA` or a query
+that ran. It supersedes any column list in this document that was written as an *ask* rather than an
+*observation* — a distinction that cost this audit a wrong finding when a wish list was read as a
+schema.
+
+### `HOUSEMAID_MANAGER_NOTES` — eleven columns, entire
+
+`ID · HOUSEMAID_ID · NOTE_TYPE · AMOUNT · NOTE_REASON · REASON · NOTE_DATE · MANAGER · EXPENSE_ID ·
+REQUESTED_BY · APPROVED_BY`
+
+**One timestamp only** (`NOTE_DATE`, and it is the payroll *due* date). `MANAGER` is NULL on every
+bonus note. No `PURPOSE_ID`, `ADDITION_REASON_ID`, `CREATION_DATE`, `CREATOR`, `APPLIED`, `PAID`,
+`PAYROLL_MONTH` or `IS_REFUND` — **none of N1–N6 landed.**
+
+### The point-in-time tables — interval, not event
+
+| Table | Columns | Use for |
+|---|---|---|
+| `HOUSEMAID_STATUS_LOGS` | `HOUSEMAID_ID, FROM_STATUS, TO_STATUS, CHANGE_DATE, NEXT_CHANGE_DATE, PREVIOUS_CHANGE_DATE, DESCRIPTION, ERP_USER` | status as of any date |
+| `HOUSEMAID_TYPE_LOGS` | `HOUSEMAID_ID, FROM_TYPE, TO_TYPE, CHANGE_DATE, PREV_CHANGE_DATE, NEXT_CHANGE_DATE` | **N17 + N19** |
+| `BI_HOUSEMAID_STATUS_LOGS` | above + `ERP_USER_NAME, HOUSEMAID_TYPE, MAID_NATIONALITY, EXCLUDED_NOSHOW_IN_ACCOMMODATION` | status with type attached |
+| `FACT_MAID_TERMINATIONS` | `HOUSEMAID_ID, TERMINATION_DATE, TERMINATION_CATEGORY, LIVING_TYPE` | left-the-company date |
+
+Status vocabulary is 34 values from 2018-02 to today, `WITH_CLIENT` among them — so **"was she placed
+with a client on the day?" is one join**, not a model built from tagging events.
+
+### `EXPENSES_CONFIGURATION` — the reference list, self-declared
+
+31 heads with `SALARY_ADDITION_TYPE`, `CODE`, `CAPTION`, `EXPENSE_TYPE`, `CATEGORY`,
+`TOP_PARENT_CATEGORY`, `STATUS`, `APPROVAL_METHOD`, `LIMIT_FOR_APPROVAL`, `LIMIT_FOR_CEO_APPROVAL`,
+`REQUIRE_INVOICE`, `REQUIRE_ATTACHMENT`, `ALLOW_TO_ADD_LOAN`.
+
+Join key to `EXPENSES_REQUESTS` is **`EXPENSE_TYPE`**, established by profiling.
+⚠️ `EXPENSE_REQUEST_TASK_NAME` is a **workflow state** (`PAYMENT_OBJECT_CREATED` on 100% of rows), not
+a category — joining on it matched nothing across 944 notes and read as a clean pass.
+
+### Columns that exist and must not be used for a past date
+
+`DATE_OF_TERMINATION` (not cleared on re-hire) · `ASSIGNED_OFFICE_WORK_REASON_ID` (never cleared —
+57.4% of holders terminated, 0.8% in office-work status) · `HOUSEMAID_TYPE` · `LIVE_OUT`.

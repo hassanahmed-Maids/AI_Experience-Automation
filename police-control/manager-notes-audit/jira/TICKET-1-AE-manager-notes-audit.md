@@ -9,6 +9,100 @@ type**. Segregation of duties, self-approval and attribution are **out of scope*
 **Revised 2026-09-08** — spec v3. Row-level results now exist for part of this (see *Verification note*),
 and they changed the logic in eight places. Everything below reflects that.
 
+**Revised again 2026-09-09** — after the first full live run. Four things below are now *smaller*
+asks than the version you may have seen, and one is a new hard constraint. Read this block first.
+
+---
+
+## 🔴 2026-09-09 — what the live run changed in this ticket
+
+### 1. A binding modelling constraint: current state is not history
+
+**Any attribute describing a maid at a past date must be read from a log, never from
+`HOUSEMAIDS_INFO`.** Six audit findings rested on a current-state column and every one moved when a
+log replaced it — one fell from AED 137,500 to 4,500, another from 3,000 to 0, one rose from 2,476 to
+5,726, and a clean pass became void.
+
+`HOUSEMAID_STATUS_LOGS` and `HOUSEMAID_TYPE_LOGS` are **interval tables** (`CHANGE_DATE` *and*
+`NEXT_CHANGE_DATE`), so the read is plain containment — no window function:
+
+```sql
+ON  l.HOUSEMAID_ID = n.HOUSEMAID_ID
+AND n.note_day >= l.CHANGE_DATE::DATE
+AND (l.NEXT_CHANGE_DATE IS NULL OR n.note_day < l.NEXT_CHANGE_DATE::DATE)
+```
+
+**Known-bad columns — do not use any of these to describe a past date:**
+
+| Column | Failure |
+|---|---|
+| `DATE_OF_TERMINATION` | not cleared on re-hire — 13 maids read as terminated a median 558 days earlier while showing 1,039 status changes since |
+| `ASSIGNED_OFFICE_WORK_REASON_ID` | never cleared at all — **57.4%** of holders are terminated, **0.8%** are in office-work status |
+| `HOUSEMAID_TYPE`, `LIVE_OUT` | overwritten on switch — use `HOUSEMAID_TYPE_LOGS`, which carries `CC Live In` / `CC Live Out` / `MV` directly |
+
+### 2. Three reference lists this ticket waited on already exist in the database
+
+- **N17 (contract-type timeline) — RESOLVED.** `HOUSEMAID_TYPE_LOGS`: `HOUSEMAID_ID, FROM_TYPE,
+  TO_TYPE, CHANGE_DATE, PREV_CHANGE_DATE, NEXT_CHANGE_DATE`. No business ask needed.
+- **N19 (`live_out`) — RESOLVED**, same table, as a type value.
+- **Allowed expense categories per payment type — RESOLVED.** `EXPENSES_CONFIGURATION` declares
+  `SALARY_ADDITION_TYPE`, `CATEGORY`, `TOP_PARENT_CATEGORY`, `APPROVAL_METHOD`, `LIMIT_FOR_APPROVAL`,
+  `REQUIRE_INVOICE` and `ALLOW_TO_ADD_LOAN` for all **31** salary-addition heads.
+
+⚠️ `LIMIT_FOR_APPROVAL` is a **threshold above which approval is needed**, not a ceiling. It is
+populated only on `APPROVAL_REQUIRED_ON_LIMIT` heads. Read as a ceiling it turns 217 compliant notes
+into a AED 20,532 finding — it did, once.
+
+### 3. The column ask is now exact, and each item blocks a named test
+
+`HOUSEMAID_MANAGER_NOTES` has **exactly eleven columns**: `ID · HOUSEMAID_ID · NOTE_TYPE · AMOUNT ·
+NOTE_REASON · REASON · NOTE_DATE · MANAGER · EXPENSE_ID · REQUESTED_BY · APPROVED_BY`.
+
+| Missing column | Blocks |
+|---|---|
+| `PURPOSE_ID` | **the whole bonus taxonomy — AED 274,260 of candidates.** Referral, signing and retracting-resignation bonuses share one `REASON`; only `purpose` separates them, and signing sets none at all |
+| `ADDITION_REASON_ID` | routing on the id rather than the resolved name |
+| `CREATION_DATE` | **every point-in-time question about a note.** `NOTE_DATE` is the payroll *due* date, not when the note was written — on airfare it runs to 2028 |
+| `APPLIED` / `PAID` / `PAYROLL_MONTH` | whether the money actually reached a payslip |
+| `IS_REFUND` | reversal handling |
+
+⚠️ `MANAGER` is present but **NULL on every bonus note** — do not model it as populated.
+
+### 4. A reference implementation now exists — this ticket is de-risked
+
+`queries/AUDIT-RUN.sql` is the cross-cutting battery as **one statement**: nine tests, uniform
+`TEST_ID | TEST | PAYMENT_TYPE | VERDICT | NOTES | MAIDS | AED` output, runnable today. It is the
+behaviour to reproduce, not a sketch.
+
+### 5. The verdict vocabulary the model must express — six values, not two
+
+| Verdict | Means |
+|---|---|
+| GREEN | every applicable test ran and passed |
+| RED | a stated rule was broken |
+| CANDIDATE | a real population, not yet a verdict |
+| **VOID** | the test could not score — **not a pass** |
+| **BLOCKED** | the input does not exist in the warehouse |
+| REPORTED | true and material, but somebody else's sanctioned metric |
+
+**Collapsing VOID or BLOCKED into GREEN is the single most damaging thing this model could do.** One
+routing test in the live run matched no rows and read as *"no defects across all five payment types"*;
+it had joined on a workflow-state column.
+
+### 6. Two coverage holes the model must not inherit
+
+- **Future-dated notes.** Every live query filtered `NOTE_DATE <= CURRENT_DATE()`, so **216 airfare
+  notes / AED 385,000, dated to 2028-06-02, were excluded from every test** — never failed, never
+  passed, never examined. The model must classify them, not drop them.
+- **The window.** Twelve months covers only **30% of bonus money**; AED 1,992,552 sits older. Do not
+  let a 12-month figure read as a total.
+
+### 7. Scope, restated
+
+**Additions only.** `NOTE_TYPE = 'ADDITION'` appeared in 151 query blocks in the live run; deductions
+— money taken *from* a maid — have never been examined by anything. Out of scope here, and named so it
+is a decision rather than an oversight.
+
 ---
 
 ### What we need
