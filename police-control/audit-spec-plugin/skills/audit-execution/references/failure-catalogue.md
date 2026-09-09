@@ -1,41 +1,23 @@
-# Manager Notes Audit — the method, and the mistakes that produced it
+# The failure catalogue
 
-**Rev 2026-09-09** · companion to `SPEC_manager_notes_audit_v3.md` (what to test) and
-`SPEC_manager_notes_audit_DEV.md` (how to build it). **This document is why.**
+Fourteen worked failures from a single Police & Control audit, each with the query that got it wrong,
+what it returned, what it would have been published as, and the corrected number. **The gap between
+those last two is the argument for every rule in `SKILL.md`.**
 
-The other specs carry a trap table: one-line rules, accurate and forgettable. They are forgettable
-because a rule stated abstractly reads as obvious — *of course* you would check what a column means.
-Every rule below was written **after** the mistake, by someone who thought it was obvious too.
+They are not fourteen independent mistakes. Six of them are the same mistake, and that convergence —
+Part 2b — is the most transferable thing the audit produced.
 
-So this document states each rule with the query that got it wrong, what that query returned, what it
-would have been published as, and what the right query returned instead. **The gap between those two
-numbers is the argument.**
+Scoreboard, if you read nothing else:
 
----
-
-## Part 1 — The pre-flight
-
-Before writing any measurement, answer these. Every worked example below is a case where one of them
-went unasked.
-
-| # | Question | The failure it prevents |
-|---|---|---|
-| **P0** | **Is this even in scope?** Read the spec's exclusions before writing the query. | Three rounds spent perfecting a number the spec excludes |
-| **P1a** | **Has this column appeared in a schema result, or a query that ran, IN THIS SESSION?** If not, it does not go in a delivered query. | Three guessed columns in one file, two of them already retracted earlier the same day |
-| **P1** | **What does this column actually contain?** Profile it before joining on it. | A name that reads like a taxonomy holding a workflow state |
-| **P2** | **Is this flag a permission or an obligation?** *May* and *must* look identical in a boolean. | Reporting grants as unrecovered debt |
-| **P3** | **Is this number a threshold, a ceiling, or a target?** Read it with the column that governs it. | Turning compliant payments into a finding |
-| **P4** | **Does an approved KPI already exist for this?** Sweep the gold layer and the catalog FIRST. | Reconstructing a sanctioned metric, badly |
-| **P5** | **Is this a changing value?** If so, resolve it AS OF the event date, never as current state. | Reporting a different set, not a smaller one |
-| **P6** | **What is the chance rate?** Compute it before any ratio, per note, not on the mean. | Publishing coincidence as corroboration |
-| **P7** | **Can my numerator even apply to every row in my denominator?** | A rate mixing two payment models |
-| **P8** | **If this test finds nothing, will I be able to tell "clean" from "broken"?** Carry a positive control. | Zero matches reading as compliance |
-| **P9** | **Is this a producer signature rather than behaviour?** Check identity concentration. | A batch job published as misconduct |
-
-**The meta-rule underneath all nine:** *every* retraction in this audit had the same shape — **a
-measurement built on a field, flag, rate or population whose meaning was assumed rather than
-established.** Not one was a SQL error. The SQL was always correct; it correctly measured the wrong
-thing.
+| Failure | Would have claimed | Truth |
+|---|---:|---:|
+| A batch job read as misconduct | 1,585,600 | **0** |
+| A permission flag read as an obligation | 2,200,000 | **0** |
+| The wrong loan field | 30,220 | **0** |
+| A point read on a changing value | 137,500 | **4,500** |
+| Self-approval | 27,203 | **0 — out of scope** |
+| A threshold read as a ceiling | 20,532 | **0** |
+| Corroboration at chance | 31,200 | **0** |
 
 ---
 
@@ -593,139 +575,3 @@ The full statement, with the rule and the diagnostic, is §5b of `SPEC_manager_n
 
 ---
 
-## Part 3 — The patterns, ready to paste
-
-Six shapes. Every one is lifted from a query that ran, and each is annotated with what it caught.
-Full files in `queries/`; `AUDIT-RUN.sql` is the whole cross-cutting battery as one statement.
-
-### P-1 · The as-of read, with its diagnostic
-
-The status and type logs are **interval tables** — `CHANGE_DATE` *and* `NEXT_CHANGE_DATE` — so this is
-plain containment. No window function, no approximation.
-
-```sql
-LEFT JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TYPE_LOGS t
-       ON t.HOUSEMAID_ID = n.HOUSEMAID_ID
-      AND n.note_day >= t.CHANGE_DATE::DATE
-      AND (t.NEXT_CHANGE_DATE IS NULL OR n.note_day < t.NEXT_CHANGE_DATE::DATE)
-QUALIFY ROW_NUMBER() OVER (PARTITION BY n.note_id ORDER BY t.CHANGE_DATE DESC) = 1
-```
-
-**Always with this column beside the result:**
-
-```sql
-COUNT_IF(t.NEXT_CHANGE_DATE IS NOT NULL) AS resolved_to_a_PAST_interval
-```
-
-*Caught:* airfare MV read 76 notes / AED 137,500 with **1 of 76** resolving to a past interval — the
-signature of a point read in costume. The real figure was **AED 4,500**.
-
-### P-2 · The chance baseline, summed per note
-
-```sql
-ROUND(SUM(1 - POWER(1 - 38.0/211, k_window)), 1)                     AS chance_expected,
-ROUND(COUNT_IF(in_band > 0) / NULLIF(SUM(1 - POWER(1 - 38.0/211, k_window)), 0), 2) AS TIMES_CHANCE
-```
-
-Per note, with each note's own `k`. Averaging `k` first and applying the formula once biases the
-baseline (Jensen).
-
-*Caught:* Salary Dispute corroboration read **90.8%** and scored **1.08× chance**. Both framings of the
-raw number — "90.8% corroborated" and "9.2% uncorroborated, AED 31,200" — were wrong.
-
-### P-3 · One verdict per note, before any total
-
-```sql
-QUALIFY ROW_NUMBER() OVER (PARTITION BY note_id ORDER BY severity_rank) = 1
-```
-
-*Caught:* O6/O7 would have overstated by **58%**; O12 found the two bonus findings overlap by 3 notes.
-
-### P-4 · The base-rate guard on a flag
-
-Before treating any marker as evidence, ask what its holders actually look like:
-
-```sql
-WITH holders AS (
-    SELECT ID AS maid_id FROM ...HOUSEMAIDS_INFO
-    WHERE ASSIGNED_OFFICE_WORK_REASON_ID IS NOT NULL
-), now_status AS (
-    SELECT HOUSEMAID_ID, TO_STATUS FROM ...HOUSEMAID_STATUS_LOGS
-    WHERE NEXT_CHANGE_DATE IS NULL
-)
-SELECT n.TO_STATUS, COUNT(*), ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (),1) AS pct
-FROM holders h LEFT JOIN now_status n ON n.HOUSEMAID_ID = h.maid_id
-GROUP BY 1 ORDER BY 2 DESC;
-```
-
-*Caught:* **57.4%** of office-work-reason holders are `EMPLOYEMENT_TERMINATED` and **0.8%** are in
-office-work status. The flag is a never-cleared marker; a clear built on it was void.
-
-### P-5 · A positive control inside an absence test
-
-Carry a population **known to show the presence**. If it comes back empty too, the test is **void, not
-negative**.
-
-*Caught:* the loan-recovery test found nothing — and its control (65 relocation notes that *do* book a
-loan) also found nothing, proving deduction notes are the wrong table. Without it, "AED 30,220 never
-recovered" would have been published. ⚠️ **Use two controls chosen to differ:** a single control
-*passed* on the loan-field test, on the one head where the two fields coincide, and bought a full round
-of false confidence in a measure wrong everywhere else by an order of magnitude.
-
-### P-6 · What the standing filter hides
-
-Every test carries `NOTE_DATE <= CURRENT_DATE()`. Price that exclusion once, per type:
-
-```sql
-SELECT CASE WHEN NOTE_DATE > CURRENT_DATE() THEN 'FUTURE-dated'
-            WHEN NOTE_DATE < DATEADD('month',-12,CURRENT_DATE()) THEN 'older than the window'
-            ELSE 'inside the window' END AS dating,
-       COUNT(*), ROUND(SUM(AMOUNT)), MIN(NOTE_DATE)::DATE, MAX(NOTE_DATE)::DATE
-FROM ...HOUSEMAID_MANAGER_NOTES
-WHERE NOTE_TYPE='ADDITION' AND REASON = :type AND AMOUNT > 0
-GROUP BY 1;
-```
-
-*Caught:* **216 airfare notes / AED 385,000** dated to 2028, excluded from every test in the audit and
-absent from the coverage ledger. And **70% of all bonus money ever paid** — AED 1,992,552 — sits older
-than the window.
-
----
-
-## Part 4 — The scoreboard
-
-What these fourteen would have cost, had each been published on its face:
-
-| Example | Would have claimed | Truth |
-|---|---:|---:|
-| E4 batch job as misconduct | 1,585,600 | **0** |
-| E7 permission flag as obligation | 2,200,000 | **0** |
-| E8 wrong loan field | 30,220 | **0** |
-| E6 self-approval | 27,203 | **0 — out of scope entirely** |
-| E3 threshold as ceiling | 20,532 | **0** |
-| E11 corroboration | 31,200 | **0** — at chance |
-| E12 void recovery test | 30,220 | unmeasured |
-| E2 routing | *"no defects"* | untested |
-| E10 point read | 5 flags, 2 false | 6, all real |
-| **E10b airfare MV** | **137,500** | **4,500 — 97% confound** |
-
-**Confirmed findings after all of it: ~AED 229,100 against AED 7,197,642 examined.** The withdrawn
-claims outweigh the confirmed ones by roughly **sixteen to one.**
-
-That ratio is the point of this document. An audit that publishes its first read is not a fast audit —
-it is a wrong one, and every wrong number spends the credibility the true ones need.
-
----
-
-## Part 5 — What still has no method
-
-Stated so the silence is not mistaken for coverage.
-
-- **Deductions.** `NOTE_TYPE = 'ADDITION'` appears in 151 query blocks. Money taken *from* a maid has
-  never been examined. It is the mirror of the brief and lands on the person least able to contest it.
-- **Note history.** `PayrollManagerNote` is `@Audited`, but no revision table is in the warehouse. The
-  audit **cannot tell a note that was born wrong from one changed later.** The as-of technique of E10
-  works on maids and not on notes.
-- **Before 2025-09.** Every entitlement verdict covers twelve months of roughly four years — and the
-  audit's own strategic finding (*the newer the producer, the cleaner the money*) predicts the
-  unexamined years are worse.

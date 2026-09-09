@@ -30,6 +30,18 @@ that each cost real rework, ordered by expense. The first is the one that recurs
 marked as blocked on the screen while the underlying numbers still count those records as clean.*
 Every audit spec must be read against that list before it is called finished.
 
+## Where this skill ends, and what picks it up
+
+This skill ends at a spec and a handoff. **It does not run the audit.** When the work moves to writing
+or running SQL, adjudicating what came back, or deciding whether a number is publishable, that is the
+`audit-execution` skill in this plugin — and switching to it matters, because the failure modes are
+different in kind.
+
+Spec defects are errors of *design*: a clearance that lets a record skip a test. Execution defects are
+errors of *measurement*: a column whose meaning was assumed. In one full run, **fourteen candidate
+findings were raised and withdrawn**, none of them a SQL error, two of which would have been published
+above AED 1.5m each. A perfect spec does not protect against any of that.
+
 ## Operating principles
 
 - **P&C audits money.** Every report exists to detect a discrepancy, leakage, unauthorised
@@ -45,6 +57,17 @@ Every audit spec must be read against that list before it is called finished.
 - **Do not design the pipeline for them.** The spec says *what* must be true of the data and
   the numbers, not which DAG or dbt model to write.
 - **The requestor approves point by point.** Do not batch-approve a spec at the end.
+- **Verdicts are six values, not two.** GREEN · RED · CANDIDATE · VOID · BLOCKED · REPORTED. A spec
+  that offers only *finding* and *clean* forces every non-finding into "clean", and a test that could
+  not run then reads as a pass. **VOID and BLOCKED must be expressible in the metric layer**, or the
+  dashboard built from this spec will overstate coverage. See `audit-execution`.
+- **Price what the spec excludes.** Any filter that appears in every test defines a population nobody
+  will look at. One standing `NOTE_DATE <= CURRENT_DATE()` hid AED 385,000 that was never failed,
+  passed, or examined. State each standing exclusion and its size in the coverage metric itself, not
+  in a footnote.
+- **Point-in-time predicates read from a log, never from a current-state column.** Six findings in one
+  audit moved when a log replaced the column — four shrank, one grew, one inverted. If no log exists
+  for that attribute, the test is BLOCKED, not approximate.
 - **A clearance is not a finding's opposite.** A record is clean only when every applicable test
   *ran* and passed; if one could not run, the record is amber. One red test outweighs any number of
   greens, and one blocked test does too. The asymmetry is the whole design — see

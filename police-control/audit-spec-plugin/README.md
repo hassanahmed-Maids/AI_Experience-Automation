@@ -162,3 +162,33 @@ Pipeline per the P&C process chart:
 <https://whimsical.com/maids-cc/police-and-control-JHTkZKt1Cz5i8yuRF6sERa>
 
 Version 0.2.0.
+
+
+---
+
+## 0.4.0 — the second half: running the audit
+
+Until now this plugin stopped at the handoff: it produced a spec, a mockup and the Jira tickets, and
+somebody else ran the audit. The `audit-execution` skill covers what happens next, and it exists
+because the first full run showed that executing an audit fails in ways specifying one does not.
+
+**Fourteen candidate findings were raised and withdrawn in that run.** Confirmed findings totalled
+~AED 103,000 against roughly twenty times that withdrawn. None was a SQL error — the SQL was always
+correct. Every one was a measurement built on a field, flag, rate or population whose meaning had been
+assumed rather than established. Two would have been published above AED 1.5m each.
+
+| Skill | Covers |
+|---|---|
+| `audit-spec-builder` | intake → spec → mockup → DNA handoff |
+| `snowflake-discovery` | what data exists, and the ingestion ask when it does not |
+| `ask-the-code` | what the ERP actually does |
+| `audit-report-ui` | the report surface |
+| **`audit-execution`** | **spec → query → adjudicate → publish or retract** |
+
+`audit-execution` carries a pre-flight (P0–P9), a catalogue of the fourteen failures with their real
+before/after numbers, six SQL patterns with their guards, a six-value verdict model in which **VOID and
+BLOCKED are not passes**, and a runnable cross-cutting battery.
+
+Its central claim, which generalises past auditing: **a wrong finding costs more than a missed one**,
+so prefer a test that can only under-count — and **a retraction is a deliverable**, because the reason
+a finding collapsed usually transfers further than the finding would have.

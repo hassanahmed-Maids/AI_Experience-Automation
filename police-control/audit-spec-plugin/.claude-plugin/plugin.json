@@ -1,21 +1,25 @@
 {
   "name": "police-and-control-audit-specs",
-  "version": "0.3.0",
-  "description": "Turns a Police & Control business request into a finalised, DNA-ready auditing dashboard spec, a UI mockup artifact, and the Jira tickets that hand it over. Runs the full pipeline: intake, Snowflake data-existence check (metadata-only when no warehouse grant exists), ERP table discovery via Ask the Code, feedback questioning loop, UI example, final spec, DNA handoff. Carries a catalogue of the spec defects that have actually cost rework.",
+  "version": "0.4.0",
+  "description": "Takes a Police & Control business request all the way from intake to an adjudicated finding. First half: intake, Snowflake data-existence check, ERP discovery via Ask the Code, feedback loop, UI mockup, finalised spec, DNA/Jira handoff. Second half (new in 0.4.0): RUNNING the audit \u2014 a pre-flight that catches the measurement errors that actually cost rework, six reusable SQL patterns with their guards, a six-value verdict model where VOID and BLOCKED are not passes, and a catalogue of fourteen worked failures with the real before/after numbers. Carries the defects that have cost real rework on both sides.",
   "author": {
-    "name": "Police & Control — maids.cc"
+    "name": "Police & Control \u2014 maids.cc"
   },
   "keywords": [
+    "adjudication",
     "audit",
+    "audit-execution",
+    "dashboard",
+    "data-quality",
+    "dna",
+    "erp",
     "financial-audit",
+    "findings",
+    "jira",
+    "police-and-control",
     "snowflake",
     "spec",
-    "dashboard",
-    "erp",
-    "police-and-control",
-    "jira",
-    "dna",
-    "data-quality"
+    "verdicts"
   ],
   "license": "UNLICENSED"
 }
