@@ -281,6 +281,55 @@ prorated 74 → 25, office work 66 → 0.
 
 ---
 
+### E10b · The self-diagnostic caught a 97% confound before publication 🟢
+
+The counterpart to E10, and the one time in this audit the guard fired *before* a number went out.
+
+**Point read (S5):** airfare notes whose contract type resolves to MV at the note date — **76 notes,
+AED 137,500**, against a code-and-business-confirmed CC-only rule. A clean, large finding.
+
+**The diagnostic column said no.** Only **1 of the 76** resolved to a *past* type interval; 75 sat in
+the maid's still-open one. That is the signature of a point read wearing an as-of costume — and the
+cause was specific: an airfare note is dated `payrollDueDate`, so a maid who was CC at renewal and MV
+by the payroll cycle reads as MV.
+
+**The conservative re-ask:** was she CC at *any* point in the 24-month entitlement window? A maid MV
+across that whole span could not have been entitled at any date inside it.
+
+| | Notes | AED |
+|---|---:|---:|
+| CC throughout | 1,102 | 1,975,500 |
+| CC *and* MV both in window | 197 | 355,000 |
+| **MV the whole window** | **3** | **4,500** |
+
+| | |
+|---|---|
+| Would have been published | **AED 137,500** |
+| Truth | **AED 4,500 — 97% confound** |
+
+> **Rule.** When the exact anchor is unavailable, ask a **weaker question you can answer exactly**
+> rather than an exact question you must approximate. A test that can only under-count is publishable;
+> one that might over-count is not. And put the diagnostic in the same result — this one cost one
+> column and saved the largest error in the audit.
+
+---
+
+### E10c · A filter that protects every query can hide a population from all of them
+
+Every test in this audit carries `AND NOTE_DATE <= CURRENT_DATE()` — sensible, and it prevents
+future-dated rows polluting a period measure.
+
+**Measured for the first time (AF3): 216 airfare notes, AED 385,000, dated up to 2028-06-02.**
+
+They were never failed and never passed. **They were never examined**, by anything, and nothing in the
+coverage ledger knew it. The filter is per-query and correct; the *gap* is systemic and invisible
+precisely because every query applies the same guard.
+
+> **Rule.** Any filter repeated across every test defines a population nobody is looking at. Count what
+> each standing exclusion removes, once, and put the number in the coverage ledger.
+
+---
+
 ### E11 · A near-ubiquitous corroborator cannot corroborate
 
 **Test:** does a Salary Dispute payment have a complaint behind it? Window −30/+7 days.
@@ -387,6 +436,7 @@ What these fourteen would have cost, had each been published on its face:
 | E12 void recovery test | 30,220 | unmeasured |
 | E2 routing | *"no defects"* | untested |
 | E10 point read | 5 flags, 2 false | 6, all real |
+| **E10b airfare MV** | **137,500** | **4,500 — 97% confound** |
 
 **Confirmed findings after all of it: ~AED 229,100 against AED 7,197,642 examined.** The withdrawn
 claims outweigh the confirmed ones by roughly **sixteen to one.**

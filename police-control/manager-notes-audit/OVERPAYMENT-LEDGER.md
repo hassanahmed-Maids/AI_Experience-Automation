@@ -3,7 +3,7 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-09 — ~AED 245,600 confirmed, plus a AED 137,500 candidate one query from a verdict.**
+**Confirmed 2026-09-09 — ~AED 250,100.**
 Against AED 7,197,642 examined.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
@@ -50,27 +50,41 @@ requires no invoice — Medical through `PT 100` (PCR Test & medical assistance 
 are unused while their no-invoice twins carry 100% of the money. No recovery attaches to this; it is
 a control that exists on paper and is not on the path the money takes.
 
-## 🔴 Airfare to MV maids — AED 137,500, and one query from a verdict
+## ⚪ Airfare to MV maids — AED 137,500 candidate, resolved to AED 4,500. A 97% collapse.
 
-`HOUSEMAID_TYPE_LOGS` resolves contract type as of the note date. Airfare is **CC only** (George
-Abboud, payroll, confirmed 2026-09-07). S5 returns:
+S5's point read found 76 notes / AED 137,500 typed MV at the note date. **AF2 settles it at three
+notes.**
 
-| Type when paid | Notes | Maids | AED |
-|---|---:|---:|---:|
-| CC Live In | 1,005 | 1,004 | 1,785,500 |
-| CC Live Out | 221 | 221 | 412,000 |
-| 🔴 **MV** | **76** | **75** | **137,500** |
+| Verdict (24-month entitlement window) | Notes | AED |
+|---|---:|---:|
+| GREEN — CC throughout | 1,102 | 1,975,500 |
+| AMBER — CC *and* MV both appear | 197 | 355,000 |
+| 🔴 **RED — MV for the whole window** | **3** | **4,500** |
 
-**It is NOT yet in the confirmed table, for a reason the self-diagnostic surfaced.** Only **1 of the
-76** resolved to a *past* type interval — the other 75 sit in the maid's still-open interval. That is
-the E10 warning firing: the as-of join is barely doing work here, because **an airfare note is dated
-`payrollDueDate`, which the code sets to a future entitlement date — some run to 2028.** A maid who was
-CC when the entitlement was granted and MV by the time the note lands would resolve as MV and be
-counted, wrongly.
+The candidate was **97% confound.** Airfare notes are dated `payrollDueDate`, so a maid who was CC at
+renewal and MV by the payroll cycle reads as MV. The self-diagnostic caught it before publication —
+only 1 of the 76 resolved to a *past* interval, which is the signature of a point read pretending to
+be an as-of one. **Had AED 137,500 gone into the confirmed table it would have been the largest error
+of the audit.**
 
-**The settling query:** re-resolve type as of the *entitlement* date — the `ScheduledAnnualVacation`
-creation, not the payroll due date — and keep only notes MV on both. Until then this is the largest
-single candidate in the audit and not a finding.
+🔴 **The AMBER 197 notes / AED 355,000 are permanently unresolvable from the warehouse.** AF1 shows
+`HOUSEMAID_MANAGER_NOTES` carries **exactly one timestamp — `NOTE_DATE`** — and no
+`ScheduledAnnualVacation` table exists in Snowflake at all. So there is no way to date the entitlement,
+only the payment. Separating those 197 needs an ingestion, not a query.
+
+## 🔴 A coverage hole nothing in the audit was looking for: future-dated notes are invisible
+
+AF3, measured for the first time:
+
+| | Notes | AED | Range |
+|---|---:|---:|---|
+| past or today | 4,295 | 7,401,300 | 2020-06-30 → 2026-09-09 |
+| **FUTURE-dated** | **216** | **385,000** | 2026-09-10 → **2028-06-02** |
+
+216 airfare notes averaging **204 days ahead**, one running to June 2028. **Every test in this audit
+filters `NOTE_DATE <= CURRENT_DATE()`, so all AED 385,000 of it has been excluded from everything** —
+not failed, not passed, never examined. And the exclusion is generic: any future-dated note of any type
+is invisible to every query written so far.
 
 ## 🟢 Two populations that look damning and are not — recorded so nobody re-finds them
 
