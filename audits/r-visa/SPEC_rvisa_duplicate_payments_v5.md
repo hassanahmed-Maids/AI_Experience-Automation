@@ -3,7 +3,7 @@
 | | |
 | --- | --- |
 | **Requested by** | Hassan Ahmed, Police & Control |
-| **Spec version** | v3 |
+| **Spec version** | v5 |
 | **Date** | 2026-09-10 |
 | **UI mockup** | https://claude.ai/code/artifact/3ce6b63e-afbb-4b45-8eff-d530f899e735 |
 | **Discovery record** | https://claude.ai/code/artifact/619fb3c1-44dc-4b52-a8dd-ad57ca57154a |
@@ -39,9 +39,13 @@ A refund can never turn a RED into a GREEN. If it could, a team could make a bro
 
 **So a duplicated fee is a loss even when refunded** — the residue of ~204 per case is unrecoverable. Requestor ruling of 2026-09-09 that duplicates are treated as loss therefore stands, on firmer ground than when it was given.
 
-**Reader and action.** Police & Control, on demand. A confirmed row is a **process fix**. The default view is Confirmed + Unrecovered.
+**Reader and action.** Police & Control, on demand. A confirmed row is a **finding to be actioned**, and the default view is Confirmed + Unrecovered.
+
+**This report is a detector, and that is the deliverable — not a shortfall.** Ruled 2026-09-10: P&C's remit is to detect; preventing the defect is the ERP and Visa teams' work. Nothing in the ERP stops a second `Added` R-visa line on one request, and a guard at the "Apply for R-visa" task would be the preventive fix — but that is a **recommendation handed over**, not a precondition for this report and not a reason to call the report incomplete.
 
 **Population in scope.** Every R-visa payment owned by a housemaid, all-time.
+
+🔴 **A blind spot that belongs on the report, not just in this spec.** **981 transactions sit on R-visa heads with no visa line at all** — 1.4% of the population, ten times the finding set. They carry no case key, so **no test examines them**. A duplicate whose second leg is one of those 981 — same maid, same head, same era, days apart — is invisible here. That is a different and larger gap than the absent-payment one §8 describes. It needs either a proximity screen (same maid, same head, ±90 days against the scored population, hits published in the Controls panel) or an explicit out-of-coverage statement handing them to the sibling control.
 
 **Explicitly out of scope.**
 
@@ -52,6 +56,8 @@ A refund can never turn a RED into a GREEN. If it could, a team could make a bro
 | Whether the fee amount was right | Tests *count*, not price. |
 | R-visa **modification** charges | A different product — amending a visa, not paying the fee. Heads `1622` `1649` `1735`. |
 | Entry visa · E-ID · Change of Status | Own audits. Duplicates seen in them during this work are handed over, not scored (§6.4). |
+
+**Dates and time zone.** Every date in this spec is a D12b `DATE` value, Dubai calendar, no conversion applied. "Today", T1's upper bound and M10's year boundaries all use the snapshot date shown in the report's provenance line.
 
 **Grain.** One row per **case** = (`VISA_REQUEST_ID`, `PURPOSE`). Money counts *excess payments* within the case: three payments = two excess, one case.
 
@@ -74,7 +80,7 @@ Verified by `DESC` and by queries that ran, 2026-09-09/10.
 | --- | --- | --- | --- | --- |
 | D1 | Expense line | `BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES` | view | Grain is the **line**, not the payment. |
 | D2 | Case key part 1 | ″ `VISA_REQUEST_ID` | NUMBER(38,0) | Range 1–119,422. Non-null. |
-| D3 | Case key part 2 | ″ `PURPOSE` | VARCHAR | `APPLY_FOR_RVISA` 54,484 · `RENEW_RESIDENCE` 17,217. Structured enum. |
+| D3 | Case key part 2 | ″ `PURPOSE` | VARCHAR | `APPLY_FOR_RVISA` **54,554** · `RENEW_RESIDENCE` **17,237** — re-counted 2026-09-10; sums to 71,791 and ties to M9's opening line. Structured enum. *(Earlier drafts carried 54,484 / 17,217 from a profiling run taken before the population was settled; that pair was 90 short and broke the completeness control.)* |
 | D4 | Payment link | ″ `TRANSACTION_ID` | NUMBER(38,0), nullable | **Two lines may share one id** — happens exactly once in 69,218 payments (request `12822`). Collapse to payment grain first. |
 | D5 | Line status | ″ `STATUS` | VARCHAR | Column holds `Added` · `Dismissed` · `Pending`, but **within the audited population only `Added` ever occurs** (0 of 69,218 otherwise). Not a scope filter; tested at T7 as a guard. |
 | D6 | Government fee | ″ `AMOUNT` | FLOAT | ⚠️ **Not reliably the fee** — 117 payments book the all-in total here with `CHARGE`/`VAT_CHARGE` null. Reconcile against R-FEE-SCHEDULE. |
@@ -89,6 +95,11 @@ Verified by `DESC` and by queries that ran, 2026-09-09/10.
 | D12c | ″ amount | ″ `TRANSACTION_AMOUNT` | FLOAT | Negative = refund. |
 | D12d | ″ expense head | ″ `EXPENSE_ID` | NUMBER(38,0) | See R-VISA-HEADS. |
 | D12e | ″ maid | ″ `HOUSEMAID_ID` | NUMBER(38,0), nullable | **Display, recovery matching and T8 only — never the case key.** ≥99.9% populated from 2021; 0.46% in 2019. |
+| D12f | ″ description | ″ `DESCRIPTION` | VARCHAR | **The column the shared-head description test runs on.** Confirmed present by `DESC TABLE`, 2026-09-10. Carries maid names and, from 2026-01, passport numbers — **predicate only, never selected** (§4). |
+| D12g | ″ transaction type | ″ `TRANSACTION_TYPE` | VARCHAR | **Verified 2026-09-10: exactly two values on R-visa heads — `Expense` · `Refund`.** This is the *declared* nature of the row, so §3.4 matches refunds on it rather than inferring from the sign of the amount. |
+| D12h | ″ head name | ″ `EXPENSE`, `EXPENSE_ROOT` | VARCHAR | The head's name, carried on the transaction itself — no join to D15 needed. Use as a **cross-check** on R-VISA-HEADS: a row whose `EXPENSE_ID` is in the list but whose name does not read as R-visa is a run exception. |
+| D12i | ″ payee | ″ `SUPPLIER_NAME` | VARCHAR | **Checked and empty** — null on every dedicated R-visa head. It does not name the authority, so §1's statement of the recipient stands on head naming and the `EDNRD` channel, which is inference. Do not cite a payee as verified. |
+| D12j | ″ staff names | ″ `CREATOR`, `LAST_MODIFIER` | VARCHAR | Personal data. **Never selected** (§4). |
 | D13 | Existing detector | `BA_VIEWS.MONEY_CONTROL_SILVER.DUPLICATE_EXPENSES` · `TRANSACTION_ID`, `CRITERIA` | view | Used **solely** for the non-overlap metric. Never sources a finding. |
 | D14 | Refund ledger — **checked and rejected** | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REFUNDS_HISTORY` | view | Carries `EXPENSE_TRANSACTION`, a deterministic refund→payment link. **Does not cover this population.** 0 rows across all 21 candidate heads; 0 of 69,218 R-visa payments and 0 of 184 case payments match, against **11,993 linked transactions** present in the ledger — so the zero is separation, not an empty column. Built on `expenserequesttodos` (money-control request pipeline); R-visa fees run through `VISAREQUESTEXPENSES` (visa pipeline). Two ledgers, no bridge. |
 | D15 | Head names | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_HIERARCHY` · `EXPENSE_ID`, `EXPENSE_NAME`, `ROOT` | view | Source for the named head table in §2.4. Excludes `is_secure` and `is_deleted` types — a head that fails to resolve is one or the other, which is itself a finding. |
@@ -114,6 +125,7 @@ Every list here decides an outcome, so each is a named data point with an owner 
 
 **R-VISA-PURPOSES** — `APPLY_FOR_RVISA`, `RENEW_RESIDENCE`. Owner: P&C.
 *Guard:* both must appear each run; no other purpose may enter the population.
+⚠️ **Membership verified against a warehouse view only.** The claim that the "Apply for R-visa" task emits exactly these two rests on `MISSING_EXPENSES`, itself a view, and one whose coverage starts 2025-06-01. A third purpose the same task can emit — or one retired before that cutoff — is invisible to both the population and this guard. Confirm against the ERP enum when the ask-the-code token is restored.
 
 ---
 
@@ -152,9 +164,27 @@ Every list here decides an outcome, so each is a named data point with an owner 
 
 ⚠️ **No structural family exists.** Every head is top-level in D15 — `ROOT` equals its own name in all 21 cases. The grouping above is held together by naming convention and this table, nothing else, which is exactly why it needs sign-off rather than inheritance.
 
-⚠️ **The description test must be applied identically on both the payment side and the refund side.** Omitting it on the refund side attributed **AED 668.00 of entry-visa refunds** (739.50/89.50 shapes) to R-visa recoveries in an earlier run. Twice.
+⚠️ **Payments and refunds are selected by different means, and that asymmetry is structural — not a defect to be "fixed" by making them identical.**
+- **Payments** are selected by `PURPOSE` (§3.1). No head filter, no description test — the visa ledger already says what the money was for.
+- **Refunds** carry no purpose. They are bare negatives on a head, so the head list *plus* the description test on D12f is the only handle available.
 
-*Guard.* Every distinct `EXPENSE_ID` reached by the purpose-selected population is compared to this list. A surplus head is **published as an exception**, and is a **run failure only if it carries negative transactions** — an unlisted head holding refunds means recovery is being under-counted. An unlisted head with no negatives is logged, and its cases record recovery as **confirmed zero** rather than merely unmatched. Verified 2026-09-10: `779` and `149` each carry **0 negatives** across 936 and 211 transactions, so no recovery is hidden on either.
+An earlier draft demanded the test be "applied identically on both sides". That is unimplementable — there is nothing to apply it to on the payment side — and stating it that way hid the real risk. The real risk is **inconsistency within the refund side**: applying the description test to some shared heads and not others, which is what attributed **AED 668.00 of entry-visa refunds** (739.50/89.50 shapes) to R-visa recoveries. Twice.
+
+*The rule that replaces it:* **every** shared head (`150` `736` `161` `737` `149`) takes the description test; **no** dedicated head does; and the predicate is written once and referenced, never retyped per head. **Here it is, written once** — a reference list in its own right, owner P&C:
+
+```sql
+-- R-VISA-DESCRIPTION-TEST · shared heads only, identically on payments and refunds
+    ( UPPER(TRIM(t.DESCRIPTION)) LIKE '%R-VISA%'
+   OR UPPER(TRIM(t.DESCRIPTION)) LIKE '%RENEW RESIDENCE%' )
+AND UPPER(TRIM(t.DESCRIPTION)) NOT LIKE '%CANCEL%'   -- heads 161/737 also hold cancellations
+AND t.DESCRIPTION IS NOT NULL                        -- a null description fails, never passes
+```
+
+*Guard:* publish, per shared head, the count this predicate **admits** and **rejects**. Two things to check before build — spelling variants (`R VISA`, `RVISA`, `RESIDENCE RENEWAL`) that would slip through, and how many rows `NOT LIKE '%CANCEL%'` removes from `161`/`737`. That second count measures how much of Refunded depends on this predicate working.
+
+⚠️ **Residual risk to quantify before build.** Heads `161` and `737` also hold cancellation money. Publish how many of the candidate refunds sit on those two heads, so a reviewer can see how much of Refunded depends on the description test doing its job.
+
+*Guard.* Every distinct `EXPENSE_ID` reached by the purpose-selected population is compared to this list. A surplus head is **published as an exception**, and is a **run failure only if it carries negative transactions** — an unlisted head holding refunds means recovery is being under-counted. An unlisted head with no negatives is logged, and its cases record recovery as **confirmed zero** rather than merely unmatched. Verified 2026-09-10: surplus head **`779`** carries **0 negatives** across 936 transactions, so nothing is hidden there. Separately — and *not* as a surplus head — the in-scope Cleaners head **`149`** carries 0 negatives across 211 transactions, noted for the same reason. `149` stays in R-VISA-HEADS unless §6.10 rules cleaners out.
 
 ---
 
@@ -195,9 +225,22 @@ Sourced 2026-09-10 by measuring every amount in the population with its own tran
 `239.50` (2025-02 onward) · `189.00` (2020 → 2024) · `189.50` · `289.50`.
 *Guard:* a negative on an R-visa head at an unrecognised amount does not count as recovery; publish the count. All 18 candidates found in the current run matched one of the four.
 
+**THRESHOLDS** — six numeric cutoffs decide verdicts. Each needs an owner and a derivation, exactly as the lists above do.
+
+| Cutoff | Used by | Currently holds | Source | Owner |
+| --- | --- | --- | --- | --- |
+| **50** AED fine step | The whole fee-match rule | Everything. It is why 493.50, 543.50, 1,293.50 and 8,943.50 all price at their era fee | ⚠️ **Assumed** from the observed residue pattern. Never read from an overstay tariff | **Finance — same sign-off as R-FEE-SCHEDULE (§6.7)** |
+| **300** days | T6 long gap | 12 cases, **AED 1,724.00** of Pending | ⚠️ **Assumed.** Sensitivity checked: spans either side of the cut are 257 and 346, so the nearest case sits **43 days** clear and nothing flips at 300 ± 30 | Visa team (§6.8) |
+| **180** days | Recovery window, upper bound | The widest a refund may lag the last payment | ⚠️ **Assumed.** All 18 candidates land within 15 days, so the window could close far tighter | Finance (§6.5) |
+| **first excess payment** | Recovery window, lower bound | 3 cases, AED 618.50 | **Derived, not assumed** — a refund cannot reverse a payment that has not happened | P&C |
+| **50%** match-rate floor | Withholds all recovery for a period | Nothing today — see the match-rate metric | ⚠️ **Assumed**, and the rate it gates was undefined until v4 | P&C |
+| **100,000** AED · **2016-01-01** | T1 BLOCKED bounds | Nothing — never triggered | ⚠️ **Assumed**, and never sized against the population | P&C |
+
+⚠️ **The 50-step does more work than any list in this section.** It is the entire tolerance of the fee match: widen it and fines become fees, narrow it and every fine-bearing payment falls to T3. It is currently an inference from the shape of the data. Get the tariff.
+
 **BATCH-DATES** — `2020-02-24`, `2020-03-17`→**`2020-03-18`**. Owner: P&C, **provisional (§6.3)**.
 ⚠️ Stated on the **transaction** clock (D12b). The line-creation dates are one day earlier; an earlier draft used those and the test matched **zero** cases while the batch plainly existed.
-*Guard:* the count of population payments on these dates must be stable run to run. Currently 18 cases.
+*Guard:* the count of **payments** on these dates must be stable run to run — payments and cases are different denominators and both must be published. Currently **18 payments (11 on 2020-02-24, 7 on 2020-03-18) across 18 cases** inside the multi-payment population; the population-wide payment count on those two dates is **not yet measured** and must be before publication.
 
 ### 2.5 Data hygiene traps
 
@@ -232,7 +275,16 @@ Sourced 2026-09-10 by measuring every amount in the population with its own tran
 
 ⚠️ `STATUS` is **not** a population filter. Scope is defined by the audited record — money that left — and line status is a test outcome (T7). Filtering on it would delete a paid-then-`Dismissed` duplicate from every count, every total and every tie-out with nothing on the report saying it existed.
 
-⚠️ **Tests run over all 69,124 cases, not only the 90.** A single-payment case is GREEN unless a test blocks it — and T5 can, which is the only way case `12822` is ever seen. Scoping the tests to multi-payment cases makes T5 an assertion that cannot fail.
+⚠️ **Scope is per test, not global.** An earlier draft said "tests run over all 69,124 cases" so that T5 could fire on `12822`. That fixed one dead test and created a larger fault: T3 blocks any case holding a payment that matches no schedule entry, and §2.4 names **221 population payments at amounts the schedule rejects** — almost all in single-payment cases. Run globally, T3 alone blocks hundreds of cases that were never counted, and the published clean total is that much too high.
+
+| Test | Scope | Why |
+| --- | --- | --- |
+| **T0** payment usable · **T5** line integrity · **T7** line status | **All cases** | Input and booking guards. A single-payment case is the only place T5's defect can appear — and **T0 is why the 19.7-trillion outlier in §2.5 cannot be reported clean.** |
+| **T1** · **T2** · **T3** · **T4** · **T6** · **T8** · **T9** | **Multi-payment cases** | Duplicate-shape tests. A single payment cannot be a duplicate, and blocking one for an unexplained amount answers a question this report does not ask — that belongs to the price-accuracy audit (§6.11). |
+
+⚠️ **T0 exists because scoping T1 to the 90 put the input guards out of reach.** T1 alone carried the null / negative / >100,000 / bad-date bounds, and §2.5 records a profiled max `AMOUNT` of ≈19.7 trillion with the rule "BLOCKED, never filtered out". Confine those bounds to multi-payment cases and a single-payment case holding that row is counted **clean** — the clearance defect arriving through the scope table. T0 carries them over the full population instead.
+
+⚠️ **M5's clean and blocked totals must be produced by the run, not extrapolated.** The v3 figures were measured inside the 90 and published population-wide. Under the scoping above the only tests reaching single-payment cases are T5 and T7, both measured: T5 fires once, T7 never.
 
 Every metric states which population it reads.
 
@@ -256,15 +308,16 @@ GREEN  ⟺ every test in A RAN and returned GREEN
 
 | Test | RED | GREEN | BLOCKED | NOT_APPLICABLE |
 | --- | --- | --- | --- | --- |
-| **T1** duplicate fee | ≥ 2 payments in the case match R-FEE-SCHEDULE | 0 or 1 such payment | Any payment's amount is null, negative or > 100,000; or its transaction date falls outside `[2016-01-01, today]` | — |
+| **T0** payment usable | — | Every payment has a non-null amount in `[0, 100,000]` and a non-null transaction date in `[2016-01-01, today]` | Any payment fails either bound, reason `unusable-input` | — |
+| **T1** duplicate fee | ≥ 2 payments in the case match R-FEE-SCHEDULE | 0 or 1 such payment | — *(input plausibility moved to T0)* | Case has one payment |
 | **T2** batch posting | — | No payment falls on a BATCH-DATE | Any payment falls on a BATCH-DATE — its nature is a P&C inference, not established | — |
-| **T3** unexplained amount | — | Every payment matches a schedule entry | Any payment matches none. Reason `sub-fee-payment` when below the case's first matched fee, `amount-unexplained` when above it by a non-fine amount | — |
+| **T3** unexplained amount | — | Every payment matches a schedule entry | Any payment matches none. Reason `sub-fee-payment` when the amount is below **the schedule fee valid on that payment's own transaction date**, `amount-unexplained` otherwise | Case has one payment |
 | **T4** channel switch | N1 confirms the card charge was **not** reversed | N1 confirms it **was** reversed | Pending N1, reason `card-reversal-unknown` | Payments do not span two `PAYMENT_TYPE` values |
 | **T5** line integrity | — | Each payment maps to exactly one line | Two or more lines share one `TRANSACTION_ID`, reason `line-integrity` | — |
 | **T6** long gap | — | Span ≤ 300 days | Span > 300 days and N2 unavailable — re-application cannot be told from duplicate | Case has one payment |
 | **T7** line status | — | Every payment's line is `Added` | Any paid line is `Dismissed` or `Pending` | — |
 | **T8** case identity | — | All payments resolve to one `HOUSEMAID_ID`, or to none | Payments resolve to **more than one** maid, reason `two-maids-one-case` | Case has one payment |
-| **T9** refund before duplicate | — | No matched refund predates the first excess payment | A matched refund predates it — pay → partial refund → pay again reads as a correction cycle, not a duplicate | Case has no matched refund |
+| **T9** refund before duplicate | — | Set A is non-empty and no member predates the first excess payment | The earliest member of **Set A** (§3.4) predates the first excess payment — pay → partial refund → pay again reads as a correction cycle, not a duplicate | **Set A is empty** |
 
 **T1 names no class.** A batch posting at 196.00 matches no schedule entry, so it never counts as a second fee payment; T3 then blocks the case rather than T1 being suppressed by a lookup table. Classification is the *reason*, never the gate.
 
@@ -278,12 +331,23 @@ GREEN  ⟺ every test in A RAN and returned GREEN
 
 Recovery is computed per confirmed case and **cannot alter the verdict**.
 
-- **Candidate refund:** a negative `TRANSACTION_AMOUNT` in D12 on a head in **R-VISA-HEADS with the same description test as the payment side**, same `HOUSEMAID_ID`, dated between the **first excess payment** and 180 days after the last payment, at an amount in R-REFUND-AMOUNTS.
-- ⚠️ **The window opens at the first excess payment, not the first payment.** A refund that predates the duplicate cannot be a recovery of it. Three refunds (AED 618.50) were credited that way in an earlier run; those cases are now T9 BLOCKED.
-- **Tie-break:** nearest in time to the last payment. **More than one candidate → the case's recovery is `Unknown`**, never "take the first". *Currently no case has more than one.*
+**Two named sets, because one window cannot serve both jobs.** An earlier draft defined a single candidate set opening at the *first excess payment* — which made T9, the test for a refund that arrives *before* the duplicate, structurally unable to fire. Its BLOCKED branch was unreachable and its GREEN a tautology.
+
+- **Set A — `case negatives`.** Every D12 row with **`TRANSACTION_TYPE = 'Refund'`** on a head in **R-VISA-HEADS** (shared heads additionally passing the D12f description test), same `HOUSEMAID_ID`, dated **from the case's first payment** to 180 days after its last. Amount is *not* filtered here.
+  → **T9 reads Set A.** BLOCKED when Set A is non-empty and its earliest member predates the first excess payment.
+  → **M11's denominator is Set A.**
+- **Set B — `attributable recovery`.** The members of Set A dated **at or after the first excess payment** whose amount is in R-REFUND-AMOUNTS.
+  → **M2 sums Set B.** A refund that cannot reverse a payment which had not yet happened is evidence about the case, not money back on it.
+- ⚠️ **Match on the declared type, not on the sign.** `TRANSACTION_AMOUNT < 0` is an inference about what a row means; `TRANSACTION_TYPE` is the row saying so. Keep the sign test as a **cross-check** and publish the count where the two disagree — a `Refund` row with a positive amount, or an `Expense` row with a negative one, is a booking defect worth surfacing rather than silently picking one predicate.
+- ⚠️ **Set B opens at the first excess payment; Set A opens at the first payment.** A refund predating the duplicate cannot be a recovery of it — but it must still be *seen*, or T9 cannot fire. Three refunds (AED 618.50) were credited as recoveries in an earlier run; under this split they sit in Set A, keep those three cases blocked at T9, and contribute nothing to M2.
+- **More than one member of Set B → the case's recovery is `Unknown`**, never "take the first". *Currently no case has more than one.* The nearest-in-time candidate is shown in the drill-down for the reviewer, but **it does not become the recovery** — display only, so the two rules cannot contradict.
 - **Consumed once.** A refund may be attributed to at most one case.
 - **No maid id → recovery `Unknown`.** Publish that count. *Currently 3.*
-- **Match rate published per period.** Below 50%, recovery reads `Unknown` for the whole period — an absence is not evidence when the matcher is unreliable.
+- **Zero candidates → `Unrecovered`**, provided the maid id resolves and the head guard passed. Where the head guard published a surplus head carrying negatives, zero candidates reads **`Unknown`** instead — the refund may exist somewhere the matcher cannot see. *This branch decides 27 of the 45 confirmed cases and most of the headline, so it is stated rather than left to fall through.*
+- **Match rate *(M11)* — published per period.** Defined as **candidate refunds attributed to a case ÷ candidate R-visa negatives found in the window**. Below 50%, recovery reads `Unknown` for the whole period — an absence is not evidence when the matcher is unreliable.
+  ⚠️ Precisely: **numerator** = members of Set A attributed to exactly one case as recovery (i.e. Set B, after the tie-break); **denominator** = all of Set A. Amount is deliberately *not* filtered in the denominator, so a period where refunds arrive at unrecognised amounts drives the rate **down** — which is the signal the floor exists to catch. Defined the other way round, with the amount filter on both sides, the ratio is ~1 by algebra and the floor can never fire.
+  ⚠️ **Not** "confirmed cases carrying a refund ÷ confirmed cases". That reading gives 15/45 = 33%, below its own floor, and would zero out Refunded and add AED 3,491.00 to the headline. Two readings, either side of the cutoff — the definition is load-bearing.
+  **Current value: 18 / 18 = 100%** — every negative found in Set A resolved: 15 attributed to recovery, 3 holding their case at T9.
 - **Chance baseline.** Publish, beside the observed recovery rate, the per-maid chance that one of that maid's own R-visa negatives lands in the case window by geometry alone — `1 − (1 − p)^k`, `p = window_days / that maid's observation_days`, `k` = that maid's count of R-visa negatives, computed **per maid and summed**, never on the cohort mean. Also bin refunds by signed distance from the last payment: a real recovery decays toward the payment, a flat distribution means the window is talking to itself.
   ✅ **Measured 2026-09-10 and it passes decisively:** 12 of 18 candidate refunds fall on the **exact day** of the last payment, the rest within a fortnight. That is not a flat distribution — it is a duplicate spotted and partly reversed the same day.
 
@@ -294,7 +358,7 @@ Recovery is computed per confirmed case and **cannot alter the verdict**.
 - **Definition.** Government fees paid more than once for the same application or renewal, at the era fee, excluding overstay.
 - **Population.** Multi-payment cases, verdict confirmed.
 - **Formula.** `SUM(matched fee)` over every payment in the case except the earliest that matched. **Not** `(payments − 1) × one fee` — a case can span two eras, and a non-matching payment is not a duplicated fee.
-- **Inputs.** D2, D3, D4, D6, D12b, R-FEE-SCHEDULE.
+- **Inputs.** D2, D3, D4, D6, **D7, D8** (the all-in rule needs both to recognise a `fee + 3.15` booking), D12b, R-FEE-SCHEDULE, THRESHOLDS (the 50 step).
 - **Filters.** The population definition only. **No amount range filter** — an implausible amount is T1 BLOCKED, not a deleted row.
 - **Currency.** AED, no FX. **Rounding.** 2 dp at case level, then summed.
 - **Nulls.** Null amount → T1 BLOCKED → case AMBER → contributes 0.
@@ -306,12 +370,21 @@ Recovery is computed per confirmed case and **cannot alter the verdict**.
 - **Definition.** Refunds attributable to confirmed cases.
 - **Population.** Multi-payment cases, verdict confirmed, recovery ≠ `Unknown`.
 - **Formula.** `SUM(min(matched refund, case duplicated fees))`.
+- **Inputs.** D12a, D12b, D12c, D12d, D12e, D12f, R-VISA-HEADS, R-REFUND-AMOUNTS, THRESHOLDS (180 days, first-excess bound).
+- **Filters.** §3.4's candidate definition only.
+- **Currency.** AED, no FX. **Rounding.** 2 dp at case level, then summed.
+- **Nulls.** No maid id → recovery `Unknown` → contributes 0 and is excluded from this population, not counted as zero recovery.
+- **Division by zero.** N/A.
 - **Current value.** **AED 3,491.00** across **15 cases**. **Zero fully recovered.**
 
 ### Still out *(M3 — the headline)*
 
 - **Definition.** Duplicated fees not returned. What the company is still down.
 - **Formula.** Duplicated fees − Refunded.
+- ⚠️ **The two sides are computed over different populations** — M1 over all confirmed cases, M2 over confirmed cases with a resolvable recovery. Subtracting them is safe **only while every `Unknown`-recovery case contributes 0 to M2**, which holds today (all 3 have no maid id and no matched refund). It is not an identity; assert it. A future `Unknown` case with a partial match would make M3 overstate.
+- **Inputs.** M1, M2.  **Filters.** none.  **Currency.** AED, no FX.  **Rounding.** 2 dp.
+- **Nulls.** A null on either side propagates; both are `SUM`s over non-null contributions, so N/A in practice.
+- **Division by zero.** N/A.
 - **Current value.** **AED 16,853.50**.
 - **Threshold.** No green band — any exposure is a finding. Cases sort by this, descending.
 
@@ -319,9 +392,12 @@ Recovery is computed per confirmed case and **cannot alter the verdict**.
 
 - **Definition.** Value that becomes exposure if the outstanding rulings go against us.
 - **Population.** Multi-payment cases, verdict AMBER.
-- **Formula.** Same as Duplicated fees, over AMBER cases.
+- **Formula.** Same as Duplicated fees, over blocked cases.
+- **Inputs.** as M1.  **Filters.** verdict = blocked.  **Currency.** AED.  **Rounding.** 2 dp at case level.
+- **Nulls.** A blocked case with no matched fee contributes 0 — **25 of the 45** do; the other 20 carry one matched excess fee each.
+- **Division by zero.** N/A.
 - **Current value.** **AED 8,873.50** across **45 cases**.
-- ⚠️ A blocked case contributes only its *matched* excess fees. A batch case (496.00 plus a 196.00) contributes **zero** — the 196.00 is not a duplicated fee, it is an unexplained payment. Pricing every AMBER case at `(payments − 1) × fee` overstated this by roughly AED 3,500 in an earlier draft.
+- ⚠️ A blocked case contributes only its *matched* excess fees. A batch case (496.00 plus a 196.00) contributes **zero** — the 196.00 is not a duplicated fee, it is an unexplained payment. Pricing every blocked case at `(payments − 1) × era fee` instead gives **AED 21,912.56**, overstating by 13,039.06; the nearest wrong variant, `(fee-payments − 1) × era fee`, gives 8,978.56.
 
 ### Cases by verdict *(M5)*
 
@@ -332,10 +408,18 @@ Recovery is computed per confirmed case and **cannot alter the verdict**.
 
 ### Exception rates, both denominators *(M6)*
 
-- **Formula.** confirmed / multi-payment cases, **and** excess payments / all payments.
+- **Formula.** Two ratios, with **three** distinct numerators in play. Name them apart:
+  - *confirmed cases* (45) / *multi-payment cases* (90) = **50.0%**
+  - *excess fee payments in confirmed cases* (46) / *all payments* (69,218) = **0.066%**
+  - *all excess payments, every shape* (94) / *all payments* (69,218) = **0.136%**
+- **Inputs.** M5, §3.1.  **Filters.** none beyond the population.  **Rounding.** 1 dp.  **Nulls.** N/A.
 - **Division by zero.** Renders "—", not 0%.
-- **Current value.** **50.0% of multi-payment cases** · **0.066% of all R-visa payments**.
-- ⚠️ **Both must appear on the tile.** 50% alone reads as "half our residence-visa payments are duplicated".
+- ⚠️ **"Excess" is overloaded and that is how a wrong number gets published.** §3.1 uses it for all 94 extra payments; M1 uses it for the 46 that are duplicated *fees* inside *confirmed* cases. A builder reading "excess payments / all payments" from an earlier draft would have published 0.136% on a tile the spec labels 0.066%. Always qualify the word.
+- **Current value on the tile — every string carries its own denominator**, because the label is where this goes wrong:
+  - "**50.0%** of multi-payment cases are confirmed duplicates (45 of 90)"
+  - "**0.13%** of requests were paid more than once (90 of 69,124)"
+  - "**0.066%** of all R-visa payments are a duplicated fee (46 of 69,218)"
+  ⚠️ An earlier draft's tile read *"50.0% of requests paid more than once"* — a sentence whose true value is 0.13%, published on the KPI strip. Never state a rate without the denominator inside the same string.
 
 ### Exposure by year *(M10)*
 
@@ -355,6 +439,9 @@ Recovery is computed per confirmed case and **cannot alter the verdict**.
 | 2025 | 14 | 6,209.00 | 1,197.50 | 5,011.50 | 2 | 887.00 |
 | 2026 | 9 | 4,435.00 | 1,726.50 | 2,708.50 | 11 | 4,878.50 |
 | **All-time** | **45** | **20,344.50** | **3,491.00** | **16,853.50** | **45** | **8,873.50** |
+
+⚠️ **The blocked column totals 45, not the 46 in M5** — M10's population is multi-payment cases, so case `12822` (one payment, held at T5) is correctly absent here and correctly present there.
+⚠️ **Prior years are not frozen.** A third payment arriving on an existing case restates the year that case previously sat in, because attribution follows the *last* payment. Publish the as-of date on the table; 12 cases already span more than 300 days, so the shape is live.
 
 **Three readings this table is here to force.**
 
@@ -377,32 +464,64 @@ Recovery is computed per confirmed case and **cannot alter the verdict**.
 
 | Step | Lines / payments | Note |
 | --- | --- | --- |
-| R-visa lines in D1, both purposes | 71,791 | |
+| R-visa lines in D1, both purposes | **71,791** ✅ | Ties to D3: 54,554 + 17,237 = 71,791. |
 | less `OWNER_TYPE = 'OFFICE_STAFF'` | 802 | |
 | less null `TRANSACTION_ID` | 1,770 | Bookings with no payment |
 | less lines sharing a transaction | 1 | Collapsed to payment grain — one line, request `12822` |
 | **= All R-visa payments** | **69,218** | |
 | *memo:* payments whose line is not `Added` | **0** | Not a deduction. Sized here, tested at T7 |
-| Transactions on R-visa heads with no visa line | 981 | Pre-2017-06; no case key. **BLOCKED, not clean** |
-| Visa lines with no matching transaction | 1,532 | Payment link absent |
+| *memo:* transactions on R-visa heads with no visa line | 981 | **Outside the case grain, reconciled separately** — not a deduction and not a verdict. They have no case key, so calling them "blocked" put 981 records in a state nothing counts. They belong to tie-out 1, as a named line. |
+| *memo:* payments in the population whose `TRANSACTION_ID` resolves to no D12 row | **0** ✅ | **Measured 2026-09-10 — every payment in the 69,218 resolves to a transaction, so none is scored on a clock it does not have.** The 1,532 figure quoted in earlier drafts counted a wider set (other owner types and unpaid lines) and does not belong in this waterfall. Re-run each refresh: a non-zero here means payments are being fee-matched and date-tested against nothing. |
 
-✅ **Measured and reconciling: 71,791 − 802 − 1,770 − 1 = 69,218.** Re-run each refresh; a residual is a run failure.
+✅ **The deduction chain reconciles: 71,791 − 802 − 1,770 − 1 = 69,218.** Re-run each refresh; a residual is a run failure.
+
+✅ **The opening line ties to D3** — 54,554 + 17,237 = 71,791 — and zero payments in the population lack a transaction, so nothing is scored on a clock it does not have. T1's null-date bound stays in as a guard rather than a live condition.
+
+⚠️ **Both are run guards, not one-time checks.** The purpose counts and the unlinked-payment count are re-measured every refresh; either drifting is a run failure, because the first breaks the waterfall's opening balance and the second means payments are being fee-matched against no date.
 
 ### Tie-out rules
 
-Two identities, both against independent controls — not partitions of a derived column.
+Two identities, each with its two sides drawn from **different objects**.
 
 ```
-1. COUNT of distinct TRANSACTION_ID in All R-visa payments
-   = Σ payments across all cases (single-payment + multi-payment)
-   residual displayed as its own exception row
+1. COUNT(DISTINCT TRANSACTION_ID) in All R-visa payments        [visa ledger, D1]
+ = COUNT(DISTINCT ID) in D12 on R-VISA-HEADS,
+   TRANSACTION_TYPE = 'Expense',
+   shared heads passing R-VISA-DESCRIPTION-TEST                   [money ledger, D12]
+ + every reconciling line below, each measured and shown
+   residual after the named lines must be 0
 
-2. Σ (AMOUNT + CHARGE + VAT_CHARGE) in D1 for payments in multi-payment cases
-   = Σ TRANSACTION_AMOUNT in D12 for the same transaction ids
-   residual displayed; the only genuinely external money control available
+2. Σ ( AMOUNT
+     + COALESCE(CHARGE, 0)
+     + COALESCE(VAT_CHARGE, 0) )  in D1 for payments in multi-payment cases
+ = Σ TRANSACTION_AMOUNT in D12 for the same transaction ids
+   residual displayed; the only external money control available
 ```
 
-⚠️ `duplicated + pending + excluded = total` is **not** a tie-out — both sides come from the same case table by the same expression and it cannot fail.
+🔴 **The `COALESCE` is not cosmetic.** D7 and D8 are both nullable and **58 of the 184 case payments carry NULL in both** — every pre-2021 row, plus the all-in bookings. `AMOUNT + NULL + NULL` evaluates to NULL, `SUM` skips the row, and the left side silently drops **AED 21,660.30**. Written without the coalesce this identity shows a large residual on its first run and every run after, and a tie-out that always fails is one an operator switches off.
+
+**Both sides, as numbers.** Left side, coalesced: **AED 88,966.11** (= 88,603.86 of `AMOUNT` + 345.00 of `CHARGE` + 17.25 of `VAT_CHARGE`). 🔴 **The right side is not yet measured**, and the expected residual turns on one question: does `TRANSACTION_AMOUNT` carry the gateway charge, or only the government fee? If only the fee, this identity carries a permanent **362.25** residual because the charge is booked on the visa line and never reaches the money ledger — in which case tie `AMOUNT` to `TRANSACTION_AMOUNT` directly and reconcile the 362.25 as its own named line. Settle before publication; a tie-out with an unexplained standing residual gets switched off.
+```sql
+SELECT ROUND(SUM(TRANSACTION_AMOUNT),2) FROM BA_VIEWS.MONEY_CONTROL_SILVER.TRANSACTIONS
+WHERE ID IN (<the 184 transaction ids>);   -- 88,966.11 or 88,603.86?
+```
+*Guard:* publish the count of rows where `CHARGE IS NULL`, so the coalesce cannot mask a change in booking practice. Currently 58 of 184, spanning 2018-10-29 → 2026-08-01 — not a legacy-only shape.
+
+**Identity 1's reconciling lines — all five, because the two selections differ in five ways and an unexplained residual gets a tie-out switched off:**
+
+| Line | On the left? | On the right? | Value |
+| --- | --- | --- | --- |
+| Orphan transactions — R-visa head, no visa line | no | yes | **981** |
+| Payments on head `779` — mis-booked, head deliberately excluded | yes | no | **3** |
+| Payments on any surplus head the guard publishes | yes | no | *from the guard* |
+| Payments on shared heads whose description fails the test | yes | no | 🔴 **not yet measured — potentially thousands.** The shared heads span 2018 → late 2025, the whole legacy era |
+| Payments whose transaction row is absent | yes | no | **0** (measured 2026-09-10) |
+
+🔴 **The fourth line must be sized before this tie-out is built** — it is the difference between a control with a small named residual and one with a large unexplained one.
+
+⚠️ The right side selects **`TRANSACTION_TYPE = 'Expense'`**, not `amount > 0` — the same declared-type rule §3.4 uses. Selecting on sign here while arguing against it there would turn the one booking defect the spec asks to surface into a silent residual.
+
+⚠️ **Two shapes that look like tie-outs and are not.** `duplicated + pending + excluded = total` partitions one derived column. And `COUNT(DISTINCT TRANSACTION_ID) = Σ payments across cases` — which an earlier draft used as identity 1 — compares the payment population against a case table **built by grouping that same population**. It is an algebraic identity, not a control; it cannot produce a residual under any bug worth catching. If a proposed tie-out's two sides trace to one query, it is not a tie-out.
 
 **Assertions that can fail:**
 
@@ -421,7 +540,29 @@ Two identities, both against independent controls — not partitions of a derive
 
 Mockup: https://claude.ai/code/artifact/3ce6b63e-afbb-4b45-8eff-d530f899e735 — restated here because a link is not machine-readable to the DNA intake bot.
 
-**Layout.** KPI strip (Still out · Confirmed cases · both exception rates · Unrecovered) → filter bar → exception table → one chart (cases by blocking reason, which is also the AMBER tie-out). One screen to the top of the table.
+**Layout.** KPI strip (Still out, AED · Confirmed cases, count · both exception rates with denominators · Unrecovered, **count and value** — 27 cases, AED 12,713.00) → filter bar → exception table → one chart (cases carrying each blocking reason) → **Controls panel**. One screen to the top of the table.
+
+⚠️ **The reason chart is not a tie-out and must not be labelled one.** Within multi-payment cases, 45 blocked cases carry **71 reason-hits** (46 and 72 across all cases, including `12822`) — a case may be held for several, and all 18 batch cases are also part-payment cases. Label the axis *"cases carrying this reason (a case may carry several — 45 cases, 71 reason-hits)"*, or an operator will read 71 against a blocked count of 45.
+
+**Controls panel — required, because §3 says these are published and nothing else on the page shows them.** Each row carries a pass/fail and the as-of stamp:
+
+| Control | Passes when |
+| --- | --- |
+| Coverage waterfall | residual = 0 across all five lines |
+| Tie-out 1 — payment counts, two ledgers | residual displayed, orphans and unlinked lines named |
+| Tie-out 2 — money, two ledgers | residual displayed; NULL-charge row count published alongside |
+| Match rate (M11) | ≥ 50%, else recovery withheld for the period |
+| Chance baseline | published beside the observed recovery rate |
+| Head guard | every `EXPENSE_ID` in R-VISA-HEADS, or listed as an exception with its negative count |
+| Unmatched payments | count published; a change run-to-run is a run failure |
+| T7 line status | count of non-`Added` paid lines published (currently 0) |
+| T0 payment usable | count of unusable-input payments published (expected 0) |
+| Refund type vs sign | count where `TRANSACTION_TYPE` and the amount's sign disagree — a booking defect, surfaced not resolved |
+| Recovery `Unknown` — no maid id | count published (currently **3**) |
+| Negatives at unrecognised amounts | count published (R-REFUND-AMOUNTS guard) |
+| Refunds on cancellation heads `161`/`737` | share of Refunded that depends on the description test |
+| BATCH-DATES payment count | within the 90: **18 payments / 18 cases**; population-wide: **to be measured** |
+| Orphan-transaction proximity screen | hits against the scored population (§1 blind spot) |
 
 **Columns.**
 
@@ -436,7 +577,7 @@ Mockup: https://claude.ai/code/artifact/3ce6b63e-afbb-4b45-8eff-d530f899e735 —
 | Duplicated | sum of matched fees on excess payments | AED #,##0.00 | — |
 | Refunded | matched refund for this case | AED #,##0.00 | — |
 | **Still out** | duplicated − refunded | AED #,##0.00 | **sort desc** |
-| Recovery | Unrecovered · Partial · Full · Unknown | label | — |
+| Recovery | Unrecovered · Partial · Full · Unknown · **Not applicable** *(case not confirmed)* | label | — |
 | Span | days between first and last payment | integer | secondary sort |
 | Channel | Noq · Card · mixed | label | — |
 | Verdict | the single verdict column | Confirmed / Blocked / Clean + word | — |
@@ -444,7 +585,9 @@ Mockup: https://claude.ai/code/artifact/3ce6b63e-afbb-4b45-8eff-d530f899e735 —
 
 **Filters.** Verdict (**default Confirmed**) · recovery (**default Unrecovered**) · reason · period of last payment · channel. Every default shown on screen.
 
-**Drill-down.** The payments in the case: transaction id, transaction date, `AMOUNT`, `CHARGE`, `VAT_CHARGE`, channel, matched fee, and the T1–T9 trace. **Excluded from the drill-down and the export: `DESCRIPTION`, `EMPLOYEE_NAME`, `CREATOR_NAME`, `LAST_MODIFIER_NAME`, and D14's `RELATED_TO_NAME`.**
+⚠️ **The two defaults together hide all 45 blocked cases**, while the KPI strip shows a Pending tile of AED 8,873.50 whose rows take two filter changes to reach. **The KPI strip always reports the full population and does not respond to the filter bar** — state that on the page, and show the in-view subtotal separately above the table.
+
+**Drill-down.** The payments in the case: transaction id, transaction date, `AMOUNT`, `CHARGE`, `VAT_CHARGE`, channel, matched fee, and the T1–T9 trace. **Excluded from the drill-down and the export, by column name:** `D1.DESCRIPTION` · `D1.EMPLOYEE_NAME` · `D1.CREATOR_NAME` · `D1.LAST_MODIFIER_NAME` · **`TRANSACTIONS.DESCRIPTION`** · **`TRANSACTIONS.CREATOR`** · **`TRANSACTIONS.LAST_MODIFIER`**. The last three were missing from earlier drafts, which instead forbade `RELATED_TO_NAME` — a column on D14, a view this design does not read. An exclusion list is implemented by column name, so a name that resolves to nothing protects nothing.
 
 **Conditional formatting.** Row colour driven by the verdict column only, never colour alone — every row carries the verdict word.
 
@@ -460,11 +603,29 @@ Mockup: https://claude.ai/code/artifact/3ce6b63e-afbb-4b45-8eff-d530f899e735 —
 
 ### A — Clean: the lifecycle, not a duplicate
 
-Request `9141` carries `APPLY_FOR_RVISA` 497.00 (2019-09-03) **and** `RENEW_RESIDENCE` 443.50 (2025-02-05).
+🔴 **This example needs a sourced request before publication.** An earlier draft used request `9141`, which is **a confirmed finding** — `9141 · RENEW_RESIDENCE` holds two payments of 443.50 (2025-02-06 and 2025-02-13) and is one of the 45. A builder calibrating T1 against it would tune until a real finding vanished. It was also dated on the line-creation clock this spec forbids. Source a genuine one:
 
-Keying on request **and purpose** puts these in two cases. T1 clean in both.
+```sql
+-- a request with exactly one APPLY payment and exactly one RENEW payment,
+-- and therefore in neither purpose's multi-payment set
+WITH pay AS (
+  SELECT VISA_REQUEST_ID, PURPOSE, TRANSACTION_ID
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('APPLY_FOR_RVISA','RENEW_RESIDENCE')
+    AND OWNER_TYPE = 'HOUSEMAID' AND TRANSACTION_ID IS NOT NULL
+  GROUP BY 1,2,3
+)
+SELECT VISA_REQUEST_ID
+FROM pay GROUP BY VISA_REQUEST_ID
+HAVING COUNT(DISTINCT PURPOSE) = 2 AND COUNT(*) = 2
+LIMIT 5;
+```
+
+**The shape the example must show.** One visa request carries an `APPLY_FOR_RVISA` payment at the fee of its era and, years later, a `RENEW_RESIDENCE` payment at the fee of *its* era. Keying on request **and purpose** puts them in two cases of one payment each; T1 is clean in both. Quote both legs on the **transaction** clock (D12b).
 
 ⚠️ Keying on request alone classes this as a duplicate — across the population that produced **8,785 cases and AED 4,215,566** against the correct **90 and AED 29,218**.
+
+⚠️ **Standing assertion:** no request used as a lifecycle example may appear in the multi-payment set. Check it before publishing, and re-check whenever the snapshot moves — a request that is clean today can acquire a second payment tomorrow.
 
 ### B — Confirmed, partly refunded: the standing positive control
 
@@ -528,23 +689,81 @@ Two cases behave the same way (`9529`, `46031`). Counting their refunds as recov
 ## 6. Decisions required before approval
 
 1. **Confirm the loss ruling.** Duplicates are treated as loss. The evidence now supports it for a reason not known when it was given: recovery exists but is **partial by design** — a fixed ~239.50 against a 443.50 fee, never full in 15 of 15 observed cases. → **Hassan**
-2. 🔴 **Do failed Credit_Card charges reverse outside the ERP?** Settles 11 cases at once — either loss or zero, and T4 cannot return RED until answered. → **Finance / card-flow owner**
+2. 🟡 **Do failed Credit_Card charges reverse outside the ERP?** **Asked 2026-09-10; awaiting response.** Settles 11 cases at once — either loss or zero, and T4 cannot return RED until answered. AED 4,878.50 of Pending turns on it. → **Finance / card-flow owner**
 3. **Is the 2020 batch reading correct?** 18 cases held blocked on P&C's inference from consecutive transaction ids on two dates at a non-fee amount. Confirm or kill. → **Visa team**
-4. **Who owns the process fix?** The defect happens at one identified place: the **"Apply for R-visa"** task in the Visa module, in both the initial and renewal pipelines. Whoever owns that task owns the fix. Without an owner this is a dashboard, not a control. → **Hassan / Malaz**
+4. **Who receives the findings, and who owns the preventive guard?** Two different people. Detection is P&C's and settled. The guard sits at one identified place — the **"Apply for R-visa"** task, in both the initial and renewal pipelines — and belongs to whoever owns that task. Recommend it; do not block on it. → **Hassan / Malaz**
 5. **Confirm R-REFUND-AMOUNTS.** 239.50 · 189.00 · 189.50 · 289.50 are inferred from concentration, not from a published schedule. → **Finance**
 6. **Operator concentration — report or not?** One operator holds 45.6% of duplicates against a 25.2% population share (~1.8×). Not a batch signature; not R-visa money. Currently computed and deliberately unreported. → **Hassan**
 7. **Sign off R-FEE-SCHEDULE.** Now measured with dated windows and volumes, but never read from an authority tariff. Every money figure depends on it. Two specifics: are `555.00`/`556.00` (2018) genuine fees, and is the pre-2018-07 gap acceptable? → **Finance**
 8. **Long-gap cases.** 12 cases held blocked pending N2. Confirm N2 exists or accept them as permanently blocked. → **Visa team**
 9. **The three refund-before-duplicate cases.** Held blocked as correction cycles. Treating them as confirmed instead adds **AED 1,330.50** to Duplicated and **AED 618.50** to Refunded. → **Hassan**
 10. **Cleaners in or out?** Head `149` covers cleaners, whom `OWNER_TYPE = 'HOUSEMAID'` selects. Currently in scope. → **Hassan**
+11. **Do single-payment cases with an unexplained amount belong to anyone?** Under v4's per-test scoping they are not blocked here — a single payment cannot be a duplicate. But §2.4 names 221 population payments at amounts the schedule rejects, and nobody is looking at them. They belong to a **price-accuracy audit**, which does not exist. → **Hassan**
+12. **Sign off the 50-dirham fine step.** It is the entire tolerance of the fee match and is currently inferred from the shape of the data, never read from an overstay tariff. Widen it and fines become fees. → **Finance**
 
 ---
 
-## 7. Handover notes
+## 7. Handoff to DNA
+
+**File as two linked issues.** SQL/model work always blocks the visual build, so this is pre-split rather than left for intake to guess:
+
+| Issue | Type | Scope |
+| --- | --- | --- |
+| `[Split from DNA-X] Analytic Engineering: R-visa duplicate payments — model` | Analytic Engineer Task | §2 data points, §2.4 reference lists and thresholds, §3 tests and metrics, the coverage waterfall and both tie-outs. **Blocks the BI issue.** |
+| `[Split from DNA-X] BI: R-visa duplicate payments — dashboard` | BI Visualization Task | §4 in full, including the Controls panel. **Blocked by the model issue.** |
+
+| Field | Value |
+| --- | --- |
+| Layer | Silver (reads `VISA_SILVER`, `MONEY_CONTROL_SILVER`) |
+| Grain | one row per (`VISA_REQUEST_ID`, `PURPOSE`) |
+| Consumer | Police & Control, on demand |
+| Business owner | Hassan Ahmed |
+| Historical backfill | all-time. Earliest **source row** 2017-06-21 (D11); earliest payment in a multi-payment case 2018-10-29. R-FEE-SCHEDULE does not reach before 2018-07-31, so pre-2018-07 cases are T3 BLOCKED — **do not read 2018-10-29 as the backfill boundary** |
+| Out of scope | overstay fines · office staff · R-visa modification heads · entry visa · E-ID · change of status |
+
+**Acceptance criteria — numeric and testable against the 2026-09-10 snapshot:**
+
+1. `COUNT(*) − COUNT(DISTINCT case_id) = 0` on the case table.
+2. Multi-payment cases = **90**; payments in them = **184**; excess = **94**.
+3. Confirmed = **45**; excess fee payments = **46**; Duplicated = **AED 20,344.50**.
+4. Refunded = **AED 3,491.00** over **15** cases; fully recovered = **0**.
+5. Still out = **AED 16,853.50**.
+6. Blocked = **46** (45 multi-payment + case `12822`); Pending = **AED 8,873.50**.
+7. Waterfall residual = **0**; both tie-out residuals displayed with their values.
+8. Every blocked case carries ≥ 1 reason. **Within multi-payment cases:** blocked = **45**, reason-hits = **71**. **Across all cases:** blocked = **46**, reason-hits = **72** (case `12822` adds one `line-integrity` hit).
+9. No case carries a verdict word outside Confirmed / Blocked / Clean.
+10. The export's and drill-down's column lists contain **none of** `D1.DESCRIPTION`, `D1.EMPLOYEE_NAME`, `D1.CREATOR_NAME`, `D1.LAST_MODIFIER_NAME`, `TRANSACTIONS.DESCRIPTION`, `TRANSACTIONS.CREATOR`, `TRANSACTIONS.LAST_MODIFIER`. Testable by name, not by inspection.
+
+**Done when** all ten pass on the snapshot, the Controls panel renders every row in §4, and P&C has signed the §6 decisions that gate a verdict (2, 3, 5, 7, 9, 12).
+
+**Not a duplicate of** — 🔴 **the DNA project has not been searched; do that before filing and list adjacent tickets by key and status.** Dismiss at least these: `MISSING_EXPENSES` (the mirror control — completeness, not duplication; named in §8 as a sibling), `DUPLICATE_EXPENSES` (money-control pipeline, structurally blind to visa expenses), `LOST_VISA_EXPENSES` (lost cost on failed visas; carries no R-visa purpose).
+
+| ModelName | `RVISA_DUPLICATE_PAYMENTS` |
+| TargetSchemaOrDomain | `VISA` (Silver), consumed by a P&C dashboard |
+| Dependencies | N1 and N2 block T4 and T6; §6 decisions 2, 3, 5, 7, 9, 12 gate verdicts; every 🔴 measurement in §1, §2.4, §3 and M9 closes first |
+
+**Attachments** — `SPEC_rvisa_duplicate_payments_v5.md` **← start here** · `payments-184.tsv` (the 184 case payments; columns in order: req, purpose, seq, txn, pay_date, line_date, amount, charge, vat, channel, lines_on_txn — **no header row**) · `cases.json` · `queries_W1_W2.sql`.
+
+🔴 **Two standard attachments are missing and the handoff is not filed without them:** `DNA_ATTACHMENT_source_tables.md`, and `DNA_ATTACHMENT_verification_queries.md` pairing **every** measured figure to the query that produced it — including the ones this spec could not run, which currently carry their queries inline.
+
+---
+
+## 8. Handover notes
 
 - **No approved KPI exists.** Every figure here is an unverified ad hoc definition; recommend adding it to the Data Catalog on approval.
 - **Do not schedule this.** Manual trigger only — a standing run goes to the ERP team.
 - **The population definition was wrong four times in development.** Too narrow (a 90-day gap filter hid 25 real cases); catastrophically too wide (grouping purposes together turned the normal apply-then-renew lifecycle into AED 4.2m of imaginary loss); contaminated (an asymmetric head predicate credited AED 668 of entry-visa refunds as R-visa recoveries, twice); and mis-clocked (dated lists written against line-creation dates when the payments are dated one day later, which made the batch test match zero cases).
 - **Three tests were dead or missing when v2 was written.** T5 was scoped so it could never fire; T8 and T9 did not exist, and between them they were worth AED 1,774.00 of false findings.
-- 🔴 **A sibling control already exists, and nobody has joined them up.** `BA_VIEWS.VISA_SILVER.MISSING_EXPENSES` flags the *opposite* failure — the "Apply for R-visa" step completing with **no** payment recorded. Since its 2025-06-01 cutoff it holds **58 renewal alerts against 1 initial**. This report cannot see an absent payment (a scan over rows that exist never can); that report cannot see a duplicated one. **Together they are the whole control and separately neither is.** The 58:1 split also says the renewal pipeline is the weaker one at *both* ends — over-paying and under-recording — which is where a process owner should look first. Out of scope here; handed over, not absorbed.
-- **The lesson for whoever maintains this:** detecting two payments on one request is trivial. **Classifying which of nine shapes you are looking at is the entire job** — and every predicate must be applied identically on both sides of any comparison, on the same clock.
+- 🔴 **The other half of this control already exists and has no shared owner.** The fee should be paid exactly once per firing of "Apply for R-visa". Paid **twice** → this report. Paid **zero** times → **this report cannot see it**, because it works by finding two payments where there should be one, and a payment that never happened has no row to find. That limit is structural, not a gap better SQL closes. `BA_VIEWS.VISA_SILVER.MISSING_EXPENSES` is the report that does see it — it watches the workflow step, not the payment. **Neither report alone answers "was the R-visa fee paid correctly?"; only both together do.**
+
+  🔴 **And read side by side they say something neither says alone — renewals fail at both ends.**
+
+  | | Renewals |
+  | --- | --- |
+  | Share of all R-visa lines | **24%** (17,237 of 71,791) |
+  | Share of confirmed duplicates | **58%** (26 of 45) — 2.4× over-represented |
+  | Share of missing-payment alerts | **58 of 59** (vs 1 for initial applications) |
+  | Money duplicated | **AED 11,433.50** of 20,344.50 |
+
+  Over-paying *and* under-recording, concentrated in one pipeline. On our screen 26 renewal duplicates reads as a modest number; on theirs 58 misses reads as a separate issue. **The fix needs no build — one named person owns the question and reads both reports.** Out of scope here; handed over, not absorbed.
+- **The lesson for whoever maintains this:** detecting two payments on one request is trivial. **Classifying which of nine shapes you are looking at is the entire job.** Two rules carry most of that weight: the refund side applies the description test to **every shared head and no dedicated head, from one written predicate** (§2.4) — while the payment side is selected by `PURPOSE` and takes no description test at all; and **every dated predicate runs on the transaction clock**, never on line creation.

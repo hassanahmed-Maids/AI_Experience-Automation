@@ -6,8 +6,8 @@ designated for the work and the analysis is worth keeping.
 
 | File | What it is |
 | --- | --- |
-| `SPEC_rvisa_duplicate_payments_v4.md` | **The deliverable.** Business logic, data points, tests T1–T9 with per-test scope, thresholds, metrics M1–M11, UI + Controls panel, worked examples, DNA handoff, 12 open decisions. |
-| `SPEC_rvisa_duplicate_payments_v3.md` | Superseded. Kept because the auditor's findings are written against it. |
+| `SPEC_rvisa_duplicate_payments_v5.md` | **The deliverable.** Business logic, data points, tests T1–T9 with per-test scope, thresholds, metrics M1–M11, UI + Controls panel, worked examples, DNA handoff, 12 open decisions. |
+| `SPEC_rvisa_duplicate_payments_v4.md` | Superseded. Kept because the second audit pass is written against it. |
 | `rvisa-dashboard.html` | Published mockup with real rows — https://claude.ai/code/artifact/3ce6b63e-afbb-4b45-8eff-d530f899e735 |
 | `payments-184.tsv` | Payment-level detail for the 90 multi-payment cases (184 rows). |
 | `cases.json` | Adjudicated cases with verdict, reasons, money and recovery state. |
@@ -15,7 +15,7 @@ designated for the work and the analysis is worth keeping.
 
 ## Headline
 
-45 confirmed cases · **AED 16,853.50 still out** · 45 blocked pending a ruling
+45 confirmed cases · **AED 16,853.50 still out** · 46 blocked pending a ruling
 (AED 8,873.50) · 69,218 R-visa payments examined, all-time.
 
 Over half the exposure is in the last 24 months and the rate is rising — see the
