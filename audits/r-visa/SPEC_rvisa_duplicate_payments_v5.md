@@ -736,7 +736,20 @@ Two cases behave the same way (`9529`, `46031`). Counting their refunds as recov
 
 **Done when** all ten pass on the snapshot, the Controls panel renders every row in §4, and P&C has signed the §6 decisions that gate a verdict (2, 3, 5, 7, 9, 12).
 
-**Not a duplicate of** — 🔴 **the DNA project has not been searched; do that before filing and list adjacent tickets by key and status.** Dismiss at least these: `MISSING_EXPENSES` (the mirror control — completeness, not duplication; named in §8 as a sibling), `DUPLICATE_EXPENSES` (money-control pipeline, structurally blind to visa expenses), `LOST_VISA_EXPENSES` (lost cost on failed visas; carries no R-visa purpose).
+**Prior attempts — searched 2026-09-10. This audit has been filed before and must be raised as the successor, not as a new request.**
+
+| Key | What it is | Status | Bearing on this ticket |
+| --- | --- | --- | --- |
+| **DNA-9529** | *R-Visa fee audit — silver model: per-payment tests + per-maid verdict* | **Cancelled 2026-09-06** | The same audit. Withdrawn by the requester the day it was filed: *"raised prematurely, before the requesting team had signed off the spec … A corrected pair will be raised after review."* **That corrected pair is this one.** Reference it by key. |
+| **DNA-9530** | *[Split from DNA-9529] BI: R-Visa fee audit — P&C exception dashboard* | **Cancelled 2026-09-07** | Its BI half. Same successor relationship. |
+| **VPMGOV-1670** | *Publish n8n flow: R-Visa Audit* | **To Do** | A built four-workflow n8n implementation of the same audit against the **ERP APIs**, awaiting publication and blocked because `/accounting/transactions/{id}` returns `INSUFFICIENT_PERMISSIONS` for the auditing account. Different data path, same question — **reconcile findings with it before either goes live, or the company runs two duplicate counts that disagree.** |
+| **MC-2005** | *Publish n8n flow: Change of Status Audit* | open | The identical pattern on a different government fee. Not this scope; worth the same treatment. |
+
+⚠️ **Two substantive disagreements with DNA-9529 that a reviewer will ask about.**
+1. **Grain.** DNA-9529 rolls up **per maid** and counts **182** all-time repeat cases; this spec keys on (`VISA_REQUEST_ID`, `PURPOSE`) and finds **90**. The gap is the maid key: one woman's application and her later renewal read as two payments for one maid. That is the same error that produced AED 4,215,566 of imaginary loss here before the purpose split (§1). Its acceptance criterion `RED + AMBER + GREEN = COUNT(DISTINCT OWNER_ID)` also drops the **three cases with no maid id**, because `COUNT(DISTINCT)` ignores NULLs.
+2. **Scope.** DNA-9529 covers duplicates **plus** overstay-fine overcharge, undercharge and unassigned repayment responsibility. This spec is duplicates only, by the requestor's ruling of 2026-09-09; overstay has its own audit. The constant that broke DNA-9529's acceptance criteria — the overstay grace period — is therefore not load-bearing here.
+
+**Also not a duplicate of** — dismiss at intake: `MISSING_EXPENSES` (the mirror control — completeness, not duplication; named in §8 as a sibling), `DUPLICATE_EXPENSES` (money-control pipeline, structurally blind to visa expenses), `LOST_VISA_EXPENSES` (lost cost on failed visas; carries no R-visa purpose).
 
 | ModelName | `RVISA_DUPLICATE_PAYMENTS` |
 | TargetSchemaOrDomain | `VISA` (Silver), consumed by a P&C dashboard |
