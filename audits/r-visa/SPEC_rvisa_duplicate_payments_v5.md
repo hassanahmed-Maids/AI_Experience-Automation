@@ -155,7 +155,7 @@ Every list here decides an outcome, so each is a named data point with an owner 
 
 | Head | Name | Reason |
 | --- | --- | --- |
-| `1622` `1649` `1735` | NEW/RENEW - CC & MV Housemaids - **R-visa Modification** | A modification amends an existing visa; it is not the residence fee and has no R-FEE-SCHEDULE price. Scoring it against a fee schedule is a category error. Carries 0 payments in the current population. |
+| `1622` `1649` `1735` | NEW/RENEW - CC & MV Housemaids - **R-visa Modification** | Out of scope for the duplicate leg — a modification amends an existing visa and is not the residence fee. Carries 0 payments in the current population. 🔴 **But it is not priceless, and it is not irrelevant.** The company tariff (*visa steps cost*, Dec 2025) gives it as **"Update Personal Information in Immigration — most of the times the amount is 143.5 and it could be 243.5, it is not clear why they rarely vary"**, and the *Master Guide* §2.4 defines the underlying service as *"Modify Person Information in MOHRE / Immigration — corrects mistakes in name, passport number, nationality, etc."* **This is the R-visa document-error charge.** It belongs to audit leg 3 (fine responsibility), not leg 1. Measure it; do not fold it into the duplicate count. |
 | `779` | **InPut VAT Maids.cc Expenses** | Not an expense head — a VAT account. 936 transactions, none worded R-visa, no negatives ever. The 3 case payments booked here are **mis-bookings**; they get a published exception, not a head-list entry. |
 | `1797` | NEW - OfficeStaff - R-visa Application 2 years | Office staff. |
 | `1576` `1664` `1607` `1614` `1695` `1702` | CC/MV Housemaids - Entry Visa (incl. Inside/Outside Country applications) | Entry visa — own audit. |
@@ -204,12 +204,17 @@ Sourced 2026-09-10 by measuring every amount in the population with its own tran
 | 393.50 | 2020-06-27 → 2023-05-16 | 13,515 | Noqoodi |
 | 443.50 | **2023-05-17** → present | 44,100 | Noqoodi |
 | 457.46 | 2025-07-07 → present | 5,354 | Credit_Card |
+| **343.50** | **1-year tier — company tariff, all dates** | 90 | Noqoodi |
 
 **Fee matching.** A payment matches a schedule entry when the entry is valid on the payment's **transaction date** and `amount − fee` is 0 or a positive multiple of 50 (an overstay day). Where more than one entry matches, take the **largest** — it attributes the least to fines, and the windows are built so this is never contested. A payment matching no entry is **T3 BLOCKED**, never an input to T1.
 
 ⚠️ **Amounts 50 apart are indistinguishable from a fee plus one fine day, so every window must be disjoint within a residue family.** Verified: 496→396 and 497→397 succeed with no overlap. 393.50 and 443.50 appeared to overlap for 27 months until measured — across that span 393.50 has **13,437** payments and 443.50 has **nine**, so those nine are fine-shapes and 443.50's era begins the day after 393.50's ends. Re-run this check whenever a fee is added.
 
-⚠️ **Rejected as era fees — these are partial payments, not prices.** `343.50` (90 payments over 37 months), `472.50` (110 / 23 months), `293.50` (11), `418.50` (10), against 443.50's 919 per month. Admitting them let a partial payment read as a second full fee. `472.50` ran only 2020-07 → 2022-12, which is what rules it out of case `36025`'s 2024 payment.
+🔴 **CORRECTION 2026-09-10 — `343.50` is the 1-year R-visa rate, not a partial payment.** Two independent company sources say so: the internal tariff sheet *visa steps cost* (`1Apz6DNFjQwqx2hwvyGjJpYnCGJng85EAn99z4CSDUaU`, Omar El Joueidi, Dec 2025) — *"AIO: 457.46 2-Year (incl. VAT), MOHRE: 443.5 2-Year / MOHRE: 343.5 1-Year"* — and the *Visa Expenses Master Guide – Policing Department* §4.4.7 — *"~343.50 AED for 1-year R-Visa; ~443.50–457.46 AED for 2-year R-Visa."* The 1-year AIO rate has never been paid. The earlier rejection reasoned only from monthly volume and was wrong: 343.50 is a **different product tier**, not a shortfall.
+
+**Consequence.** The schedule gains a second axis — **term**, not just date. A payment must be priced against the tier that matches the visa actually issued, and `443.50 − 343.50 = 100` is a term difference, not two overstay days. Dependent figures needing recomputation before v6 is signed: the 46 excess fee payments, Duplicated AED 20,344.50, and every fine residue measured against a 443.50/457.46/393.50 base. **Measured blast radius on the duplicate finding: 2 payments in 2 cases (`24296`, `27713`), both 2024** — small, but the fee-residue arithmetic is affected population-wide.
+
+⚠️ **Still rejected as era fees — partial payments, not prices.** `472.50` (110 payments / 23 months, 2020-07 → 2022-12, which is what rules it out of case `36025`'s 2024 payment), `293.50` (11), `418.50` (10), against 443.50's 919 per month.
 
 ⚠️ **Fee does not vary by contract type.** Measured across the 393.50 era: CC and MV split evenly over all four shared heads. The schedule is one-dimensional — date only. Do not add a CC/MV axis on the assumption one must exist.
 
