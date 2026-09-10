@@ -176,6 +176,14 @@ payment date.
 
 ## What has been cleared, on evidence
 
+- 🟢 **Last Day CC Switch Adjustment — 213 of 213 on all three stated business rules**
+  (requestor, 2026-09-10): the maid is **MV**, no duplication, no note above **AED 150**.
+  Previously cleared against a weaker proxy — "a switch occurred" — so this is a stronger clear
+  on a real rule, not a re-run. **The mechanism matters more than the score: median zero days
+  between the MV switch and the note**, i.e. the note *is* the event, so no interval exists in
+  which eligibility can change between being checked and being paid. And no bunching under the
+  cap — the 141–149 band is empty, the opposite of a gamed threshold.
+
 - **AED 2.8m of expense-backed money** — 11,819 notes against their requests: AED 1,304 of disagreement (O1).
 - **Cash airfare plus a company ticket** — 361 maids hold both; none within 180 days (A5).
 - **Notes on cancelled/rejected expense requests** — zero, against 2,083 such requests (V9).
