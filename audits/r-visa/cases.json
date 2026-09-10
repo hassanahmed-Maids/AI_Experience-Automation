@@ -1,0 +1,2012 @@
+[
+{
+"req": "113190",
+"purp": "APPLY_FOR_RVISA",
+"pays": 3,
+"feepays": 3,
+"era": 443.5,
+"d1": "2026-06-12",
+"d2": "2026-08-01",
+"span": 50,
+"chan": "Noq",
+"gross": 887.0,
+"rec": 239.5,
+"net": 647.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5,
+446.65
+]
+},
+{
+"req": "499",
+"purp": "RENEW_RESIDENCE",
+"pays": 3,
+"feepays": 2,
+"era": 496.0,
+"d1": "2019-08-24",
+"d2": "2020-03-18",
+"span": 207,
+"chan": "Noq",
+"gross": 497.0,
+"rec": 0.0,
+"net": 497.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+497.0,
+197.0
+]
+},
+{
+"req": "7947",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 497.0,
+"d1": "2019-05-30",
+"d2": "2019-06-01",
+"span": 2,
+"chan": "Noq",
+"gross": 497.0,
+"rec": 0.0,
+"net": 497.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unknown",
+"amts": [
+497.0,
+497.0
+]
+},
+{
+"req": "581",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 497.0,
+"d1": "2019-10-21",
+"d2": "2019-10-22",
+"span": 1,
+"chan": "Noq",
+"gross": 496.0,
+"rec": 0.0,
+"net": 496.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unknown",
+"amts": [
+497.0,
+496.0
+]
+},
+{
+"req": "10490",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 496.0,
+"d1": "2019-10-27",
+"d2": "2019-10-28",
+"span": 1,
+"chan": "Noq",
+"gross": 496.0,
+"rec": 0.0,
+"net": 496.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+496.0,
+496.0
+]
+},
+{
+"req": "10494",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 497.0,
+"d1": "2019-10-26",
+"d2": "2019-10-27",
+"span": 1,
+"chan": "Noq",
+"gross": 496.0,
+"rec": 0.0,
+"net": 496.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unknown",
+"amts": [
+497.0,
+496.0
+]
+},
+{
+"req": "5430",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 476.0,
+"d1": "2018-10-29",
+"d2": "2018-10-30",
+"span": 1,
+"chan": "Noq",
+"gross": 476.0,
+"rec": 0.0,
+"net": 476.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+476.0,
+476.0
+]
+},
+{
+"req": "3126",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2022-06-24",
+"d2": "2023-06-19",
+"span": 360,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+393.5,
+443.5
+]
+},
+{
+"req": "4708",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2023-05-02",
+"d2": "2023-06-06",
+"span": 35,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+393.5,
+443.5
+]
+},
+{
+"req": "6546",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-03-07",
+"d2": "2024-03-19",
+"span": 12,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "6854",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-04-01",
+"d2": "2024-04-06",
+"span": 5,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "7169",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-06-03",
+"d2": "2024-06-22",
+"span": 19,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "7343",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-06-03",
+"d2": "2024-06-26",
+"span": 23,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "7644",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-06-28",
+"d2": "2024-06-28",
+"span": 0,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "9141",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-02-06",
+"d2": "2025-02-13",
+"span": 7,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "9367",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-12-10",
+"d2": "2024-12-19",
+"span": 9,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "9529",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-12-14",
+"d2": "2024-12-31",
+"span": 17,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"refund-before-duplicate"
+],
+"recst": "\u2014",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "10614",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-02-20",
+"d2": "2025-02-28",
+"span": 8,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "10802",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-03-15",
+"d2": "2025-03-20",
+"span": 5,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "10982",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-03-24",
+"d2": "2025-04-11",
+"span": 18,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "11706",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-05-31",
+"d2": "2025-06-10",
+"span": 10,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "12646",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-06-30",
+"d2": "2025-07-01",
+"span": 1,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "14151",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2026-01-21",
+"d2": "2026-03-06",
+"span": 44,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+446.65
+]
+},
+{
+"req": "14592",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2025-11-06",
+"d2": "2025-11-19",
+"span": 13,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "14943",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2025-12-23",
+"d2": "2026-01-16",
+"span": 24,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "15416",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2025-12-20",
+"d2": "2025-12-31",
+"span": 11,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "15590",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2025-12-31",
+"d2": "2026-01-27",
+"span": 27,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "15591",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2026-01-12",
+"d2": "2026-02-02",
+"span": 21,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "17402",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2026-03-24",
+"d2": "2026-04-27",
+"span": 34,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "18311",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2021-07-28",
+"d2": "2023-05-29",
+"span": 670,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+393.5,
+443.5
+]
+},
+{
+"req": "19284",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2026-06-24",
+"d2": "2026-07-08",
+"span": 14,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "20264",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2026-07-18",
+"d2": "2026-07-20",
+"span": 2,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "21021",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2026-08-30",
+"d2": "2026-09-02",
+"span": 3,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "30062",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2021-05-20",
+"d2": "2023-07-06",
+"span": 777,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+393.5,
+443.5
+]
+},
+{
+"req": "41707",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-06-15",
+"d2": "2024-07-24",
+"span": 39,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "46031",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-10-17",
+"d2": "2024-11-19",
+"span": 33,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"refund-before-duplicate"
+],
+"recst": "\u2014",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "46229",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-08-14",
+"d2": "2024-08-22",
+"span": 8,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "46462",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-08-15",
+"d2": "2024-08-22",
+"span": 7,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "52856",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-11-23",
+"d2": "2025-01-28",
+"span": 66,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+2143.5
+]
+},
+{
+"req": "52887",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-11-12",
+"d2": "2024-12-17",
+"span": 35,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "56842",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2024-12-26",
+"d2": "2025-02-12",
+"span": 48,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "87012",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-09-13",
+"d2": "2025-09-17",
+"span": 4,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "92283",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-01-02",
+"d2": "2026-01-27",
+"span": 25,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+1293.5
+]
+},
+{
+"req": "93277",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-12-16",
+"d2": "2026-01-07",
+"span": 22,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "96965",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-02-23",
+"d2": "2026-08-11",
+"span": 169,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"refund-before-duplicate"
+],
+"recst": "\u2014",
+"amts": [
+1443.5,
+8943.5
+]
+},
+{
+"req": "99005",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 457.46,
+"d1": "2026-01-27",
+"d2": "2026-02-13",
+"span": 17,
+"chan": "mixed",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"card-reversal-unknown"
+],
+"recst": "\u2014",
+"amts": [
+457.46,
+443.5
+]
+},
+{
+"req": "120669",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-07-31",
+"d2": "2026-07-31",
+"span": 0,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 0.0,
+"net": 443.5,
+"verdict": "AMBER",
+"reasons": [
+"two-maids-one-case"
+],
+"recst": "\u2014",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "2324",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2021-10-27",
+"d2": "2021-11-23",
+"span": 27,
+"chan": "Noq",
+"gross": 393.5,
+"rec": 0.0,
+"net": 393.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+493.5,
+393.5
+]
+},
+{
+"req": "17666",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 496.0,
+"d1": "2019-10-07",
+"d2": "2021-05-17",
+"span": 588,
+"chan": "Noq",
+"gross": 393.5,
+"rec": 0.0,
+"net": 393.5,
+"verdict": "AMBER",
+"reasons": [
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+393.5
+]
+},
+{
+"req": "17772",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2021-06-06",
+"d2": "2021-06-09",
+"span": 3,
+"chan": "Noq",
+"gross": 393.5,
+"rec": 0.0,
+"net": 393.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+393.5,
+393.5
+]
+},
+{
+"req": "17930",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2021-06-06",
+"d2": "2021-06-09",
+"span": 3,
+"chan": "Noq",
+"gross": 393.5,
+"rec": 0.0,
+"net": 393.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Unrecovered",
+"amts": [
+393.5,
+393.5
+]
+},
+{
+"req": "4192",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2023-03-11",
+"d2": "2023-03-14",
+"span": 3,
+"chan": "Noq",
+"gross": 393.5,
+"rec": 189.0,
+"net": 204.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+393.5,
+393.5
+]
+},
+{
+"req": "4282",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2023-03-06",
+"d2": "2023-03-08",
+"span": 2,
+"chan": "Noq",
+"gross": 393.5,
+"rec": 189.0,
+"net": 204.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+393.5,
+393.5
+]
+},
+{
+"req": "24831",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 393.5,
+"d1": "2023-01-31",
+"d2": "2023-02-13",
+"span": 13,
+"chan": "Noq",
+"gross": 393.5,
+"rec": 189.0,
+"net": 204.5,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+393.5,
+393.5
+]
+},
+{
+"req": "9439",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-02-19",
+"d2": "2025-02-20",
+"span": 1,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "10798",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-05-30",
+"d2": "2025-06-11",
+"span": 12,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "11595",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-05-07",
+"d2": "2025-05-15",
+"span": 8,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "11649",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-05-07",
+"d2": "2025-05-10",
+"span": 3,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "12109",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2025-05-19",
+"d2": "2025-05-20",
+"span": 1,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "18875",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-07-18",
+"d2": "2026-07-20",
+"span": 2,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "20075",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-07-20",
+"d2": "2026-07-22",
+"span": 2,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "20118",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-07-06",
+"d2": "2026-07-17",
+"span": 11,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "104769",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-03-05",
+"d2": "2026-04-21",
+"span": 47,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "107164",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-04-01",
+"d2": "2026-04-21",
+"span": 20,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 239.5,
+"net": 204.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+443.5,
+443.5
+]
+},
+{
+"req": "16545",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 2,
+"era": 443.5,
+"d1": "2026-03-05",
+"d2": "2026-03-11",
+"span": 6,
+"chan": "Noq",
+"gross": 443.5,
+"rec": 289.5,
+"net": 154.0,
+"verdict": "RED",
+"reasons": [],
+"recst": "Partial",
+"amts": [
+543.5,
+443.5
+]
+},
+{
+"req": "445",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-06-12",
+"d2": "2020-02-24",
+"span": 257,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+197.0
+]
+},
+{
+"req": "495",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-09-09",
+"d2": "2020-03-18",
+"span": 191,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+196.0
+]
+},
+{
+"req": "502",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-08-25",
+"d2": "2020-02-24",
+"span": 183,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+197.0
+]
+},
+{
+"req": "554",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-10-07",
+"d2": "2020-02-24",
+"span": 140,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+197.0
+]
+},
+{
+"req": "566",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 396.0,
+"d1": "2019-12-03",
+"d2": "2020-03-18",
+"span": 106,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+396.0,
+197.0
+]
+},
+{
+"req": "576",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-11-05",
+"d2": "2021-10-18",
+"span": 713,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+293.5
+]
+},
+{
+"req": "580",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-10-21",
+"d2": "2020-03-18",
+"span": 149,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+196.0
+]
+},
+{
+"req": "652",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 396.0,
+"d1": "2020-01-27",
+"d2": "2020-02-24",
+"span": 28,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+396.0,
+196.0
+]
+},
+{
+"req": "692",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 396.0,
+"d1": "2020-02-09",
+"d2": "2020-02-24",
+"span": 15,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+396.0,
+197.0
+]
+},
+{
+"req": "737",
+"purp": "RENEW_RESIDENCE",
+"pays": 2,
+"feepays": 1,
+"era": 396.0,
+"d1": "2020-03-29",
+"d2": "2020-04-12",
+"span": 14,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+396.0,
+196.0
+]
+},
+{
+"req": "6235",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 497.0,
+"d1": "2018-12-04",
+"d2": "2020-02-24",
+"span": 447,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+497.0,
+197.0
+]
+},
+{
+"req": "6301",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2018-12-15",
+"d2": "2020-02-24",
+"span": 436,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+196.0
+]
+},
+{
+"req": "6872",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 497.0,
+"d1": "2019-02-16",
+"d2": "2020-03-18",
+"span": 396,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+497.0,
+196.0
+]
+},
+{
+"req": "6981",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 497.0,
+"d1": "2019-02-12",
+"d2": "2020-02-24",
+"span": 377,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+497.0,
+196.0
+]
+},
+{
+"req": "7110",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-03-30",
+"d2": "2020-09-23",
+"span": 543,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+243.5
+]
+},
+{
+"req": "9228",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 497.0,
+"d1": "2019-07-07",
+"d2": "2020-02-24",
+"span": 232,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+497.0,
+197.0
+]
+},
+{
+"req": "10379",
+"purp": "APPLY_FOR_RVISA",
+"pays": 3,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-10-21",
+"d2": "2020-03-30",
+"span": 161,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+197.0,
+196.0
+]
+},
+{
+"req": "10509",
+"purp": "APPLY_FOR_RVISA",
+"pays": 3,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-10-31",
+"d2": "2020-02-13",
+"span": 105,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+326.0,
+276.0
+]
+},
+{
+"req": "10597",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 496.0,
+"d1": "2019-11-09",
+"d2": "2020-03-18",
+"span": 130,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+496.0,
+196.0
+]
+},
+{
+"req": "13274",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 397.0,
+"d1": "2020-02-08",
+"d2": "2020-02-24",
+"span": 16,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+397.0,
+196.0
+]
+},
+{
+"req": "13452",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 397.0,
+"d1": "2020-02-05",
+"d2": "2020-02-24",
+"span": 19,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"batch-posting-unconfirmed",
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+397.0,
+197.0
+]
+},
+{
+"req": "16234",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 393.5,
+"d1": "2021-01-18",
+"d2": "2021-03-04",
+"span": 45,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"sub-fee-payment"
+],
+"recst": "\u2014",
+"amts": [
+393.5,
+73.5
+]
+},
+{
+"req": "24296",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 393.5,
+"d1": "2022-12-15",
+"d2": "2024-01-24",
+"span": 405,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+393.5,
+343.5
+]
+},
+{
+"req": "27713",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 393.5,
+"d1": "2023-04-12",
+"d2": "2024-03-23",
+"span": 346,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"sub-fee-payment",
+"re-application-unknown"
+],
+"recst": "\u2014",
+"amts": [
+393.5,
+343.5
+]
+},
+{
+"req": "36025",
+"purp": "APPLY_FOR_RVISA",
+"pays": 2,
+"feepays": 1,
+"era": 443.5,
+"d1": "2024-03-23",
+"d2": "2024-07-22",
+"span": 121,
+"chan": "Noq",
+"gross": 0,
+"rec": 0.0,
+"net": 0.0,
+"verdict": "AMBER",
+"reasons": [
+"amount-unexplained"
+],
+"recst": "\u2014",
+"amts": [
+1022.5,
+443.5
+]
+}
+]
