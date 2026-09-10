@@ -45,7 +45,7 @@ A refund can never turn a RED into a GREEN. If it could, a team could make a bro
 
 **Population in scope.** Every R-visa payment owned by a housemaid, all-time.
 
-🔴 **A blind spot that belongs on the report, not just in this spec.** **981 transactions sit on R-visa heads with no visa line at all** — 1.4% of the population, ten times the finding set. They carry no case key, so **no test examines them**. A duplicate whose second leg is one of those 981 — same maid, same head, same era, days apart — is invisible here. That is a different and larger gap than the absent-payment one §8 describes. It needs either a proximity screen (same maid, same head, ±90 days against the scored population, hits published in the Controls panel) or an explicit out-of-coverage statement handing them to the sibling control.
+🔴 **A blind spot that belongs on the report, not just in this spec.** **981 transactions sit on R-visa heads with no visa line at all** — 1.4% of the population, ten times the finding set. They carry no case key, so **no test examines them**. A duplicate whose second leg is one of those 981 — same maid, same head, same era, days apart — is invisible here. That is a different and larger gap than the absent-payment one §8 describes. It needs either a proximity screen (same maid, same head, ±90 days against the scored population, hits published in the Controls panel) or an explicit out-of-coverage statement on the report.
 
 **Explicitly out of scope.**
 
@@ -754,16 +754,5 @@ Two cases behave the same way (`9529`, `46031`). Counting their refunds as recov
 - **Do not schedule this.** Manual trigger only — a standing run goes to the ERP team.
 - **The population definition was wrong four times in development.** Too narrow (a 90-day gap filter hid 25 real cases); catastrophically too wide (grouping purposes together turned the normal apply-then-renew lifecycle into AED 4.2m of imaginary loss); contaminated (an asymmetric head predicate credited AED 668 of entry-visa refunds as R-visa recoveries, twice); and mis-clocked (dated lists written against line-creation dates when the payments are dated one day later, which made the batch test match zero cases).
 - **Three tests were dead or missing when v2 was written.** T5 was scoped so it could never fire; T8 and T9 did not exist, and between them they were worth AED 1,774.00 of false findings.
-- 🔴 **The other half of this control already exists and has no shared owner.** The fee should be paid exactly once per firing of "Apply for R-visa". Paid **twice** → this report. Paid **zero** times → **this report cannot see it**, because it works by finding two payments where there should be one, and a payment that never happened has no row to find. That limit is structural, not a gap better SQL closes. `BA_VIEWS.VISA_SILVER.MISSING_EXPENSES` is the report that does see it — it watches the workflow step, not the payment. **Neither report alone answers "was the R-visa fee paid correctly?"; only both together do.**
-
-  🔴 **And read side by side they say something neither says alone — renewals fail at both ends.**
-
-  | | Renewals |
-  | --- | --- |
-  | Share of all R-visa lines | **24%** (17,237 of 71,791) |
-  | Share of confirmed duplicates | **58%** (26 of 45) — 2.4× over-represented |
-  | Share of missing-payment alerts | **58 of 59** (vs 1 for initial applications) |
-  | Money duplicated | **AED 11,433.50** of 20,344.50 |
-
-  Over-paying *and* under-recording, concentrated in one pipeline. On our screen 26 renewal duplicates reads as a modest number; on theirs 58 misses reads as a separate issue. **The fix needs no build — one named person owns the question and reads both reports.** Out of scope here; handed over, not absorbed.
+- **Renewals carry most of the exposure.** They are **24%** of R-visa lines (17,237 of 71,791) but **58%** of confirmed duplicates (26 of 45) and **AED 11,433.50** of the 20,344.50 — 2.4× over-represented. Measured from this report's own cases; a process owner should start there.
 - **The lesson for whoever maintains this:** detecting two payments on one request is trivial. **Classifying which of nine shapes you are looking at is the entire job.** Two rules carry most of that weight: the refund side applies the description test to **every shared head and no dedicated head, from one written predicate** (§2.4) — while the payment side is selected by `PURPOSE` and takes no description test at all; and **every dated predicate runs on the transaction clock**, never on line creation.
