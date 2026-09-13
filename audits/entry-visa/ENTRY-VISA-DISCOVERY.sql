@@ -401,3 +401,110 @@ SELECT YEAR(c.first_charge)                                AS charge_year,
        ROUND(SUM(IFF(COALESCE(v.step_visits,0) = 0, c.charged_aed, 0))) AS aed_no_step
 FROM charges c LEFT JOIN visits v ON v.VISA_REQUEST_ID = c.VISA_REQUEST_ID
 GROUP BY 1 ORDER BY 1;
+
+
+-- =====================================================================
+-- R-SERIES · Answering the open business questions from the data instead of
+-- from a person. Seven of the twelve turned out to be measurable.
+--
+-- The key distinction that makes R1 legitimate where M6 is blocked: a REFUND is
+-- the GOVERNMENT's decision, not ours. Observing what they actually returned is
+-- external evidence of their tariff. Observing what WE typed as a charge would
+-- only be the population auditing itself.
+-- =====================================================================
+
+-- R1 · "How much do we get back when they reject?"  (question 1)
+--      Pair each charge amount with the refund amount that followed it on the
+--      same request, either leg. If the mapping is tight, that IS the tariff.
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, CAST(AMOUNT AS NUMBER(18,2)) AS charge_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT VISA_REQUEST_ID, CAST(ABS(AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+)
+SELECT ch.charge_aed, rf.refund_aed,
+       ROUND(100.0*rf.refund_aed/NULLIF(ch.charge_aed,0),1) AS pct_returned,
+       ROUND(ch.charge_aed - rf.refund_aed,2)               AS kept_by_government,
+       COUNT(*)                                             AS pairs
+FROM ch JOIN rf ON rf.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
+GROUP BY 1,2 ORDER BY pairs DESC;
+
+-- R2 · "Is there really a claim deadline?"  (question 2)
+--      If refunds simply stop happening past a certain age, the deadline is real
+--      and the data will show the cliff. No cliff = no deadline.
+WITH rej AS (
+  SELECT REQUEST_ID, MIN(LAST_MODIFICATION_DATE) AS rejected_at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
+  WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+  GROUP BY 1
+), rf AS (
+  SELECT VISA_REQUEST_ID, MIN(CREATION_DATE) AS refunded_at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added'
+  GROUP BY 1
+)
+SELECT CASE WHEN d < 0   THEN 'refund BEFORE the rejection (check)'
+            WHEN d <= 7  THEN 'a · 0-7 days'    WHEN d <= 30 THEN 'b · 8-30 days'
+            WHEN d <= 60 THEN 'c · 31-60 days'  WHEN d <= 90 THEN 'd · 61-90 days'
+            WHEN d <= 180 THEN 'e · 91-180 days' ELSE 'f · over 180 days' END AS age_band,
+       COUNT(*) AS refunds, MIN(d) AS min_days, MAX(d) AS max_days
+FROM (SELECT DATEDIFF('day', rej.rejected_at, rf.refunded_at) AS d
+      FROM rej JOIN rf ON rf.VISA_REQUEST_ID = rej.REQUEST_ID)
+GROUP BY 1 ORDER BY age_band;
+
+-- R3 · "Is approved-then-cancelled money ever recoverable?"  (question 3)
+--      AED 3.45m sits here. If even a minority of these cases got a refund, it
+--      is claimable and the rest is a finding. If literally none did, it is a cost.
+WITH cancelled AS (
+  SELECT DISTINCT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.LOST_VISA_EXPENSES
+  WHERE CATEGORY = 'ENTRY VISA' AND EXPENSES_TYPE = 'Approved and Canceled Entry Visas'
+), rf AS (
+  SELECT DISTINCT VISA_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added'
+)
+SELECT IFF(rf.VISA_REQUEST_ID IS NULL,'no refund ever recorded','a refund WAS recorded') AS outcome,
+       COUNT(*) AS requests
+FROM cancelled c LEFT JOIN rf ON rf.VISA_REQUEST_ID = c.REQUEST_ID
+GROUP BY 1 ORDER BY requests DESC;
+
+-- R4 · "Does the price vary by who the maid is?"  (question 5)
+--      Nationality is the only population attribute actually stored; location is
+--      computed and never persisted. Aggregates only, no individuals.
+SELECT h.NATIONALITY,
+       COUNT(*) AS charges,
+       MODE(CAST(e.AMOUNT AS NUMBER(18,2))) AS most_common_amount,
+       COUNT(DISTINCT CAST(e.AMOUNT AS NUMBER(18,2))) AS distinct_amounts,
+       ROUND(MIN(e.AMOUNT),2) AS min_aed, ROUND(MAX(e.AMOUNT),2) AS max_aed,
+       ROUND(AVG(e.AMOUNT),2) AS avg_aed
+FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+JOIN BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO h
+  ON h.ID = e.OWNER_ID AND e.OWNER_TYPE = 'HOUSEMAID'
+WHERE e.PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+  AND e.REQUEST_TYPE = 'NewRequest' AND e.STATUS = 'Added'
+  AND e.CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+GROUP BY 1 HAVING COUNT(*) >= 20 ORDER BY charges DESC;
+
+-- R5 · "Would someone recognise these as mistakes?"  (question 7)
+--      Characterise the three oddities so a human gets a shaped question rather
+--      than a list. Creator is reported as a COUNT of distinct users, never a name.
+SELECT CASE WHEN CAST(AMOUNT AS NUMBER(18,2)) = 0        THEN 'zero-value charge'
+            WHEN CAST(AMOUNT AS NUMBER(18,2)) = 89.50    THEN 'charge at the small refund value'
+            WHEN CAST(AMOUNT AS NUMBER(18,2)) = 739.50   THEN 'charge at the large refund value'
+            WHEN VISA_REQUEST_ID IS NULL                 THEN 'charge with no request'
+            ELSE 'ordinary' END                          AS oddity,
+       YEAR(CREATION_DATE)                               AS yr,
+       COUNT(*)                                          AS n,
+       COUNT(DISTINCT CREATOR)                           AS distinct_creators,
+       COUNT(DISTINCT DATE_TRUNC('day',CREATION_DATE))   AS distinct_days,
+       COUNT_IF(TRANSACTION_ID IS NULL)                  AS no_transaction,
+       ROUND(SUM(CAST(AMOUNT AS NUMBER(18,2))))          AS total_aed
+FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+  AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added'
+  AND (CAST(AMOUNT AS NUMBER(18,2)) IN (0, 89.50, 739.50) OR VISA_REQUEST_ID IS NULL)
+GROUP BY 1,2 ORDER BY oddity, yr;
