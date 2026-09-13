@@ -659,8 +659,10 @@ GROUP BY 1,2,3,4 ORDER BY outcome, s.charges_on_request;
 
 -- V2 · Has the tariff ever been a different number? A real government schedule
 --      changes on a date and holds; a coincidence drifts. If the retention has
---      always been exactly 283.00 since 2017, or stepped once on a clean date,
---      that is the schedule. If it wanders, the "flat 283" claim is too strong.
+--      always been exactly 283.00, or stepped once on a clean date, that is the
+--      schedule. If it wanders, the "flat 283" claim is too strong.
+--      FIXED: QUALIFY cannot precede GROUP BY in one SELECT. The pairing dedup
+--      gets its own CTE, exactly as R1b does, and the aggregate runs over that.
 WITH ch AS (
   SELECT VISA_REQUEST_ID, CREATION_DATE AS charged_at, CAST(AMOUNT AS NUMBER(18,2)) AS charge_aed
   FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
@@ -670,16 +672,20 @@ WITH ch AS (
   SELECT VISA_REQUEST_ID, CREATION_DATE AS refunded_at, CAST(ABS(AMOUNT) AS NUMBER(18,2)) AS refund_aed
   FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
   WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), paired AS (
+  SELECT rf.refunded_at, rf.refund_aed, ch.charge_aed
+  FROM rf JOIN ch ON ch.VISA_REQUEST_ID = rf.VISA_REQUEST_ID AND ch.charged_at <= rf.refunded_at
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY rf.VISA_REQUEST_ID, rf.refunded_at, rf.refund_aed
+                             ORDER BY ch.charged_at DESC) = 1
 )
-SELECT YEAR(rf.refunded_at) AS refund_year,
-       IFF(ch.charge_aed >= 700,'large band','small band') AS band,
-       ch.charge_aed, rf.refund_aed,
-       ROUND(ch.charge_aed - rf.refund_aed,2) AS kept_by_government,
-       COUNT(*) AS pairs
-FROM rf JOIN ch ON ch.VISA_REQUEST_ID = rf.VISA_REQUEST_ID AND ch.charged_at <= rf.refunded_at
-QUALIFY ROW_NUMBER() OVER (PARTITION BY rf.VISA_REQUEST_ID, rf.refunded_at, rf.refund_aed
-                           ORDER BY ch.charged_at DESC) = 1
+SELECT YEAR(refunded_at)                          AS refund_year,
+       IFF(charge_aed >= 700,'large band','small band') AS band,
+       charge_aed, refund_aed,
+       ROUND(charge_aed - refund_aed,2)           AS kept_by_government,
+       COUNT(*)                                   AS pairs
+FROM paired
 GROUP BY 1,2,3,4,5 HAVING COUNT(*) >= 3 ORDER BY refund_year, band, pairs DESC;
+
 
 -- V3 · Reconcile MY unclaimed population against the COMPANY'S. R1c found 164
 --      unrefunded charges keyed on REJECTION. LOST_VISA_EXPENSES reports 444
