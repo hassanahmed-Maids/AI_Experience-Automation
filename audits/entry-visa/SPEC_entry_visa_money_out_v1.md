@@ -597,6 +597,10 @@ passed".** Every family below therefore states all four outcomes, not just its R
 - **The mechanism is in the code.** `addExpense` sign-flips to a credit **only** when the purpose is
   `REFUND_FOR_ENTRY_VISA`. Choose the wrong purpose and a refund books as an **additional cost**
   instead of a credit — so each instance swings the ledger by twice its value.
+- 🔴 **V2 shows this is ACCELERATING, not historical.** Charges booked at refund values appear
+  **4 times in 2025 and 25 times in 2026** (89.50→89.50: 4 then 15; 739.50→739.50: 0 then 10). The
+  problem is roughly six times worse this year than last. **That moves F9's priority well above its
+  money value** — AED 9,925 is trivial, a control degrading six-fold in a year is not.
 - ✅ **Sharpened by R5, and it is one person.** All **31** were created by a **single user account**,
   across **22 distinct days**, every one carrying a real transaction — and **26 of the 31 are in
   2026**, so it is current, not historical. A repeated habit by one operator is a training and
@@ -678,6 +682,28 @@ clean it can only be the government's own:
 > **384.24 − 372.50 = 11.74** and **294.74 − 283.00 = 11.74**; **1,025.65 − 1,022.50 = 3.15** and
 > **286.15 − 283.00 = 3.15**. Four independent confirmations, exact.
 
+✅ **V2 — the retention is flat across every year and both bands. No drift, no step.**
+
+| refund year | band | kept by government | pairs |
+| --- | --- | --- | --- |
+| 2024 | large | **283.00** | 8 |
+| 2025 | large | **283.00** | 571 |
+| 2025 | small | **283.00** | 203 |
+| 2026 | large | **283.00** | 276 |
+| 2026 | small | **283.00** | 90 |
+| | | **1,148 pairs at exactly 283.00** | |
+
+The surcharge variants hold too, across years: 1,054.71 keeps **315.21** (64 pairs), 384.24 keeps
+**294.74** (34), 1,025.65 keeps **286.15** (5). A number that is identical on two bands, across three
+years and 1,148 observations, and whose variants differ by exactly their surcharge, is a **schedule**.
+**M1's expectation is a computed rule, not an estimate.**
+
+⚠️ **But the observable window is 2024 onward, and that is a hard limit on the claim.** V2 returns
+**no rows before 2024** — consistent with, and now double-confirming, the 2024-02-06 refund-recording
+floor. So the correct statement is *"flat at AED 283 throughout the period in which refunds are
+recorded"*, **not** *"flat since 2017"*. Whether the schedule differed in 2017–2023 is unknowable
+from our data, and any backfill must treat pre-2024 expectations as **BLOCKED**.
+
 **M1 is therefore UNBLOCKED:**
 
 > **expected refund = amount paid − 283.00 − (amount paid − base price of its band)**
@@ -720,6 +746,9 @@ its nearest preceding charge before any AED figure is published.
 - **The over-refunds are the mirror** and are **not a win**: receiving more than was paid is an
   exposure, not a recovery. An audit that reports only under-recovery reads as advocacy; reporting
   both directions is what makes the number credible.
+- ✅ **V2 confirms both directions recur across years** — short refunds in 2025 (18) and 2026 (5),
+  over-refunds in 2025 (15) and 2026 (5). Neither is a one-off batch; both are standing process
+  errors that survived a year.
 - 🔴 **Net, the two directions nearly cancel: −16,250 + 13,969 = −AED 2,281.** So **F11 is a small
   money finding and a real control finding** — 48 cases where the wrong amount moved — and the
   report must say so in that order, rather than headlining AED 16,250 as if it were recoverable.
