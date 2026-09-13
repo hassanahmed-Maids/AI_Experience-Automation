@@ -2109,3 +2109,69 @@ SELECT CASE WHEN RVISA_ISSUANCE_DATE > refunded_at
        ROUND(MEDIAN(DATEDIFF('day', request_created_at, cancel_created_at)),1) AS median_days_request_to_cancel,
        MIN(refunded_at)::DATE AS earliest, MAX(refunded_at)::DATE AS latest
 FROM hit GROUP BY 1 ORDER BY refunds DESC;
+
+
+-- B10 · CORRECT F12's CLAIMED SIDE. B9 settled the 179: only ONE is a refund
+--      without entitlement. 169 of 178 are cases where the residence visa was
+--      issued AFTER the refund (median -7 days) and the cancellation came 206 days
+--      after the request. Read as a sequence that is: entry visa paid -> refunded
+--      mid-journey (the rejection cycle) -> new entry visa -> residence visa ->
+--      much later, an end-of-contract cancellation.
+--      So the refund in those rows is a REJECTION-CYCLE refund, not a cancellation
+--      refund, and B8 credited it as though the cancellation had been claimed.
+--      That is a classification error in B8, and it runs the wrong way for the
+--      headline: in the UNCONSUMED branch, some of the 441 "refund booked" rows
+--      will be the same mid-journey refunds. Each one that is means a cancellation
+--      that was NOT claimed. So F12 is understated and this measures by how much.
+--      The fix: a refund only counts as a CANCELLATION refund if it postdates the
+--      cancellation.
+WITH req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id, RVISA_ISSUANCE_DATE
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), cvr AS (
+  SELECT REQUEST_ID AS cancel_request_id, NEW_REQUEST_ID, CREATION_DATE AS cancel_created_at
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS
+  WHERE NEW_REQUEST_ID IS NOT NULL
+), chg AS (
+  SELECT VISA_REQUEST_ID, SUM(CAST(AMOUNT AS NUMBER(18,2))) AS charged_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added'
+  GROUP BY 1
+), rf_new AS (
+  SELECT VISA_REQUEST_ID, MIN(CREATION_DATE) AS first_at, MAX(CREATION_DATE) AS last_at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+  GROUP BY 1
+), rf_can AS (
+  SELECT VISA_REQUEST_ID, MIN(CREATION_DATE) AS first_at, MAX(CREATION_DATE) AS last_at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='CancelRequest'
+  GROUP BY 1
+), base AS (
+  SELECT c.cancel_request_id, c.cancel_created_at, r.maid_id, g.charged_aed,
+         r.RVISA_ISSUANCE_DATE,
+         GREATEST(COALESCE(n.last_at,'1900-01-01'::TIMESTAMP_NTZ),
+                  COALESCE(k.last_at,'1900-01-01'::TIMESTAMP_NTZ))  AS latest_refund_at,
+         LEAST(COALESCE(n.first_at,'2999-01-01'::TIMESTAMP_NTZ),
+               COALESCE(k.first_at,'2999-01-01'::TIMESTAMP_NTZ))    AS first_refund_at
+  FROM cvr c
+  JOIN req r ON r.REQUEST_ID = c.NEW_REQUEST_ID
+  JOIN chg g ON g.VISA_REQUEST_ID = c.NEW_REQUEST_ID
+  LEFT JOIN rf_new n ON n.VISA_REQUEST_ID = c.NEW_REQUEST_ID
+  LEFT JOIN rf_can k ON k.VISA_REQUEST_ID = c.cancel_request_id
+  WHERE c.cancel_created_at >= '2024-10-19'
+    AND r.RVISA_ISSUANCE_DATE IS NULL          -- G7, the unconsumed branch only
+)
+SELECT CASE WHEN latest_refund_at >= cancel_created_at
+                 THEN 'a · CLAIMED — a refund postdates the cancellation'
+            WHEN first_refund_at <= cancel_created_at
+                 THEN 'b · refund exists but PREDATES the cancellation — mid-journey, not a claim'
+            ELSE 'c · NO REFUND AT ALL' END                       AS outcome,
+       COUNT(*)                                                   AS cancellations,
+       COUNT(DISTINCT maid_id)                                    AS maids,
+       ROUND(SUM(charged_aed))                                    AS charged_aed,
+       ROUND(SUM(GREATEST(charged_aed - 283.00, 0)))              AS recoverable_aed,
+       MIN(cancel_created_at)::DATE AS earliest, MAX(cancel_created_at)::DATE AS latest
+FROM base GROUP BY 1 ORDER BY outcome;

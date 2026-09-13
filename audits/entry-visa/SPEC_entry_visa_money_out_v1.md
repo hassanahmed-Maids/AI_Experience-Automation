@@ -1036,12 +1036,37 @@ a genuine historical exposure, reportable as **sunk**, never as an opportunity.
 **F0c's AED 3.45m is restated, not flipped.** It separated neither consumed from unconsumed nor
 before from after, and each split moves the answer by an order of magnitude.
 
+#### ✅ B9 — the cell that could have embarrassed this finding, resolved
+
+The 179 consumed-but-refunded cases were the one threat to G7. Adjudicated:
+
+| reading | refunds | maids |
+| --- | ---: | ---: |
+| **a · residence visa issued AFTER the refund** (median **−7 days**) | **169** | 116 |
+| b · maid holds several requests | 8 | 4 |
+| **d · genuinely consumed, refund claimed anyway — no entitlement** | **1** | 1 |
+
+**One case in 178.** Refunds claimed without entitlement are not a finding; they are a rounding error.
+
+But the 169 explain themselves into something more useful. Their sequence is: entry visa paid →
+**refunded mid-journey** (the rejection cycle) → new entry visa → residence visa issued a week later →
+and only **206 days after the request** does the cancellation occur. That refund belongs to the
+**rejection cycle, not the cancellation.** F12's source query credited it as though the cancellation
+had been claimed.
+
+🔴 **That classification error runs the wrong way for the headline.** It is harmless in the consumed
+branch, which G7 parks as NOT_APPLICABLE regardless. But the **unconsumed** branch has the same flaw:
+some of the 441 "refund booked" rows will likewise be mid-journey rejection refunds, and every one
+that is means a cancellation that was **never claimed**. **So AED 974,448 is a floor, and the claim
+rate of 20.6% is a ceiling.** `B10` re-measures with the correct rule — a refund counts as a
+cancellation refund only if it **postdates the cancellation**.
+
+⚠️ Minor: B9 reconciles 178 cases against B8's 179. One row differs on refund-date resolution between
+the two queries. Immaterial to every conclusion here, but not silently rounded away.
+
 #### ⚠️ Open items before this is filed
 
-1. **179 refunds were booked on visas recorded as CONSUMED** (172 without the step, 7 with). Either
-   `RVISA_ISSUANCE_DATE` is not a reliable consumption marker — which would weaken G7, the guard the
-   whole figure rests on — or refunds are being claimed without entitlement. **This is the one cell
-   that could embarrass the finding and it must be hand-sampled first** (`B9`).
+1. **Run `B10`** and restate the headline upward. Until it runs, quote AED 974,448 as *"at least"*.
 2. **Do not key this check on the workflow task.** 441 refunds were booked *without* the step against
    216 with it, so a task-keyed measure undercounts by roughly two thirds. Key on the **expense**.
 3. **Unclaimed cases skew to the cheaper visa** — average charge AED 667, close to the 372.50
