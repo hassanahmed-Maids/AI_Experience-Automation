@@ -501,6 +501,25 @@ passed".** Every family below therefore states all four outcomes, not just its R
 | **CANDIDATE** | The pair falls in a bulk-posting cluster (below), or the charges are same-day and indistinguishable |
 | **NOT_APPLICABLE** | The request carries one charge — no pair to test |
 
+- 🔴 **THE SAMPLE FOUND A LIKELY RULE DEFECT. Do not publish F4's figure.** S1's 19 stratified cases
+  show **6 of 19 currently reading `Need_Fix`** — and F4 counts re-applications as visits to
+  `Apply for entry Visa` **only**. There are four other entry-visa steps, including a whole fix
+  sub-workflow (`Fix the problem of entry visa` 2,064 visits · `Pending to fix issues of Entry Visa`
+  464 · `Approve Entry Visa Fix Document` 10). **A case routed to a fix step that then re-pays may
+  never re-enter `Apply`, so it scores as a duplicate when it is an ordinary re-application.**
+  `S3` recounts under three visit definitions; if the population collapses, AED 760,338 is
+  substantially overstated.
+- ✅ **What the sample does settle: the bulk-posting guard is not needed here.** In every one of the
+  19 cases `DISTINCT_CHARGE_DAYS` equals `CHARGES_ADDED` — the charges are spread across separate
+  days, 2 to 175 days apart, never clustered on one posting date. The provisional "≥5 pairs sharing
+  one date" rule has no population in this sample and should be dropped unless a later run finds one.
+- ✅ **The shapes are clean repeats, not near-misses**: 2 × 1,022.50 · 2 × 372.50 · 3 × 1,022.50 ·
+  **4 × 1,022.50 on a single application**. Where a case is genuine, it is unambiguous.
+- ✅ **Only 3 requests in the entire population carry 3+ excess charges** — the `excess 3+` stratum
+  was exhausted at 3, which is why S1 returns 19 rows and not 20. The tail is thin.
+- ⚠️ One sampled case is `OWNER_TYPE = OFFICE_STAFF` with a blank approval state, and one charge
+  group averages **1,072.50** — a price point not seen in Q1's distribution. Both are individually
+  small and both need a look.
 - ✅ **Candidate pool measured: 521 requests carry 2+ `Added` charges and zero refunds** (485 with
   two, 32 with three, 3 with four, 1 with twelve), **AED 921,880** charged. That is before the
   rejection and bulk-posting guards — the real finding will be a fraction of it, and this is the

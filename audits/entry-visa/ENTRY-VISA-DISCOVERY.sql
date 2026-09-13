@@ -938,3 +938,66 @@ WITH ch AS (
 SELECT VISA_REQUEST_ID AS request_id, event_at::DATE AS on_date, event_type,
        amount_aed, status, detail
 FROM events ORDER BY request_id, event_at;
+
+
+-- S3 · TEST A LIKELY DEFECT IN F4'S RULE, found by the S1 sample.
+--      F4 counts re-applications as visits to 'Apply for entry Visa' only. But QG
+--      showed FOUR entry-visa steps exist:
+--          Apply for entry Visa            62,076
+--          Check Entry Visa Immigration Approval 60,307
+--          Fix the problem of entry visa    2,064
+--          Pending to fix issues of Entry Visa  464
+--          Approve Entry Visa Fix Document     10
+--      A case that goes to a FIX step and re-pays may never re-enter 'Apply', so it
+--      would show charges > visits and be scored a duplicate when it is an ordinary
+--      re-application. 6 of the 19 sampled cases currently read Need_Fix, which is
+--      exactly that path.
+--      This recounts F4 three ways. If the population collapses under the wider
+--      definitions, F4's AED 760,338 is substantially overstated and must be re-cut.
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, COUNT(*) AS charges_added,
+         ROUND(SUM(CAST(AMOUNT AS NUMBER(18,2))),2) AS charged_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added' AND VISA_REQUEST_ID IS NOT NULL
+  GROUP BY 1
+), v_apply AS (
+  SELECT VISA_REQUEST_ID, MAX(ITERATION) AS visits
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME = 'Apply for entry Visa' GROUP BY 1
+), v_apply_fix AS (            -- apply + the fix sub-workflow
+  SELECT VISA_REQUEST_ID, COUNT(*) AS visits
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME IN ('Apply for entry Visa','Fix the problem of entry visa',
+                      'Pending to fix issues of Entry Visa') GROUP BY 1
+), v_all AS (                  -- every entry-visa step, including the approval check
+  SELECT VISA_REQUEST_ID, COUNT(*) AS visits
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME ILIKE '%entry%visa%' GROUP BY 1
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS WHERE NEW_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT DISTINCT VISA_REQUEST_ID AS request_id FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+  UNION
+  SELECT DISTINCT b.NEW_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+)
+SELECT 'a · apply step only (F4 as specified)' AS visit_definition,
+       COUNT(*) AS requests, ROUND(SUM(ch.charged_aed)) AS charged_aed
+FROM ch JOIN v_apply v ON v.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
+LEFT JOIN rf ON rf.request_id = ch.VISA_REQUEST_ID
+WHERE v.visits >= 1 AND ch.charges_added > v.visits AND rf.request_id IS NULL
+UNION ALL
+SELECT 'b · apply + fix sub-workflow', COUNT(*), ROUND(SUM(ch.charged_aed))
+FROM ch JOIN v_apply_fix v ON v.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
+LEFT JOIN rf ON rf.request_id = ch.VISA_REQUEST_ID
+WHERE v.visits >= 1 AND ch.charges_added > v.visits AND rf.request_id IS NULL
+UNION ALL
+SELECT 'c · every entry-visa step', COUNT(*), ROUND(SUM(ch.charged_aed))
+FROM ch JOIN v_all v ON v.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
+LEFT JOIN rf ON rf.request_id = ch.VISA_REQUEST_ID
+WHERE v.visits >= 1 AND ch.charges_added > v.visits AND rf.request_id IS NULL
+ORDER BY visit_definition;
