@@ -515,3 +515,65 @@ distinguish these. Until they run, F0c is **provisional, not settled.**
 `Unsupported subquery type cannot be evaluated`. Snowflake will not run a correlated scalar subquery
 whose predicate is an inequality plus an `OR`. Rewritten as a non-equi `LEFT JOIN` + `MIN`, which it
 does support. The pairing logic is unchanged.
+
+### B4 — the floor explains most of it, and the residue inverts by leg
+
+| period | leg | orphans | traced | orphan rate |
+| --- | --- | ---: | ---: | ---: |
+| before 2025-09-05 | NewRequest | 383 | 185 | 67.4% |
+| before 2025-09-05 | CancelRequest | 72 | 3 | 96.0% |
+| **after** | NewRequest | **50** | **594** | **7.8%** |
+| **after** | CancelRequest | **151** | **19** | **88.8%** |
+
+Overall the orphan rate falls **70.8% → 24.7%** across the floor, so explanation 1 was largely right.
+But the residue **inverts**: before the floor orphans are mostly NewRequest, after it they are mostly
+**cancel-leg**, and the cancel leg barely improves at all (96.0% → 88.8%).
+
+**Read separately, the two legs give opposite verdicts.** Post-floor NewRequest is **92.2% traced** —
+check B is buildable there today. Post-floor cancel-leg is **88.8% orphaned**, and that is not a floor
+artifact, because the floor is exactly what it survived.
+
+### ✅ B5 — the re-entry signal recovers two thirds of the orphans
+
+| signal | refunds | maids | AED |
+| --- | ---: | ---: | ---: |
+| a · approval field says rejected | 801 | 755 | 397,340 |
+| **b · RE-ENTERED immigration approval** | **414** | 392 | **279,136** |
+| c · entry-visa fix step | 33 | 33 | 12,054 |
+| **e · no signal at all** | **209** | 209 | **120,791** |
+
+Totals reconcile to B3 exactly (1,457 refunds, AED 809,321), so nothing is double-counted.
+
+**The task signal explains 447 of the 656 orphans — 68.1%.** Rejection coverage goes from
+**55.0% → 85.7%** by adding one condition. Category **b** starts **2024-09-15**, a year before the
+approval field's floor, confirming the task signal has no floor problem.
+
+**This is a third source for G5, and a material correction.** The rejection set must be
+`approval field = 'Rejected'` ∪ `Check Entry Visa Immigration Approval` with **`ITERATION > 1`** ∪ the
+fix steps — not the two-source union we have been using. Everything keyed on rejection inherits this,
+**check A included**, where rejections are a justifying event and under-detection inflates duplicates.
+
+The residual **209 refunds / AED 120,791** with no signal of any kind is its own finding: money
+refunded where nothing in the system records a rejection. Small enough (209 cases) to hand-sample.
+
+### ⚠️ Both B5 and the coverage claim are loose, deliberately in the generous direction
+
+`rej_maid` and the task signals are both resolved at **maid** grain and with no time ordering — "this
+maid was rejected *at some point*". That inflates coverage and therefore **under**-counts orphans. So
+the orphan populations above are a floor, not a ceiling, and B6 tightens both.
+
+### 🔴 The F0c question is now sharp, and B6 decides it
+
+245 refunds sit on the cancel leg, 223 with no rejection, and B4 shows this survives the floor. We
+moved **AED 3.45m from "recoverable" to "cost"** on the GDRFA reading that cancellation is a separate
+non-refundable service. B5 tells us the re-entry signal explains two thirds of orphans overall but
+**not which leg they belong to** — and that is the whole question:
+
+- Cancel-leg orphans carry a re-entry signal ⇒ those cancellations followed a rejection we could not
+  see ⇒ **F0c stands**.
+- They carry no signal ⇒ cancellations are being refunded with no rejection anywhere ⇒ **the AED 3.45m
+  was reclassified wrongly.**
+
+`B6` splits B5 by leg and by period, and tightens it twice — the signal must precede the refund, and
+a signal appearing only *after* a refund is called out rather than counted. Both tightenings can only
+reduce the coverage B5 claimed, which is the honest direction to be wrong in.

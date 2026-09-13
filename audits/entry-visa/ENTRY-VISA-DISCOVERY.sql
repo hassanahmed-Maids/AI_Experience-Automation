@@ -1887,3 +1887,83 @@ FROM rf
 LEFT JOIN rej_maid rj ON rj.maid_id = rf.maid_id
 LEFT JOIN maid_sig m  ON m.maid_id  = rf.maid_id
 GROUP BY 1 ORDER BY refunds DESC;
+
+
+-- B6 · THE DECISIVE TEST, and the one with AED 3.45m riding on it.
+--      B4 showed the orphan rate falls 70.8% -> 24.7% across the rejection-history
+--      floor, so the floor explains much of B3 -- but the residue INVERTS by leg:
+--      after the floor, orphans are mostly CANCEL-leg (151 vs 50), and 88.8% of
+--      post-floor cancel-leg refunds are orphans. B5 then showed the immigration
+--      RE-ENTRY signal explains 447 of 656 orphans overall. The question B5 cannot
+--      answer, because it does not split by leg, is WHICH orphans it explains.
+--        * If the cancel-leg orphans carry a re-entry signal, those cancellations
+--          DID follow a rejection we simply could not see, and F0c stands.
+--        * If they carry no signal at all, cancellations are being refunded with no
+--          rejection anywhere -- and the AED 3.45m we moved from "recoverable" to
+--          "cost" on the GDRFA reading was moved wrongly.
+--      Two tightenings over B5, both of which can only REDUCE the coverage it
+--      claimed, which is the honest direction: the signal must sit on the maid's
+--      timeline BEFORE the refund, and a signal that only appears AFTER the refund
+--      is called out rather than counted.
+WITH fl AS (
+  SELECT MIN(LAST_MODIFICATION_DATE) AS rej_floor
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
+  WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+), req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS
+  WHERE NEW_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT r.maid_id, 'NewRequest' AS leg, e.CREATION_DATE AS refunded_at,
+         CAST(ABS(e.AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='NewRequest'
+  UNION ALL
+  SELECT r.maid_id, 'CancelRequest', e.CREATION_DATE, CAST(ABS(e.AMOUNT) AS NUMBER(18,2))
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  JOIN req r    ON r.REQUEST_ID = b.NEW_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), rej_dated AS (          -- signal 1: the approval field, dated from its history
+  SELECT r.maid_id, MIN(h.LAST_MODIFICATION_DATE) AS at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY h
+  JOIN req r ON r.REQUEST_ID = h.REQUEST_ID
+  WHERE h.ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND h.ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+  GROUP BY 1
+), revisit AS (            -- signal 2: sent back into immigration approval. STARTED_AT
+  SELECT r.maid_id, MIN(t.STARTED_AT) AS at   -- is the moment of the send-back itself
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS t
+  JOIN req r ON r.REQUEST_ID = t.VISA_REQUEST_ID
+  WHERE t.TASK_NAME = 'Check Entry Visa Immigration Approval' AND t.ITERATION > 1
+  GROUP BY 1
+), fixstep AS (            -- signal 3: an explicit entry-visa fix step
+  SELECT r.maid_id, MIN(t.STARTED_AT) AS at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS t
+  JOIN req r ON r.REQUEST_ID = t.VISA_REQUEST_ID
+  WHERE t.TASK_NAME IN ('Fix the problem of entry visa','Pending to fix issues of Entry Visa')
+  GROUP BY 1
+)
+SELECT IFF(rf.refunded_at < fl.rej_floor,'before the floor','after the floor')  AS period,
+       rf.leg,
+       CASE WHEN j.at  IS NOT NULL AND j.at  <= rf.refunded_at THEN 'a · field rejection, before the refund'
+            WHEN rv.at IS NOT NULL AND rv.at <= rf.refunded_at THEN 'b · sent back into immigration approval'
+            WHEN fx.at IS NOT NULL AND fx.at <= rf.refunded_at THEN 'c · entry-visa fix step'
+            WHEN COALESCE(j.at, rv.at, fx.at) IS NOT NULL      THEN 'd · signal exists but only AFTER the refund'
+            ELSE                                                    'e · NO SIGNAL AT ALL' END AS signal,
+       COUNT(*)                       AS refunds,
+       COUNT(DISTINCT rf.maid_id)     AS maids,
+       ROUND(SUM(rf.refund_aed))      AS refund_aed,
+       MIN(rf.refunded_at)::DATE      AS earliest,
+       MAX(rf.refunded_at)::DATE      AS latest
+FROM rf CROSS JOIN fl
+LEFT JOIN rej_dated j  ON j.maid_id  = rf.maid_id
+LEFT JOIN revisit   rv ON rv.maid_id = rf.maid_id
+LEFT JOIN fixstep   fx ON fx.maid_id = rf.maid_id
+GROUP BY 1,2,3 ORDER BY period, leg, signal;
