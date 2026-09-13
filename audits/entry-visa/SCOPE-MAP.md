@@ -390,3 +390,51 @@ questions are waiting on it, and they gate the headline:
 2. What sets `FINES_PAID_TO_US`?
 3. Does **any** flow deduct an overstay fine from a maid, and who decides who bears it? — the half of
    the chart's repayment question that Snowflake cannot answer.
+
+---
+
+## Check B — started
+
+### 🔴 The 60-day test cannot be applied to the whole rejection population
+
+Before writing the check I looked for the rejection date. `SHOW COLUMNS` on
+`INITIAL_VISA_REQUESTS` returns **118 columns and not one of them dates this event** — there is no
+`LAST_MODIFICATION_DATE` on the live row and no rejection-date column. The date exists only in the
+revision history.
+
+That collides with G5's corrected rule. The rejection set is a **union** of history and live because
+each misses part of the other (history misses 22.6%, live misses 41.5%). But **only the history side
+carries a clock.** So the ~22.6% of rejections that exist only as a live point-read cannot be tested
+against 60 days, or against any deadline, at all.
+
+This does not sink check B. It splits it:
+
+- **B1** runs the check as written on the dated subset — the only population where "within 60 days"
+  is a meaningful question.
+- **B2** prices the undateable slice. If it is large, the business's 60-day rule has to degrade to
+  *"was it ever claimed"* for that slice, and the spec must say so rather than quietly reporting a
+  60-day number computed on part of the population.
+- **B0** looks for the cheapest possible rescue first: a workflow task (`CheckEntryVisaImmigration…`
+  is a real code step) whose `ENDED_AT` would date the live-only rejections. If it exists, B1's
+  population roughly doubles and the constraint disappears. Worth asking before accepting a limit.
+
+### What B1 carries forward from A and R
+
+Not re-derived — the same four disciplines that were each bought with a measured error earlier:
+
+| discipline | the error it prevents |
+| --- | --- |
+| refunds resolved to the **maid**, and the query reports how often that mattered | check A's grain bug, asserted then measured at 7% |
+| both refund legs bridged through `CANCEL_VISA_REQUESTS.NEW_REQUEST_ID` | the cross-leg id mis-join that inflated 17 → 26 |
+| refund search bounded by the maid's **next** rejection (1:1 pairing) | R1's fan-out, which ran 3.5× high |
+| rejections inside the last 60 days excluded from "loss" | manufacturing a finding out of cases still in window |
+
+Recoverable is priced at **charged − 283.00**, the proven flat government retention, not the whole
+charge.
+
+⚠️ **A known conservatism in check A, recorded now that B has re-opened the rejection question.**
+A1's justifying-event set read rejections from the **history only**, not the union. It therefore
+misses ~22.6% of rejections as justifiers, which would push a small number of genuinely justified
+pairs into the duplicate verdicts. A1's 598 duplicates are an **upper bound**, not a point estimate.
+The refund and refund-step justifiers damp the effect, but the direction is known and should be
+stated wherever the figure is quoted.
