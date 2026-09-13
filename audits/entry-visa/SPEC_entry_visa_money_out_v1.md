@@ -355,14 +355,23 @@ passed".** Every family below therefore states all four outcomes, not just its R
 - **G3 · One verdict per charge, by this severity order.** Pair-grain families collapse to charge
   grain **before** any sum. The order is fixed, highest first, and is "whole fee lost" before
   "part of fee lost" before "no money at stake":
-  **F4 → F3(avoidable) → F5 → F1 → F2 → F3(unavoidable) → F6 → F7.**
+  **F4 → F3(avoidable) → F5 → F10 → F1 → F2 → F3(unavoidable) → F8 → F9 → F6 → F7.**
   A charge carrying both an F4 and an F1 verdict counts once, at F4, and its amount enters M3 not M1.
 - **G4 · Positive controls.** Two, and both must pass before F3 reports a number.
   - *Arrival source* — ✅ **PASSED**: `HOUSEMAID_STATUS_LOGS` carries `LANDED_IN_DUBAI` 43,505 ·
     `VISA_UNSUCCESSFUL` 52,266 · `NO_SHOW` 76,933, all current to 2026-09-13.
-  - *Date population* — **NOT YET RUN** (Q6). Threshold, stated so it is not a judgement call:
-    F3 runs only if **≥50%** of in-window requests carry `ENTRY_VISA_ISSUANCE_DATE` **and ≥50%**
-    carry `ENTRY_VISA_EXPIRY_DATE`. Below either, **F3 is VOID, not zero.**
+  - *Date population* — 🔴 **RAN, AND THE CONTROL WAS MIS-SPECIFIED.** Measured: of 37,867 in-window
+    requests, **12,902 (34.1%)** carry `ENTRY_VISA_ISSUANCE_DATE` and **12,898 (34.1%)** carry
+    `ENTRY_VISA_EXPIRY_DATE` — under the 50% bar I set, which would fail the control and void F3.
+    **That reading is wrong, and the fault is mine: the denominator is.** "All requests created in
+    the window" includes every request that never reached the entry-visa step at all. Two pieces of
+    evidence say the columns are healthy, not sparse: the two dates differ by **4 rows out of
+    12,900**, which is what you see when one step writes both; and `RVISA_ISSUANCE_DATE` sits
+    *below* them at 11,836, which is a coherent funnel (issued → travelled → residence) rather than
+    the erratic pattern a broken column gives.
+    **Corrected control (Q6c): the denominator is requests carrying an `Added` entry-visa charge**,
+    not all requests. Same 50% bar. **F3 stays VOID until Q6c runs** — a control that was measured
+    against the wrong population has not been passed, and must not be quietly re-read as a pass.
 - **G5 · Point-in-time — read BOTH rejection sources and union them.** *(Corrected by measurement;
   the table, the 868-request union and the provenance split are in §2.1's D6 note and the guard
   block that follows it.)*
@@ -462,6 +471,16 @@ passed".** Every family below therefore states all four outcomes, not just its R
   two, 32 with three, 3 with four, 1 with twelve), **AED 921,880** charged. That is before the
   rejection and bulk-posting guards — the real finding will be a fraction of it, and this is the
   denominator to report against.
+- 🔴 **A sharper primary test, from Q9: compare charges against step visits.** `ITERATION` counts
+  how many times a request re-entered `Apply for entry Visa`. ✅ Measured: **61,189 requests visited
+  it once, 844 twice, 43 three times, 2 four times** — so only **889 requests ever re-applied**,
+  against **1,248 requests carrying 2+ `Added` charges**. A genuine re-application re-enters the
+  step; **a second charge booked against a single step visit is a duplicate payment with no
+  application behind it.** That gap — roughly **359 requests** on the aggregates — is a far more
+  specific signal than "two charges and no refund between", because it does not depend on the
+  rejection history at all, and the rejection history is exactly what has false negatives.
+  Precise per-request measurement is `Q9c`; until it runs, the 359 is an aggregate difference, not a
+  finding count.
 - **Bulk-posting cluster, provisional: ≥5 candidate pairs sharing one charge date** is treated as
   **one posting event**, CANDIDATE, not N findings. The number is provisional pending the date
   distribution (`Q4b`) and is flagged as such rather than presented as settled.
@@ -533,6 +552,46 @@ passed".** Every family below therefore states all four outcomes, not just its R
 - **CANDIDATE**, not RED: the amounts are suggestive, not conclusive. What would settle it is whether
   a matching refund step was open on that request at that date. ✅ Also in this bucket: **75 charges
   at AED 0.00**, which are either placeholders or data entry errors and need the same question asked.
+
+### F10 — Approved, then cancelled *(added after Q7 — the largest bucket, and v1 missed it)*
+
+| Outcome | Condition |
+| --- | --- |
+| **RED** | Entry visa paid and approved, then the case was cancelled, with no refund recorded |
+| **GREEN** | A refund line exists |
+| **CANDIDATE** | Cancelled for a reason that may make the fee recoverable — the cancellation-type split below |
+| **NOT_APPLICABLE** | Never approved (F1's territory), or approved and used |
+| **BLOCKED** | Before **2024-02-06**, the earliest refund row the company's own view holds |
+
+🔴 **v1's F3 covered only *expired* permits. The company's own taxonomy has three terminal states —
+not approved, cancelled, expired — and the one I missed is the biggest.** ✅ Measured from
+`LOST_VISA_EXPENSES` (all time, and note it excludes Pakistani nationals):
+
+| Sub-category | Expense type | rows | AED |
+| --- | --- | --- | --- |
+| Canceled E-Visas | **Approved and Canceled Entry Visas** | **5,747** | **3,454,994** |
+| Not Approved | Not Approved (Pending Approval or Rejected) | 1,073 | 672,879 |
+| Canceled E-Visas | Visa Cancellation Fees (125 AED) | 3,740 | 519,184 |
+| Expired | **Expired & Pending Approval (Should Have Been Refunded)** | 444 | **329,107** |
+| Expired | Expired & Approved (Can not be Refunded) | 18 | 11,908 |
+| Not Approved | Refunded Not Approved Entry Visas | 578 | **−254,762** |
+| | **Net already booked as lost entry-visa expense** | | **≈ 4,733,310** |
+
+Reads that change the spec:
+
+- **Approved-and-cancelled is AED 3.45m, 73% of the company's own entry-visa loss book**, and v1 had
+  no family for it. It is now F10.
+- **`Expired & Pending Approval (Should Have Been Refunded)` — 444 cases, AED 329,107 — is the
+  company naming its own unclaimed refunds.** That is F3's recoverable core, already quantified by
+  someone else. ⚠️ But that view derives expiry from the **live request row**, so it inherits the
+  exact defect F3 was corrected for: on a request that re-applied, it reads permit #2's dates.
+  **Treat the 444 as a reconciliation target, not as a verified count**, and expect our per-attempt
+  figure to differ.
+- **A third floor, and the tightest one: refunds are only recorded from 2024-02-06.**
+  `Refunded Not Approved Entry Visas` has no row before it. So refund-recovery tests are
+  **BLOCKED before 2024-02**, independently of the 2025-09-05 rejection floor.
+- `Visa Cancellation Fees (125 AED)` averages **AED 138.80**, not 125. The label and the data
+  disagree; flagged, not adjudicated.
 
 ---
 
@@ -705,7 +764,9 @@ the charges it would have covered are priced in coverage. *A test that could not
 | N2 — threshold value history | **G1 not closeable**; the 2026-06-15 reverse case is evidence it has changed | ERP Setup parameter history |
 | Per-attempt issuance/expiry | **F3 BLOCKED** where the history cannot resolve them | Query work on `INITIAL_VISA_REQUESTS_HISTORY`; no new source needed |
 | NewRequest ↔ CancelRequest link | F1's cancel-leg match has **no defined key** | Ask the code which column links them (`CancelRequestController.addExpense`). Until then, match by owner + date window and **publish the match rate with a floor** |
-| G4 date-population control (Q6) | **F3 VOID until run** | One query |
+| G4 date-population control | **F3 VOID.** Q6 ran against the wrong denominator; the control has not been passed | `Q6c` — one query |
+| Refund-recording floor 2024-02-06 | Refund-recovery tests **BLOCKED** before it | Nothing recoverable — state it |
+| Per-request charges-vs-step-visits | F4's sharpest test unquantified | `Q9c` — one query |
 | Legacy `0`/`1` meaning | Only matters for a backfill before 2025-09-05 | Ask the code |
 | History blackout 2019-04 → 2025-09 | Rejection-keyed families **BLOCKED**, not clean, in that range | Nothing recoverable — state it |
 

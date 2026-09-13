@@ -311,3 +311,66 @@ FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
 WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
   AND REQUEST_TYPE = 'NewRequest'
 GROUP BY 1 ORDER BY n DESC;
+
+
+-- Q6c · CORRECTED positive control for F3. Q6 measured date population against ALL
+--       requests created in the window, which includes every request that never
+--       reached the entry-visa step -- so 34% read as a failed control when it is
+--       really the wrong denominator. The right denominator is requests that
+--       actually PAID for an entry visa. Same 50% bar. F3 stays VOID until this runs.
+WITH paid AS (
+  SELECT DISTINCT VISA_REQUEST_ID
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    AND VISA_REQUEST_ID IS NOT NULL
+)
+SELECT COUNT(*)                                            AS paying_requests,
+       COUNT_IF(r.ENTRY_VISA_ISSUANCE_DATE IS NOT NULL)    AS have_issuance_date,
+       COUNT_IF(r.ENTRY_VISA_EXPIRY_DATE   IS NOT NULL)    AS have_expiry_date,
+       ROUND(100.0*COUNT_IF(r.ENTRY_VISA_ISSUANCE_DATE IS NOT NULL)/NULLIF(COUNT(*),0),1) AS pct_issuance,
+       ROUND(100.0*COUNT_IF(r.ENTRY_VISA_EXPIRY_DATE   IS NOT NULL)/NULLIF(COUNT(*),0),1) AS pct_expiry,
+       COUNT_IF(r.ENTRY_VISA_EXPIRY_DATE < CURRENT_DATE()
+            AND r.ENTRY_VISA_ISSUANCE_DATE IS NOT NULL)    AS expired_window,
+       COUNT_IF(r.RVISA_ISSUANCE_DATE IS NOT NULL)         AS reached_residence_visa
+FROM paid p
+JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS r ON r.REQUEST_ID = p.VISA_REQUEST_ID;
+
+
+-- Q9c · F4's sharpest test, per request: MORE PAID CHARGES THAN STEP VISITS.
+--       A genuine re-application re-enters 'Apply for entry Visa'. A second charge
+--       booked against a single step visit is a duplicate with no application behind
+--       it -- and unlike the v1 test it does not depend on the rejection history,
+--       which is exactly where the false negatives are.
+--       Aggregates say ~1,248 multi-charge requests vs 889 that ever re-applied;
+--       this resolves that gap per request instead of by subtraction.
+WITH charges AS (
+  SELECT VISA_REQUEST_ID, COUNT(*) AS charges_added,
+         ROUND(SUM(CAST(AMOUNT AS NUMBER(18,2))),2) AS charged_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+  GROUP BY 1
+), visits AS (
+  SELECT VISA_REQUEST_ID, MAX(ITERATION) AS step_visits
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME = 'Apply for entry Visa'
+  GROUP BY 1
+), refunds AS (
+  SELECT VISA_REQUEST_ID, COUNT(*) AS refunds_added
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added'
+  GROUP BY 1
+)
+SELECT c.charges_added,
+       COALESCE(v.step_visits,0)                                   AS step_visits,
+       COALESCE(rf.refunds_added,0)                                AS refunds_added,
+       c.charges_added - COALESCE(v.step_visits,0)                 AS excess_charges,
+       COUNT(*)                                                    AS requests,
+       ROUND(SUM(c.charged_aed))                                   AS charged_aed
+FROM charges c
+LEFT JOIN visits  v  ON v.VISA_REQUEST_ID  = c.VISA_REQUEST_ID
+LEFT JOIN refunds rf ON rf.VISA_REQUEST_ID = c.VISA_REQUEST_ID
+WHERE c.charges_added > COALESCE(v.step_visits,0)
+GROUP BY 1,2,3,4 ORDER BY excess_charges DESC, requests DESC;
