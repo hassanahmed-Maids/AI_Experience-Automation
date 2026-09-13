@@ -1984,3 +1984,71 @@ SELECT TASK_NAME,
        MAX(STARTED_AT)::DATE           AS last_seen
 FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS_TASKS
 GROUP BY 1 ORDER BY task_rows DESC;
+
+
+-- B8 · THE FINDING B7 OPENS. B7 closed the blind spot the wrong way for F0c:
+--      the cancel workflow has NO rejection concept at all (44 task names, none of
+--      them a rejection or immigration-approval step), so B6's 75.3% "no signal"
+--      was not an artifact of looking in the wrong table -- there was nothing to
+--      find. And the cancel workflow has a FIRST-CLASS refund step,
+--      'Refund Entry Visa Application', 237 rows on 236 cancel requests since
+--      2024-10-19, firing with no rejection anywhere.
+--      So the refund is NOT scoped to rejection, and F0c's mechanism is wrong.
+--      But 236 of 99,748 cancel requests is the step barely being used -- which
+--      turns the AED 3.45m from "cost, by policy" into "a refund route exists and
+--      we take it on a fraction of cases". This query measures that gap.
+--
+--      TWO HONESTY CONSTRAINTS BUILT IN, because without them this over-claims:
+--        * The step only exists from 2024-10-19. Judging earlier cancellations
+--          against it is anachronistic, so period is a dimension, not a filter.
+--        * An entry visa that was CONSUMED cannot be refunded. A maid who reached
+--          a residence visa used it. So "reached RVISA" splits the population --
+--          only the unconsumed side is recoverable, and conflating them would
+--          inflate the finding exactly the way F0c was inflated in the first place.
+WITH req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id, RVISA_ISSUANCE_DATE, ENTRY_VISA_ISSUANCE_DATE
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), cvr AS (
+  SELECT REQUEST_ID AS cancel_request_id, NEW_REQUEST_ID, CREATION_DATE AS cancel_created_at
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS
+  WHERE NEW_REQUEST_ID IS NOT NULL
+), chg AS (
+  SELECT VISA_REQUEST_ID, SUM(CAST(AMOUNT AS NUMBER(18,2))) AS charged_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added'
+  GROUP BY 1
+), refund_task AS (
+  SELECT DISTINCT VISA_REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME = 'Refund Entry Visa Application'
+), refund_exp AS (
+  SELECT DISTINCT VISA_REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='CancelRequest'
+), refund_exp_new AS (
+  SELECT DISTINCT VISA_REQUEST_ID AS new_request_id
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+)
+SELECT IFF(c.cancel_created_at >= '2024-10-19',
+           'after the refund step existed','before it existed')              AS period,
+       IFF(r.RVISA_ISSUANCE_DATE IS NOT NULL,
+           'visa CONSUMED (reached residence visa)','visa never consumed')   AS consumed,
+       CASE WHEN rt.cancel_request_id IS NOT NULL THEN 'a · ran the refund step'
+            WHEN re.cancel_request_id IS NOT NULL
+              OR rn.new_request_id    IS NOT NULL THEN 'b · no step, but a refund was booked'
+            ELSE                                       'c · NO REFUND CLAIMED' END AS outcome,
+       COUNT(*)                                              AS cancellations,
+       COUNT(DISTINCT r.maid_id)                             AS maids,
+       ROUND(SUM(g.charged_aed))                             AS charged_aed,
+       ROUND(SUM(GREATEST(g.charged_aed - 283.00, 0)))       AS recoverable_aed,
+       MIN(c.cancel_created_at)::DATE AS earliest, MAX(c.cancel_created_at)::DATE AS latest
+FROM cvr c
+JOIN req r ON r.REQUEST_ID = c.NEW_REQUEST_ID
+JOIN chg g ON g.VISA_REQUEST_ID = c.NEW_REQUEST_ID      -- only cancellations that PAID
+LEFT JOIN refund_task    rt ON rt.cancel_request_id = c.cancel_request_id
+LEFT JOIN refund_exp     re ON re.cancel_request_id = c.cancel_request_id
+LEFT JOIN refund_exp_new rn ON rn.new_request_id    = c.NEW_REQUEST_ID
+GROUP BY 1,2,3 ORDER BY period, consumed, outcome;

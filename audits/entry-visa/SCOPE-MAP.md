@@ -619,3 +619,51 @@ the 75.3% an artifact of looking in the wrong table. `CANCEL_VISA_REQUESTS` has 
 
 **`B7` enumerates it. F0c stays provisional until it runs** — I am not overturning an AED 3.45m
 ruling on a test that could not have seen the evidence.
+
+### 🔴 B7 — the blind spot closed against F0c. The cancel workflow has no rejection concept.
+
+44 task names on the cancellation workflow, 449,223 rows, back to 2019. **Not one of them is a
+rejection or immigration-approval step.** The whole vocabulary is cancellation mechanics — Visa
+Cancelled (75,233), Cancel Ansari, GDRFA Cancellation, Do Immigration Cancellation, Get the Exit
+Enter Paper. The only rejection-adjacent entry is *"Upload the Rejection letter in Immigration by
+PRO"* at **42 rows in seven years**.
+
+So **B6's 75.3% "no signal" on the cancel leg was not an artifact of looking in the wrong table.**
+There was nothing to find, because the cancel workflow does not model rejection at all.
+
+And the finding that decides it:
+
+> **`Refund Entry Visa Application` — 237 rows on 236 cancel requests, from 2024-10-19.**
+
+The cancellation workflow has a **first-class entry-visa refund step**, and it fires with no
+rejection anywhere. **F0c's mechanism is wrong: the refund is not scoped to rejection.** The ERP
+itself refunds entry visas as part of cancelling.
+
+### ⚠️ But the magnitude question is the opposite of the one we were asking — and it is bigger
+
+236 cancel requests ran that step, out of **99,748 cancel requests**. The route exists and is barely
+used. That turns the **AED 3.45m** from *"cost, by policy"* into *"a refund route exists and we take
+it on a fraction of cases"* — every cancellation that paid for an entry visa and never ran the step
+is a candidate **unclaimed** refund. If that holds, it is the largest finding in this audit, and it
+points the opposite way from the reclassification we made.
+
+**I am not claiming it yet, and `B8` is built so it cannot over-claim.** Two constraints are wired
+into the query rather than left to the write-up:
+
+1. **The step only exists from 2024-10-19.** Judging earlier cancellations against a process that did
+   not exist is anachronistic, so period is a dimension, not a filter.
+2. **A consumed entry visa cannot be refunded.** A maid who reached a residence visa used it; there
+   is nothing to claim. So "reached RVISA" splits the population, and only the unconsumed side can be
+   called recoverable. Conflating them would inflate this finding in precisely the way F0c was
+   inflated in the first place.
+
+**Status of F0c: mechanism REFUTED, magnitude OPEN pending B8.** The AED 3.45m should be marked
+disputed in every document that carries it, not silently flipped.
+
+### 🚧 Snowflake MCP — still warehouse-blocked after the ALTER
+
+Re-tested after the `ALTER USER`: a bare `COUNT(*)` still answers (99,748 cancel requests — served
+from table statistics, no compute), but adding a `COUNT(DISTINCT …)` fails with the same warehouse
+error. The MCP session is pooled and has not picked up the new default. It needs the connector
+reconnected, or the warehouse set in the connector's own config — the tool exposes only a `sql`
+argument, so there is nothing settable from this side.
