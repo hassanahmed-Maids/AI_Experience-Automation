@@ -733,6 +733,36 @@ warns about elsewhere. About 1,335 refunds paired; the all-time `Added` refund p
 The difference is orphan refunds and belongs to F9, not to nothing. **`R1d` counts them; until it
 runs, F11's denominator is BLOCKED, not complete.**
 
+### M1 measured — the unclaimed-refund headline
+
+✅ **R1c, priced with the proven tariff. Rejection read from both sources per G5; a charge counts
+only where **no** refund was recorded on either leg.**
+
+| charge year | unrefunded charges | gross AED | **recoverable AED** |
+| --- | --- | --- | --- |
+| 2026 | 111 | 77,483 | **46,335** |
+| 2025 | 38 | 31,196 | **20,301** |
+| 2024 | 15 | 8,838 | **4,593** |
+| **Total** | **164** | **117,517** | **AED 71,229** |
+
+**AED 71,229 is the first defensible recoverable figure in this audit**, and it is deliberately
+smaller than the prior check's AED 105,758 across 223 charges. Three reasons it is better founded:
+the refund expectation comes from a tariff proven against 1,287 government decisions rather than
+assumed; refunds are matched on **both** request legs; and the rejection population is the G5 union
+rather than one source.
+
+⚠️ **Two things this figure is not.**
+
+1. **It is a floor, by construction.** The refund test asks whether the *request* has a refund, not
+   whether *this charge* does. A request with two rejected charges and one refund reads as fully
+   refunded. That can only **under**-count, which is the correct direction for a published number —
+   but it means AED 71,229 is a minimum, not an estimate. `R1e` would measure the gap at charge
+   grain; until then the report says *"at least"*.
+2. 🔴 **The year profile is NOT a trend.** 15 → 38 → 111 looks like deterioration and is almost
+   entirely **recording coverage**: dated rejections do not exist before 2025-09-05 (G5b), so
+   earlier years survive only where the live column still reads `Rejected` today — which G5 measured
+   as losing 41.5% of the population. **Nobody may present this as a worsening control.**
+
 ### F0b — Nobody owns the refund, and nothing ever chases it *(control finding, no record verdict)*
 
 The clearest root cause in this audit. Asked of the code directly, and every answer is negative:
