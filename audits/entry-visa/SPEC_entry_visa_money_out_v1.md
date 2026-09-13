@@ -618,9 +618,9 @@ passed".** Every family below therefore states all four outcomes, not just its R
 | **NOT_APPLICABLE** | Never approved (F1's territory), or approved and used |
 | **BLOCKED** | Before **2024-02-06**, the earliest refund row the company's own view holds |
 
-✅ **R3 measured the recovery rate on this family, and it is essentially nil: of 5,747
-approved-then-cancelled requests, 5,721 have no refund ever recorded and 26 do — 0.45%.**
-Those 26 are the important number, not the 5,721: they prove recovery is **possible**. The question
+✅ **Recovery on this family is essentially nil: of 5,747 approved-then-cancelled requests, 17 have a
+refund — 0.30%.** ⚠️ R3 originally reported 26; that figure was inflated by a cross-leg mis-join and
+is corrected in F0c below. The question
 for the business is therefore not "is this recoverable?" but **"what did those 26 cases do that the
 other 5,721 did not?"** Given F0b — no owner, no alert, no obligation to record an outcome — the
 likeliest answer is that someone happened to be standing there.
@@ -824,30 +824,60 @@ current request row, so on a re-applied request it reads permit #2's dates. The 
 **reconciliation target, not a verified count** — F3 must re-derive expiry per attempt (G5) before
 any of this is published.
 
-### F0c — Cancellation after approval has no route to a refund at all *(V4, and it is structural)*
+### F0c — Cancellation after approval has no route to a refund *(V4b, corrected)*
 
-✅ **V4 asked what the 26 recovered cases did differently. The answer is not diligence — it is
-routing.**
+🔴 **First, a correction to my own earlier figures.** R3 and V4 both reported **26** recovered cases.
+Both used a refund CTE with no `REQUEST_TYPE` filter, joining a **cancel-request id** to a
+**new-request id** across overlapping ranges — the same namespace trap I caught in V4b's draft, only
+this time it was already live in two published numbers. Bridged properly through
+`CANCEL_VISA_REQUESTS.NEW_REQUEST_ID`, the true figure is **17, not 26**. Nine were phantom matches.
+**Recovery on approved-then-cancelled is 17 of 5,747 — 0.30%, not 0.45%.**
 
-| | refund step opened | never opened |
-| --- | --- | --- |
-| **Refunded** | **12** | 14 |
-| Not refunded | 1 | **5,720** |
+✅ **V4b, with the join fixed, splits the population three ways:**
 
-- **Where the refund step was opened, money came back 12 times out of 13 — 92%.**
-- **Where it was not, recovery is 14 in 5,734 — 0.24%.**
-- **The step was opened on 13 of 5,747 cases. 0.2%.**
+| refund step opened | requests | refunded | recovery |
+| --- | --- | --- | --- |
+| **New-request side** | 13 | **12** | **92%** |
+| **Cancel side** | 12 | **0** | **0%** |
+| Neither | 5,722 | 5 | 0.09% |
 
-🔴 **The code says why, and it is not human failure.** `CheckEntryVisaImmigrationApprovalStep.onDone`
-routes to `RefundEntryVisaApplicationStep` **only when the application was rejected**. A case that was
-*approved and then cancelled* never passes that branch, so **nothing ever puts it in front of anyone**.
-The 5,721 are not neglected; they are **structurally unreachable**. That is a missing workflow branch,
-and it is a far stronger finding than "nobody chases it".
+Two findings, not one:
 
-⚠️ **A limitation of V4 I have not closed.** It checks only the **new-request** task table, and the
-code shows a separate `RefundEntryVisaApplicationCancellationStep` on the **cancel** side. The 14
-refunds with "no step" most likely went through that one. **`V4b` checks the cancel-side task table**;
-until it runs, read the 92% as the recovery rate *given the new-request step*, not as the whole story.
+1. **The new-request refund step works and is almost never reachable.** 12 of 13 pay out. But
+   `CheckEntryVisaImmigrationApprovalStep.onDone` routes there **only on rejection**, so a case
+   approved and then cancelled never passes that branch. The 5,722 are **structurally unreachable**,
+   not neglected. Remedy: route cancelled-after-approval cases to it. Testable prediction: ~92% pay.
+2. 🔴 **The cancel-side refund step was opened 12 times and produced zero refunds.** That is new, and
+   it cuts against the easy story. Either the money genuinely is not claimable once a case has been
+   approved and then cancelled, or — as the code permits — the step was closed without anyone
+   recording a claim, since **no validation requires a refund expense to complete it**.
+
+⚠️ **So the business question is now genuinely open rather than rhetorical.** I previously framed it
+as *"what did the 26 do differently?"* with the implication that recovery was simply being missed.
+On the corrected evidence, **every case where someone worked the cancellation-side step still got
+nothing back.** Twelve is a small sample and the step can be closed without action — but this is no
+longer evidence that AED 3.45m is sitting there for the asking. **Question 3 to the Visa team becomes
+the highest-value question in the audit**, and F10's exposure must be presented as *unadjudicated*,
+not as recoverable.
+
+### V5 — the coverage floor, priced
+
+✅ **Which years can be tested at all:**
+
+| charge year | charges | AED | has issuance date | has approval state | has step history |
+| --- | --- | --- | --- | --- | --- |
+| **2017** | 617 | **350,467** | **0** | 41 | **0** |
+| **2018** | 2,975 | **1,411,995** | 2,016 | 2,954 | **0** |
+| 2019 | 3,671 | 2,730,619 | 3,570 | 3,669 | 2,644 |
+| 2020–2026 | 54,702 | 46,651,632 | ~97% | ~99% | ~100% |
+
+- 🔴 **2017 is reachable by no family at all**: no issuance dates, no step history, and approval
+  state on 41 of 617. **617 charges, AED 350,467 — BLOCKED, and it must appear in coverage as such.**
+- **2018 is partially reachable**: no step history, so F4 cannot run, but issuance and approval are
+  largely present so F1 and F3 can. AED 1,411,995 carries a reduced test set.
+- From 2020 the data is effectively complete, which is what makes a rolling window defensible.
+- ✅ **All-time entry-visa spend: AED 51,144,713 across 61,965 posted charges.** That is the true
+  denominator for any percentage this audit quotes.
 
 ### F0b — Nobody owns the refund, and nothing ever chases it *(control finding, no record verdict)*
 
