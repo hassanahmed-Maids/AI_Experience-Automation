@@ -508,3 +508,76 @@ WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
   AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added'
   AND (CAST(AMOUNT AS NUMBER(18,2)) IN (0, 89.50, 739.50) OR VISA_REQUEST_ID IS NULL)
 GROUP BY 1,2 ORDER BY oddity, yr;
+
+
+-- R1b · The 1:1 pairing R1 could not do. R1 joined charges to refunds on the
+--       request alone, so a request with two charges and one refund produced two
+--       pairs and the totals fan out (~2,226 pairs against fewer refund lines).
+--       R1 proved the MAPPING; this produces the COUNTS. Pair each refund with the
+--       nearest charge at or before it on the same request, then score against the
+--       tariff: expected refund = paid - 283.00 - (paid - base price of its band).
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS charged_at,
+         CAST(AMOUNT AS NUMBER(18,2))   AS charge_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS refunded_at,
+         CAST(ABS(AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), paired AS (
+  SELECT rf.VISA_REQUEST_ID, rf.refunded_at, rf.refund_aed, ch.charge_aed, ch.charged_at
+  FROM rf JOIN ch
+    ON ch.VISA_REQUEST_ID = rf.VISA_REQUEST_ID AND ch.charged_at <= rf.refunded_at
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY rf.VISA_REQUEST_ID, rf.refunded_at, rf.refund_aed
+                             ORDER BY ch.charged_at DESC) = 1
+), scored AS (
+  SELECT *,
+         IFF(charge_aed >= 700, 1022.50, 372.50)                  AS base_price,
+         ROUND(charge_aed - 283.00 - (charge_aed - IFF(charge_aed >= 700, 1022.50, 372.50)), 2)
+                                                                  AS expected_refund,
+         ROUND(refund_aed - (charge_aed - 283.00
+               - (charge_aed - IFF(charge_aed >= 700, 1022.50, 372.50))), 2) AS variance
+  FROM paired
+)
+SELECT CASE WHEN ABS(variance) <= 0.50 THEN 'a · matches the tariff'
+            WHEN variance < -0.50      THEN 'b · SHORT refund'
+            ELSE                            'c · OVER refund' END AS outcome,
+       COUNT(*)                     AS refunds,
+       COUNT(DISTINCT VISA_REQUEST_ID) AS requests,
+       ROUND(SUM(variance))         AS total_variance_aed,
+       ROUND(MIN(variance),2)       AS worst_short,
+       ROUND(MAX(variance),2)       AS largest_over
+FROM scored GROUP BY 1 ORDER BY outcome;
+
+-- R1c · The unclaimed side, priced with the tariff: charges on requests we know
+--       were rejected, where no refund was ever recorded on either leg.
+--       This is M1's headline population.
+WITH rej AS (
+  SELECT DISTINCT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
+  WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+  UNION
+  SELECT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+), ch AS (
+  SELECT VISA_REQUEST_ID, CAST(AMOUNT AS NUMBER(18,2)) AS charge_aed, CREATION_DATE
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT DISTINCT VISA_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added'
+)
+SELECT YEAR(ch.CREATION_DATE)                                     AS charge_year,
+       COUNT(*)                                                   AS unrefunded_charges,
+       ROUND(SUM(ch.charge_aed))                                  AS gross_aed,
+       ROUND(SUM(ch.charge_aed - 283.00
+             - (ch.charge_aed - IFF(ch.charge_aed >= 700, 1022.50, 372.50)))) AS recoverable_aed
+FROM ch
+JOIN rej ON rej.REQUEST_ID = ch.VISA_REQUEST_ID
+LEFT JOIN rf ON rf.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
+WHERE rf.VISA_REQUEST_ID IS NULL
+GROUP BY 1 ORDER BY 1 DESC;

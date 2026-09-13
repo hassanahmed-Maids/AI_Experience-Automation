@@ -453,10 +453,17 @@ passed".** Every family below therefore states all four outcomes, not just its R
 | **NOT_APPLICABLE** | `refundedStatus` is false or unset and no refund line exists — F1's territory, not F2's |
 | **BLOCKED** | N4 not ingested. **Currently the whole family**, since `refundedStatus` is not in the warehouse |
 
-- **Ageing threshold, set from the data rather than asserted: 95 days.** ✅ Measured on the
-  `Refund Entry Visa Application` step: 1,079 completed claims average **3.8 days** and the slowest
-  ever completed took **95**. A claim open beyond 95 days has therefore outlasted *every* refund that
-  has ever succeeded. ✅ **145 claims are currently open, averaging 255 days, oldest 582.**
+- 🔴 **Ageing threshold corrected from 95 days to 7 — I was measuring the wrong clock.** 95 days was
+  the slowest *workflow step* to close, but the step can stay open long after the money moved. The
+  **money** clock is what matters, and R2 measured it: of 556 refunds matched to a dated rejection,
+  **547 arrived within 7 days**, 9 more within 30, and **not one ever arrived later than 30**.
+- **The operational reality that follows is stark: a refund either happens at the counter within a
+  week, or it never happens at all.** There is no long tail to wait on. So the **145 claims currently
+  open, averaging 255 days and oldest 582**, are not pending — on this evidence they are dead money,
+  and should be reported as findings rather than as work in progress.
+- ⚠️ **13 refunds are dated *before* their rejection**, by up to 60 days. Either the rejection date
+  is wrong or the refund belongs to an earlier attempt on the same request. **CANDIDATE**, and a
+  reason to pair refunds to charges by sequence rather than by request id alone.
 
 ### F3 — Paid, approved, expired unused *(the family a rejection-keyed audit cannot see)*
 
@@ -590,9 +597,16 @@ passed".** Every family below therefore states all four outcomes, not just its R
 - **The mechanism is in the code.** `addExpense` sign-flips to a credit **only** when the purpose is
   `REFUND_FOR_ENTRY_VISA`. Choose the wrong purpose and a refund books as an **additional cost**
   instead of a credit — so each instance swings the ledger by twice its value.
-- **CANDIDATE**, not RED: the amounts are suggestive, not conclusive. What would settle it is whether
-  a matching refund step was open on that request at that date. ✅ Also in this bucket: **75 charges
-  at AED 0.00**, which are either placeholders or data entry errors and need the same question asked.
+- ✅ **Sharpened by R5, and it is one person.** All **31** were created by a **single user account**,
+  across **22 distinct days**, every one carrying a real transaction — and **26 of the 31 are in
+  2026**, so it is current, not historical. A repeated habit by one operator is a training and
+  supervision matter, not a systemic defect. **Report the count and the pattern to that person's
+  manager; never name them in the report** (see §4's blocklist).
+- ✅ **The 75 zero-value charges drop out of the money families entirely**: none of them is `Added`.
+  They sit at `Pending` or `Dismissed`, so they are unposted lines, not payments. Moved to F7.
+- Corroboration from R1: the same two values appear as **refunds of exactly themselves**
+  (89.50 → 89.50 on 19 pairs, 739.50 → 739.50 on 13), which is what a miskeyed refund followed by a
+  correcting entry looks like.
 
 ### F10 — Approved, then cancelled *(added after Q7 — the largest bucket, and v1 missed it)*
 
@@ -603,6 +617,13 @@ passed".** Every family below therefore states all four outcomes, not just its R
 | **CANDIDATE** | Cancelled for a reason that may make the fee recoverable — the cancellation-type split below |
 | **NOT_APPLICABLE** | Never approved (F1's territory), or approved and used |
 | **BLOCKED** | Before **2024-02-06**, the earliest refund row the company's own view holds |
+
+✅ **R3 measured the recovery rate on this family, and it is essentially nil: of 5,747
+approved-then-cancelled requests, 5,721 have no refund ever recorded and 26 do — 0.45%.**
+Those 26 are the important number, not the 5,721: they prove recovery is **possible**. The question
+for the business is therefore not "is this recoverable?" but **"what did those 26 cases do that the
+other 5,721 did not?"** Given F0b — no owner, no alert, no obligation to record an outcome — the
+likeliest answer is that someone happened to be standing there.
 
 🔴 **v1's F3 covered only *expired* permits. The company's own taxonomy has three terminal states —
 not approved, cancelled, expired — and the one I missed is the biggest.** ✅ Measured from
@@ -636,35 +657,99 @@ Reads that change the spec:
 
 ---
 
-### The ruling on the non-refundable remainder — decided from the code
+### The refund tariff — SOLVED from the data, 2026-09-13
 
-**The code has no concept of a non-refundable portion.** The refund amount is user-typed and
-sign-flipped; nothing computes it, nothing marks a fraction unrecoverable, and accounting forces
-`charge = 0` and `vatCharge = 0` on refund lines rather than apportioning. So "the government's
-standard non-refundable portion" cannot be sourced from the system — it is an observed residue.
+v1 said no expected-refundable reference existed and blocked M1 on it. **It does exist; it was just
+never written down.** Pairing every paid charge with the refund that followed it (R1) gives a rule so
+clean it can only be the government's own:
 
-The only defensible split is by **causation**:
+| charge paid | refund returned | **kept by the government** | pairs |
+| --- | --- | --- | --- |
+| 1,022.50 | 739.50 | **283.00** | 1,537 |
+| 372.50 | 89.50 | **283.00** | 362 |
+| 1,054.71 | 739.50 | 315.21 | 69 |
+| 384.24 | 89.50 | 294.74 | 37 |
+| 1,025.65 | 739.50 | 286.15 | 9 |
+| 375.65 | 89.50 | 286.15 | 2 |
 
-| Situation | Remainder is | Rationale |
+> ### The government keeps a flat **AED 283.00**, and never returns a surcharge.
+> The four "odd" retentions are the same 283 plus the surcharge that was paid on top of the base
+> price, to the fils: **1,054.71 − 1,022.50 = 32.21** and **315.21 − 283.00 = 32.21**;
+> **384.24 − 372.50 = 11.74** and **294.74 − 283.00 = 11.74**; **1,025.65 − 1,022.50 = 3.15** and
+> **286.15 − 283.00 = 3.15**. Four independent confirmations, exact.
+
+**M1 is therefore UNBLOCKED:**
+
+> **expected refund = amount paid − 283.00 − (amount paid − base price of its band)**
+> where the base prices are the measured modes, **1,022.50** and **372.50**.
+
+**This also settles the remainder ruling with evidence rather than inference.** The non-refundable
+part is a **fixed government retention of AED 283**, not a percentage and not a penalty — it is
+identical on the large and the small application. So:
+
+| Situation | Remainder is | Now because |
 | --- | --- | --- |
-| Correct single application, immigration rejected it | **Cost** — not a finding | We did nothing wrong; the residue is the price of applying |
-| We caused the waste — F4, F5, F3-avoidable | **Loss — the whole fee** | None of it should have been spent; there is no correct-application defence |
+| Correct single application, immigration rejected it | **Cost** | AED 283 is the government's standing fee for considering an application. Unavoidable |
+| We caused the waste — F4, F5, F3-avoidable | **Loss — the whole fee** | The 283 was spent on an application that should never have been made |
 
-Conservative in the right direction: it can only under-count. The prior manual run booked
-AED 10,215.38 of remainder as loss across 35 cases that were **every one refunded inside the
-window** — about 30% of its reported total, and exactly what this rule prevents.
+The prior manual run booked AED 10,215.38 of remainder as loss across 35 cases **that were every one
+refunded on time** — roughly 30% of its reported total, and exactly what this rule prevents.
 
----
+⚠️ **The counts above are pair counts, not case counts.** R1 joins charges to refunds on the request
+alone, so a request with two charges and one refund yields two pairs; total pairs (~2,226) exceed the
+refund lines that exist. **The mapping is proven; the volumes are not.** `R1b` pairs each refund to
+its nearest preceding charge before any AED figure is published.
+
+### F11 — Short refunds and over-refunds *(new, and the prior check said neither existed)*
+
+R1's off-diagonal cells are findings in both directions, and the previous audit reported **zero** of
+the first and did not look for the second:
+
+| Shape | pairs | Per case | Reading |
+| --- | --- | --- | --- |
+| Paid **1,022.50**, got back **89.50** | 89 | **−650.00** vs expected | **Short refund.** Claimed at the small band's value against a large-band charge |
+| Paid **1,054.71**, got back **89.50** | 1 | −650.00 | same |
+| Paid **372.50**, got back **739.50** | 78 | **+367.00** — refund **exceeds the charge** | **Over-refund.** We received more than we paid. Possibly a liability, not a win |
+| Paid **384.24**, got back **739.50** | 1 | +355.26 | same |
+| 1,022.50 → **739.57** | 5 | −0.07 | Keystroke |
+| 372.50 → **89.00** | 1 | −0.50 | Keystroke |
+| 372.50 → **125.65** | 1 | — | 125.65 is the *visa cancellation* fee — wrong purpose entirely |
+
+- **RED** on the two large cells, **CANDIDATE** on the keystroke and wrong-purpose cells.
+- Order-of-magnitude only, pending `R1b`: roughly **AED 58,000** under-recovered and **AED 51,000**
+  over-recovered. **Do not publish either figure until the pairing is 1:1.**
+- The over-refunds matter for a reason beyond money: an audit that reports only under-recovery looks
+  like advocacy. Reporting both directions is what makes the number credible.
+
+### F0b — Nobody owns the refund, and nothing ever chases it *(control finding, no record verdict)*
+
+The clearest root cause in this audit. Asked of the code directly, and every answer is negative:
+
+| Question | Answer |
+| --- | --- |
+| Is anyone assigned the refund step? | **No.** No role, team, user or round-robin. It surfaces in a shared queue filtered by task name — `VisaManualStep.applyTaskListStepFilters` — and whoever pulls it, pulls it |
+| Any todo, alert or reminder when it opens, or while it sits? | **None.** `onEntry` only recalculates a priority number |
+| Any SLA? | **No** — and pointedly so: the `DELAYED_TODO_THRESHOLD` config is a task-name→hours map, and *"Refund Entry Visa Application" is not in it*. The delayed-todo filter can never flag this step. The only ageing signal is a display-only colour label |
+| Must a refund be recorded to complete the step? | **No.** No validation, no `BusinessException`. An operator can close the step whether or not any money came back — and on the non-cancellation path the step *deletes* the pending payment record |
+| Is anyone told when an entry visa expires unused? | **No.** `CancelEvisaExpiredMaidsService` stops the request, opens a cancel request and sets the maid `VISA_UNSUCCESSFUL`. No mail, no todo, no complaint, no reminder — a `LOGGER.info` and nothing else |
+
+**This explains the shape of every money family above**: no owner, no deadline, no alert, and no
+obligation to record an outcome. ✅ It also explains R2 — refunds either happen at the counter within
+a week or never happen at all — and R3, where **5,721 of 5,747** approved-then-cancelled cases have
+no refund: nothing exists to tell anyone the money is there.
+
+Like F0, this carries **no record-grain verdict**. It is the reason the findings exist, not a finding
+against any charge.
 
 ### M — Measures
 
 | ID | Measure | Definition | State |
 | --- | --- | --- | --- |
-| **M1** | Recoverable | Expected refundable − refund received, per charge | 🔴 **BLOCKED.** No expected-refundable reference exists in the system, and deriving one from the population's own refund mode is precisely what M6 is blocked for. **It cannot be the headline while it is blocked.** |
-| **M2** | Gross exposure | Full charge amount on every RED row | ✅ **Computable now. Headline for v1.** |
+| **M1** | Recoverable | `amount paid − 283.00 − surcharge`, minus refund received | ✅ **UNBLOCKED.** The tariff was solved from the data (above). Legitimate where M6 is not, because a **refund is the government's decision, not ours** — observing what they returned is external evidence, whereas observing what we typed would be the population auditing itself. **Headline once `R1b` gives 1:1 counts** |
+| **M2** | Gross exposure | Full charge amount on every RED row | ✅ Computable now. Shown beside M1 |
 | **M3** | Avoidable waste | **Whole fee**, on F4, F5 and F3-avoidable rows | ✅ Computable. **One definition only** — v1 also carried "first charge − refund recovered" under F5, which contradicted this and would have given two different totals from one spec. The causation ruling governs: where we caused the waste, none of the fee should have been spent, so the whole fee is the loss |
-| **M4** | Recovery rate | Refunds received ÷ refunds **due** | 🔴 **BLOCKED** — "due" inherits M1's missing reference. A raw ratio (788 refunds against 521 multi-charge requests) is reportable as **context**, explicitly not as a rate |
-| **M5** | Claim ageing | Days from rejection to refund received; unreceived shown as days open | ✅ Computable for the 672 dated cases. **BLOCKED for the 196 undated ones** — no date to measure from |
+| **M4** | Recovery rate | Refunds received ÷ refunds **due** | ✅ **UNBLOCKED** — "due" is now computable from the tariff. Measure the denominator on **both** sides of any period comparison; a moving denominator fakes a trend |
+| **M5** | Claim ageing | Days from rejection to refund received; unreceived shown as days open | ✅ Computable for the 672 dated cases, **BLOCKED for the 196 undated**. ⚠️ **Threshold corrected to 7 days** — see F2 |
 | **M6** | Unit price | Amount paid vs the observed mode for its band | ✅ **Computable, with its limitation stated**: anchored on the measured modes (1022.50 / 372.50), because no authorised price exists (F0). Accounting's 1073/403 default is cited as a **stale comparator**, not a tariff. Still **BLOCKED for the inside/outside split** until N3 lands |
 
 **Currency** AED, as paid, no VAT adjustment. **Rounding** 2 dp at row level, **never inside an
