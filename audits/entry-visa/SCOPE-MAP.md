@@ -343,3 +343,50 @@ At base + fine, the six carry ≈ **AED 55,550** of further embedded fine, +5.7%
 
 The AED 2.97m/yr from D3 is the **declared** figure and should not be presented as money out. The
 money-out number for overstay is **≈ AED 1m/yr**, arrived at down two paths.
+
+### 🔴 D8 — the tail is 23% of the money, and 40 cases are 39% of it
+
+| implied overstay | lines | embedded fine AED | % of fine |
+| --- | ---: | ---: | ---: |
+| 0 days | 8,506 | 0 | — |
+| 1–7 days | 704 | 110,671 | 11.41 |
+| 8–30 days | 345 | **262,399** | **27.05** |
+| 31–90 days | 94 | 220,960 | 22.78 |
+| 91–180 days | 25 | 153,450 | 15.82 |
+| **181+ days** | **15** | **222,600** | **22.95** |
+| unexplained | 7 | 0 | — |
+
+**My correction was the right one and the size is confirmed: 22.95%, not "<3%".** The 15 longest
+cases average ≈297 days of overstay each — nearly ten months. That is not a filing delay; it is a
+case that was abandoned or stuck.
+
+**The distribution is the finding.** The cost is not spread across the 1,183 affected maids:
+
+- **40 cases (91+ days) carry AED 376,050 — 38.8% of the total.**
+- **134 cases (31+ days) carry AED 597,010 — 61.5%.**
+- The 704 short cases (1–7 days), 60% of all fined lines, carry 11.4%.
+
+Forty cases a year is a caseload a human can review by name. This is not a diffuse process problem
+to be fixed with a policy; it is a small, nameable set of runaway cases nobody is watching.
+
+**Illustrative ceiling, clearly labelled as such:** had the 40 long cases been closed at day 30, the
+saving would be ≈ AED 316,000/yr (376,050 − 40 × 30 × 50). That assumes every long case was
+preventable, which it certainly is not — some will be absconded maids or disputes outside the
+company's control. It sizes the prize, not the recovery.
+
+**The tail's fate rests on the same independence question as everything else here.** If ~23% of the
+embedded total were a matcher artifact, `OVERSTAY_FEE` would have to be inflated by the same artifact
+to keep agreeing within 4.7%. Either the tail is real, or the two figures are one number written
+twice. **The code answer decides both at once.**
+
+### 🚧 BLOCKED — ask-the-code is unavailable in this container
+
+`.env` does not exist here (only `.env.example`), so `scripts/ask-code.sh` cannot authenticate. Three
+questions are waiting on it, and they gate the headline:
+
+1. What writes `OVERSTAY_FEE` vs `OVERSTAY_FINE`, and is the change-of-status `AMOUNT` computed as
+   `base + OVERSTAY_FEE`? — decides whether D5's agreement is corroboration or a tautology, and with
+   it whether the AED 970,081 has one source or two.
+2. What sets `FINES_PAID_TO_US`?
+3. Does **any** flow deduct an overstay fine from a maid, and who decides who bears it? — the half of
+   the chart's repayment question that Snowflake cannot answer.
