@@ -102,7 +102,13 @@ td.r{text-align:right}
 .v-cand{background:var(--amber-soft); color:var(--amber)}
 .v-void{background:var(--slate-soft); color:var(--slate); border:1px dashed var(--slate)}
 .v-block{background:var(--slate-soft); color:var(--slate); border:1px solid var(--slate)}
-.v-void::before,.v-block::before{border-radius:0}
+.v-na{background:transparent; color:var(--ink-3); border:1px solid var(--rule)}
+.v-void::before,.v-block::before,.v-na::before{border-radius:0}
+.v-na::before{background:var(--ink-3)}
+.meas{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.05em;
+      color:var(--seal); background:var(--seal-soft); padding:1px 5px; border-radius:2px; white-space:nowrap}
+.kpi.blocked{background:repeating-linear-gradient(135deg,var(--card),var(--card) 7px,var(--slate-soft) 7px,var(--slate-soft) 14px)}
+.kpi.blocked .v{color:var(--slate); font-size:20px}
 .fam{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3)}
 
 /* ---- control finding ---- */
@@ -123,9 +129,9 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
 
   <div class="mock">
     <span aria-hidden="true">▲</span>
-    <div><strong>Layout mockup — every figure below is an example, not a measurement.</strong>
-    This role holds <span class="num">SELECT</span> on the warehouse views but no warehouse grant, so no row has been read.
-    Real figures arrive when <span class="num">ENTRY-VISA-DISCOVERY.sql</span> is run. Request and person ids are synthetic.</div>
+    <div><strong>Coverage, volumes and family pools below are MEASURED (run 2026-09-13).</strong>
+    Individual exception rows are synthetic illustrations with invented ids — the per-case adjudication has not been run.
+    Measured cells are marked <span class="meas">✓</span>. Blocked measures are shown blocked, never as zero.</div>
   </div>
 
   <header>
@@ -145,24 +151,24 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
   <section>
     <div class="kpis">
       <div class="kpi lead">
-        <div class="k">Recoverable · M1</div>
-        <div class="v">AED 105,758</div>
-        <div class="s">Headline. Refundable portion still outstanding.</div>
-      </div>
-      <div class="kpi">
         <div class="k">Gross exposure · M2</div>
-        <div class="v">AED 164,299</div>
-        <div class="s">Full fee on every red row.</div>
+        <div class="v">AED 921,880</div>
+        <div class="s">Headline for v1. Charged on the 521 requests carrying 2+ paid charges and no refund. <span class="meas">✓ measured</span></div>
+      </div>
+      <div class="kpi blocked">
+        <div class="k">Recoverable · M1</div>
+        <div class="v">Blocked</div>
+        <div class="s">No expected-refundable reference exists in the system. Deriving one from our own refund mode is what M6 is blocked for.</div>
       </div>
       <div class="kpi">
-        <div class="k">Avoidable waste · M3</div>
-        <div class="v">AED 28,133</div>
-        <div class="s">Whole fee, where we caused it.</div>
+        <div class="k">Claims open &gt; 95 days</div>
+        <div class="v">145</div>
+        <div class="s">Avg 255 days, oldest 582 — against 3.8 days to complete. <span class="meas">✓ measured</span></div>
       </div>
       <div class="kpi">
-        <div class="k">Recovery rate · M4</div>
-        <div class="v">70.6%</div>
-        <div class="s">536 of 759 refunds due, both sides measured.</div>
+        <div class="k">Examined · coverage</div>
+        <div class="v">23.4%</div>
+        <div class="s">14,653 of 62,468 all-time charge lines. <span class="meas">✓ measured</span></div>
       </div>
     </div>
   </section>
@@ -170,35 +176,36 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
   <section class="cov">
     <div class="hrow"><h2>Coverage — what was examined, and what was not</h2>
       <span class="prov"><b>1,842</b> charge lines · <b>AED 1,731,400</b> total</span></div>
-    <div class="bar" role="img" aria-label="Coverage: 59 percent examined, 41 percent excluded across five named slices">
-      <span style="width:59.4%;background:var(--seal)"></span>
-      <span style="width:14.1%;background:var(--slate)"></span>
-      <span style="width:11.2%;background:var(--amber)"></span>
-      <span style="width:8.0%;background:var(--ink-3)"></span>
-      <span style="width:4.6%;background:var(--red)"></span>
-      <span style="width:2.7%;background:var(--rule)"></span>
+    <div class="bar" role="img" aria-label="Coverage: 23.4 percent of all-time entry-visa lines examined; the remainder priced by reason">
+      <span style="width:23.4%;background:var(--seal)"></span>
+      <span style="width:74.9%;background:var(--slate)"></span>
+      <span style="width:0.9%;background:var(--ink-3)"></span>
+      <span style="width:0.7%;background:var(--amber)"></span>
+      <span style="width:0.1%;background:var(--rule)"></span>
     </div>
     <div class="legend">
-      <div class="lg"><span class="sw" style="background:var(--seal)"></span><span class="t">Examined — every applicable test ran</span><span class="a">1,095 · AED 1,028,500</span></div>
-      <div class="lg"><span class="sw" style="background:var(--slate)"></span><span class="t">BLOCKED — awaiting N3 location ingest (M6 cannot run)</span><span class="a">260 · AED 243,900</span></div>
-      <div class="lg"><span class="sw" style="background:var(--amber)"></span><span class="t">BLOCKED — before the MISSING_EXPENSES floor of 2025-06-02</span><span class="a">206 · AED 193,900</span></div>
-      <div class="lg"><span class="sw" style="background:var(--ink-3)"></span><span class="t">Pakistani nationals — excluded by LOST_VISA_EXPENSES, priced here</span><span class="a">147 · AED 138,500</span></div>
-      <div class="lg"><span class="sw" style="background:var(--red)"></span><span class="t">VOID — amount outside the ±50,000 sanity guard</span><span class="a">85 · AED 79,600</span></div>
-      <div class="lg"><span class="sw" style="background:var(--rule)"></span><span class="t">Charges stranded at <span class="num">Pending</span> — neither paid nor cancelled</span><span class="a">49 · AED 47,000</span></div>
+      <div class="lg"><span class="sw" style="background:var(--seal)"></span><span class="t">Inside the 12-month window — examined</span><span class="a">14,653 · AED 12,321,981</span></div>
+      <div class="lg"><span class="sw" style="background:var(--slate)"></span><span class="t">Older than the window</span><span class="a">47,815 · AED 39,102,016</span></div>
+      <div class="lg"><span class="sw" style="background:var(--ink-3)"></span><span class="t">Office staff — F3 not applicable, no arrival source exists</span><span class="a">570 · AED 459,442</span></div>
+      <div class="lg"><span class="sw" style="background:var(--amber)"></span><span class="t">Pakistani cohort — excluded by <span class="num">LOST_VISA_EXPENSES</span>, priced from the ledger</span><span class="a">411 · AED 418,717</span></div>
+      <div class="lg"><span class="sw" style="background:var(--rule)"></span><span class="t">RPA-<span class="num">EXCLUDED</span> entry-visa steps — the system's own exclusion flag</span><span class="a">49 steps</span></div>
+      <div class="lg"><span class="sw" style="background:var(--green)"></span><span class="t"><strong>Void on amount: zero.</strong> The ~19.7tn outlier is outside this population</span><span class="a">0 · AED 0</span></div>
     </div>
     <p class="note"><strong>Green means every applicable test ran and passed — not “audited”.</strong>
-    A blocked test is not a pass, and a void one is not a clean. 40.6% of this period’s entry-visa
-    money has not been examined; it is priced above rather than left silent.</p>
+    A blocked test is not a pass, a void one is not a clean, and a test that never fired is
+    <em>not applicable</em>, not a pass. Two hard floors sit inside the window as well: rejection-keyed
+    families are <strong>blocked before 2025-09-05</strong>, because the revision history records no
+    entry-visa approval changes at all between 2019-04 and 2025-09; and F6 is blocked before 2026-06-10.</p>
   </section>
 
   <section>
-    <h2 style="margin-bottom:12px">Exceptions — one row per charge</h2>
+    <h2 style="margin-bottom:12px">Exceptions — one row per charge <span class="fam" style="text-transform:none;letter-spacing:0">· synthetic illustrations, showing all seven verdicts</span></h2>
     <div class="tw">
       <table>
         <thead>
           <tr>
             <th>Request</th><th>Population</th><th>Charge</th><th class="r">Amount</th>
-            <th>Family</th><th>Verdict</th><th class="r">Recoverable</th><th class="r">Days open</th><th>Owner action</th>
+            <th>Family</th><th>Verdict</th><th class="r">Gross · M2</th><th class="r">Days open</th><th>Owner action</th>
           </tr>
         </thead>
         <tbody>
@@ -209,9 +216,9 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
             <td class="n r">1,054.71</td>
             <td><span class="fam">F1 · never filed</span></td>
             <td><span class="v v-red">Red</span></td>
-            <td class="n r">739.50</td>
+            <td class="n r">1,054.71</td>
             <td class="n r">289</td>
-            <td>File the claim<span class="settle">Refund step closed, request stopped, no refund line on either channel</span></td>
+            <td>File the claim<span class="settle">Refund step closed, request stopped, no refund line on either leg. M1 blocked — no expected-refundable reference exists</span></td>
           </tr>
           <tr class="stripe s-red">
             <td><span class="id">#91412</span><br><span class="id">maid 110179</span></td>
@@ -220,7 +227,7 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
             <td class="n r">1,054.71</td>
             <td><span class="fam">F2 · claim vs ledger</span></td>
             <td><span class="v v-red">Red</span></td>
-            <td class="n r">739.50</td>
+            <td class="n r">1,054.71</td>
             <td class="n r">297</td>
             <td>Chase the stuck claim<span class="settle"><span class="num">refundedStatus</span> reads Refunded while the −739.50 line sits <span class="num">Pending</span></span></td>
           </tr>
@@ -242,9 +249,9 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
             <td class="n r">1,022.50</td>
             <td><span class="fam">F5 · two price points</span></td>
             <td><span class="v v-red">Red</span></td>
-            <td class="n r">283.00</td>
+            <td class="n r">1,022.50</td>
             <td class="n r">—</td>
-            <td>Recover the waste<span class="settle">Inside price paid, rejected, 739.50 refunded, outside price re-paid same day. Whole remainder is loss, not cost</span></td>
+            <td>Recover the waste<span class="settle">Inside price then outside price, 650 apart — over the AED 500 materiality. Causation ruling: the whole fee is the loss, not the 283 remainder</span></td>
           </tr>
           <tr class="stripe s-red">
             <td><span class="id">#115902</span><br><span class="id">staff 4471</span></td>
@@ -281,14 +288,25 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
           </tr>
           <tr class="stripe s-slate">
             <td><span class="id">#88210</span><br><span class="id">maid 107338</span></td>
-            <td>MV maid<br><span class="fam">unknown</span></td>
+            <td>MV maid<br><span class="fam">outside UAE</span></td>
             <td class="n">2025-09-19</td>
-            <td class="n r">1,073.00</td>
-            <td><span class="fam">M6 · unit price</span></td>
+            <td class="n r">1,022.50</td>
+            <td><span class="fam">F1 · rejection undated</span></td>
             <td><span class="v v-block">Blocked</span></td>
             <td class="n r">—</td>
             <td class="n r">—</td>
-            <td>Ingest N3<span class="settle">Location is computed, never stored — no reference price can be chosen for this charge</span></td>
+            <td>None available<span class="settle">One of the 196 requests that read Rejected on the live row with no history event. Refund-existence is testable; ordering and ageing are not. Never green</span></td>
+          </tr>
+          <tr class="stripe" style="border-left-color:var(--rule)">
+            <td><span class="id">#96540</span><br><span class="id">staff 4712</span></td>
+            <td>Office staff<br><span class="fam">inside UAE</span></td>
+            <td class="n">2026-03-02</td>
+            <td class="n r">1,022.50</td>
+            <td><span class="fam">F3 · expiry</span></td>
+            <td><span class="v v-na">Not applicable</span></td>
+            <td class="n r">—</td>
+            <td class="n r">—</td>
+            <td>None<span class="settle">Office staff have no row in the maid status log, so no arrival source exists. Excluded from numerator and denominator, and priced in coverage — not counted clean</span></td>
           </tr>
           <tr class="stripe s-slate">
             <td><span class="id">#94663</span><br><span class="id">maid 113901</span></td>
@@ -321,23 +339,25 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
     <h2 style="margin-bottom:12px">By finding family</h2>
     <div class="tw">
       <table style="min-width:700px">
-        <thead><tr><th>Family</th><th>What it catches</th><th class="r">Cases</th><th class="r">Recoverable</th><th class="r">Gross</th><th>State</th></tr></thead>
+        <thead><tr><th>Family</th><th>What it catches</th><th class="r">Pool</th><th class="r">AED</th><th>State</th></tr></thead>
         <tbody>
-          <tr><td class="id">F1</td><td>Rejected, refund never recovered — split never filed / stuck / withdrawn</td><td class="n r">223</td><td class="n r">105,758</td><td class="n r">164,299</td><td><span class="v v-red">Red</span></td></tr>
-          <tr><td class="id">F2</td><td>The claim says refunded, the ledger does not</td><td class="n r">14</td><td class="n r">7,103</td><td class="n r">14,766</td><td><span class="v v-red">Red</span></td></tr>
-          <tr><td class="id">F3</td><td>Paid, approved, expired unused — no rejection, no financial record</td><td class="n r">61</td><td class="n r">—</td><td class="n r">22,714</td><td><span class="v v-red">Red</span></td></tr>
-          <tr><td class="id">F4</td><td>Paid twice for one entry visa, bulk postings collapsed to one</td><td class="n r">9</td><td class="n r">4,003</td><td class="n r">4,003</td><td><span class="v v-red">Red</span></td></tr>
-          <tr><td class="id">F5</td><td>Two different price points across a rejection</td><td class="n r">50</td><td class="n r">—</td><td class="n r">24,131</td><td><span class="v v-red">Red</span></td></tr>
-          <tr><td class="id">F6</td><td>Step done, no payment booked — floor 2025-06-02</td><td class="n r">31</td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-cand">Candidate</span></td></tr>
-          <tr><td class="id">F7</td><td>Paid with no transaction and no reference; stranded <span class="num">Pending</span></td><td class="n r">49</td><td class="n r">—</td><td class="n r">47,000</td><td><span class="v v-cand">Candidate</span></td></tr>
-          <tr><td class="id">M6</td><td>Amount paid vs the 1073 / 403 accounting default</td><td class="n r">—</td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-block">Blocked</span></td></tr>
+          <tr><td class="id">F1</td><td>Rejected, refund never recovered. Population is the <strong>union</strong> of both rejection sources — 868 requests, of which 672 are dated and 196 are live-only <span class="meas">✓</span></td><td class="n r">868 reqs</td><td class="n r">—</td><td><span class="v v-red">Red</span> <span class="v v-block">Blocked</span> <span class="fam">196 undated</span></td></tr>
+          <tr><td class="id">F2</td><td>The claim says refunded, the ledger does not. Threshold 95 days — the slowest claim that ever completed <span class="meas">✓</span></td><td class="n r">145 open</td><td class="n r">—</td><td><span class="v v-block">Blocked</span> <span class="fam">needs refundedStatus</span></td></tr>
+          <tr><td class="id">F3</td><td>Paid, approved, expired unused. No rejection, and the expiry job writes no financial record at all</td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-void">Void</span> <span class="fam">date control not yet run</span></td></tr>
+          <tr><td class="id">F4</td><td>Paid twice for one entry visa — before the rejection and bulk-posting guards <span class="meas">✓</span></td><td class="n r">521 reqs</td><td class="n r">921,880</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F5</td><td>Two price points across a rejection. Material = &gt; AED 500, between the 32.21 intra-band spread and the ~650 gap <span class="meas">✓</span></td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-cand">Candidate</span></td></tr>
+          <tr><td class="id">F6</td><td>Step done, no payment booked. Detector floor 2026-06-10 <span class="meas">✓</span></td><td class="n r">8 cases</td><td class="n r">no claim</td><td><span class="v v-cand">Candidate</span></td></tr>
+          <tr><td class="id">F7</td><td>Charges stranded at <span class="num">Pending</span>. Every one has no transaction, so these are <strong>unposted lines, not unrecovered payments</strong> <span class="meas">✓</span></td><td class="n r">234</td><td class="n r">no claim</td><td><span class="v v-cand">Candidate</span></td></tr>
+          <tr><td class="id">F8</td><td>Spend attached to no request and no person — null request id and null owner id <span class="meas">✓</span></td><td class="n r">12 lines</td><td class="n r">7,516</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F9</td><td>Charges booked at exactly the two known refund values, 89.50 and 739.50, plus 75 charges at zero <span class="meas">✓</span></td><td class="n r">31 + 75</td><td class="n r">9,925</td><td><span class="v v-cand">Candidate</span></td></tr>
+          <tr><td class="id">M6</td><td>Amount paid vs the measured mode for its band (1022.50 / 372.50) <span class="meas">✓</span></td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-block">Blocked</span> <span class="fam">needs location</span></td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <section class="f0">
-    <div class="eyebrow" style="color:var(--red)">F0 · standing control finding · reported once per run</div>
+    <div class="eyebrow" style="color:var(--red)">F0 · control finding · carries NO verdict on any charge</div>
     <h3>The entry-visa fee has no authorised amount</h3>
     <p>The amount is typed by an agent and saved unconditionally — no price list, no cap, no approval
     routing. <code>ENTRY_VISA_COST_INSIDE_UAE = 900</code> and <code>ENTRY_VISA_COST_OUTSIDE_UAE = 400</code>
@@ -346,16 +366,24 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
     touching the amount is the July-2025 reclassification, which rewrites
     <code>ENTRY_VSIA</code> to <code>ENTRY_VISA_LESS_THAN_1000</code> at or below a threshold of 1000 —
     a relabel, not a control.</p>
-    <p>Every unit-price test downstream is therefore empirical rather than authoritative, anchored on
-    accounting’s <code>getDefaultEntryVisaExpenses()</code> fallback of 1073 / 403. That is a default,
-    not a tariff. <strong>This affects every charge in the population.</strong></p>
+    <p>Every unit-price test downstream is therefore empirical rather than authoritative. It anchors on
+    the <strong>measured modes — AED 1,022.50 and 372.50</strong>, which carry 89% and 88% of their
+    bands; accounting’s <code>getDefaultEntryVisaExpenses()</code> fallback of 1073 / 403 is cited only
+    as a stale comparator. <strong>This affects every charge in the population — which is exactly why it
+    carries no row verdict.</strong> A finding that reds every row would make green unreachable and turn
+    gross exposure into the entire ledger. It changes how M6 is read, and the colour of nothing.</p>
   </section>
 
   <footer>
-    Verdicts are six values: <strong>Green</strong> · <strong>Red</strong> · <strong>Candidate</strong> ·
-    <strong>Void</strong> · <strong>Blocked</strong> · Reported. One red outweighs any number of greens, and one blocked does too.<br>
-    Rejection is read only from <span class="num">INITIAL_VISA_REQUESTS_HISTORY</span> revisions, never from the live column — it is overwritten on re-application and loses exactly the re-applied cases.<br>
-    Export is at row grain: ids, counts and amounts only. No names, no contact details, no salaries.
+    Verdicts are seven values: <strong>Green</strong> · <strong>Red</strong> · <strong>Candidate</strong> ·
+    <strong>Not applicable</strong> · <strong>Void</strong> · <strong>Blocked</strong> · Reported.
+    One red outweighs any number of greens, and one blocked does too. <em>Not applicable</em> exists so that
+    “the test never fired” cannot collapse into “the charge passed”.<br>
+    Rejection is read from <strong>both</strong> sources and unioned: the revision history alone misses 196 of
+    868 rejected requests, the live column alone misses 360. Live-only cases are rejected but <em>undated</em>,
+    so every ordering and ageing test on them is blocked, not green.<br>
+    Export and drill-down carry ids, counts and amounts only. Staff names are blocklisted from every surface,
+    including <span class="num">DESCRIPTION</span>, which concatenates a passport number.
   </footer>
 
 </div>
