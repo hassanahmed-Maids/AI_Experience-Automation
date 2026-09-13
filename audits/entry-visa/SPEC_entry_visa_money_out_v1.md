@@ -872,10 +872,11 @@ this time it was already live in two published numbers. Bridged properly through
 
 Two findings, not one:
 
-1. **The new-request refund step works and is almost never reachable.** 12 of 13 pay out. But
-   `CheckEntryVisaImmigrationApprovalStep.onDone` routes there **only on rejection**, so a case
-   approved and then cancelled never passes that branch. The 5,722 are **structurally unreachable**,
-   not neglected. Remedy: route cancelled-after-approval cases to it. Testable prediction: ~92% pay.
+1. **The new-request refund step works, and it is reachable exactly where the government rule says a
+   refund exists.** 12 of 13 rejected cases pay out. `CheckEntryVisaImmigrationApprovalStep.onDone`
+   routes there **only on rejection** — and 🔴 **GDRFA's published entitlement is also scoped to
+   rejection.** My earlier reading of this as "a missing workflow branch" was wrong: the routing
+   most likely mirrors the rule correctly. See the validation section above.
 2. 🔴 **The cancel-side refund step was opened 12 times and produced zero refunds.** That is new, and
    it cuts against the easy story. Either the money genuinely is not claimable once a case has been
    approved and then cancelled, or — as the code permits — the step was closed without anyone
@@ -1069,31 +1070,79 @@ the charges it would have covered are priced in coverage. *A test that could not
 
 ## 5b. External corroboration, and adjacent work already in flight
 
-### What GDRFA publishes — it corroborates the shape, not the amount
+### Validated against published UAE government rules — two confirmations and two corrections
 
-Checked against public GDRFA material rather than assumed. Three things line up with what the data
-showed, and one important gap remains:
+Checked directly against GDRFA and UAE federal guidance rather than assumed. Three of the audit's
+structural claims are confirmed, **one of its interpretations is corrected, and one correction
+materially weakens the audit's largest number.**
 
-- ✅ **A refund on rejection is a real, named government service** — GDRFA operates a
-  *"Fees and Guarantee Refund Service"* covering rejected applications. So the money we are chasing
-  is genuinely claimable, not wishful.
-- ✅ **The split between refundable and non-refundable components is official policy.** GDRFA states
-  that *only* issuance fees, health-insurance fees and financial guarantees are refundable when the
-  main application is rejected. Application and e-service processing fees are not. **That is exactly
-  the shape our data shows: a flat, always-retained amount plus a fully-returned remainder** — and it
-  is why the retention is a fixed AED 283 rather than a percentage.
-- ✅ **The refund must be applied for.** It is a service with a channel, not an automatic reversal.
-  This sharpens F0b considerably: a claim nobody is assigned, that no alert chases, and that no
-  validation requires, is a claim against a government process that **only pays out if someone asks**.
-- ⚠️ **GDRFA does not publish a domestic-worker entry-permit fee breakdown**, and the public figures
-  that do exist (AED 370 standard employment permit, AED 1,000 refundable visit-visa deposit, AED 20
-  deposit service fee, AED 40 collection fee, AED 10 knowledge dirham) **do not reconcile to our
-  1,022.50 / 372.50 / 283.00**. Do not try to force them. **The empirically derived AED 283 remains
-  the best available figure**, now corroborated in kind if not in amount — and confirming the exact
-  breakdown is a question for the Visa team's typing centre, not for a public web page.
+#### ✅ CONFIRMED — the 60-day permit life, and why expiry is a real loss channel
 
-*Sources consulted: the GDRFA Fees and Guarantee Refund service page, the GDRFA entry-permits
-service directory, and the GDRFA FAQ.*
+*"The employment entry permit is valid for **60 days from the date of issue and cannot be
+extended**, hence the employee is required to enter the UAE within the validity period."* Entry
+permits *"automatically expire upon the lapse of their time"*, and if the holder does not enter,
+*"your visa expires unused and you'll need to apply again."*
+
+This is the government rule behind **F3**. The expiry family is not a data artefact or a process
+lapse — it is a hard 60-day clock we cannot extend, and a permit that outlives it is dead money by
+federal rule. It also validates the ERP's `CancelMaidAfter3DaysEvisaExpiredJob` as *operationally*
+correct even though it records nothing financial.
+
+#### 🔴 CORRECTED — the "60-day refund deadline" was never a refund deadline
+
+The prior check states *"we have 60 days to claim it back"* and times its verdicts off that. I found
+**no 60-day rule anywhere in the code** and concluded the deadline might be folklore. **Both readings
+were wrong in the same way.** The 60 days is real, published, and federal — but it is the **entry
+permit's own validity**, not a window for claiming a refund. Two different clocks were collapsed into
+one.
+
+**Consequences:** a *"refunded late"* verdict still has nothing to be late against (correct to drop
+it), but the 60 days belongs in the spec — as **F3's expiry clock**, where it is load-bearing.
+
+#### 🔴 CORRECTED, and this one costs the audit its biggest number
+
+GDRFA's refund service states the entitlement precisely:
+
+> *"Only the issuance fees, health insurance fees, and financial guarantees paid, as shown on the
+> payment receipt, can be refunded **if the main application is rejected**."*
+
+**The entitlement is scoped to rejection. Cancellation is a different service with its own
+non-refundable fee** (AED 50 plus knowledge and innovation dirhams; cancellation fees are explicitly
+*"not optional and not refundable"*). **No published rule entitles us to a refund on a permit that
+was approved and then cancelled.**
+
+That converges with three independent findings that all pointed the same way and which I read too
+optimistically:
+
+| Evidence | Reads as |
+| --- | --- |
+| `CheckEntryVisaImmigrationApprovalStep.onDone` routes to the refund step **only on rejection** | The ERP mirrors the government rule |
+| The cancel-side refund step was opened **12 times and produced 0 refunds** | People tried; the entitlement was not there |
+| Recovery on approved-then-cancelled is **17 of 5,747 — 0.30%** | Consistent with no entitlement, not with neglect |
+
+🔴 **I had F0c the wrong way round.** I called the routing *"a missing workflow branch"*, said the
+5,721 were *"structurally unreachable"* rather than neglected, and predicted that routing them to the
+refund step would yield *"~92% pay out"*. **On the published rule that prediction is probably false,
+and the routing is most likely correct.** The 92% belongs to *rejected* cases, which is the only
+population the refund service covers.
+
+**So F10's AED 3,454,994 must be presented as a COST LINE, not as recoverable leakage** — the price
+of cancelling after approval — until the Visa team confirms otherwise with GDRFA. It remains worth
+reporting (it is large, and worth managing down by cancelling *earlier*, before approval), but it is
+**not money sitting there for the asking**, and the audit must not claim it is.
+
+#### ⚠️ NOT RECONCILED — the amounts
+
+Published figures do not tie to ours and should not be forced to: entry permit **AED 500–700** online
+vs service centre; MOHRE security deposit **AED 2,000** at contract registration; cancellation
+**AED 161 inside / AED 261 outside**; change of employer **AED 535** in Dubai. Ours are 1,022.50 /
+372.50 with a flat **283.00** retention. The likeliest reason is channel: we pay through **Tadbeer**
+(our own payment bucket is literally *"Noqodi - Tadbeer counters"*), whose domestic-worker schedule
+is not published as a line-item breakdown. **The empirical 283 stands — proven on 1,148 refunds — and
+the published numbers are context, not a reconciliation target.**
+
+*Sources: the UAE Government Portal entry-permit page, GDRFA's entry-permit and refund service pages,
+and MOHRE's domestic-worker guidance.*
 
 ### Adjacent Jira work — searched before the handoff, not after
 
