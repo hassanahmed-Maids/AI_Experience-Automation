@@ -1066,7 +1066,7 @@ the DNA handoff requires, and it is a deliberate search result rather than an ab
 | N4 — `refundedStatus` | **F2 BLOCKED entirely** | ERP ingestion |
 | N2 — threshold value history | **G1 not closeable**; the 2026-06-15 reverse case is evidence it has changed | ERP Setup parameter history |
 | Per-attempt issuance/expiry | **F3 BLOCKED** where the history cannot resolve them | Query work on `INITIAL_VISA_REQUESTS_HISTORY`; no new source needed |
-| NewRequest ↔ CancelRequest link | F1's cancel-leg match has **no defined key** | Ask the code which column links them (`CancelRequestController.addExpense`). Until then, match by owner + date window and **publish the match rate with a floor** |
+| ~~NewRequest ↔ CancelRequest link~~ | ✅ **CLOSED.** The key is **`CANCEL_VISA_REQUESTS.NEW_REQUEST_ID`**, a stored FK from the cancellation back to the initial request (range 1–119,455) | — |
 | G4 date-population control | **F3 VOID.** Q6 ran against the wrong denominator; the control has not been passed | `Q6c` — one query |
 | Refund-recording floor 2024-02-06 | Refund-recovery tests **BLOCKED** before it | Nothing recoverable — state it |
 | — | *(closed)* F4's primary test is measured and its guard confirmed | — |
@@ -1074,6 +1074,14 @@ the DNA handoff requires, and it is a deliberate search result rather than an ab
 | History blackout 2019-04 → 2025-09 | Rejection-keyed families **BLOCKED**, not clean, in that range | Nothing recoverable — state it |
 
 **Nothing above may be defaulted quietly. A BLOCKED test is not a pass.**
+
+🔴 **The cross-leg join must go through `NEW_REQUEST_ID`, never a bare id.**
+`CANCEL_VISA_REQUESTS_TASKS.VISA_REQUEST_ID` and `VISAREQUESTEXPENSES.VISA_REQUEST_ID` on a
+`CancelRequest` row both hold a **cancel-request** id (`mmdb.cancelrequests.ID`, 2,161–94,464), and
+that range **overlaps** the new-request range. Joining either straight to an initial request matches
+silently and wrongly. My own first draft of `V4b` did exactly that, and it was caught only by reading
+the column metadata before running it. **Every cancel-leg lookup in F1 and F10 bridges through
+`CANCEL_VISA_REQUESTS.NEW_REQUEST_ID`.**
 
 ⚠️ **Two joins must carry `REQUEST_TYPE`.** `VISA_REQUEST_ID` is drawn from `newrequestexpenses`,
 `renewrequestexpenses` **or** `cancelrequestexpenses` depending on the leg, so the id namespace is
