@@ -1001,3 +1001,57 @@ FROM ch JOIN v_all v ON v.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
 LEFT JOIN rf ON rf.request_id = ch.VISA_REQUEST_ID
 WHERE v.visits >= 1 AND ch.charges_added > v.visits AND rf.request_id IS NULL
 ORDER BY visit_definition;
+
+
+-- =====================================================================
+-- W-SERIES · Derive the entry-visa workflow from the DATA.
+-- The code says what CAN happen. These say what DOES, and how often. Written
+-- after F4's rule broke on a legitimate path nobody had mapped -- the third time
+-- this audit over-counted because the ERP had more routes than the obvious one.
+-- =====================================================================
+
+-- W1 · The observed step graph. Pairs each entry-visa step visit with whatever
+--      step the request entered next, so the real transitions and their volumes
+--      fall out without trusting any assumption about the workflow's shape.
+WITH steps AS (
+  SELECT VISA_REQUEST_ID, TASK_NAME, STARTED_AT, STEP_STATUS,
+         LEAD(TASK_NAME)  OVER (PARTITION BY VISA_REQUEST_ID ORDER BY STARTED_AT) AS next_task,
+         LEAD(STARTED_AT) OVER (PARTITION BY VISA_REQUEST_ID ORDER BY STARTED_AT) AS next_at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+)
+SELECT TASK_NAME AS from_step, COALESCE(next_task,'⟨end / still open⟩') AS to_step,
+       COUNT(*) AS transitions,
+       COUNT(DISTINCT VISA_REQUEST_ID) AS requests,
+       ROUND(MEDIAN(DATEDIFF('day', STARTED_AT, next_at)),1) AS median_days
+FROM steps
+WHERE TASK_NAME ILIKE '%entry%visa%'
+GROUP BY 1,2 HAVING COUNT(*) >= 20
+ORDER BY from_step, transitions DESC;
+
+-- W2 · WHICH STEPS ARE PAYMENT POINTS -- the question F4's rule actually turns on.
+--      For every step, how often is an entry-visa charge booked while that step is
+--      the most recent one entered. A step that regularly carries a charge is a
+--      payment opportunity and MUST count as a "visit" in F4; a step that never
+--      does must not. This replaces the guesswork that produced the 35% over-count.
+WITH steps AS (
+  SELECT VISA_REQUEST_ID, TASK_NAME, STARTED_AT,
+         LEAD(STARTED_AT) OVER (PARTITION BY VISA_REQUEST_ID ORDER BY STARTED_AT) AS next_at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+), ch AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE, CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added' AND VISA_REQUEST_ID IS NOT NULL
+)
+SELECT s.TASK_NAME AS step,
+       COUNT(*)                                   AS step_visits,
+       COUNT(ch.CREATION_DATE)                    AS charges_booked_during_step,
+       ROUND(100.0*COUNT(ch.CREATION_DATE)/NULLIF(COUNT(*),0),1) AS pct_visits_with_a_charge,
+       ROUND(SUM(ch.amount_aed))                  AS aed_booked
+FROM steps s
+LEFT JOIN ch ON ch.VISA_REQUEST_ID = s.VISA_REQUEST_ID
+            AND ch.CREATION_DATE >= s.STARTED_AT
+            AND (s.next_at IS NULL OR ch.CREATION_DATE < s.next_at)
+GROUP BY 1
+HAVING COUNT(*) >= 50
+ORDER BY charges_booked_during_step DESC;
