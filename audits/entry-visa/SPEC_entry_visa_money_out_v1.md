@@ -942,7 +942,16 @@ current request row, so on a re-applied request it reads permit #2's dates. The 
 **reconciliation target, not a verified count** — F3 must re-derive expiry per attempt (G5) before
 any of this is published.
 
-### F0c — Cancellation after approval has no route to a refund *(V4b, corrected)*
+### F0c — Cancellation after approval has no route to a refund *(V4b, corrected)* — ⚠️ SUPERSEDED by F12
+
+> 🔴 **SUPERSEDED 2026-09-13 by the B-series.** The conclusion below — that cancellation has no route
+> to a refund, and that the AED 3.45m is therefore cost rather than recoverable — is **refuted by
+> direct evidence**. The cancellation workflow has a first-class `Refund Entry Visa Application`
+> step, and refunds are *observed* on the cancel leg in volume. The reasoning below rested on a
+> 12-case sample; F12 measures the same question on 3,195 cases and reverses it. **Read F12 instead.**
+> This section is kept because the correction it contains (the 26 → 17 join fix) still stands, and
+> because the record of how the wrong conclusion was reached is part of the audit.
+
 
 🔴 **First, a correction to my own earlier figures.** R3 and V4 both reported **26** recovered cases.
 Both used a refund CTE with no `REQUEST_TYPE` filter, joining a **cancel-request id** to a
@@ -978,6 +987,65 @@ nothing back.** Twelve is a small sample and the step can be closed without acti
 longer evidence that AED 3.45m is sitting there for the asking. **Question 3 to the Visa team becomes
 the highest-value question in the audit**, and F10's exposure must be presented as *unadjudicated*,
 not as recoverable.
+
+### F12 — Refundable cancellations that were never claimed *(B7/B8 — supersedes F0c)*
+
+🔴 **The largest actionable finding in this audit, and it points the opposite way from F0c.**
+
+**The rule.** When a visa request that paid for an entry visa is cancelled *before the entry visa is
+consumed*, the company can reclaim the fee less the flat **AED 283.00** government retention. This is
+not inferred from policy — it is inferred from behaviour: **657 such claims were successfully made**
+in this exact population.
+
+**The measure.**
+
+| | value |
+| --- | --- |
+| Population | cancel requests whose linked new request paid an entry visa, unconsumed, from 2024-10-19 |
+| Claimed | **657** (216 via the workflow step, 441 without it) |
+| **Not claimed** | **2,538 cancellations · 1,644 maids** |
+| **Recoverable** | **AED 974,448** (charged 1,692,508 − 283.00 × n) |
+| Claim rate | **20.6% by count, 23.9% by value** |
+| Run rate | ≈ **AED 513,000 / year**, ongoing |
+
+**Verdict per cancellation:** RED where the entry visa was paid, the request was cancelled, the visa
+was never consumed, the cancellation is dated on or after 2024-10-19, and no
+`REFUND_FOR_ENTRY_VISA` expense exists on either leg. GREEN where such an expense exists.
+NOT_APPLICABLE where the visa was consumed. BLOCKED before 2024-10-19.
+
+#### The two guards that make this number honest — both load-bearing
+
+**G7 · Consumed visas are NOT_APPLICABLE, never RED.** A maid who reached a residence visa used the
+entry visa; nothing is owed. That branch holds **33,133 cancellations and AED 18.4m** of nominal
+"recoverable" and is ordinary end-of-contract business. Without this guard the finding reads
+**~AED 20m** — wrong by twentyfold. Any future version of this check that drops the guard is invalid
+on its face.
+
+**G8 · Cancellations before 2024-10-19 are BLOCKED, never RED.** The claim route did not exist, and
+GDRFA will not entertain a claim from 2018. That branch is **5,208 cancellations, AED 1,502,701** —
+a genuine historical exposure, reportable as **sunk**, never as an opportunity.
+
+#### What replaces the disputed AED 3.45m
+
+| bucket | AED | status |
+| --- | ---: | --- |
+| Never consumed, route available, unclaimed | **974,448** | **RECOVERABLE** |
+| Never consumed, before the route existed | 1,502,701 | historical loss |
+| Consumed, either period | 18,425,782 | correctly cost |
+
+**F0c's AED 3.45m is restated, not flipped.** It separated neither consumed from unconsumed nor
+before from after, and each split moves the answer by an order of magnitude.
+
+#### ⚠️ Open items before this is filed
+
+1. **179 refunds were booked on visas recorded as CONSUMED** (172 without the step, 7 with). Either
+   `RVISA_ISSUANCE_DATE` is not a reliable consumption marker — which would weaken G7, the guard the
+   whole figure rests on — or refunds are being claimed without entitlement. **This is the one cell
+   that could embarrass the finding and it must be hand-sampled first** (`B9`).
+2. **Do not key this check on the workflow task.** 441 refunds were booked *without* the step against
+   216 with it, so a task-keyed measure undercounts by roughly two thirds. Key on the **expense**.
+3. **Unclaimed cases skew to the cheaper visa** — average charge AED 667, close to the 372.50
+   inside-country band rather than 1,022.50. Worth carrying into the check as a segment.
 
 ### V5 — the coverage floor, priced
 

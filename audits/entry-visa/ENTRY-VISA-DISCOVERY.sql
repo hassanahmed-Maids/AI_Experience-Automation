@@ -2052,3 +2052,60 @@ LEFT JOIN refund_task    rt ON rt.cancel_request_id = c.cancel_request_id
 LEFT JOIN refund_exp     re ON re.cancel_request_id = c.cancel_request_id
 LEFT JOIN refund_exp_new rn ON rn.new_request_id    = c.NEW_REQUEST_ID
 GROUP BY 1,2,3 ORDER BY period, consumed, outcome;
+
+
+-- B9 · THE ONE CELL THAT COULD EMBARRASS F12. B8 found 179 refunds booked on
+--      visas the data records as CONSUMED (reached a residence visa) -- 172 with no
+--      workflow step, 7 with. G7, the guard the whole AED 974,448 rests on, says a
+--      consumed visa is NOT_APPLICABLE because there is nothing left to refund.
+--      These 179 contradict that. Two readings, opposite consequences:
+--        * RVISA_ISSUANCE_DATE is not a reliable consumption marker -- perhaps the
+--          maid reached a residence visa on a LATER journey, and this request's
+--          entry visa really was unused. Then G7 is under-inclusive, it is
+--          wrongly parking cases as NOT_APPLICABLE, and F12 is UNDERSTATED.
+--        * The visa really was consumed and a refund was claimed anyway. Then it is
+--          a separate finding -- refunds claimed without entitlement -- and G7 holds.
+--      Shape the evidence so a human can adjudicate a sample by eye. Aggregate
+--      only; no names, no identifying ids.
+WITH req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id, RVISA_ISSUANCE_DATE, ENTRY_VISA_ISSUANCE_DATE,
+         ENTRY_VISA_EXPIRY_DATE, CREATION_DATE AS request_created_at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), cvr AS (
+  SELECT REQUEST_ID AS cancel_request_id, NEW_REQUEST_ID, CREATION_DATE AS cancel_created_at
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS
+  WHERE NEW_REQUEST_ID IS NOT NULL
+), refunds AS (
+  SELECT VISA_REQUEST_ID, REQUEST_TYPE, MIN(CREATION_DATE) AS refunded_at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added'
+  GROUP BY 1,2
+), hit AS (
+  SELECT c.cancel_request_id, c.NEW_REQUEST_ID, c.cancel_created_at,
+         r.maid_id, r.RVISA_ISSUANCE_DATE, r.ENTRY_VISA_ISSUANCE_DATE, r.request_created_at,
+         COALESCE(rn.refunded_at, rc.refunded_at) AS refunded_at,
+         -- does this maid hold MORE THAN ONE visa request? If so the residence visa
+         -- may belong to a different journey and this one's entry visa was unused.
+         COUNT(*) OVER (PARTITION BY r.maid_id) AS maid_request_rows
+  FROM cvr c
+  JOIN req r ON r.REQUEST_ID = c.NEW_REQUEST_ID
+  LEFT JOIN refunds rn ON rn.VISA_REQUEST_ID = c.NEW_REQUEST_ID   AND rn.REQUEST_TYPE='NewRequest'
+  LEFT JOIN refunds rc ON rc.VISA_REQUEST_ID = c.cancel_request_id AND rc.REQUEST_TYPE='CancelRequest'
+  WHERE r.RVISA_ISSUANCE_DATE IS NOT NULL
+    AND c.cancel_created_at >= '2024-10-19'
+    AND COALESCE(rn.refunded_at, rc.refunded_at) IS NOT NULL
+)
+SELECT CASE WHEN RVISA_ISSUANCE_DATE > refunded_at
+                 THEN 'a · residence visa issued AFTER the refund — refund was of an unused visa'
+            WHEN maid_request_rows > 1
+                 THEN 'b · maid holds several requests — the RVISA may be a different journey'
+            WHEN RVISA_ISSUANCE_DATE < ENTRY_VISA_ISSUANCE_DATE
+                 THEN 'c · residence visa predates the entry visa — marker is unreliable'
+            ELSE 'd · visa genuinely consumed, refund claimed anyway — NO ENTITLEMENT' END AS reading,
+       COUNT(*)                                                      AS refunds,
+       COUNT(DISTINCT maid_id)                                       AS maids,
+       ROUND(MEDIAN(DATEDIFF('day', RVISA_ISSUANCE_DATE, refunded_at)),1) AS median_days_rvisa_to_refund,
+       ROUND(MEDIAN(DATEDIFF('day', request_created_at, cancel_created_at)),1) AS median_days_request_to_cancel,
+       MIN(refunded_at)::DATE AS earliest, MAX(refunded_at)::DATE AS latest
+FROM hit GROUP BY 1 ORDER BY refunds DESC;
