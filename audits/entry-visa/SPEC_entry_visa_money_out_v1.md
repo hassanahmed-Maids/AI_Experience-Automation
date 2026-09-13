@@ -309,294 +309,389 @@ to the Data Catalog on approval.
 
 ## 3. Finding Families and Metric Calculations
 
-### The verdict model
+### The verdict model — seven values
 
-Six values, not two. **A charge is GREEN only when every applicable test ran and passed.**
-One red outweighs any number of greens; **one blocked test does too**.
+**A charge is GREEN only when every applicable test ran and passed.** One RED outweighs any number
+of GREENs; **one BLOCKED does too**. Verdicts are assigned **per test**, then rolled to the charge by
+severity (G3) — a charge is never given a verdict a test did not produce.
 
-| Verdict | Meaning |
-| --- | --- |
-| **GREEN** | Every applicable test ran and passed: the fee was used, recovered, or explained |
-| **RED** | A finding — money out, not recovered, not explained |
-| **CANDIDATE** | Looks red, but one named fact would settle it. The row states which fact |
-| **VOID** | The test could not be trusted — a positive control failed, or a source column is unpopulated |
-| **BLOCKED** | A required input is unavailable (N1–N5 not ingested). **Not green** |
-| **REPORTED** | Already raised and owned; excluded from new-finding totals, kept in coverage |
+| Verdict | Meaning | Counts as clean? |
+| --- | --- | --- |
+| **GREEN** | The test ran on this charge and passed | Yes |
+| **RED** | A finding — money out, not recovered, not explained | No |
+| **CANDIDATE** | Looks red, but one named fact would settle it. The row states which | No |
+| **NOT_APPLICABLE** | The test's precondition is absent, so there is nothing to test — e.g. an expiry test on a charge that was never approved | Neutral: excluded from both numerator and denominator, and **reported with its count** |
+| **VOID** | The test could not be trusted — a positive control failed, or a source column is unpopulated | **No** |
+| **BLOCKED** | A required input is unavailable (N1–N5 not ingested, or no date to measure from) | **No** |
+| **REPORTED** | Already raised and owned; excluded from new-finding totals, kept in coverage | Neutral |
+
+🔴 **NOT_APPLICABLE exists because without it "the test did not fire" collapses into "the charge
+passed".** Every family below therefore states all four outcomes, not just its RED condition.
 
 ---
 
 ### G — Guards that run before any family
 
-- **G1 · Threshold dating guard.** The reclassification shipped in **July 2025** (VPM-8872/8874).
-  So: before July 2025 the purpose was whatever the agent typed and `ENTRY_VISA_LESS_THAN_1000`
-  should barely exist; from July 2025 the purpose is a pure function of the amount. A charge whose
-  `PURPOSE` disagrees with its own `AMOUNT` band is therefore a **dating artefact**, not a business
-  anomaly — report it as a data note and **never** as a finding. The July-2025 boundary is itself a
-  testable assertion (Q1b): if pre-July-2025 rows carry `ENTRY_VISA_LESS_THAN_1000` in quantity, the
-  reclassification was backfilled and this guard needs re-cutting. Without N2 (the threshold's value
-  history) charges are **BLOCKED**, not GREEN, wherever the band is ambiguous.
-- **G2 · Amount sanity.** `AMOUNT BETWEEN -50000 AND 50000`. Anything outside is VOID with its own
-  count and total shown, never silently dropped. ✅ Measured: **no entry-visa line falls outside**,
-  so this guard currently voids nothing — keep it as a tripwire, and report the bucket as empty
-  rather than omitting it.
 - **G0 · No predicate without a `GROUP BY` behind it.** Every equality filter on a status, flag or
   enum column must be justified by a distribution query showing the value exists, and that query
-  belongs in the battery. A filter's job is to exclude; a filter that excludes everything returns a
-  clean-looking empty result. Learned the expensive way — see `IS_DELETED` in §2.1.
-- **G3 · One verdict per charge.** Pair-grain families (F4, F5) are collapsed to charge grain by
-  severity rank **before** any sum. Overlapping families otherwise double-count.
-- **G4 · Positive control on the expiry family.** Before reporting any count of expired-unused
-  permits, confirm `ENTRY_VISA_ISSUANCE_DATE` and `ENTRY_VISA_EXPIRY_DATE` are populated at a
-  plausible rate (Q6). If they are not, **F3 is VOID, not zero.**
-- **G5 · Point-in-time — CORRECTED 2026-09-13 by measurement. Read BOTH sources, union them.**
-  v1 said "read only from the history, never the live column". **That rule is measurably wrong and
-  would have dropped 22.6% of rejected requests.** Measured on 2026-09-13:
-
-  | | requests |
-  |---|---|
-  | Ever `Rejected` in the history (dated change events) | **672** |
-  | Reads `Rejected` on the live row today | **508** |
-  | In both | 312 |
-  | History only — **lost by a point read** (overwritten on re-application) | **360** |
-  | Live only — **history false negatives** | **196** |
-  | **Union — the true ever-rejected population** | **868** |
-
-  Neither source alone is sufficient: the live column misses **41.5%** of the union, the history
-  misses **22.6%**. So the population is the **union**, and each member carries its provenance,
-  because provenance decides which tests can run:
-
-  | Class | n | Tests available |
-  |---|---|---|
-  | Dated rejection in history | 672 | All. Ordering tests (refund at/after rejection, bounded by next charge) can run |
-  | Live-only, **rejected but UNDATED** | 196 | Refund-existence only. **Every ordering and ageing test is BLOCKED, not GREEN** — there is no date to measure from |
-
-  A charge with no rejection in either source, but an `Added` refund between two charges, is still
-  treated as *rejected, undated* rather than *never rejected*.
-
-- **G5b · The history has a 6½-year blackout, and it is a hard floor.** Measured: entry-visa
-  approval change events exist **only** in 2018-06-13 → 2019-04-02 (legacy numeric codes) and
-  **2025-09-05 → present** (text statuses). Between 2019-04-02 and 2025-09-05 the field records
-  **no change events at all**. Therefore **every rejection-keyed test before 2025-09-05 is BLOCKED,
-  never clean** — an absence of rejections in that gap is an absence of *recording*, not of
-  rejections. This exactly explains, and independently confirms, the 2025-09-05 floor the prior
-  check discovered empirically without being able to say why.
-
-- **G5c · The legacy codes are out of scope for a rolling window, not out of scope in principle.**
-  `0` (235 requests) and `1` (2,503) appear only in the 2018–19 era, so they fall outside a 12-month
-  window and the strict `'Rejected'` literal is correct **for this audit's period**. Their meaning is
-  `UNVERIFIED` — the 10.7:1 ratio of `1` to `0` resembles the text era's 19.5:1 Approved-to-Rejected,
-  suggesting `1`=approved / `0`=rejected, but nothing confirms it. **Any backfill past 2025-09-05
-  must resolve this with the code before running.**
-
-- **G5d · The profiled enum was short by one.** `SHOW COLUMNS` listed nine values; the data holds
-  **ten** — `E_Visa_Need_Inside_Payment` (1 row, 2025-11-11) appears in no metadata. A singleton the
-  profiler missed. This is the second independent failure of this view's own metadata (after
-  `IS_DELETED` and the `_MODIFIED` type), and the reason G0 exists.
+  belongs in the battery (`QG`). A filter's job is to exclude; a filter that excludes everything
+  returns a clean-looking empty result. **Earned three times over on this one view:** `IS_DELETED`
+  did not hold the documented value, `_MODIFIED` did not hold the documented type, and the rejection
+  enum held a tenth value no metadata listed.
+- **G1 · Threshold dating guard.** ✅ **Measured and confirmed.** The reclassification shipped
+  **July 2025** and was **not backfilled**: `ENTRY_VISA_LESS_THAN_1000` has **zero** rows before
+  2025-07-07. Pre-boundary, **15,254 charges (AED 5,951,645)** carry `ENTRY_VSIA` at ≤1000 purely
+  because the rule did not yet exist — a **dating artefact, reported as a data note, never a
+  finding**. Post-boundary the rule holds at 99.7%; the **40 exceptions (AED 18,937)** are
+  CANDIDATE, not RED, with a named hypothesis: the reclassification runs **on save**, so an amount
+  edited downward afterwards keeps its original purpose. The single reverse case (AED 1,022.50 under
+  the sub-threshold code, 2026-06-15) is evidence the **threshold parameter has changed at least
+  once** since July 2025 — which is exactly why N2 (its value history) is required before this guard
+  can be called closed.
+- **G2 · Amount sanity.** `AMOUNT` is **FLOAT**; cast to `NUMBER(18,2)` before grouping, banding or
+  summing. Range `-50,000 … 50,000`; anything outside is **VOID** with its own count and total.
+  ✅ **Measured: no entry-visa line falls outside**, and none is NULL. The bucket is empty — report
+  it as zero, do not omit it, and keep the guard as a tripwire.
+- **G3 · One verdict per charge, by this severity order.** Pair-grain families collapse to charge
+  grain **before** any sum. The order is fixed, highest first, and is "whole fee lost" before
+  "part of fee lost" before "no money at stake":
+  **F4 → F3(avoidable) → F5 → F1 → F2 → F3(unavoidable) → F6 → F7.**
+  A charge carrying both an F4 and an F1 verdict counts once, at F4, and its amount enters M3 not M1.
+- **G4 · Positive controls.** Two, and both must pass before F3 reports a number.
+  - *Arrival source* — ✅ **PASSED**: `HOUSEMAID_STATUS_LOGS` carries `LANDED_IN_DUBAI` 43,505 ·
+    `VISA_UNSUCCESSFUL` 52,266 · `NO_SHOW` 76,933, all current to 2026-09-13.
+  - *Date population* — **NOT YET RUN** (Q6). Threshold, stated so it is not a judgement call:
+    F3 runs only if **≥50%** of in-window requests carry `ENTRY_VISA_ISSUANCE_DATE` **and ≥50%**
+    carry `ENTRY_VISA_EXPIRY_DATE`. Below either, **F3 is VOID, not zero.**
+- **G5 · Point-in-time — read BOTH rejection sources and union them.** *(Corrected by measurement;
+  the table, the 868-request union and the provenance split are in §2.1's D6 note and the guard
+  block that follows it.)*
+- **G6 · Window vs scan window.** The 12-month window is a **reporting** window. F4 and F5 compare
+  *pairs of charges*, so a pair straddling the boundary would otherwise never be compared and both
+  charges would go GREEN. Those two families therefore **scan the full charge history of any request
+  that has a charge inside the window**, and report the pair against the later charge's period.
 
 ---
 
-### F0 — No authorised amount exists *(control finding, reported once, not per row)*
+### F0 — No authorised amount exists *(control finding — NO record-grain verdict)*
 
-- **Statement.** The entry-visa government fee is free-typed by an agent with **no price list, no
-  validation, no cap and no approval routing**. The two constants that look like a price (900/400)
-  are dead code with zero callers; the auto-costing service that once used them was commented out in
-  2018. The only live reference is an accounting *fallback default* of 1073/403.
-- **Why it leads.** Every downstream unit-price test is empirical rather than authoritative because
-  of this. It is a standing control weakness and belongs in the report header, not in a footnote.
-- **Verdict.** RED, reported once per run with the count and value of charges it affects (i.e. all).
+- **Statement.** The entry-visa fee is typed by an agent and saved unconditionally — no price list,
+  no cap, no approval routing. `ENTRY_VISA_COST_INSIDE_UAE = 900` / `_OUTSIDE_UAE = 400` are dead
+  code (`getEntryVisaCost()` has zero callers, `@JsonIgnore`); the auto-costing service that used
+  them was commented out in 2018. The only live reference is accounting's
+  `getDefaultEntryVisaExpenses()` fallback of 1073/403 — ✅ and **the measured modes are 1022.50 and
+  372.50**, so even that fallback is stale by ~50 and ~30 AED.
+- 🔴 **F0 carries no verdict on any charge.** v1 typed it RED against every charge, which under the
+  spec's own algebra ("one RED outweighs any number of GREENs") made GREEN unreachable, turned M2
+  into the entire ledger, and contradicted its own clean examples. It is a statement about the
+  **system**, not a test at charge grain.
+- **Where it appears.** A `control_findings` block in the report header, with the count and value of
+  charges it affects. It changes the **interpretation of M6** — it is why M6 is empirical rather than
+  authoritative — and the colour of nothing.
+
+---
 
 ### F1 — Rejected, refund never recovered
 
-- **Population.** Charges (`STATUS = 'Added'`, payment evidence present) on requests with a dated
-  `Rejected` revision (D6) at or after the charge, bounded by the next charge on the same request.
-- **Test.** No `REFUND_FOR_ENTRY_VISA` line matched to that charge — **searched on both the new
-  request and any linked cancel request**.
-- **Split by owner, because the action differs.** *Never filed* (no refund line, refund step closed
-  or request closed) · *Filed and stuck* (refund line exists at `Pending`) · *Filed and withdrawn*
-  (refund line `Dismissed`).
-- **M1 recoverable** = expected refundable amount − refund actually received.
-- **M2 gross** = full charge amount.
-- **Headline is M1; M2 shown beside it as gross exposure.**
-- 🔴 **`refundedStatus` never clears this row.** It is a typed claim. Where it reads `Refunded` and
-  no refund line exists, or the line sits `Pending`, that is a **contradiction to report** (F2),
-  not a clearance.
+| Outcome | Condition |
+| --- | --- |
+| **RED** | Charge `Added` with payment evidence, on a request in the G5 rejection union, and no `REFUND_FOR_ENTRY_VISA` line matched to it **on either the new or the cancel leg** |
+| **GREEN** | A matched refund line exists at `Added` |
+| **CANDIDATE** | The refund line exists but sits at `Pending` or `Dismissed`; or the charge/refund match is ambiguous (>1 candidate) |
+| **NOT_APPLICABLE** | The request is not in the rejection union — nothing was rejected, so no refund was ever due |
+| **BLOCKED** | Rejection known only from the live column (**196 requests**, undated): refund-existence can be tested, **ordering and ageing cannot**. Also every charge before **2025-09-05**, per G5b |
+
+- **Split by owner, because the action differs.** *Never filed* (no refund line) · *Filed and stuck*
+  (line at `Pending`) · *Filed and withdrawn* (line `Dismissed`).
+- ✅ **The cancel leg is material: 160 of 788 refunds (20%) sit on it.** Matching within one
+  `VISA_REQUEST_ID` under-counts recoveries by a fifth.
+- 🔴 **`refundedStatus` never clears a row.** It is a user-typed form field. Where it says
+  *Refunded* and the ledger disagrees, that is **F2**, not a clearance.
 
 ### F2 — The claim says refunded, the ledger does not
 
-- **Test.** `refundedStatus = true` (N4) while no matching `Added` refund line exists, or the line
-  is `Pending` beyond the ageing threshold (M5).
-- **Why it is separate.** It is a different failure — a control that reads clean while money is
-  outstanding — and a different fix. Without N4 this family is **BLOCKED**, never GREEN.
+| Outcome | Condition |
+| --- | --- |
+| **RED** | `refundedStatus = true` (N4) and no matched `Added` refund; **or** a refund line open longer than the ageing threshold |
+| **CANDIDATE** | Refund line at `Pending` within the threshold |
+| **NOT_APPLICABLE** | `refundedStatus` is false or unset and no refund line exists — F1's territory, not F2's |
+| **BLOCKED** | N4 not ingested. **Currently the whole family**, since `refundedStatus` is not in the warehouse |
 
-### F3 — Paid, approved, expired unused *(the family the prior check cannot see)*
+- **Ageing threshold, set from the data rather than asserted: 95 days.** ✅ Measured on the
+  `Refund Entry Visa Application` step: 1,079 completed claims average **3.8 days** and the slowest
+  ever completed took **95**. A claim open beyond 95 days has therefore outlasted *every* refund that
+  has ever succeeded. ✅ **145 claims are currently open, averaging 255 days, oldest 582.**
 
-- **Population.** Charges on requests where `ENTRY_VISA_ISSUANCE_DATE` is present,
-  `ENTRY_VISA_EXPIRY_DATE` has passed, and the person never progressed — no `RVISA_ISSUANCE_DATE`,
-  and no `LANDED_IN_DUBAI` in D9 within the permit window.
-- **Corroborating signal.** The maid sits at `VISA_UNSUCCESSFUL` and the request is `stopped` —
-  the exact fingerprint written by `CancelEvisaExpiredMaidsService`.
-- **Test.** No refund line and no write-off — which the code guarantees, since the expiry job
-  records nothing financial. **So the expected result is that nearly all of these are unrecovered.**
-  The finding is therefore not "is it unrecovered" but **"was it avoidable"**: split by whether the
-  permit expired while still `Pending` approval (LOST_VISA_EXPENSES calls this
-  *Should Have Been Refunded*) or after approval (*Can not be Refunded*).
-- **Guarded by G4.** If the date columns are thin, this family is **VOID**, not zero.
+### F3 — Paid, approved, expired unused *(the family a rejection-keyed audit cannot see)*
+
+| Outcome | Condition |
+| --- | --- |
+| **RED** | Permit issued, expiry passed, person never progressed (no residence visa, no `LANDED_IN_DUBAI` inside the permit window), no refund and no write-off |
+| **GREEN** | The person progressed, or a refund exists |
+| **CANDIDATE** | Expiry passed but the outcome is unresolved — still `ONGOING`, or arrival status silent |
+| **NOT_APPLICABLE** | The application was never approved (no issuance date) — there was no permit to waste. **Also every `OWNER_TYPE = 'OFFICE_STAFF'` charge**, see below |
+| **VOID** | G4's date-population control fails |
+| **BLOCKED** | Issuance/expiry cannot be resolved **per application attempt** (below) |
+
+- 🔴 **Corrected: this family must read issuance and expiry from the history, not the live row.**
+  v1 read `ENTRY_VISA_ISSUANCE_DATE` / `ENTRY_VISA_EXPIRY_DATE` off `INITIAL_VISA_REQUESTS` — the
+  same live row G5 forbids for rejection, and for the same reason: a request that let permit #1
+  expire and then re-applied carries **permit #2's** dates today. The expired-unused test would run
+  against the wrong permit and the lost money would vanish. Both columns are carried in
+  `INITIAL_VISA_REQUESTS_HISTORY` (`ENTRY_VISA_EXPIRY_DATE` + `_MODIFIED`), so resolve them
+  **per attempt, keyed to the charge**, exactly as G5 does for rejection. Where an attempt's dates
+  cannot be resolved, the charge is **BLOCKED**, not GREEN.
+- 🔴 **Office staff cannot be tested and must be priced, not silently dropped.** The arrival source
+  is `HOUSEMAID_STATUS_LOGS`, and `OWNER_TYPE = 'OFFICE_STAFF'` rows have no entry there by
+  construction. ✅ **570 charge lines, AED 459,442** — NOT_APPLICABLE with its own coverage line.
+- **The split that matters is avoidability**, since the code guarantees no refund is recorded either
+  way (`CancelEvisaExpiredMaidsService` writes nothing financial): expired *while still pending
+  approval* (recoverable in principle — the company's own view calls this
+  *"Should Have Been Refunded"*) vs expired *after approval* (*"Can not be Refunded"*).
 
 ### F4 — Paid twice for one entry visa
 
-- **Grain.** Charge pair on one request. Collapsed by G3.
-- **Test.** Two `Added` charges with payment evidence on the same request, **with no `Added` refund
-  line and no dated rejection between them**. Both exclusions are load-bearing: a
-  reject → refund → re-charge cycle is ordinary business, not a duplicate.
-- **Bulk-posting guard.** Before reporting, group candidates by charge date. A cluster of pairs
-  sharing one date is **one posting event**, not N independent leaks; report it as one.
+| Outcome | Condition |
+| --- | --- |
+| **RED** | Two `Added` charges with payment evidence on one request, **no `Added` refund between them and no rejection between them** |
+| **GREEN** | A refund or a rejection sits between the two charges — an ordinary reject → refund → re-charge cycle |
+| **CANDIDATE** | The pair falls in a bulk-posting cluster (below), or the charges are same-day and indistinguishable |
+| **NOT_APPLICABLE** | The request carries one charge — no pair to test |
+
+- ✅ **Candidate pool measured: 521 requests carry 2+ `Added` charges and zero refunds** (485 with
+  two, 32 with three, 3 with four, 1 with twelve), **AED 921,880** charged. That is before the
+  rejection and bulk-posting guards — the real finding will be a fraction of it, and this is the
+  denominator to report against.
+- **Bulk-posting cluster, provisional: ≥5 candidate pairs sharing one charge date** is treated as
+  **one posting event**, CANDIDATE, not N findings. The number is provisional pending the date
+  distribution (`Q4b`) and is flagged as such rather than presented as settled.
+- ✅ **One request carries 12 charges and a NULL `VISA_REQUEST_ID`** — see F8.
 
 ### F5 — Paid at two different price points across a rejection
 
-- Formerly *"wrong entry-visa type submitted"*. **Re-cut to rule on amounts**, because the code does
-  not let a user choose a type (see §0).
-- **Test.** Two charges on one request straddling a dated rejection, at materially different amounts
-  — the inside-country price then the outside-country price, or the reverse.
-- **M3 wasted** = first charge − refund recovered on it.
-- **This is the family where the non-refundable remainder is a loss** (see the ruling below).
+| Outcome | Condition |
+| --- | --- |
+| **RED** | Two charges on one request straddling a rejection, differing by **more than AED 500** |
+| **GREEN** | Amounts within AED 500 — a re-charge at the same price band |
+| **CANDIDATE** | A rejection is known but undated (G5's live-only 196), so "straddling" cannot be established |
+| **NOT_APPLICABLE** | One charge, or no rejection |
+
+- **"Materially different" is AED 500**, set from the measured distribution, not asserted: within a
+  band the spread is at most **AED 32.21** (1022.50 / 1025.65 / 1054.71, and 372.50 / 375.65 /
+  384.24), while the gap between bands is about **AED 650**. AED 500 separates the two cleanly and
+  cannot fire on intra-band variation.
+- **Renamed from "wrong entry-visa type submitted"**, which describes an action the system does not
+  permit — the agent chooses an amount and the code derives the purpose.
 
 ### F6 — The step was done and no payment was booked
 
-- **Population.** D8, `MISSING_EXPENSE_NAME = 'ENTRY_VSIA_OR_ENTRY_VISA_LESS_THAN_1000'`.
-- **Why it matters.** Either a government payment left the company with no ledger entry, or a step
-  was closed without doing it. Both are control failures; only the first is money.
-- **Hard floor: 2025-06-02**, the earliest row the detector holds. Anything before that is
-  **BLOCKED, not clean.**
+| Outcome | Condition |
+| --- | --- |
+| **CANDIDATE** | `MISSING_EXPENSES` flags the `Apply for entry Visa` step complete with no entry-visa expense |
+| **NOT_APPLICABLE** | The step is not complete, or an expense exists |
+| **BLOCKED** | Anything before **2026-06-10**, the earliest row the detector holds for this expense name |
 
-### F7 — Paid with no evidence of payment
+- ✅ **Measured: 8 cases** (7 MV, 1 CC), 2026-06-10 → 2026-09-12. Small, and **never RED on its own**
+  — it means either an unbooked government payment or a step closed without doing it, and only a
+  human can say which. It carries **no AED claim** until that is settled.
+- ⚠️ `STEP_STATUS` evaluates **SNOOZED → EXCLUDED → COMPLETED**, so a completed step that is snoozed
+  or RPA-excluded never reads `COMPLETED` and this detector under-counts. ✅ **49 entry-visa steps
+  are `EXCLUDED`** — the audited system's own exclusion flag, which this audit must not inherit
+  silently: it is a coverage line.
 
-- **Test.** `STATUS = 'Added'` with `TRANSACTION_ID IS NULL` **and** `REFERENCE_NUMBER` blank.
-- **Charges stranded at `Pending`** get their own CANDIDATE row with an ageing measure — they are
-  neither paid nor cancelled, and any population filtered on `Added` renders them invisible. The
-  prior check's own falsified test case is the evidence that this hole is real.
+### F7 — Charges stranded at `Pending` *(hygiene — no AED claim)*
+
+| Outcome | Condition |
+| --- | --- |
+| **CANDIDATE** | Charge at `Pending` older than 95 days (F2's threshold) |
+| **NOT_APPLICABLE** | Charge is `Added` or `Dismissed` |
+
+- 🔴 **Re-cut from "paid with no evidence of payment", which has no population.** ✅ Measured: of
+  14,308 `Added` entry-visa charges in the window, **`TRANSACTION_ID` is NULL on zero and
+  `REFERENCE_NUMBER` is blank on zero.** Every posted charge is evidenced.
+- ✅ What remains is **234 charges at `Pending`, AED 156,045** — and **every one has no
+  transaction**, which means they are **unposted lines, not unrecovered payments**. Reporting them
+  as exposure would overstate by AED 156,045. They are a process-hygiene queue with a **count and an
+  age, and deliberately no money figure**.
+- This is also what justifies every money family scoping to `STATUS = 'Added'`: the exclusion is
+  evidenced, not assumed.
+
+### F8 — Spend attached to no request and no person *(new, from the first run)*
+
+- ✅ **12 entry-visa charge lines, AED 7,516, with a NULL `VISA_REQUEST_ID` and a NULL `OWNER_ID`**
+  (2017-08-13 → 2017-11-20). Unattributable spend: no case, no person, no owner to ask.
+- **RED** on existence; **BLOCKED** on cause, since there is nothing to join to. Reported at
+  cohort grain, not charge grain.
+
+### F9 — Refund amounts booked as charges *(new, from the first run)*
+
+- ✅ **31 charges sit at exactly the two known refund values: 20 at AED 89.50 and 11 at AED 739.50**
+  (Q1c bands `a` and `c` reconcile exactly: 20 × 89.50 = 1,790 and 11 × 739.50 = 8,134.50).
+- **The mechanism is in the code.** `addExpense` sign-flips to a credit **only** when the purpose is
+  `REFUND_FOR_ENTRY_VISA`. Choose the wrong purpose and a refund books as an **additional cost**
+  instead of a credit — so each instance swings the ledger by twice its value.
+- **CANDIDATE**, not RED: the amounts are suggestive, not conclusive. What would settle it is whether
+  a matching refund step was open on that request at that date. ✅ Also in this bucket: **75 charges
+  at AED 0.00**, which are either placeholders or data entry errors and need the same question asked.
 
 ---
 
 ### The ruling on the non-refundable remainder — decided from the code
 
-You asked me to decide this from the code. **The code has no concept of a non-refundable portion.**
-The refund amount is typed by a user; nothing computes it, nothing marks a fraction unrecoverable,
-and accounting explicitly forces `charge = 0` and `vatCharge = 0` on refund lines rather than
-apportioning anything. So the premise that "the remainder is the government's standard
-non-refundable portion" **cannot be sourced from the system**; it is an observed residue.
+**The code has no concept of a non-refundable portion.** The refund amount is user-typed and
+sign-flipped; nothing computes it, nothing marks a fraction unrecoverable, and accounting forces
+`charge = 0` and `vatCharge = 0` on refund lines rather than apportioning. So "the government's
+standard non-refundable portion" cannot be sourced from the system — it is an observed residue.
 
-Therefore, the only defensible split is by **causation**, not by arithmetic:
+The only defensible split is by **causation**:
 
 | Situation | Remainder is | Rationale |
 | --- | --- | --- |
 | Correct single application, immigration rejected it | **Cost** — not a finding | We did nothing wrong; the residue is the price of applying |
-| We caused the waste — F4 duplicate, F5 double price point, F3 avoidable expiry | **Loss — the whole fee** | None of it should have been spent; there is no correct-application defence |
+| We caused the waste — F4, F5, F3-avoidable | **Loss — the whole fee** | None of it should have been spent; there is no correct-application defence |
 
-This is conservative in the direction the audit should be conservative: it can only under-count.
-The prior manual run booked AED 10,215.38 of remainder as loss across 35 cases that were *every one
-refunded inside the window* — roughly 30% of its reported total, and exactly what this rule prevents.
+Conservative in the right direction: it can only under-count. The prior manual run booked
+AED 10,215.38 of remainder as loss across 35 cases that were **every one refunded inside the
+window** — about 30% of its reported total, and exactly what this rule prevents.
 
 ---
 
 ### M — Measures
 
-| ID | Measure | Definition | Notes |
+| ID | Measure | Definition | State |
 | --- | --- | --- | --- |
-| **M1** | Recoverable | Expected refundable − refund received, per charge | **Headline.** Requires an expected-refundable reference; until one exists, computed from the observed refund mode per price band and marked `UNVERIFIED` |
-| **M2** | Gross exposure | Full charge amount on every red row | Shown beside M1, never instead of it |
-| **M3** | Avoidable waste | Whole fee on F3-avoidable, F4, F5 rows | Per the causation ruling |
-| **M4** | Recovery rate | Refunds received ÷ refunds due, by month | Measure the **denominator on both sides** — a moving denominator fakes a trend |
-| **M5** | Claim ageing | Days from rejection to refund received; unreceived shown as days open | Replaces the unanchored "late" verdict |
-| **M6** | Unit price | Amount paid vs the 1073/403 reference (N1), split inside/outside (N3) | **BLOCKED until N3 lands** — without location, the wrong reference gets applied. Do not substitute a population average: that audits the population against itself. Label the reference a *default*, not a tariff |
+| **M1** | Recoverable | Expected refundable − refund received, per charge | 🔴 **BLOCKED.** No expected-refundable reference exists in the system, and deriving one from the population's own refund mode is precisely what M6 is blocked for. **It cannot be the headline while it is blocked.** |
+| **M2** | Gross exposure | Full charge amount on every RED row | ✅ **Computable now. Headline for v1.** |
+| **M3** | Avoidable waste | **Whole fee**, on F4, F5 and F3-avoidable rows | ✅ Computable. **One definition only** — v1 also carried "first charge − refund recovered" under F5, which contradicted this and would have given two different totals from one spec. The causation ruling governs: where we caused the waste, none of the fee should have been spent, so the whole fee is the loss |
+| **M4** | Recovery rate | Refunds received ÷ refunds **due** | 🔴 **BLOCKED** — "due" inherits M1's missing reference. A raw ratio (788 refunds against 521 multi-charge requests) is reportable as **context**, explicitly not as a rate |
+| **M5** | Claim ageing | Days from rejection to refund received; unreceived shown as days open | ✅ Computable for the 672 dated cases. **BLOCKED for the 196 undated ones** — no date to measure from |
+| **M6** | Unit price | Amount paid vs the observed mode for its band | ✅ **Computable, with its limitation stated**: anchored on the measured modes (1022.50 / 372.50), because no authorised price exists (F0). Accounting's 1073/403 default is cited as a **stale comparator**, not a tariff. Still **BLOCKED for the inside/outside split** until N3 lands |
 
-**Currency** AED throughout, as paid, **no VAT adjustment** — refund lines carry no charge or VAT by
-design. **Rounding** 2 dp at row level, never on the total. **Nulls** in any amount make the row
-CANDIDATE, never zero. **Division by zero** renders as `—`.
+**Currency** AED, as paid, no VAT adjustment. **Rounding** 2 dp at row level, **never inside an
+aggregate** — round after summing, not before. **Nulls** in any amount make the row CANDIDATE.
+**Division by zero** renders `—`.
 
-**Tie-out rule.** For any period: *(entry-visa charges, `Added`, guarded)* − *(refund lines matched
-to them, both channels)* = *(net entry-visa cost)*, and that figure must reconcile to the
-`CATEGORY = 'ENTRY VISA'` total in D10 **once D10's `NATIONALITY != 'Pakistani'` exclusion is added
-back**. Any residual gap is itself an exception row, not a rounding note.
+**Tie-out rule — restated so it can actually hold.** v1 tied *(charges − refunds)* to
+`LOST_VISA_EXPENSES`, which compares a **cost** to a **loss model**: they can never be equal, the
+residual is definitional and enormous, and a tie-out that always fails gets switched off. Replace it
+with an identity that proves the verdict column is exhaustive:
 
-**Coverage statement — mandatory on every run.** The report states, in the header and not a
-footnote:
-1. Charges examined, and the AED they carry.
-2. Charges **not** examined and why, each priced: outside the 12-month window · before the F6 floor
-   of 2025-06-02 · BLOCKED on N1–N5 · VOID on G2/G4 · the Pakistani-national population that D10
-   excludes.
-3. That **GREEN means every applicable test ran and passed**, not "audited".
+> **Charges in scope = GREEN + RED + CANDIDATE + NOT_APPLICABLE + VOID + BLOCKED + REPORTED**,
+> in both count and AED. Any charge in none of these is a build defect, not a rounding note.
+
+`LOST_VISA_EXPENSES` becomes a **reconciliation note with a named variance**, not a tie-out — and
+its exclusion is now priced from the ledger rather than from inside the view, which cannot see what
+it removed: ✅ **411 charge lines, AED 418,717 for Pakistani nationals.**
+
+**Coverage statement — mandatory, in the header, not a footnote.** ✅ Measured for the 12-month
+window:
+
+| Slice | lines | AED |
+| --- | --- | --- |
+| Inside the window — examined | **14,653** | **12,321,981** |
+| Older than the window | **47,815** | **39,102,016** |
+| VOID on amount | **0** | **0** |
+| Office staff — F3 NOT_APPLICABLE | 570 | 459,442 |
+| Pakistani cohort — excluded by `LOST_VISA_EXPENSES`, priced here | 411 | 418,717 |
+| RPA-`EXCLUDED` entry-visa steps | 49 steps | — |
+| Before the F6 detector floor (2026-06-10) | — | BLOCKED |
+| Before the G5b history floor (2025-09-05) | — | BLOCKED for rejection-keyed families |
+
+🔴 **The window examines 23% of all-time entry-visa lines.** AED 39.1m sits outside it — priced, not
+silent. And **GREEN means every applicable test ran and passed**, not "audited".
 
 ---
 
 ## 4. Finalised UI Report
 
-**Layout.** Header KPI strip → coverage bar → exception table → family breakdown. One screen.
+**Layout.** Header KPI strip → `control_findings` block (F0) → coverage bar → exception table →
+family breakdown. One screen.
 
-**KPI strip.** Recoverable (M1) · Gross exposure (M2) · Avoidable waste (M3) · Recovery rate (M4) ·
-Charges examined / total.
+**KPI strip.** Gross exposure (M2, headline for v1) · Avoidable waste (M3) · Charges examined /
+total · Claims open past 95 days. **M1 and M4 appear only once unblocked**, and a blocked measure is
+shown as a blocked tile with its reason, never omitted and never zero.
 
-**Coverage bar.** A single stacked bar, examined vs each excluded slice, **priced in AED**. This is
-the element that stops the report being read as "all clean".
+**Coverage bar.** One stacked bar, examined vs each excluded slice, **priced in AED**, from the table
+above. This is the element that stops the report reading as "all clean".
 
 **Exception table.** One row per charge: request id · person id · population (`CONTRACT_TYPE` /
 `OWNER_TYPE`) · charge date · amount · family · verdict · recoverable · days open · owner action ·
-"what would settle it" for every CANDIDATE.
+"what would settle it" on every CANDIDATE · "what is missing" on every BLOCKED.
 
-**Conditional formatting.** Verdict drives the row colour, six states not two. VOID and BLOCKED are
-visually distinct from GREEN — never grey-as-good.
+**Conditional formatting.** Verdict drives the row colour across **seven** states. VOID, BLOCKED and
+NOT_APPLICABLE are each visually distinct from GREEN — never grey-as-good.
 
-**Drill-down.** Opens the charge's timeline: application → rejection revisions (dated, with
-modifier) → refund step open/close → refund lines with status → expiry → maid status.
+**Drill-down.** The charge's timeline: application → rejection events (dated where the history has
+them, marked *undated* where only the live column does) → refund step open/close → refund lines with
+status → expiry → outcome.
 
-**Provenance line.** Sources and as-of timestamp, displayed, so an auditor can cite the run.
+🔴 **No personal data is rendered or exported, and that constrains the drill-down.** v1's drill-down
+showed rejection revisions "with modifier" — those are staff **names**, attached to cases the report
+frames as wrongdoing. Provenance is carried as **numeric user ids** for routing only. The following
+are **blocklisted from every surface**: `EMPLOYEE_NAME`, `CREATOR_NAME`, `LAST_MODIFIER_NAME`,
+`MOVE_OUT_DATE_SET_BY`, `CREATOR`/`LAST_MODIFIER` name resolutions, and `DESCRIPTION` — which
+concatenates a **passport number** for housemaid rows. Payment buckets are reported as *"a named
+Visa-team card"* with its last four digits, never the cardholder.
 
-**Export.** CSV at row grain. **Ids, counts and amounts only — no names, no contact details, no
-salaries.** `INITIAL_VISA_REQUESTS` carries salary columns; they are never selected.
+**Provenance line.** Sources and the as-of timestamp, displayed. ⚠️ **The ledger is live** — the
+entry-visa line count moved between two runs an hour apart on 2026-09-13 — so every tie-out is
+as-of, and two figures from different runs do not reconcile by construction.
+
+**Export.** CSV at row grain: ids, counts, amounts, verdicts. Nothing from the blocklist.
 
 ---
 
 ## 5. Worked Examples
 
-*Illustrative, with synthetic ids and amounts — these demonstrate the arithmetic and the verdict
-routing. They are **not** measured cases; the discovery battery produces the real ones.*
+*Synthetic ids; amounts use the measured modes. Six examples covering **all seven verdicts**, because
+v1 showed only GREEN and RED and so demonstrated nothing landing outside the clean count.*
 
-### A — clean, used
-Charge AED 1,022.50 inside-country → immigration `Approved` → change of status → `RVISA_ISSUANCE_DATE`
-populated. No refund due. **GREEN**, M1 = 0. Every applicable test ran: used ✓, price band ✓, evidence ✓.
+### A — GREEN, used
+Charge AED 1,022.50 → immigration `Approved` → residence visa issued. **GREEN.**
+Tests that ran: refund-due (NOT_APPLICABLE — never rejected), expiry (NOT_APPLICABLE — progressed),
+duplicate (NOT_APPLICABLE — single charge), unit price (GREEN — on the measured mode).
+*v1 claimed this case GREEN partly on "price band ✓" and "inside-country", both of which the spec
+itself marks blocked. Corrected: the verdict stands on tests that can actually run.*
 
-### B — the finding the report exists for: rejected, never claimed
-Charge AED 1,054.71 → dated `Rejected` revision → refund step opened and **closed in 26 minutes** →
-no refund line anywhere, on the request or on a linked cancel request. Request now closed, so it
-will never receive one.
-**RED / F1 never-filed.** M1 = expected refundable − 0. M2 = 1,054.71. Remainder = **cost**, not loss
-(correct single application). Owner action: *file the claim, or record why it cannot be filed.*
+### B — RED, rejected and never claimed
+Charge AED 1,054.71 → dated `Rejected` revision → refund step opened and closed in 26 minutes → no
+refund line on the new **or** cancel leg. Request now closed, so it never will receive one.
+**RED / F1 never-filed.** M2 = 1,054.71. M1 **BLOCKED** (no expected-refundable reference).
+Remainder is **cost**, not loss — a correct single application. Action: *file the claim, or record
+why it cannot be.*
 
-### C — the family the prior check cannot see: approved, expired, unused
-Charge AED 372.50 outside-country → `Approved` → `ENTRY_VISA_ISSUANCE_DATE` set →
-`ENTRY_VISA_EXPIRY_DATE` passes → the daily job stops the request, opens an IMMIGRATION cancel
-request, sets the maid `VISA_UNSUCCESSFUL`. **No expense, no refund, no write-off is written.**
-Never rejected, so a rejection-keyed population never sees it.
-**RED / F3.** M3 = 372.50 if avoidable. Owner action: *explain, and fix whatever let the permit lapse.*
+### C — RED, approved then expired unused
+Charge AED 372.50 → `Approved` → permit issued → expiry passed → never landed. The daily job stopped
+the request, opened an IMMIGRATION cancel request and set the maid `VISA_UNSUCCESSFUL`, **writing no
+expense, refund or write-off**. Never rejected, so a rejection-keyed population never sees it.
+**RED / F3.** M3 = 372.50 if avoidable. Dates resolved **per attempt from the history**, not from the
+live row.
 
-### D — contradiction, not clearance
-`refundedStatus = Refunded`, request reads finished — and the `REFUND_FOR_ENTRY_VISA` line of −739.50
-is **still `Pending` 297 days later**.
-**RED / F2**, and the case that proves why a check gating on `refundedStatus` clears a real loss.
-M5 = 297 days open.
+### D — BLOCKED, not green
+Same shape as B, but the rejection is known **only from the live column** — one of the 196 with no
+history event. Refund-existence can be tested; **ordering and ageing cannot**.
+**BLOCKED / F1.** Shown as blocked with "no dated rejection", counted in coverage, **not in the clean
+total**. Action: *none available until the date is recoverable.*
 
-### E — the trap: not a duplicate
-Two identical AED 1,022.50 charges 32 days apart, and the request carries **zero** `Rejected` rows in
-history — so a naive no-rejection-between test calls it a duplicate. But an `Added` refund of −739.50
-sits between them: this is an ordinary reject → refund → re-charge cycle, and the rejection history
-has a **false negative**.
-**GREEN under F4** by the *"no `Added` refund between"* exclusion, and G5 records the history false
-negative. Without that second exclusion this reports as a duplicate and is wrong.
+### E — GREEN, the trap
+Two identical AED 1,022.50 charges 32 days apart, and the request carries **no rejection row in
+history** — so a naive no-rejection-between test calls it a duplicate. But an `Added` refund of
+−739.50 sits between them: an ordinary reject → refund → re-charge cycle, and the history has a
+false negative.
+**GREEN under F4** by the *"no `Added` refund between"* exclusion. Without that second exclusion this
+reports as a duplicate and is wrong.
 
-### F — pair grain and charge grain on one request
+### F — one request, three verdicts
 Outside 372.50 → rejected → refunded 89.50 same day → re-applied inside 1,022.50 → `Approved`.
-Yields **two clean charge-grain rows** and **one RED pair-grain row (F5)**: waste =
-372.50 − 89.50 = **AED 283.00**. G3 collapses to one verdict per charge before totalling.
-Remainder here is **loss**, not cost — we paid two different price points.
+Two **GREEN** charge-grain rows, plus one **RED** pair-grain row at F5: the amounts differ by
+AED 650, over the 500 threshold. **M3 = the whole first fee, 372.50**, per the causation ruling —
+*not* 372.50 − 89.50, which was v1's contradictory second definition of M3. G3 collapses to one
+verdict per charge before totalling.
+
+### G — VOID
+An F3 run where Q6 shows `ENTRY_VISA_ISSUANCE_DATE` populated on under 50% of in-window requests.
+**VOID, not zero.** The family reports no count at all, states that its positive control failed, and
+the charges it would have covered are priced in coverage. *A test that could not run is never a pass.*
 
 ---
 
@@ -604,11 +699,20 @@ Remainder here is **loss**, not cost — we paid two different price points.
 
 | Blocker | Effect | Needs |
 | --- | --- | --- |
-| **No Snowflake warehouse grant on this role** | Zero rows read. Every population and amount in this spec is absent, not zero | Run `ENTRY-VISA-DISCOVERY.sql`, or grant warehouse usage |
-| N3 — inside/outside location | **M6 BLOCKED**; the unit-price control cannot pick the right reference | ERP ingestion of the location picklist join (no flag exists to copy) |
-| N2 — threshold history | **G1 BLOCKED**; pre-VPM-8872 charges inherit BLOCKED | ERP ingestion |
-| N4 — `refundedStatus` | **F2 BLOCKED** | ERP ingestion |
-| Expected refundable reference | M1 computed from observed modes and marked `UNVERIFIED` | Visa team, or a government schedule |
-| D10 Pakistani-national exclusion | Tie-out cannot close until priced | One query, Q7 |
+| **Expected-refundable reference** | **M1 and M4 BLOCKED**; M2 is the v1 headline | Visa team, or a government schedule. Not derivable from our own data |
+| N3 — inside/outside location | **M6's band split BLOCKED** | ERP: location is computed, never stored. Ingest `new_request.location_id` → `picklist_item.name`, and `office_staff.location_enum` |
+| N4 — `refundedStatus` | **F2 BLOCKED entirely** | ERP ingestion |
+| N2 — threshold value history | **G1 not closeable**; the 2026-06-15 reverse case is evidence it has changed | ERP Setup parameter history |
+| Per-attempt issuance/expiry | **F3 BLOCKED** where the history cannot resolve them | Query work on `INITIAL_VISA_REQUESTS_HISTORY`; no new source needed |
+| NewRequest ↔ CancelRequest link | F1's cancel-leg match has **no defined key** | Ask the code which column links them (`CancelRequestController.addExpense`). Until then, match by owner + date window and **publish the match rate with a floor** |
+| G4 date-population control (Q6) | **F3 VOID until run** | One query |
+| Legacy `0`/`1` meaning | Only matters for a backfill before 2025-09-05 | Ask the code |
+| History blackout 2019-04 → 2025-09 | Rejection-keyed families **BLOCKED**, not clean, in that range | Nothing recoverable — state it |
 
-**Nothing above may be defaulted quietly.** A BLOCKED test is not a pass.
+**Nothing above may be defaulted quietly. A BLOCKED test is not a pass.**
+
+⚠️ **Two joins must carry `REQUEST_TYPE`.** `VISA_REQUEST_ID` is drawn from `newrequestexpenses`,
+`renewrequestexpenses` **or** `cancelrequestexpenses` depending on the leg, so the id namespace is
+per-leg: a CancelRequest expense with id 5000 joins cleanly to an unrelated NewRequest 5000. Every
+join to a request header is qualified by `REQUEST_TYPE`, and F1 — which deliberately reaches across
+legs — matches on the linking column above, never on a bare id.
