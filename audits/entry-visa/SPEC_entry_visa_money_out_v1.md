@@ -922,6 +922,55 @@ the charges it would have covered are priced in coverage. *A test that could not
 
 ---
 
+## 5b. External corroboration, and adjacent work already in flight
+
+### What GDRFA publishes — it corroborates the shape, not the amount
+
+Checked against public GDRFA material rather than assumed. Three things line up with what the data
+showed, and one important gap remains:
+
+- ✅ **A refund on rejection is a real, named government service** — GDRFA operates a
+  *"Fees and Guarantee Refund Service"* covering rejected applications. So the money we are chasing
+  is genuinely claimable, not wishful.
+- ✅ **The split between refundable and non-refundable components is official policy.** GDRFA states
+  that *only* issuance fees, health-insurance fees and financial guarantees are refundable when the
+  main application is rejected. Application and e-service processing fees are not. **That is exactly
+  the shape our data shows: a flat, always-retained amount plus a fully-returned remainder** — and it
+  is why the retention is a fixed AED 283 rather than a percentage.
+- ✅ **The refund must be applied for.** It is a service with a channel, not an automatic reversal.
+  This sharpens F0b considerably: a claim nobody is assigned, that no alert chases, and that no
+  validation requires, is a claim against a government process that **only pays out if someone asks**.
+- ⚠️ **GDRFA does not publish a domestic-worker entry-permit fee breakdown**, and the public figures
+  that do exist (AED 370 standard employment permit, AED 1,000 refundable visit-visa deposit, AED 20
+  deposit service fee, AED 40 collection fee, AED 10 knowledge dirham) **do not reconcile to our
+  1,022.50 / 372.50 / 283.00**. Do not try to force them. **The empirically derived AED 283 remains
+  the best available figure**, now corroborated in kind if not in amount — and confirming the exact
+  breakdown is a question for the Visa team's typing centre, not for a public web page.
+
+*Sources consulted: the GDRFA Fees and Guarantee Refund service page, the GDRFA entry-permits
+service directory, and the GDRFA FAQ.*
+
+### Adjacent Jira work — searched before the handoff, not after
+
+A scan of Jira for entry-visa, refund and this spec's own table names returned 100 issues across 15
+projects. What matters for this spec:
+
+| Key | What it is | Why it matters here |
+| --- | --- | --- |
+| **DNA-9566** *(Done)* | *"Alert 1164 — **Money Lost** — GCC Fee Not Recovered — MV Client Billing"* | **The precedent.** A money-lost, fee-not-recovered alert already exists and shipped. This spec should be filed in that shape rather than inventing one |
+| **DNA-9454** *(Ongoing)* | *"Applicant ticketing audit — model the eleven Police & Control metrics in silver/gold from existing BA_VIEWS"* | A sibling P&C audit already being modelled by the data team. Same handoff pattern, same layer |
+| **VPMGOV-1670** *(In Speccing)* | *"Publish n8n flow: R-Visa Audit"* | A sibling visa audit going to production now — the route this one follows |
+| **VPMGOV-1394** *(In Speccing)* | *"Check anything that turns the maid status to 'Visa unsuccessful' and add description to it"* | **Directly on F3's root cause.** The expiry job sets `VISA_UNSUCCESSFUL` silently; this ticket adds the description that would make it visible. Worth linking — the audit finding and the fix already exist separately |
+| **MC-1947** *(In Development)* | *"Reject negative amounts in all expense request screens + data correction"* | Touches F9/F11's territory — sign handling on expenses |
+| **MC-1933 / VPMGOV-1575** *(Done)* | *"Generalize Qashio Transaction ID to Reference Number"* | The change behind `REFERENCE_NUMBER`'s dual meaning, which D3 relies on. Confirms that column's provenance |
+| **VPMGOV-1642** *(In Development)* | *"The API that checks if the visa is cancelled must consider the stopped cancellation requests"* | F10 reads cancellation state; this changes what "cancelled" means |
+| **SD-68030, SD-68068/9** | Service-desk data corrections reactivating initial visa requests and completing cancellations | ⚠️ **Requests are reactivated by hand after cancellation.** F3 and F10 both read terminal state, so a reactivated request can change verdict retrospectively. The report must be re-runnable, and a finding must record the state it was raised against |
+
+🔴 **No existing ticket covers unclaimed entry-visa refunds.** That is the "not a duplicate" evidence
+the DNA handoff requires, and it is a deliberate search result rather than an absence of looking.
+
+---
+
 ## 6. What is blocked, and on whom
 
 | Blocker | Effect | Needs |
