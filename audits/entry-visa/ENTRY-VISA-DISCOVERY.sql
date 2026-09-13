@@ -1687,3 +1687,203 @@ SELECT CASE WHEN rj.maid_id IS NOT NULL THEN 'a · refund traces to a rejection'
        MAX(rf.refunded_at)::DATE       AS latest
 FROM rf LEFT JOIN rej_maid rj ON rj.maid_id = rf.maid_id
 GROUP BY 1,2 ORDER BY refunds DESC;
+
+
+-- B1-fixed · B1 failed: "Unsupported subquery type cannot be evaluated". Snowflake
+--      will not run a correlated scalar subquery whose predicate is an inequality
+--      plus an OR. Same pairing, expressed as a non-equi LEFT JOIN + MIN, which it
+--      does support. Logic is unchanged: first refund at or after this rejection
+--      and strictly before the maid's NEXT rejection (1:1, no fan-out).
+WITH req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS
+  WHERE NEW_REQUEST_ID IS NOT NULL
+), rej_raw AS (
+  SELECT r.maid_id, h.REQUEST_ID, MIN(h.LAST_MODIFICATION_DATE) AS rejected_at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY h
+  JOIN req r ON r.REQUEST_ID = h.REQUEST_ID
+  WHERE h.ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND h.ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+  GROUP BY 1,2
+), rej AS (
+  SELECT maid_id, REQUEST_ID, rejected_at,
+         LEAD(rejected_at) OVER (PARTITION BY maid_id ORDER BY rejected_at) AS next_rejected_at
+  FROM rej_raw
+), chg AS (
+  SELECT VISA_REQUEST_ID, SUM(CAST(AMOUNT AS NUMBER(18,2))) AS charged_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added'
+  GROUP BY 1
+), rf AS (
+  SELECT r.maid_id, e.VISA_REQUEST_ID AS refund_request_id, e.CREATION_DATE AS refunded_at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='NewRequest'
+  UNION ALL
+  SELECT r.maid_id, b.NEW_REQUEST_ID, e.CREATION_DATE
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  JOIN req r    ON r.REQUEST_ID = b.NEW_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), matched AS (
+  SELECT j.maid_id, j.REQUEST_ID, j.rejected_at, c.charged_aed,
+         MIN(f.refunded_at)                                                     AS refunded_at,
+         MIN(CASE WHEN f.refund_request_id = j.REQUEST_ID THEN f.refunded_at END) AS refunded_same_request_at
+  FROM rej j
+  LEFT JOIN chg c ON c.VISA_REQUEST_ID = j.REQUEST_ID
+  LEFT JOIN rf  f ON f.maid_id = j.maid_id
+                 AND f.refunded_at >= j.rejected_at
+                 AND (j.next_rejected_at IS NULL OR f.refunded_at < j.next_rejected_at)
+  GROUP BY j.maid_id, j.REQUEST_ID, j.rejected_at, c.charged_aed
+)
+SELECT CASE WHEN charged_aed IS NULL
+                 THEN 'x · rejected, but no entry-visa charge — nothing to claim'
+            WHEN refunded_at IS NULL AND rejected_at > DATEADD('day',-60,CURRENT_DATE())
+                 THEN 'w · still inside the 60-day window — not yet a loss'
+            WHEN refunded_at IS NULL
+                 THEN 'd · NEVER REFUNDED — loss'
+            WHEN DATEDIFF('day', rejected_at, refunded_at) <= 60
+                 THEN 'a · refunded within 60 days'
+            ELSE 'c · refunded LATE (> 60 days)' END                      AS verdict,
+       COUNT(*)                                                   AS rejections,
+       COUNT(DISTINCT maid_id)                                    AS maids,
+       ROUND(SUM(COALESCE(charged_aed,0)))                        AS charged_aed,
+       ROUND(SUM(GREATEST(COALESCE(charged_aed,0) - 283.00, 0)))  AS recoverable_aed,
+       COUNT_IF(refunded_at IS NOT NULL
+            AND refunded_same_request_at IS NULL)                  AS refund_only_on_a_sibling_request,
+       ROUND(MEDIAN(DATEDIFF('day', rejected_at, refunded_at)),1)  AS median_days_to_claim,
+       MAX(DATEDIFF('day', rejected_at, refunded_at))              AS max_days_to_claim,
+       MIN(rejected_at)::DATE AS earliest, MAX(rejected_at)::DATE AS latest
+FROM matched GROUP BY 1 ORDER BY verdict;
+
+
+-- B4 · WHY 45% OF REFUNDS HAVE NO REJECTION. B3 found 656 orphan refunds worth
+--      AED 411,981 -- half the refund book -- with no rejection anywhere for the
+--      maid. The obvious suspect is the rejection-history FLOOR: the orphan
+--      NewRequest refunds start 2024-04-02, and rejection change-events do not go
+--      back that far. If the orphans sit mostly BEFORE the floor, the rejection
+--      set is sound and check B simply has to be scoped to the post-floor window.
+--      If they persist AFTER it, rejection detection is broken and check B cannot
+--      be built on this signal at all. That is the whole question, so measure it
+--      rather than assume the flattering answer.
+WITH fl AS (
+  SELECT MIN(LAST_MODIFICATION_DATE) AS rej_floor
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
+  WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+), req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS
+  WHERE NEW_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT r.maid_id, 'NewRequest' AS leg, e.CREATION_DATE AS refunded_at,
+         CAST(ABS(e.AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='NewRequest'
+  UNION ALL
+  SELECT r.maid_id, 'CancelRequest', e.CREATION_DATE, CAST(ABS(e.AMOUNT) AS NUMBER(18,2))
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  JOIN req r    ON r.REQUEST_ID = b.NEW_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), rej_maid AS (
+  SELECT DISTINCT r.maid_id FROM req r
+  WHERE r.REQUEST_ID IN (SELECT DISTINCT REQUEST_ID
+                         FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
+                         WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+                           AND ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected')
+     OR r.REQUEST_ID IN (SELECT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+                         WHERE ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected')
+)
+SELECT IFF(rf.refunded_at < fl.rej_floor,
+           'BEFORE the rejection-history floor', 'after the floor')          AS period,
+       IFF(rj.maid_id IS NOT NULL, 'traces to a rejection', 'ORPHAN')        AS coverage,
+       rf.leg,
+       COUNT(*)                    AS refunds,
+       COUNT(DISTINCT rf.maid_id)  AS maids,
+       ROUND(SUM(rf.refund_aed))   AS refund_aed,
+       MIN(fl.rej_floor)::DATE     AS floor_is,
+       MIN(rf.refunded_at)::DATE   AS earliest,
+       MAX(rf.refunded_at)::DATE   AS latest
+FROM rf CROSS JOIN fl
+LEFT JOIN rej_maid rj ON rj.maid_id = rf.maid_id
+GROUP BY 1,2,3 ORDER BY period, coverage, refunds DESC;
+
+
+-- B5 · THE TASK-BASED RESCUE. B0 confirmed 'Check Entry Visa Immigration Approval'
+--      runs on 56,634 requests back to 2019-04-03 -- and the tasks view carries
+--      ITERATION, the number of times a request cycled back through a step. A
+--      request that RE-ENTERS immigration approval was sent back, which is a
+--      rejection signal owing nothing to the approval field or its history floor.
+--      'Fix the problem of entry visa' (1,851 requests) is the same story.
+--      So: how many of the orphan refunds do these tasks explain? Whatever they
+--      explain, check B can key on -- and it is dateable via COMPLETED_AT, which
+--      also rescues the 196 live-only rejections B2 could not clock.
+WITH req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS
+  WHERE NEW_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT r.maid_id, e.CREATION_DATE AS refunded_at,
+         CAST(ABS(e.AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='NewRequest'
+  UNION ALL
+  SELECT r.maid_id, e.CREATION_DATE, CAST(ABS(e.AMOUNT) AS NUMBER(18,2))
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  JOIN req r    ON r.REQUEST_ID = b.NEW_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), sig AS (
+  SELECT VISA_REQUEST_ID,
+         MAX(IFF(TASK_NAME='Check Entry Visa Immigration Approval' AND ITERATION > 1,1,0)) AS immigration_revisit,
+         MAX(IFF(TASK_NAME IN ('Fix the problem of entry visa',
+                               'Pending to fix issues of Entry Visa'),1,0))                AS fix_step,
+         MAX(IFF(TASK_NAME='Refund Entry Visa Application',1,0))                           AS refund_task
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  GROUP BY 1
+), maid_sig AS (
+  SELECT r.maid_id,
+         MAX(s.immigration_revisit) AS immigration_revisit,
+         MAX(s.fix_step)            AS fix_step,
+         MAX(s.refund_task)         AS refund_task
+  FROM sig s JOIN req r ON r.REQUEST_ID = s.VISA_REQUEST_ID
+  GROUP BY 1
+), rej_maid AS (
+  SELECT DISTINCT r.maid_id FROM req r
+  WHERE r.REQUEST_ID IN (SELECT DISTINCT REQUEST_ID
+                         FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
+                         WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+                           AND ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected')
+     OR r.REQUEST_ID IN (SELECT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+                         WHERE ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected')
+)
+SELECT CASE WHEN rj.maid_id IS NOT NULL     THEN 'a · approval field says rejected'
+            WHEN m.immigration_revisit = 1  THEN 'b · no field rejection, but RE-ENTERED immigration approval'
+            WHEN m.fix_step = 1             THEN 'c · no field rejection, but went through an entry-visa fix step'
+            WHEN m.refund_task = 1          THEN 'd · no field rejection, only a refund task'
+            ELSE                                 'e · NO SIGNAL AT ALL — unexplained refund' END AS explains_the_refund,
+       COUNT(*)                        AS refunds,
+       COUNT(DISTINCT rf.maid_id)      AS maids,
+       ROUND(SUM(rf.refund_aed))       AS refund_aed,
+       MIN(rf.refunded_at)::DATE       AS earliest,
+       MAX(rf.refunded_at)::DATE       AS latest
+FROM rf
+LEFT JOIN rej_maid rj ON rj.maid_id = rf.maid_id
+LEFT JOIN maid_sig m  ON m.maid_id  = rf.maid_id
+GROUP BY 1 ORDER BY refunds DESC;

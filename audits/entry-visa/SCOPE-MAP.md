@@ -438,3 +438,80 @@ misses ~22.6% of rejections as justifiers, which would push a small number of ge
 pairs into the duplicate verdicts. A1's 598 duplicates are an **upper bound**, not a point estimate.
 The refund and refund-step justifiers damp the effect, but the direction is known and should be
 stated wherever the figure is quoted.
+
+### ✅ B0 — the rescue exists
+
+| task | rows | requests | first seen |
+| --- | ---: | ---: | --- |
+| **Check Entry Visa Immigration Approval** | 60,313 | **56,634** | **2019-04-03** |
+| Apply for entry Visa | 62,090 | 61,201 | 2019-04-03 |
+| Fix the problem of entry visa | 2,064 | 1,851 | 2019-04-07 |
+| Refund Entry Visa Application | 1,225 | 1,164 | **2024-11-05** |
+
+The immigration-approval step runs on **56,634 requests back to 2019** — against ~60,127 requests
+that carry a charge, i.e. essentially all of them, and seven years earlier than the approval field's
+history. Its `COMPLETED_AT` dates the decision, so the 196 undateable rejections are recoverable.
+
+And the tasks view carries **`ITERATION`** — the number of times a request cycled back through a
+given step. A request that *re-enters* immigration approval was sent back. **That is a rejection
+signal that owes nothing to the approval field or its history floor**, which makes it the independent
+check the rejection set has lacked all along.
+
+⚠️ Noted in passing: the `Refund Entry Visa Application` **task** starts 2024-11-05 while the refund
+**expense** starts 2024-02-06. The task is not a complete refund signal and must not be used as one.
+
+### B2 — the undateable slice is 22.6%, and the split is internally consistent
+
+| source | requests | maids | charged AED | recoverable AED |
+| --- | ---: | ---: | ---: | ---: |
+| in both — dateable | 312 | 311 | 222,921 | 137,423 |
+| history only — dateable | 360 | 358 | 696,363 | 594,483 |
+| **live only — cannot be clocked** | **196** | 194 | 129,802 | **74,617** |
+
+Union = 868, history = 672, live = 508 — matching the earlier measurement exactly, which is a clean
+control on both. Dateable is **77.4%**; undateable **22.6%**, worth AED 74,617 recoverable.
+
+**An asymmetry worth keeping:** history-only requests carry **AED 1,934 of charge each**, against 714
+for "in both" and 666 for live-only — roughly 3×. Requests whose rejection survives only in history
+are the ones charged more than once, i.e. re-application cycles; requests that still *read* rejected
+today are mostly dead ends charged once. The live point-read is biased toward cases that never
+recovered. Do not treat the two sources as interchangeable samples.
+
+### 🔴 B3 — half the refund book cannot be traced to a rejection
+
+| coverage | leg | refunds | maids | AED |
+| --- | --- | ---: | ---: | ---: |
+| traces to a rejection | NewRequest | 779 | 740 | 387,571 |
+| **ORPHAN** | NewRequest | **433** | 415 | **293,872** |
+| **ORPHAN** | CancelRequest | **223** | 222 | **118,109** |
+| traces to a rejection | CancelRequest | 22 | 22 | 9,769 |
+
+**656 of 1,457 refunds (45.0%), worth AED 411,981 (50.9%), have no rejection anywhere for that maid.**
+On the cancel leg it is **223 of 245 — 91%**.
+
+This is a bigger problem for check B than the missing dates were, because it attacks the
+denominator. If half of all refunds happen without a detectable rejection, then a "rejections that
+were never refunded" figure is computed against a population that is missing most of itself, and the
+loss number is not interpretable. **B1's output must not be quoted until this resolves.**
+
+Two candidate explanations, and they have opposite consequences:
+
+1. **The rejection-history floor.** Orphan NewRequest refunds start **2024-04-02**; rejection
+   change-events do not reach back that far. If the orphans sit mostly before the floor, the
+   rejection set is sound and check B simply scopes to the post-floor window. → **B4 measures this.**
+2. **Rejection detection is genuinely incomplete** — the approval field is not where rejection
+   reliably lands. → **B5 tests this with the task signal, which has no floor.**
+
+⚠️ **A third reading threatens a ruling we already made, and it has to be said out loud.** We
+concluded from GDRFA that the refund entitlement is scoped to **rejection**, that cancellation is a
+separate non-refundable service, and on that basis moved **AED 3.45m from "recoverable" to "cost"**
+(F0c). But 245 refunds are booked on the **CancelRequest** leg, and 223 of them have no rejection at
+all. Either those cancellations followed a rejection we cannot see — which is explanation 2 — or
+**cancellation is refundable in practice and the AED 3.45m reclassification was wrong.** B4 and B5
+distinguish these. Until they run, F0c is **provisional, not settled.**
+
+### B1 — failed to compile, fixed
+
+`Unsupported subquery type cannot be evaluated`. Snowflake will not run a correlated scalar subquery
+whose predicate is an inequality plus an `OR`. Rewritten as a non-equi `LEFT JOIN` + `MIN`, which it
+does support. The pairing logic is unchanged.
