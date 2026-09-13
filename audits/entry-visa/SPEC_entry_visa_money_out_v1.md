@@ -997,16 +997,22 @@ consumed*, the company can reclaim the fee less the flat **AED 283.00** governme
 not inferred from policy — it is inferred from behaviour: **657 such claims were successfully made**
 in this exact population.
 
-**The measure.**
+**The measure** *(final, per B10 — a refund counts only if it postdates the cancellation)*:
 
 | | value |
 | --- | --- |
 | Population | cancel requests whose linked new request paid an entry visa, unconsumed, from 2024-10-19 |
-| Claimed | **657** (216 via the workflow step, 441 without it) |
-| **Not claimed** | **2,538 cancellations · 1,644 maids** |
-| **Recoverable** | **AED 974,448** (charged 1,692,508 − 283.00 × n) |
-| Claim rate | **20.6% by count, 23.9% by value** |
-| Run rate | ≈ **AED 513,000 / year**, ongoing |
+| Claimed | **245** cancellations · AED 138,873 |
+| **Not claimed** | **2,950 cancellations** — 2,573 with no refund at all, 377 whose only refund predates the cancellation |
+| **Recoverable** | **AED 1,141,936** (993,918 + 148,018) |
+| Claim rate | **7.7% by count · 10.8% by value** |
+| Run rate | ≈ **AED 602,000 / year**, ongoing |
+
+**Nineteen in twenty refundable cancellations are never claimed.** The population reconciles exactly
+to B8's 3,195, so the restatement moves cases between verdicts rather than changing the denominator.
+
+⚠️ *Maid counts are not additive across the two unclaimed verdicts (1,670 and 344 may overlap); the
+cancellation is the unit of this finding.*
 
 **Verdict per cancellation:** RED where the entry visa was paid, the request was cancelled, the visa
 was never consumed, the cancellation is dated on or after 2024-10-19, and no
@@ -1054,23 +1060,32 @@ and only **206 days after the request** does the cancellation occur. That refund
 **rejection cycle, not the cancellation.** F12's source query credited it as though the cancellation
 had been claimed.
 
-🔴 **That classification error runs the wrong way for the headline.** It is harmless in the consumed
-branch, which G7 parks as NOT_APPLICABLE regardless. But the **unconsumed** branch has the same flaw:
-some of the 441 "refund booked" rows will likewise be mid-journey rejection refunds, and every one
-that is means a cancellation that was **never claimed**. **So AED 974,448 is a floor, and the claim
-rate of 20.6% is a ceiling.** `B10` re-measures with the correct rule — a refund counts as a
-cancellation refund only if it **postdates the cancellation**.
+🔴 **That classification error ran the wrong way for the headline, and B10 confirmed it.** Harmless in
+the consumed branch, which G7 parks regardless — but the unconsumed branch shared the flaw:
+
+| B10 verdict | cancellations | recoverable AED |
+| --- | ---: | ---: |
+| a · CLAIMED — refund postdates the cancellation | 245 | 138,873 |
+| **b · refund PREDATES the cancellation — mid-journey, not a claim** | **377** | **148,018** |
+| **c · no refund at all** | **2,573** | **993,918** |
+
+**377 of the 441 "claims" were not claims.** The finding rises from AED 974,448 to **AED 1,141,936**
+(+17.2%) and the claim rate falls from 20.6% to **7.7%**. The floor/ceiling warning was the right call
+and it was right by roughly the predicted magnitude.
 
 ⚠️ Minor: B9 reconciles 178 cases against B8's 179. One row differs on refund-date resolution between
 the two queries. Immaterial to every conclusion here, but not silently rounded away.
 
-#### ⚠️ Open items before this is filed
+#### Build rules carried into the check
 
-1. **Run `B10`** and restate the headline upward. Until it runs, quote AED 974,448 as *"at least"*.
-2. **Do not key this check on the workflow task.** 441 refunds were booked *without* the step against
-   216 with it, so a task-keyed measure undercounts by roughly two thirds. Key on the **expense**.
-3. **Unclaimed cases skew to the cheaper visa** — average charge AED 667, close to the 372.50
-   inside-country band rather than 1,022.50. Worth carrying into the check as a segment.
+1. **Key on the expense, never the workflow task.** Refunds are booked without the step roughly twice
+   as often as with it, so a task-keyed measure undercounts by about two thirds.
+2. **A refund only counts if it postdates the cancellation.** Without this the check credits
+   mid-journey rejection refunds as cancellation claims and understates the finding by 17%.
+3. **Segment by band.** Claimed cancellations average **AED 850** of charge; unclaimed average
+   **AED 669** — claims cluster on the 1,022.50 outside-country visa and get skipped on the 372.50
+   inside-country one. The cheap visa is the one nobody bothers to reclaim, and that is the
+   operational lever.
 
 ### V5 — the coverage floor, priced
 
