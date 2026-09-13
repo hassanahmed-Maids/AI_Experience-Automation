@@ -727,6 +727,36 @@ its nearest preceding charge before any AED figure is published.
   join fan-out. The pairing guard existed because the inflation was predicted; it caught it. **No
   figure from a request-level join may be published without the 1:1 pass.**
 
+✅ **SELF-CHECK PASSED (V1). F11 stands, and is now split by ambiguity.** The risk was real: if a
+request carried a large charge, then a small one, then a refund of 739.50, the nearest-preceding rule
+would pair the refund with the *small* charge and score a phantom +650. V1 tested it by counting how
+many charges each flagged request actually carries:
+
+| | requests with **one** charge (unambiguous) | requests with 2+ charges (pairing-sensitive) |
+| --- | --- | --- |
+| **SHORT refund** | **19** — single **large-band** charge, refunded 89.50 | 5 |
+| **OVER refund** | **21** — single **small-band** charge, refunded 739.50 | 2 |
+
+**40 of the 48 cases (83%) sit on requests with exactly one charge**, so there is no second charge
+the refund could have belonged to. They cannot be a pairing artefact.
+
+| Verdict | cases | AED | |
+| --- | --- | --- | --- |
+| **RED · short refund** | 19 | **12,350** | One large-band charge, small-band refund claimed |
+| **RED · over-refund** | 21 | **13,650** | One small-band charge, large-band refund received |
+| **CANDIDATE · ambiguous pairing** | 8 | ~4,219 | 2+ charges; which one the refund belonged to is undecidable from amounts alone |
+
+- 🔴 **The over-refunds are a probable liability, not a windfall.** On 21 requests we paid **372.50
+  once** and received **739.50** back — AED 367 *more than we ever paid*. Either the government's
+  record differs from ours or we claimed against the wrong application. Money received that is not
+  ours is an exposure, and the report must say so rather than net it against the shortfalls.
+- ✅ The pairing rule is otherwise sound: of the ~84 refunds on mixed-band requests where pairing
+  could matter, **79 scored as matching the tariff**. Where both charges share a band, pairing cannot
+  change the score at all.
+- ✅ **The guard justified itself.** I flagged this as the finding most likely to be my own artefact
+  before running it. It held — but 8 of 48 cases moved from RED to CANDIDATE, and the published
+  figures dropped from AED 16,250 / 13,969 to **12,350 / 13,650**.
+
 ⚠️ **A coverage gap R1b itself creates.** It joins refunds *to* charges, so any refund with **no
 charge at or before it on the same request** silently disappears — the inner-join trap this spec
 warns about elsewhere. About 1,335 refunds paired; the all-time `Added` refund population is larger.
