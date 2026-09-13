@@ -581,3 +581,33 @@ JOIN rej ON rej.REQUEST_ID = ch.VISA_REQUEST_ID
 LEFT JOIN rf ON rf.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
 WHERE rf.VISA_REQUEST_ID IS NULL
 GROUP BY 1 ORDER BY 1 DESC;
+
+
+-- R1d · Orphan refunds: the population R1b's inner join hides.
+--       R1b joins refunds TO charges, so a refund with no charge at or before it
+--       on the same request vanishes without trace. Same inner-join trap this
+--       battery warns about elsewhere. Count them before quoting F11's denominator.
+WITH rf AS (
+  SELECT VISA_REQUEST_ID, REQUEST_TYPE, CREATION_DATE AS refunded_at,
+         CAST(ABS(AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added'
+), ch AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS charged_at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added'
+)
+SELECT CASE WHEN rf.VISA_REQUEST_ID IS NULL              THEN 'refund with no request id at all'
+            WHEN c.VISA_REQUEST_ID IS NULL               THEN 'no entry-visa charge on the request'
+            WHEN c.charged_at IS NULL                    THEN 'charges exist but all AFTER the refund'
+            ELSE 'paired in R1b' END                     AS coverage,
+       rf.REQUEST_TYPE, COUNT(*) AS refunds,
+       ROUND(SUM(rf.refund_aed)) AS refund_aed,
+       MIN(rf.refunded_at)::DATE AS earliest, MAX(rf.refunded_at)::DATE AS latest
+FROM rf
+LEFT JOIN (SELECT VISA_REQUEST_ID, MIN(charged_at) AS charged_at FROM ch GROUP BY 1) c
+  ON c.VISA_REQUEST_ID = rf.VISA_REQUEST_ID
+LEFT JOIN (SELECT DISTINCT VISA_REQUEST_ID FROM ch) any_ch
+  ON any_ch.VISA_REQUEST_ID = rf.VISA_REQUEST_ID
+GROUP BY 1,2 ORDER BY refunds DESC;

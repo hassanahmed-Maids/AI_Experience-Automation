@@ -700,26 +700,38 @@ alone, so a request with two charges and one refund yields two pairs; total pair
 refund lines that exist. **The mapping is proven; the volumes are not.** `R1b` pairs each refund to
 its nearest preceding charge before any AED figure is published.
 
-### F11 — Short refunds and over-refunds *(new, and the prior check said neither existed)*
+### F11 — Short refunds and over-refunds *(measured 1:1; the prior check reported neither)*
 
-R1's off-diagonal cells are findings in both directions, and the previous audit reported **zero** of
-the first and did not look for the second:
+✅ **R1b paired each refund to its nearest preceding charge and scored it against the tariff:**
 
-| Shape | pairs | Per case | Reading |
+| Outcome | refunds | requests | variance |
 | --- | --- | --- | --- |
-| Paid **1,022.50**, got back **89.50** | 89 | **−650.00** vs expected | **Short refund.** Claimed at the small band's value against a large-band charge |
-| Paid **1,054.71**, got back **89.50** | 1 | −650.00 | same |
-| Paid **372.50**, got back **739.50** | 78 | **+367.00** — refund **exceeds the charge** | **Over-refund.** We received more than we paid. Possibly a liability, not a win |
-| Paid **384.24**, got back **739.50** | 1 | +355.26 | same |
-| 1,022.50 → **739.57** | 5 | −0.07 | Keystroke |
-| 372.50 → **89.00** | 1 | −0.50 | Keystroke |
-| 372.50 → **125.65** | 1 | — | 125.65 is the *visa cancellation* fee — wrong purpose entirely |
+| **Matches the tariff** | **1,287** | 1,223 | **AED 0** — worst case −0.50, largest +0.07 |
+| **SHORT refund** | **25** | 24 | **−16,250** — every one exactly **−650.00** |
+| **OVER refund** | **23** | 23 | **+13,969** — from +36.15 to +650.00 |
 
-- **RED** on the two large cells, **CANDIDATE** on the keystroke and wrong-purpose cells.
-- Order-of-magnitude only, pending `R1b`: roughly **AED 58,000** under-recovered and **AED 51,000**
-  over-recovered. **Do not publish either figure until the pairing is 1:1.**
-- The over-refunds matter for a reason beyond money: an audit that reports only under-recovery looks
-  like advocacy. Reporting both directions is what makes the number credible.
+> **The tariff is now proven rather than inferred.** 1,287 refunds land within **half a dirham** of
+> `paid − 283.00 − surcharge`, and their variances sum to **zero**. A rule that predicts 1,287 real
+> government decisions to the fils is not a pattern in our data; it is the government's schedule.
+
+- **The short refunds have a single failure mode**: every one of the 25 is exactly −650.00, the gap
+  between the two bands' refunds (739.50 − 89.50). **The small band's refund was claimed against a
+  large band's charge.** One rule, one fix, 25 cases, AED 16,250.
+- **The over-refunds are the mirror** and are **not a win**: receiving more than was paid is an
+  exposure, not a recovery. An audit that reports only under-recovery reads as advocacy; reporting
+  both directions is what makes the number credible.
+- 🔴 **Net, the two directions nearly cancel: −16,250 + 13,969 = −AED 2,281.** So **F11 is a small
+  money finding and a real control finding** — 48 cases where the wrong amount moved — and the
+  report must say so in that order, rather than headlining AED 16,250 as if it were recoverable.
+- ✅ **My own R1 estimate was 3.5× too high** (89 and 78 pairs, ~AED 58k and ~51k) purely from
+  join fan-out. The pairing guard existed because the inflation was predicted; it caught it. **No
+  figure from a request-level join may be published without the 1:1 pass.**
+
+⚠️ **A coverage gap R1b itself creates.** It joins refunds *to* charges, so any refund with **no
+charge at or before it on the same request** silently disappears — the inner-join trap this spec
+warns about elsewhere. About 1,335 refunds paired; the all-time `Added` refund population is larger.
+The difference is orphan refunds and belongs to F9, not to nothing. **`R1d` counts them; until it
+runs, F11's denominator is BLOCKED, not complete.**
 
 ### F0b — Nobody owns the refund, and nothing ever chases it *(control finding, no record verdict)*
 
