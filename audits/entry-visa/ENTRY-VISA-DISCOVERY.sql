@@ -1071,3 +1071,68 @@ SELECT COALESCE(prev_task,'⟨first step of the request⟩') AS arrived_from,
        COUNT(*) AS transitions, COUNT(DISTINCT VISA_REQUEST_ID) AS requests
 FROM steps WHERE TASK_NAME = 'Apply for entry Visa'
 GROUP BY 1 ORDER BY transitions DESC;
+
+
+-- W4 · F4, RE-CUT ON THE RULE THE CODE JUSTIFIES. Supersedes every step-count
+--      version (S3's a/b/c and the ITERATION comparison in Q9c).
+--
+--      Why abandon step counting entirely: W1 and W3 derive "transitions" with
+--      LEAD/LAG over STARTED_AT, but visa tasks run in PARALLEL and step medians
+--      are 0.0 days, so those queries measure temporal ADJACENCY, not causation.
+--      W3 shows ~20k arrivals into 'Apply for entry Visa' from mid-flow steps while
+--      ITERATION -- which counts entries to that task directly -- says only 889
+--      requests ever re-enter it. The 20k is parallel-task noise. Any rule built on
+--      step counts inherits it.
+--
+--      The code gives a rule that needs no step counts at all: the ONLY legitimate
+--      second entry-visa payment is Rejected -> Refund -> re-Apply. So a charge pair
+--      is a duplicate exactly when NOTHING that could justify re-paying happened
+--      between the two charges. Adding more justifying events can only REMOVE
+--      findings, so this can only under-count -- the correct direction.
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS charged_at,
+         CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed,
+         LAG(CREATION_DATE) OVER (PARTITION BY VISA_REQUEST_ID ORDER BY CREATION_DATE) AS prev_charged_at,
+         LAG(CAST(AMOUNT AS NUMBER(18,2))) OVER (PARTITION BY VISA_REQUEST_ID ORDER BY CREATION_DATE) AS prev_amount
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added' AND VISA_REQUEST_ID IS NOT NULL
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS WHERE NEW_REQUEST_ID IS NOT NULL
+), refunds AS (                       -- justifying event 1: a refund, either leg
+  SELECT VISA_REQUEST_ID AS request_id, CREATION_DATE AS at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+  UNION ALL
+  SELECT b.NEW_REQUEST_ID, e.CREATION_DATE
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), rejections AS (                    -- justifying event 2: a dated rejection
+  SELECT REQUEST_ID AS request_id, LAST_MODIFICATION_DATE AS at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
+  WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+), refund_step AS (                   -- justifying event 3: someone opened the refund step
+  SELECT VISA_REQUEST_ID AS request_id, STARTED_AT AS at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME = 'Refund Entry Visa Application'
+), pairs AS (
+  SELECT c.VISA_REQUEST_ID, c.prev_charged_at, c.charged_at, c.prev_amount, c.amount_aed,
+         EXISTS (SELECT 1 FROM refunds r WHERE r.request_id=c.VISA_REQUEST_ID
+                  AND r.at > c.prev_charged_at AND r.at < c.charged_at)      AS refund_between,
+         EXISTS (SELECT 1 FROM rejections j WHERE j.request_id=c.VISA_REQUEST_ID
+                  AND j.at > c.prev_charged_at AND j.at < c.charged_at)      AS rejection_between,
+         EXISTS (SELECT 1 FROM refund_step s WHERE s.request_id=c.VISA_REQUEST_ID
+                  AND s.at > c.prev_charged_at AND s.at < c.charged_at)      AS refund_step_between
+  FROM ch c WHERE c.prev_charged_at IS NOT NULL
+)
+SELECT CASE WHEN refund_between OR rejection_between OR refund_step_between
+              THEN 'a · justified re-payment'
+            ELSE  'b · DUPLICATE — nothing happened between the two charges' END AS verdict,
+       COUNT(*)                                   AS charge_pairs,
+       COUNT(DISTINCT VISA_REQUEST_ID)            AS requests,
+       ROUND(SUM(amount_aed))                     AS second_charge_aed,
+       ROUND(MEDIAN(DATEDIFF('day',prev_charged_at,charged_at)),1) AS median_days_apart
+FROM pairs GROUP BY 1 ORDER BY verdict;
