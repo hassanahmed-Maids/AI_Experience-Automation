@@ -7,10 +7,34 @@
 --   TRIM(CONTRACT_TYPE)            -- values are 'CC ' / 'MV ' with a trailing space
 --   AMOUNT BETWEEN -50000 AND 50000-- view max is ~19.7e12, a known anomaly
 --   PAYMENT_DATE > '1900-01-01'    -- sentinel '0025-11-06' in source
---   IS_DELETED = '0'               -- redundant upstream, harmless, explicit
+--
+-- ROLLED BACK 2026-09-13: an IS_DELETED = '0' guard was in every query below and
+-- matched 0 of 625,941 rows, silently emptying the whole battery. It was added on
+-- the strength of the view's profiled column comment ("contains only '0' ...
+-- safe but redundant"); the comment is wrong about the value. Whatever the column
+-- holds, it is not the string '0'. The predicate is removed, not corrected --
+-- the same comment states deleted rows are already filtered upstream, so there is
+-- nothing for it to do. Never re-add it without a GROUP BY proving the value.
 -- Entry-visa purposes are ENTRY_VSIA (>threshold) and ENTRY_VISA_LESS_THAN_1000
 -- (<=threshold). ENTRY_VSIA is a misspelling that IS the live enum value:
 -- spelling it ENTRY_VISA returns zero rows and reads as a scoping decision.
+-- =====================================================================
+
+-- =====================================================================
+-- MEASURED 2026-09-13 (run by Hassan, PAYROLL_AND_MONEY_CONTROL_ROLE).
+-- These are real counts, not estimates -- they set the denominators below.
+--   625,941  expense lines in the view, all purposes, all request types
+--    62,466  entry-visa charge lines  = ENTRY_VSIA 57,396 + <1000 5,070
+--                                       (the <1000 code is only 8.1% of them)
+--     1,598  REFUND_FOR_ENTRY_VISA lines, all time
+--        49  distinct PURPOSE values present, vs 52 in the ERP enum
+--         1  row with an EMPTY-STRING purpose -- use exact equality, and
+--            NULLIF(TRIM(PURPOSE),'') anywhere purpose is read as free text
+--         6  rows fall outside the +/-50,000 amount guard, and NONE of them are
+--            entry-visa lines (purpose_and_amount == purpose_only). So the
+--            ~19.7tn anomaly sits outside this audit's population: the VOID
+--            amount bucket is empty here and the coverage bar must say so
+--            rather than reserve a slice for it.
 -- =====================================================================
 
 -- Q0 · Orientation: is the entry visa a CC thing, an MV thing, or both?
@@ -27,7 +51,6 @@ SELECT TRIM(CONTRACT_TYPE)                    AS contract_type,
        MAX(CREATION_DATE)::DATE               AS latest
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
 WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
-  AND IS_DELETED = '0'
   AND AMOUNT BETWEEN -50000 AND 50000
 GROUP BY 1,2,3,4
 ORDER BY charge_lines DESC;
@@ -44,7 +67,6 @@ SELECT PURPOSE,
        ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (PARTITION BY PURPOSE),1) AS pct_of_purpose
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
 WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
-  AND IS_DELETED = '0'
   AND AMOUNT BETWEEN -50000 AND 50000
   AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
 GROUP BY 1,2,3
@@ -70,8 +92,7 @@ SELECT IFF(CREATION_DATE < '2025-07-01', 'pre-VPM-8872', 'post-VPM-8872') AS era
        MAX(CREATION_DATE)::DATE AS latest,
        ROUND(SUM(AMOUNT))       AS total_aed
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
-WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
-  AND IS_DELETED = '0' AND AMOUNT BETWEEN -50000 AND 50000
+WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000') AND AMOUNT BETWEEN -50000 AND 50000
 GROUP BY 1,2,3 ORDER BY era, n DESC;
 
 -- Q1c · Distance from the only live reference price the company has:
@@ -88,7 +109,7 @@ SELECT CASE WHEN AMOUNT BETWEEN  350 AND  460 THEN 'near the 403 outside-country
        ROUND(MIN(AMOUNT),2) AS min_aed, ROUND(MAX(AMOUNT),2) AS max_aed
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
 WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
-  AND STATUS = 'Added' AND IS_DELETED = '0' AND AMOUNT BETWEEN 0 AND 50000
+  AND STATUS = 'Added' AND AMOUNT BETWEEN 0 AND 50000
   AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
 GROUP BY 1 ORDER BY n DESC;
 
@@ -104,16 +125,14 @@ SELECT PURPOSE,
        COUNT_IF(PAYMENT_DATE IS NULL
              OR PAYMENT_DATE <= '1900-01-01')              AS no_usable_payment_date
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
-WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000','REFUND_FOR_ENTRY_VISA')
-  AND IS_DELETED = '0' AND AMOUNT BETWEEN -50000 AND 50000
+WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000','REFUND_FOR_ENTRY_VISA') AND AMOUNT BETWEEN -50000 AND 50000
   AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
 GROUP BY 1,2 ORDER BY 1,2;
 
 -- Q3 · How the money leaves: channel and funding bucket.
 SELECT PAYMENT_TYPE, BUCKET, COUNT(*) AS n, ROUND(SUM(AMOUNT)) AS total_aed
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
-WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
-  AND IS_DELETED = '0' AND AMOUNT BETWEEN -50000 AND 50000
+WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000') AND AMOUNT BETWEEN -50000 AND 50000
   AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
 GROUP BY 1,2 ORDER BY n DESC LIMIT 40;
 
@@ -131,8 +150,7 @@ WITH per_request AS (
          ROUND(SUM(IFF(PURPOSE = 'REFUND_FOR_ENTRY_VISA'
                        AND STATUS='Added', AMOUNT, 0)))    AS refunded_aed
   FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
-  WHERE REQUEST_TYPE = 'NewRequest'
-    AND IS_DELETED = '0' AND AMOUNT BETWEEN -50000 AND 50000
+  WHERE REQUEST_TYPE = 'NewRequest' AND AMOUNT BETWEEN -50000 AND 50000
   GROUP BY 1
   HAVING charges_added > 0
 )
@@ -232,6 +250,5 @@ SELECT CASE WHEN CREATION_DATE > CURRENT_DATE() THEN 'FUTURE-dated'
        COUNT(*) AS n, ROUND(SUM(AMOUNT)) AS total_aed,
        MIN(CREATION_DATE)::DATE AS earliest, MAX(CREATION_DATE)::DATE AS latest
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
-WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
-  AND IS_DELETED = '0' AND AMOUNT BETWEEN -50000 AND 50000
+WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000') AND AMOUNT BETWEEN -50000 AND 50000
 GROUP BY 1 ORDER BY n DESC;

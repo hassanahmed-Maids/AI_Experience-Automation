@@ -234,8 +234,14 @@ standing goes to the ERP/Data team as a built model. This spec is that handoff.
 
 ⚠️ Every row below was established from `DESC` / `GET_DDL` / `SHOW` with **no warehouse grant**, so
 it proves the column exists, its type and its profiled enum. **It does not prove the column is
-populated, fresh, or at the cardinality assumed.** `ENTRY-VISA-DISCOVERY.sql` closes that gap; until
-it runs, treat every population figure in this spec as absent rather than zero.
+populated, fresh, or at the cardinality assumed** — and the `IS_DELETED` episode below proves the
+profiled comments can be wrong about values, not merely incomplete. `ENTRY-VISA-DISCOVERY.sql` closes
+that gap; until it runs, treat every population figure in this spec as absent rather than zero.
+
+**Partially closed 2026-09-13:** a first run measured the ledger's volumes and value ranges (the ✅
+items under *Data hygiene*). The population, rejection, expiry and coverage queries have **not** run
+yet, so every finding-family count and every AED figure in this spec and its mockup remains an
+example.
 
 | # | Data point | Table | Column | Notes |
 | --- | --- | --- | --- | --- |
@@ -256,12 +262,30 @@ it runs, treat every population figure in this spec as absent rather than zero.
 `OWNER_TYPE = 'HOUSEMAID'`** — office-staff ids come from a different table and will silently
 mis-join if `OWNER_TYPE` is not carried through every join.
 
-**Data hygiene, each earned from the view metadata.**
-`AMOUNT` maximum profiles at **~19.7 trillion** — range-guard before any `SUM`.
-`AMOUNT` minimum is **negative** (`-1022.5`) — refunds and corrections share the column.
-`IS_DELETED` only ever holds `'0'`.
-`STATUS` is the *expense-row* lifecycle (`Added`/`Dismissed`/`Pending`), **not** the request workflow.
-`CONTRACT_TYPE` has trailing spaces. `PAYMENT_DATE` has a year-25 sentinel.
+**Data hygiene.** Items marked ✅ were **measured on 2026-09-13**; the rest are still profile-only.
+
+- ✅ `AMOUNT` maximum is genuinely **19,711,606,003,430** — range-guard before any `SUM`. But
+  **all 6 out-of-range rows sit outside the entry-visa population** (`purpose_and_amount` equals
+  `purpose_only` at 62,466), so for this audit the VOID-on-amount bucket is **empty**, and the
+  coverage bar must say so rather than reserve a slice for it.
+- ✅ `AMOUNT` minimum is **−1,022.50** — refunds and corrections share the column. No NULLs:
+  625,941 rows, 625,941 non-null.
+- 🔴 ✅ **`IS_DELETED` does NOT hold `'0'`.** The view's own profiled comment claims it "contains
+  only '0' … a `WHERE IS_DELETED = '0'` filter is safe but redundant". **That comment is wrong about
+  the value**: the predicate matched **0 of 625,941 rows** and silently emptied the entire query
+  battery on first run. The predicate is **removed, not corrected** — the same comment's other claim,
+  that deleted rows are filtered upstream, means there is nothing for it to do. *This is the spec's
+  own worked example of taking a column's meaning from its documentation instead of from a
+  `GROUP BY`.* Its actual value is still **`UNVERIFIED`** and no test may depend on it.
+- ✅ `PURPOSE` holds **49 distinct values** where the ERP `ExpensePurpose` enum has **52** — the
+  warehouse enum is shorter than the source enum, so a purpose absent from the warehouse is not
+  proof it is unused. One row carries an **empty-string** purpose: read purpose with exact equality,
+  and `NULLIF(TRIM(PURPOSE),'')` anywhere it is treated as free text.
+- ✅ Entry-visa volume: **62,466** charge lines — `ENTRY_VSIA` **57,396** and
+  `ENTRY_VISA_LESS_THAN_1000` **5,070**, i.e. the sub-threshold code is only **8.1%** of them.
+  `REFUND_FOR_ENTRY_VISA` totals **1,598** lines across all time.
+- `STATUS` is the *expense-row* lifecycle (`Added`/`Dismissed`/`Pending`), **not** the request
+  workflow. `CONTRACT_TYPE` has trailing spaces. `PAYMENT_DATE` has a year-25 sentinel.
 
 ### 2.2 Approved KPI definitions reused
 
@@ -312,7 +336,13 @@ One red outweighs any number of greens; **one blocked test does too**.
   reclassification was backfilled and this guard needs re-cutting. Without N2 (the threshold's value
   history) charges are **BLOCKED**, not GREEN, wherever the band is ambiguous.
 - **G2 · Amount sanity.** `AMOUNT BETWEEN -50000 AND 50000`. Anything outside is VOID with its own
-  count and total shown, never silently dropped.
+  count and total shown, never silently dropped. ✅ Measured: **no entry-visa line falls outside**,
+  so this guard currently voids nothing — keep it as a tripwire, and report the bucket as empty
+  rather than omitting it.
+- **G0 · No predicate without a `GROUP BY` behind it.** Every equality filter on a status, flag or
+  enum column must be justified by a distribution query showing the value exists, and that query
+  belongs in the battery. A filter's job is to exclude; a filter that excludes everything returns a
+  clean-looking empty result. Learned the expensive way — see `IS_DELETED` in §2.1.
 - **G3 · One verdict per charge.** Pair-grain families (F4, F5) are collapsed to charge grain by
   severity rank **before** any sum. Overlapping families otherwise double-count.
 - **G4 · Positive control on the expiry family.** Before reporting any count of expired-unused
