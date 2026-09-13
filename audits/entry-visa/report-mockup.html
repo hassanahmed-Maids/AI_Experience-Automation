@@ -157,8 +157,8 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
       </div>
       <div class="kpi">
         <div class="k">Gross exposure · M2</div>
-        <div class="v">AED 921,880</div>
-        <div class="s">Charged on the 521 requests carrying 2+ paid charges and no refund. <span class="meas">✓ measured</span></div>
+        <div class="v">AED 497,104</div>
+        <div class="s">Charged on the 270 requests paying more times than they applied, with no refund. <span class="meas">✓ measured</span></div>
       </div>
       <div class="kpi">
         <div class="k">Claims open &gt; 95 days</div>
@@ -344,7 +344,7 @@ footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); p
           <tr><td class="id">F1</td><td>Rejected, refund never recovered. Population is the <strong>union</strong> of both rejection sources — 868 requests, of which 672 are dated and 196 are live-only <span class="meas">✓</span></td><td class="n r">868 reqs</td><td class="n r">—</td><td><span class="v v-red">Red</span> <span class="v v-block">Blocked</span> <span class="fam">196 undated</span></td></tr>
           <tr><td class="id">F2</td><td>The claim says refunded, the ledger does not. Threshold 95 days — the slowest claim that ever completed <span class="meas">✓</span></td><td class="n r">145 open</td><td class="n r">—</td><td><span class="v v-block">Blocked</span> <span class="fam">needs refundedStatus</span></td></tr>
           <tr><td class="id">F3</td><td>Paid, approved, expired unused. No rejection, and the expiry job writes no financial record at all</td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-void">Void</span> <span class="fam">date control not yet run</span></td></tr>
-          <tr><td class="id">F4</td><td>Paid twice for one entry visa — before the rejection and bulk-posting guards <span class="meas">✓</span></td><td class="n r">521 reqs</td><td class="n r">921,880</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F4</td><td>Paid more times than applied, no refund. Counting the fix sub-workflow removed a 35% over-count <span class="meas">✓</span></td><td class="n r">270 reqs</td><td class="n r">497,104</td><td><span class="v v-red">Red</span></td></tr>
           <tr><td class="id">F5</td><td>Two price points across a rejection. Material = &gt; AED 500, between the 32.21 intra-band spread and the ~650 gap <span class="meas">✓</span></td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-cand">Candidate</span></td></tr>
           <tr><td class="id">F6</td><td>Step done, no payment booked. Detector floor 2026-06-10 <span class="meas">✓</span></td><td class="n r">8 cases</td><td class="n r">no claim</td><td><span class="v v-cand">Candidate</span></td></tr>
           <tr><td class="id">F7</td><td>Charges stranded at <span class="num">Pending</span>. Every one has no transaction, so these are <strong>unposted lines, not unrecovered payments</strong> <span class="meas">✓</span></td><td class="n r">234</td><td class="n r">no claim</td><td><span class="v v-cand">Candidate</span></td></tr>

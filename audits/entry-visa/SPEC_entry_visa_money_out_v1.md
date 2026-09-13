@@ -501,7 +501,33 @@ passed".** Every family below therefore states all four outcomes, not just its R
 | **CANDIDATE** | The pair falls in a bulk-posting cluster (below), or the charges are same-day and indistinguishable |
 | **NOT_APPLICABLE** | The request carries one charge — no pair to test |
 
-- 🔴 **THE SAMPLE FOUND A LIKELY RULE DEFECT. Do not publish F4's figure.** S1's 19 stratified cases
+- ✅ **RULE DEFECT CONFIRMED AND FIXED (S3). F4 is 270 requests / AED 497,104, not 413 / 757,548.**
+  F4 counted re-applications as visits to `Apply for entry Visa` only. There are four other
+  entry-visa steps, including a fix sub-workflow (`Fix the problem of entry visa` 2,064 visits ·
+  `Pending to fix issues of Entry Visa` 464 · `Approve Entry Visa Fix Document` 10). A case routed to
+  a fix step that then re-pays never re-enters `Apply`, so it scored as a duplicate while being an
+  ordinary re-application.
+
+  | visit definition | requests | AED |
+  | --- | --- | --- |
+  | a · apply step only — **as originally specified** | 413 | 757,548 |
+  | **b · apply + fix sub-workflow — ADOPTED** | **270** | **497,104** |
+  | c · every entry-visa step | 20 | 60,213 |
+
+  **(b) is the definition: the steps at which a payment can legitimately be required.** (a)
+  over-counts by **143 requests and AED 260,444**. (c) is wrong in the other direction —
+  `Check Entry Visa Immigration Approval` is a review step firing on nearly every request (60,307
+  visits), so including it inflates the visit count with non-payment events and under-flags almost
+  everything. Note (b) and (c) count step *rows* where (a) counts *revisits*; that asymmetry makes
+  (b) under-count slightly, which is the correct direction.
+
+- ✅ **The 19-case sample predicted the population error rate to within three points.** Six of 19
+  (32%) read `Need_Fix`; the measured over-count was 35%. **That is the argument for sampling before
+  publishing, in one line** — the defect was visible in nineteen hand-read cases before it was
+  visible in any aggregate.
+- ⚠️ **The S1 sample was drawn from population (a) and is now partly invalid.** Re-run S1 under the
+  (b) definition before hand-adjudicating; expect about a third of those 19 to disappear.
+- 🔴 **Superseded, kept for the record:** S1's 19 stratified cases
   show **6 of 19 currently reading `Need_Fix`** — and F4 counts re-applications as visits to
   `Apply for entry Visa` **only**. There are four other entry-visa steps, including a whole fix
   sub-workflow (`Fix the problem of entry visa` 2,064 visits · `Pending to fix issues of Entry Visa`
@@ -1204,7 +1230,7 @@ the wrong place. Rank by **how much stops leaking next month**.
 
 | Rank | Finding | Measured | What it needs |
 | --- | --- | --- | --- |
-| **4** | **F4 — more charges than applications, no refund** | **415 requests · AED 760,338** | The largest *avoidable* number in the audit and the least adjudicated. Two independent signals agree (415 by step-count, 521 by charge-count), but no case has been examined. **Do not publish a figure before sampling ~20 by hand** |
+| **4** | **F4 — more charges than applications, no refund** | **270 requests · AED 497,104** | Still the largest *avoidable* number. ✅ Sampling already cut it from 757,548 by removing fix-workflow false positives. **Still unadjudicated — re-sample under the corrected definition and read 20 before publishing** |
 | **5** | **F11 — short and over refunds** | 19 short (12,350) · 21 over (13,650) · 8 candidates | Small money, **proven** (survived its own self-check), and **recurring across two years**. The over-refunds are a **liability** — we received AED 367 more than we paid, 21 times |
 
 ### Tier 3 — act now despite trivial money
@@ -1228,7 +1254,7 @@ the wrong place. Rank by **how much stops leaking next month**.
 | | AED |
 | --- | --- |
 | Defensible recoverable, both channels (F1 + F3) | **≈ 275,000** |
-| Avoidable but unadjudicated (F4) | 760,338 |
+| Avoidable but unadjudicated (F4) | **497,104** |
 | Cost of late cancellation, not recoverable (F10) | 3,454,994 |
 | Control errors, both directions (F11 + F9) | ≈ 36,000 |
 

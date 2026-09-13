@@ -169,12 +169,12 @@ comparing figures that were never comparable.
 |---|---|---|
 | `EV-M1` | Recoverable — unclaimed refunds, rejection channel | **≥ AED 71,229** over 164 charges |
 | `EV-M2` | Gross exposure on red rows | AED 117,517 (M1's population) |
-| `EV-M3` | Avoidable waste — duplicates, two price points, avoidable expiry | AED 760,338 candidate pool |
+| `EV-M3` | Avoidable waste — duplicates, two price points, avoidable expiry | AED 497,104 candidate pool |
 | `EV-M4` | Recovery rate — refunds received ÷ due | computable from the tariff |
 | `EV-M5` | Claim ageing — days rejection → refund | 547 of 556 within 7 days |
 | `EV-M6` | Unit price vs the measured mode | 1,022.50 / 372.50 |
 | `EV-F1` | Rejected, refund never recovered | 868-request union |
-| `EV-F4` | More charges than applications, no refund | **415 requests, AED 760,338** |
+| `EV-F4` | More charges than applications, no refund | **270 requests, AED 497,104** |
 | `EV-F10` | Approved then cancelled | 5,747 requests, AED 3,454,994, **unadjudicated** |
 | `EV-F11` | Short / over refunds | 19 + 21 confirmed, 8 candidates |
 | `EV-COV` | Coverage — examined vs each priced exclusion | 23.4% of all-time lines examined |
@@ -281,8 +281,11 @@ Numeric, so a wrong build is visible:
    channel, ± movement since 2026-09-13.
 6. The tariff holds: **≥ 1,100 refunds at exactly `charge − 283.00 − surcharge`**, variance summing
    to **0**. Anything else means the pairing or the cast is wrong.
-7. `EV-F4` returns **415 requests / AED 760,338** with `step_visits ≥ 1` enforced. **Without that
-   guard it returns ~4,980 and AED 3.1m** — if you see that, the pre-2019 boundary leaked in.
+7. `EV-F4` returns **270 requests / AED 497,104**, counting visits across `Apply for entry Visa`
+   **plus** `Fix the problem of entry visa` **plus** `Pending to fix issues of Entry Visa`, with
+   `visits ≥ 1` enforced. Two ways to get this wrong, both measured: counting the **apply step alone**
+   returns 413 / AED 757,548, a **35% over-count** from fix-workflow re-applications; dropping the
+   `visits ≥ 1` guard returns ~4,980 / AED 3.1m as the pre-2019 no-step-history block leaks in.
 8. Verdict exhaustiveness: charges in scope **= GREEN + RED + CANDIDATE + NOT_APPLICABLE + VOID +
    BLOCKED + REPORTED**, in both count and AED. Any charge in none of these is a build defect.
 9. Coverage reproduces: **2017 = 617 charges / AED 350,467 BLOCKED**; Pakistani cohort **411 / AED
