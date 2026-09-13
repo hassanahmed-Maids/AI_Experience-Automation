@@ -1434,3 +1434,45 @@ SELECT CASE WHEN implied_days IS NULL THEN 'z · unexplained'
        ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (),2)    AS pct_of_lines,
        MIN(implied_days) AS min_days, MAX(implied_days) AS max_days
 FROM d GROUP BY 1 ORDER BY band;
+
+
+-- D8 · How much of the AED 970,081 sits in the long tail? D7 showed the ladder is
+--      real (a clean monotonic decay, no tail bulge), but 15 lines imply 182-515
+--      days and I estimated their weight instead of measuring it -- wrongly, by an
+--      order of magnitude. Measure it. If the 181+ band carries a large share, the
+--      headline needs a stated-with-and-without figure.
+WITH cos AS (
+  SELECT CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='CHANGE_OF_STATUS' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+), d AS (
+  SELECT amount_aed,
+         CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2
+                   THEN ROUND((amount_aed - 572.50)/50.0)
+              WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2
+                   THEN ROUND((amount_aed - 575.65)/50.0)
+              WHEN ABS(ROUND((amount_aed - 590.54)/51.575) * 51.575 - (amount_aed - 590.54)) < 0.05
+                   THEN ROUND((amount_aed - 590.54)/51.575)
+              ELSE NULL END AS implied_days,
+         CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2
+                   THEN GREATEST(amount_aed - 572.50, 0)
+              WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2
+                   THEN GREATEST(amount_aed - 575.65, 0)
+              WHEN ABS(ROUND((amount_aed - 590.54)/51.575) * 51.575 - (amount_aed - 590.54)) < 0.05
+                   THEN GREATEST(amount_aed - 590.54, 0)
+              ELSE 0 END AS embedded_fine_aed
+  FROM cos
+)
+SELECT CASE WHEN implied_days IS NULL THEN 'z · unexplained'
+            WHEN implied_days = 0     THEN '0 days'
+            WHEN implied_days <= 7    THEN '1-7 days'
+            WHEN implied_days <= 30   THEN '8-30 days'
+            WHEN implied_days <= 90   THEN '31-90 days'
+            WHEN implied_days <= 180  THEN '91-180 days'
+            ELSE '181+ days (suspect)' END              AS band,
+       COUNT(*)                                         AS lines,
+       ROUND(SUM(embedded_fine_aed))                    AS embedded_fine_aed,
+       ROUND(100.0*SUM(embedded_fine_aed)
+             / NULLIF(SUM(SUM(embedded_fine_aed)) OVER (),0),2) AS pct_of_fine_total
+FROM d GROUP BY 1 ORDER BY embedded_fine_aed DESC;

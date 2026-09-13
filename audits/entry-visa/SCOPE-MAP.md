@@ -245,3 +245,101 @@ one adjudicated pair — the finding has no unclassified remainder.
 It also confirms the over-statement correction rather than excusing it: at **1.010 requests per
 maid**, 99% of maids have a single request, so request grain was structurally blind to only ~1% of
 the population. The re-cut was right and small, as measured — not right and large, as I first claimed.
+
+### 🔴 D5 — the 3× gap is not a population difference. The two columns mean different things.
+
+On the **same population and the same 12 months**, embedded fine = 970,080 and `OVERSTAY_FINE` =
+3,068,900. Reading (a) — "different populations" — is dead. And the two sets barely overlap:
+
+| reconciliation | requests | embedded AED | OVERSTAY_FINE AED | OVERSTAY_FEE AED | flagged repaid |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| a · no fine on either side | 8,149 | 0 | 0 | 17,945 | 2 |
+| b · **embedded in the fee, nothing in OVERSTAY_FINE** | **997** | **640,800** | 0 | 630,299 | 14 |
+| c · **OVERSTAY_FINE recorded, nothing embedded** | **364** | 0 | **2,384,550** | 37,980 | 6 |
+| e · both, and they **disagree** | 137 | 269,380 | 624,450 | 269,250 | 24 |
+| d · both, and they agree | 48 | 59,900 | 59,900 | 59,900 | 3 |
+
+Of 1,546 requests carrying a fine on either side, **48 (3.1%) agree**. The join loses nothing: the
+embedded column sums to 970,080, matching D4's 970,081 to the rounding.
+
+**`OVERSTAY_FEE` is the column that tracks the money.** Read it down the table against the embedded
+amount — the numbers I derived arithmetically from the fee ladder, with no knowledge of this column:
+
+| | embedded | OVERSTAY_FEE | apart |
+| --- | ---: | ---: | ---: |
+| d · both agree | 59,900 | 59,900 | **0.00%** |
+| e · both disagree | 269,380 | 269,250 | **0.05%** |
+| b · fine invisible to OVERSTAY_FINE | 640,800 | 630,299 | 1.64% |
+
+So the two columns are not two attempts at one number, and the spec's "not reconciled to each other"
+resolves into a meaning:
+
+- **`OVERSTAY_FEE` ≈ what the company actually paid**, mirroring the amount buried in the fee.
+- **`OVERSTAY_FINE` ≈ what was assessed/declared** — ~3× larger, and on 364 requests (AED 2,384,550)
+  it carries a fine that no payment anywhere corresponds to.
+
+⚠️ **This is corroboration only if the two are independent, and they may not be.** If the ERP computes
+`OVERSTAY_FEE` and then writes `amount = base + OVERSTAY_FEE`, it is one measurement stored twice, and
+a 0.00% agreement is a tautology rather than a proof. **Asked of the code; do not cite the agreement
+as independent confirmation until the answer is in.**
+
+**The recovery rate, tighter than D3's.** Across all 1,546 fined requests, **49 (3.2%)** are flagged
+`FINES_PAID_TO_US`. And in category **b** — the fines that are invisible in the fine column — it is
+**14 of 997 (1.4%)**. The fines nobody can see are the ones that are almost never recovered. Stated
+as an association, not a cause; it is nonetheless the actionable shape of the finding.
+
+### ✅ D7 — the AED 50/day ladder is real
+
+| implied overstay | lines | % |
+| --- | ---: | ---: |
+| 0 days | 8,506 | **87.73** |
+| 1–7 days | 704 | 7.26 |
+| 8–30 days | 345 | 3.56 |
+| 31–90 days | 94 | 0.97 |
+| 91–180 days | 25 | 0.26 |
+| 181+ days | 15 | 0.15 |
+| unexplained | 7 | 0.07 |
+
+A smooth monotonic decay — which is what an overstay-days distribution looks like, and is *not* what
+a false-positive matcher produces. An over-permissive modulo test would scatter matches roughly evenly
+across the range, and would bulge at the tail where more amounts are available to land on the ladder.
+It does neither. The ladder holds across its whole range.
+
+⚠️ **Correction.** I wrote that the 515-day outlier "moves the total by <3%". That was reasoning from
+one line; there are **15** in the 181+ band, and at 182–515 days each they could carry roughly a fifth
+of the AED 970,081. The direction of my claim was wrong, not just its size. `D8` measures the band's
+actual weight instead of estimating it.
+
+### D6 — the seven unexplained lines are the same fee, one notch off the ladder
+
+| amount | implied days off base 572.50 |
+| ---: | --- |
+| 13,397.50 | 256.5 |
+| 11,997.50 | 228.5 |
+| 11,947.50 | 227.5 |
+| 7,847.50 | 145.5 |
+| 7,147.50 | 131.5 |
+| 6,647.50 | 121.5 |
+| 952.50 | 7.6 |
+
+**Six of the seven are exactly half a day off** — an odd multiple of AED 25 above the base, i.e.
+`572.50 + 25 + 50n`. Six independent lines landing on the same AED 25 offset is a tariff component,
+not noise: a half-day charge, or a fixed AED 25 add-on. The seventh (952.50) fits neither.
+
+All seven are **MV**, all **HOUSEMAID**, all inside a ten-week window (2026-01-05 → 2026-03-16). One
+contract type, one quarter — a process or tariff change, not corrupt data. Their implied overstays of
+121–256 days independently corroborate D7's tail: long overstays exist in this population.
+
+At base + fine, the six carry ≈ **AED 55,550** of further embedded fine, +5.7% on the headline.
+
+### Revised overstay picture
+
+| | AED | basis |
+| --- | ---: | --- |
+| Paid by the company, buried in the change-of-status fee | **970,081/yr** | D4, arithmetic decomposition |
+| Same, as the ERP's own `OVERSTAY_FEE` | 1,015,374/yr | D5 — corroborating **only if independent** |
+| Assessed but matched to no payment | 2,384,550 on 364 requests | D5 category c |
+| Recovered from the maid | **3.2% of fined requests** | D5, 49 of 1,546 |
+
+The AED 2.97m/yr from D3 is the **declared** figure and should not be presented as money out. The
+money-out number for overstay is **≈ AED 1m/yr**, arrived at down two paths.
