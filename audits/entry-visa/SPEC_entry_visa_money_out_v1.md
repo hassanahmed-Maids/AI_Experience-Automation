@@ -501,7 +501,51 @@ passed".** Every family below therefore states all four outcomes, not just its R
 | **CANDIDATE** | The pair falls in a bulk-posting cluster (below), or the charges are same-day and indistinguishable |
 | **NOT_APPLICABLE** | The request carries one charge — no pair to test |
 
-- ✅ **RULE DEFECT CONFIRMED AND FIXED (S3). F4 is 270 requests / AED 497,104, not 413 / 757,548.**
+- 🔴 **MY CORRECTION WAS ITSELF WRONG. The code reverses it, and F4 goes back to ~413 / AED 757,548.**
+  I inferred from the sample that `Need_Fix` cases re-pay through a fix sub-workflow, and adopted
+  definition (b) on that basis. **The code says fix paths do not re-pay at all.** Asked directly,
+  `CheckEntryVisaImmigrationApprovalStep.onDone` routes:
+
+  | value | routes to | new entry-visa payment? | refund? |
+  | --- | --- | --- | --- |
+  | **`Rejected`** | `RefundEntryVisaApplicationStep` | ✅ **Yes — the only one.** The step deletes the `AFEV` payment and re-enters `ApplyForEntryVisaStep`, a fresh application | ✅ Yes |
+  | `Approved` | medical / EID / change-of-status / flight / Ansari | No | No |
+  | `E_Visa_Need_Sponser_Visit` | PRO-update loop, or fix step for office staff | **No** | No |
+  | `Active_Visa` | fix step, or `Pending to cancel active visa` → loops back to *Check*, not Apply | **No** | No |
+  | `Another_Issue` | `FixTheProblemOfEntryVisaStep` | **No** | No |
+  | `Absconding` | `Pending to remove absconding` → loops back to *Check* | **No** | No |
+  | `E_Visa_Need_Inside_Payment` | PRO-update loop — an immigration fee, **not** an entry-visa re-payment | **No** | No |
+
+  **So the only legitimate second entry-visa payment is the reject → refund → re-apply cycle, and
+  that path re-enters `Apply for entry Visa`.** Definition (a) already handles it: two charges against
+  two apply-visits does not flag, and the cycle always carries a refund. Counting fix steps as visits
+  **forgives 143 requests the code says have no justification**.
+
+  ⚠️ **Held, not restored.** `W3` enumerates every route into `Apply for entry Visa`; if other steps
+  feed it in volume there are re-payment routes the code answer did not cover. F4 carries **no
+  publishable figure** until W3 lands — this is its third revision and the discipline is to stop
+  quoting a number that has moved twice in a day.
+
+- 🔴 **`Need_Fix` is not what the warehouse makes it look like.** `NewRequest.getEntryVisaImmigrationApproved()`
+  **remaps stored `Need_Fix` at read time** from the legacy `problemStatus` field into `Active_Visa`,
+  `E_Visa_Need_Medical_Test`, `E_Visa_Need_Inside_Payment`, `E_Visa_Need_Sponser_Visit` or
+  `Another_Issue`. The application never sees `Need_Fix`. **The warehouse column exposes a raw value
+  the ERP itself translates away**, so any rule keying on `Need_Fix` is reading something the business
+  does not act on. This is what my sample inference tripped over.
+
+- 🔴 **G5c corrected: legacy `0` means "Need fix", NOT "rejected".** From the old BPMN,
+  `entryVisaImmigrationApproved` was a boolean: **`1` = Approved, `0` = Need fix**. My inference from
+  the 10.7:1 ratio was wrong. Including `0` in any rejection set would be a **false positive**, not a
+  recovered case. It was marked `UNVERIFIED` and confined to 2018–19, so nothing published depends on
+  it — but the guess was wrong and the check was the only reason it cost nothing.
+
+- ⚠️ **W2's step attribution is noise, not payment points.** It shows AED 6.5m of entry-visa charges
+  landing on Ansari steps and AED 296k on `Pending Graphic Designer`. Neither is a payment point:
+  `ApplyForAnsariStep` sits on the **approved** branch, *after* the fee is paid. Steps advance with a
+  median of **0.0 days**, so a charge lands on whichever step the clock happened to be on. **W2 cannot
+  identify payment points and must not be used to set F4's rule** — the code can, and did.
+
+- ✅ **Superseded, kept for the record — S3's three definitions:**
   F4 counted re-applications as visits to `Apply for entry Visa` only. There are four other
   entry-visa steps, including a fix sub-workflow (`Fix the problem of entry visa` 2,064 visits ·
   `Pending to fix issues of Entry Visa` 464 · `Approve Entry Visa Fix Document` 10). A case routed to
@@ -1230,7 +1274,7 @@ the wrong place. Rank by **how much stops leaking next month**.
 
 | Rank | Finding | Measured | What it needs |
 | --- | --- | --- | --- |
-| **4** | **F4 — more charges than applications, no refund** | **270 requests · AED 497,104** | Still the largest *avoidable* number. ✅ Sampling already cut it from 757,548 by removing fix-workflow false positives. **Still unadjudicated — re-sample under the corrected definition and read 20 before publishing** |
+| **4** | **F4 — more charges than applications, no refund** | 🔴 **no publishable figure — third revision, awaiting W3** | Still the largest *avoidable* number. ✅ Sampling already cut it from 757,548 by removing fix-workflow false positives. **Still unadjudicated — re-sample under the corrected definition and read 20 before publishing** |
 | **5** | **F11 — short and over refunds** | 19 short (12,350) · 21 over (13,650) · 8 candidates | Small money, **proven** (survived its own self-check), and **recurring across two years**. The over-refunds are a **liability** — we received AED 367 more than we paid, 21 times |
 
 ### Tier 3 — act now despite trivial money
@@ -1254,7 +1298,7 @@ the wrong place. Rank by **how much stops leaking next month**.
 | | AED |
 | --- | --- |
 | Defensible recoverable, both channels (F1 + F3) | **≈ 275,000** |
-| Avoidable but unadjudicated (F4) | **497,104** |
+| Avoidable but unadjudicated (F4) | 🔴 **withheld** — 757,548 under (a), 497,104 under (b); the code favours (a), W3 decides |
 | Cost of late cancellation, not recoverable (F10) | 3,454,994 |
 | Control errors, both directions (F11 + F9) | ≈ 36,000 |
 

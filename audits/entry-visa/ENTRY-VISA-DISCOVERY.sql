@@ -1055,3 +1055,19 @@ LEFT JOIN ch ON ch.VISA_REQUEST_ID = s.VISA_REQUEST_ID
 GROUP BY 1
 HAVING COUNT(*) >= 50
 ORDER BY charges_booked_during_step DESC;
+
+
+-- W3 · EVERY route INTO 'Apply for entry Visa'. W1 only showed transitions OUT of
+--      entry-visa steps. The code says the ONLY legitimate second entry-visa
+--      payment comes from Rejected -> Refund -> re-Apply, and that path re-enters
+--      this step. If W3 shows other steps feeding into it in volume, there are
+--      re-payment routes the code answer did not cover and F4 needs them counted.
+WITH steps AS (
+  SELECT VISA_REQUEST_ID, TASK_NAME, STARTED_AT,
+         LAG(TASK_NAME) OVER (PARTITION BY VISA_REQUEST_ID ORDER BY STARTED_AT) AS prev_task
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+)
+SELECT COALESCE(prev_task,'⟨first step of the request⟩') AS arrived_from,
+       COUNT(*) AS transitions, COUNT(DISTINCT VISA_REQUEST_ID) AS requests
+FROM steps WHERE TASK_NAME = 'Apply for entry Visa'
+GROUP BY 1 ORDER BY transitions DESC;
