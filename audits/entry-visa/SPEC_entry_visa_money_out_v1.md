@@ -775,7 +775,10 @@ only where **no** refund was recorded on either leg.**
 | 2024 | 15 | 8,838 | **4,593** |
 | **Total** | **164** | **117,517** | **AED 71,229** |
 
-**AED 71,229 is the first defensible recoverable figure in this audit**, and it is deliberately
+**AED 71,229 is the first defensible recoverable figure in this audit — and it is the REJECTION
+channel only.** ✅ V3 (below) shows expiry is a separate and larger channel: 391 of the company's 444
+"Should Have Been Refunded" cases are invisible to a rejection-keyed test. **Do not publish 71,229 as
+a total.**, and it is deliberately
 smaller than the prior check's AED 105,758 across 223 charges. Three reasons it is better founded:
 the refund expectation comes from a tariff proven against 1,287 government decisions rather than
 assumed; refunds are matched on **both** request legs; and the rejection population is the G5 union
@@ -792,6 +795,59 @@ rather than one source.
    entirely **recording coverage**: dated rejections do not exist before 2025-09-05 (G5b), so
    earlier years survive only where the live column still reads `Rejected` today — which G5 measured
    as losing 41.5% of the population. **Nobody may present this as a worsening control.**
+
+### V3 · My headline was understating by a whole channel
+
+✅ **Reconciling my rejection-keyed unclaimed population against the company's expiry-keyed one:**
+
+| | requests |
+| --- | --- |
+| **Only in theirs — expiry-keyed** | **391** |
+| In both | 53 |
+| Only in mine — rejection-keyed | 39 |
+
+🔴 **391 of the company's 444 "Should Have Been Refunded" cases (88%) are invisible to a
+rejection-keyed test.** Expiry is a **separate loss channel**, not a subset of rejection — which is
+exactly what F3 was added for, and it is the **larger** of the two. Against `LOST_VISA_EXPENSES`'s
+AED 329,107 gross on that family, recoverable is roughly **AED 203,000** once the flat 283 retention
+is removed per case, of which the expiry-only share is on the order of **AED 179,000**.
+
+**So M1's AED 71,229 is not the number — it is the rejection channel's number.** The combined
+recoverable is plausibly **2–3× larger**. It must not be published as a total until F3 is priced.
+
+⚠️ **Both populations have gaps, in both directions.** 39 requests are rejected and unrefunded but
+absent from the company's loss view entirely. Neither source is complete, and the audit's population
+is the **union**, not either one.
+
+⚠️ **The 444 still inherit the live-row defect.** `LOST_VISA_EXPENSES` derives expiry from the
+current request row, so on a re-applied request it reads permit #2's dates. The figures above are a
+**reconciliation target, not a verified count** — F3 must re-derive expiry per attempt (G5) before
+any of this is published.
+
+### F0c — Cancellation after approval has no route to a refund at all *(V4, and it is structural)*
+
+✅ **V4 asked what the 26 recovered cases did differently. The answer is not diligence — it is
+routing.**
+
+| | refund step opened | never opened |
+| --- | --- | --- |
+| **Refunded** | **12** | 14 |
+| Not refunded | 1 | **5,720** |
+
+- **Where the refund step was opened, money came back 12 times out of 13 — 92%.**
+- **Where it was not, recovery is 14 in 5,734 — 0.24%.**
+- **The step was opened on 13 of 5,747 cases. 0.2%.**
+
+🔴 **The code says why, and it is not human failure.** `CheckEntryVisaImmigrationApprovalStep.onDone`
+routes to `RefundEntryVisaApplicationStep` **only when the application was rejected**. A case that was
+*approved and then cancelled* never passes that branch, so **nothing ever puts it in front of anyone**.
+The 5,721 are not neglected; they are **structurally unreachable**. That is a missing workflow branch,
+and it is a far stronger finding than "nobody chases it".
+
+⚠️ **A limitation of V4 I have not closed.** It checks only the **new-request** task table, and the
+code shows a separate `RefundEntryVisaApplicationCancellationStep` on the **cancel** side. The 14
+refunds with "no step" most likely went through that one. **`V4b` checks the cancel-side task table**;
+until it runs, read the 92% as the recovery rate *given the new-request step*, not as the whole story.
 
 ### F0b — Nobody owns the refund, and nothing ever chases it *(control finding, no record verdict)*
 

@@ -749,3 +749,32 @@ LEFT JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS r ON r.REQUEST_ID = e.VISA_
 WHERE e.PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
   AND e.REQUEST_TYPE = 'NewRequest' AND e.STATUS = 'Added'
 GROUP BY 1 ORDER BY 1;
+
+
+-- V4b · Close V4's gap. V4 checked only the NEW-REQUEST task table, but the code
+--       carries a separate RefundEntryVisaApplicationCancellationStep on the CANCEL
+--       side. The 14 refunds V4 scored as "step never opened" most likely went
+--       through that one. If they did, the routing story is intact and the recovery
+--       rate given ANY refund step is higher still.
+WITH cancelled AS (
+  SELECT DISTINCT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.LOST_VISA_EXPENSES
+  WHERE CATEGORY='ENTRY VISA' AND EXPENSES_TYPE='Approved and Canceled Entry Visas'
+), rf AS (
+  SELECT DISTINCT VISA_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added'
+), new_step AS (
+  SELECT DISTINCT VISA_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME ILIKE '%Refund Entry Visa%'
+), cancel_step AS (
+  SELECT DISTINCT VISA_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME ILIKE '%Refund Entry Visa%'
+)
+SELECT IFF(rf.VISA_REQUEST_ID IS NULL,'no refund','REFUNDED')  AS outcome,
+       IFF(ns.VISA_REQUEST_ID IS NOT NULL,'yes','no')          AS new_request_step,
+       IFF(cs.VISA_REQUEST_ID IS NOT NULL,'yes','no')          AS cancel_request_step,
+       COUNT(*)                                                AS requests
+FROM cancelled c
+LEFT JOIN rf          ON rf.VISA_REQUEST_ID = c.REQUEST_ID
+LEFT JOIN new_step ns ON ns.VISA_REQUEST_ID = c.REQUEST_ID
+LEFT JOIN cancel_step cs ON cs.VISA_REQUEST_ID = c.REQUEST_ID
+GROUP BY 1,2,3 ORDER BY outcome DESC, requests DESC;
