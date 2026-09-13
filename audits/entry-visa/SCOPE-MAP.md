@@ -577,3 +577,45 @@ non-refundable service. B5 tells us the re-entry signal explains two thirds of o
 `B6` splits B5 by leg and by period, and tightens it twice — the signal must precede the refund, and
 a signal appearing only *after* a refund is called out rather than counted. Both tightenings can only
 reduce the coverage B5 claimed, which is the honest direction to be wrong in.
+
+### ✅ B6 — check B is buildable, on a scope the data actually supports
+
+| period | leg | refunds | traced (a+b+c) | no signal |
+| --- | --- | ---: | ---: | ---: |
+| **after floor** | **NewRequest** | **644** | **611 · 94.9%** | **21 · 3.3%** |
+| after floor | CancelRequest | 170 | 31 · 18.2% | **128 · 75.3%** |
+| before floor | NewRequest | 568 | 434 · 76.4% | 38 · 6.7% |
+| before floor | CancelRequest | 75 | 31 · 41.3% | 43 · 57.3% |
+
+**Post-floor NewRequest is 94.9% traced with 3.3% unexplained. That is the production scope for
+check B** — the 60-day test can be run there on a population that is essentially complete. Everything
+else is either pre-floor (where the field cannot testify) or cancel-leg (below).
+
+Two controls passed. Tightening B5 moved "no signal" from **209 → 230**, i.e. *up*, which is the only
+direction a tightening can honestly move it. And pre-floor NewRequest is carried almost entirely by
+the re-entry signal — **411 of 568 (72.4%)** — which is what a floor-free signal should look like in
+exactly the window where the field is blind.
+
+A category worth keeping: **120 refunds (AED 67,291) have a signal only AFTER the refund**, 96 of them
+pre-floor NewRequest. Refund first, rejection recorded later. Not necessarily wrong — a re-application
+cycle produces that ordering — but it is not evidence the refund was entitled, and it must not be
+counted as if it were.
+
+### 🔴 F0c — the evidence now runs against it, with one blind spot left to close
+
+Post-floor, after tightening, **128 of 170 cancel-leg refunds (75.3%, AED 75,806) have no rejection
+signal of any kind** — not the approval field, not immigration re-entry, not a fix step. At most 31
+of 170 (18.2%) followed a rejection. The floor cannot explain this, because the floor is what this
+population survived.
+
+Taken at face value that says **cancellation is refunded in practice without any rejection**, which
+contradicts the GDRFA reading behind F0c and puts the **AED 3.45m** reclassification back in play.
+
+⚠️ **But I tested the cancel leg with new-request signals only.** All three signals in B6 read
+`INITIAL_VISA_REQUESTS*`. `CANCEL_VISA_REQUESTS_TASKS` exists — the cancel leg runs its own
+workflow — and a rejection recorded there is invisible to everything B6 looked at. That would make
+the 75.3% an artifact of looking in the wrong table. `CANCEL_VISA_REQUESTS` has no rejection column
+(checked via metadata), so its **task vocabulary** is where the answer lives.
+
+**`B7` enumerates it. F0c stays provisional until it runs** — I am not overturning an AED 3.45m
+ruling on a test that could not have seen the evidence.

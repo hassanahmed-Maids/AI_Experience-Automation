@@ -1967,3 +1967,20 @@ LEFT JOIN rej_dated j  ON j.maid_id  = rf.maid_id
 LEFT JOIN revisit   rv ON rv.maid_id = rf.maid_id
 LEFT JOIN fixstep   fx ON fx.maid_id = rf.maid_id
 GROUP BY 1,2,3 ORDER BY period, leg, signal;
+
+
+-- B7 · CLOSE B6'S BLIND SPOT BEFORE OVERTURNING F0c. B6 hunted for rejection
+--      signals in INITIAL_VISA_REQUESTS* -- the NEW-request tables -- and then
+--      judged the CANCEL leg with them. But CANCEL_VISA_REQUESTS_TASKS exists:
+--      the cancel leg runs its own workflow. A rejection recorded there would be
+--      invisible to every signal B6 tested, and B6's 75.3% "no signal" on the
+--      cancel leg would be an artifact of looking in the wrong table.
+--      CANCEL_VISA_REQUESTS has no rejection column (checked), so the task
+--      vocabulary is the place to look. Enumerate it before concluding anything.
+SELECT TASK_NAME,
+       COUNT(*)                        AS task_rows,
+       COUNT(DISTINCT VISA_REQUEST_ID) AS cancel_requests,
+       MIN(STARTED_AT)::DATE           AS first_seen,
+       MAX(STARTED_AT)::DATE           AS last_seen
+FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS_TASKS
+GROUP BY 1 ORDER BY task_rows DESC;
