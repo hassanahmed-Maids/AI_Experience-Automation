@@ -10,7 +10,9 @@
 --     SHOW COLUMNS. QG and Q5 profile them; Q5b reports strict and wide side by side.
 --   * *_MODIFIED IS NOT NULL was a NO-OP: the flag is 0/1 and never null, so v1 read
 --     carried-forward state rows as if they were change events. Now TRY_TO_NUMBER(..)=1,
---     which is safe whether the column is VARCHAR '1.00000' or NUMBER.
+--     = 1. (v2 used TRY_TO_NUMBER because the column's own comment claims VARCHAR
+--     '1.00000'; SHOW COLUMNS says NUMBER(18,5) and the comment is wrong again --
+--     TRY_TO_NUMBER on a NUMBER errors. Trust SHOW COLUMNS over the comment.)
 --   * AMOUNT is FLOAT. Cast to NUMBER(18,2) before grouping, banding or summing —
 --     GROUP BY on a float splits 1022.50 from 1022.4999999999.
 --   * The ±50,000 guard moved OUT of WHERE in the coverage query: v1 dropped the
@@ -188,7 +190,7 @@ SELECT ENTRY_VISA_IMMIGRATION_APPROVED       AS value_written,
        MIN(LAST_MODIFICATION_DATE)::DATE     AS first_seen,
        MAX(LAST_MODIFICATION_DATE)::DATE     AS last_seen
 FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
-WHERE TRY_TO_NUMBER(ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED) = 1
+WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
 GROUP BY 1 ORDER BY first_seen;
 
 
@@ -197,7 +199,7 @@ GROUP BY 1 ORDER BY first_seen;
 WITH changes AS (
   SELECT REQUEST_ID, ENTRY_VISA_IMMIGRATION_APPROVED AS v
   FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY
-  WHERE TRY_TO_NUMBER(ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED) = 1
+  WHERE ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
 ), strict_hist AS (SELECT DISTINCT REQUEST_ID FROM changes WHERE v = 'Rejected'),
    wide_hist   AS (SELECT DISTINCT REQUEST_ID FROM changes WHERE v IN ('Rejected','0')),
    now_rej     AS (SELECT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
@@ -293,10 +295,13 @@ GROUP BY 1,2 ORDER BY steps DESC;
 
 -- Q10 · COVERAGE. The amount guard is in the CASE, NOT the WHERE — v1 dropped the
 --       out-of-range rows from the query written to price dropped rows.
+--       v3: CREATION_DATE::DATE > CURRENT_DATE(). v2 compared a TIMESTAMP to
+--       CURRENT_DATE(), so every row created TODAY read as FUTURE-dated (20 rows,
+--       AED 15,250 on the 2026-09-13 run). A cast, not a real future-dating problem.
 SELECT CASE WHEN CAST(AMOUNT AS NUMBER(18,2)) NOT BETWEEN -50000 AND 50000
                                                                   THEN 'VOID · outside the amount guard'
             WHEN AMOUNT IS NULL                                   THEN 'VOID · null amount'
-            WHEN CREATION_DATE > CURRENT_DATE()                   THEN 'FUTURE-dated'
+            WHEN CREATION_DATE::DATE > CURRENT_DATE()             THEN 'FUTURE-dated'
             WHEN CREATION_DATE < DATEADD('month',-12,CURRENT_DATE())
                                                                   THEN 'older than the window'
             ELSE 'inside the window' END AS dating,
