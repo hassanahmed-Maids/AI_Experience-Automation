@@ -1165,6 +1165,60 @@ the DNA handoff requires, and it is a deliberate search result rather than an ab
 
 ---
 
+## 5c. Priority — what to act on, in order
+
+🔴 **The governing insight: this audit's value is prevention, not recovery.** A refund arrives within
+7 days or never (547 of 556 measured), and it must be claimed at the counter. So almost every
+historical case in F1 and F3 is **already unrecoverable in practice** — the money is a *measure of the
+leak*, not a *collectable*. Ranking by "how much can we claw back" would put the effort in exactly
+the wrong place. Rank by **how much stops leaking next month**.
+
+### Tier 1 — fix the leak. Highest value, and it is not the biggest number.
+
+| Rank | Finding | Measured | Why first |
+| --- | --- | --- | --- |
+| **1** | **F0b — no owner, no alert, no SLA on the refund claim** | 145 claims open, avg 255 days | **The cause of Tiers 1–2.** The refund step has no assignee, fires no todo, is **explicitly absent from the delayed-todo threshold config**, and can be closed without recording a refund. Fixing this stops the leak; everything below only measures it |
+| **2** | **F3 — expired while pending approval** | **444 cases · AED 329,107 gross · ~203,455 recoverable** | **The largest defensible recoverable family**, ~3× F1. The company's own loss view already calls it *"Should Have Been Refunded"*, and GDRFA's rejection-scoped entitlement is consistent with it. ⚠️ Must be re-derived per attempt before publishing |
+| **3** | **F1 — rejected, refund never claimed** | **164 charges · AED 117,517 gross · ≥71,229 recoverable** | Smallest of the recoverable families but the **most defensible**: tariff proven on 1,148 refunds, population is the verified 868-request union |
+
+### Tier 2 — adjudicate before publishing. Biggest number, weakest footing.
+
+| Rank | Finding | Measured | What it needs |
+| --- | --- | --- | --- |
+| **4** | **F4 — more charges than applications, no refund** | **415 requests · AED 760,338** | The largest *avoidable* number in the audit and the least adjudicated. Two independent signals agree (415 by step-count, 521 by charge-count), but no case has been examined. **Do not publish a figure before sampling ~20 by hand** |
+| **5** | **F11 — short and over refunds** | 19 short (12,350) · 21 over (13,650) · 8 candidates | Small money, **proven** (survived its own self-check), and **recurring across two years**. The over-refunds are a **liability** — we received AED 367 more than we paid, 21 times |
+
+### Tier 3 — act now despite trivial money
+
+| Rank | Finding | Measured | Why it jumps the queue |
+| --- | --- | --- | --- |
+| **6** | **F9 — charges booked at refund values** | 31 cases · **AED 9,925** | **The cheapest fix in the audit and the only one getting worse.** All 31 trace to **one user account**; the rate went **4 → 25 between 2025 and 2026, roughly six-fold**. One conversation with one manager. Money is trivial; a control degrading six-fold is not |
+
+### Tier 4 — report, do not chase
+
+| Rank | Finding | Measured | Framing |
+| --- | --- | --- | --- |
+| **7** | **F10 — approved, then cancelled** | **5,747 · AED 3,454,994** | 🔴 **A cost line, not leakage.** GDRFA's refund entitlement is scoped to *rejection*; cancellation is a separate, non-refundable service. The lever is **cancelling earlier — before approval** — not claiming afterwards. Report it as the price of late cancellation and size that lever |
+| **8** | F7 — stranded `Pending` | 234 lines · AED 156,045 | Hygiene, **no money claim**. Every one lacks a transaction, so they are unposted lines, not unpaid bills |
+| **9** | F6 / F6b — step-expense mismatches | 8 + 5 cases | Small, and F6b's 5 survived a guard that removed 4,565 look-alikes |
+| **10** | F8 — spend with no case or person | 12 lines · AED 7,516 | All from 2017, creator null. Almost certainly a migration artefact; close it rather than investigate it |
+| **11** | F0 — no authorised fee amount | affects every charge | Standing control weakness. No row verdict. It is *why* M6 is empirical |
+
+### What the totals actually are
+
+| | AED |
+| --- | --- |
+| Defensible recoverable, both channels (F1 + F3) | **≈ 275,000** |
+| Avoidable but unadjudicated (F4) | 760,338 |
+| Cost of late cancellation, not recoverable (F10) | 3,454,994 |
+| Control errors, both directions (F11 + F9) | ≈ 36,000 |
+
+**Lead with ≈ AED 275,000 recoverable and the 145 open claims, not with AED 3.45m.** The larger number
+is a cost the business may choose to manage; the smaller one is money that should have come back and
+did not, and it is the only figure here that survives contact with the published rules.
+
+---
+
 ## 6. What is blocked, and on whom
 
 | Blocker | Effect | Needs |
