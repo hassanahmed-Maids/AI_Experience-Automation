@@ -798,3 +798,143 @@ LEFT JOIN rf          ON rf.request_id = c.REQUEST_ID
 LEFT JOIN new_step ns ON ns.request_id = c.REQUEST_ID
 LEFT JOIN cancel_step cs ON cs.request_id = c.REQUEST_ID
 GROUP BY 1,2,3 ORDER BY outcome DESC, requests DESC;
+
+
+-- =====================================================================
+-- S-SERIES · Hand-adjudication sample for F4 (duplicate payments).
+-- F4 is the largest avoidable number in the audit (415 requests, AED 760,338)
+-- and the least examined -- two independent signals agree on it but no single
+-- case has been read. Nothing from F4 gets published before ~20 are adjudicated.
+--
+-- The sample is DETERMINISTIC (ordered by HASH of the request id), so the same
+-- 20 come back on every run and can be discussed by id. It is STRATIFIED by
+-- excess-charge count, because the population is ~92% excess=1 and a plain
+-- random 20 would almost never show the rarer, more serious shapes.
+-- Ids only. No names anywhere.
+-- =====================================================================
+
+-- S1 · The sample: 20 requests, one row each, with the shape of the case.
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, COUNT(*) AS charges_added,
+         ROUND(SUM(CAST(AMOUNT AS NUMBER(18,2))),2) AS charged_aed,
+         MIN(CREATION_DATE)::DATE AS first_charge, MAX(CREATION_DATE)::DATE AS last_charge,
+         COUNT_IF(CAST(AMOUNT AS NUMBER(18,2)) >= 700) AS large_band_charges,
+         COUNT(DISTINCT CAST(AMOUNT AS NUMBER(18,2)))  AS distinct_amounts,
+         COUNT(DISTINCT DATE_TRUNC('day',CREATION_DATE)) AS distinct_charge_days
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+  GROUP BY 1
+), visits AS (
+  SELECT VISA_REQUEST_ID, MAX(ITERATION) AS step_visits
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME = 'Apply for entry Visa' GROUP BY 1
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS WHERE NEW_REQUEST_ID IS NOT NULL
+), rf AS (                                  -- refunds on EITHER leg, bridged properly
+  SELECT DISTINCT VISA_REQUEST_ID AS request_id FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+  UNION
+  SELECT DISTINCT b.NEW_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), pool AS (                                -- F4's RED population, guard enforced
+  SELECT ch.*, v.step_visits, ch.charges_added - v.step_visits AS excess_charges
+  FROM ch JOIN visits v ON v.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
+  LEFT JOIN rf ON rf.request_id = ch.VISA_REQUEST_ID
+  WHERE v.step_visits >= 1                  -- excludes the pre-2019 no-step-history block
+    AND ch.charges_added > v.step_visits
+    AND rf.request_id IS NULL               -- no refund on either leg
+), stratified AS (
+  SELECT p.*,
+         CASE WHEN excess_charges = 1 THEN '1 · excess 1' 
+              WHEN excess_charges = 2 THEN '2 · excess 2'
+              ELSE                         '3 · excess 3+' END AS stratum,
+         ROW_NUMBER() OVER (PARTITION BY CASE WHEN excess_charges=1 THEN 1
+                                              WHEN excess_charges=2 THEN 2 ELSE 3 END
+                            ORDER BY HASH(p.VISA_REQUEST_ID)) AS pick
+  FROM pool p
+)
+SELECT s.stratum, s.VISA_REQUEST_ID AS request_id,
+       r.OWNER_ID, r.OWNER_TYPE, TRIM(e.CONTRACT_TYPE) AS contract_type,
+       s.charges_added, s.step_visits, s.excess_charges,
+       s.charged_aed, s.large_band_charges, s.distinct_amounts,
+       s.distinct_charge_days, s.first_charge, s.last_charge,
+       DATEDIFF('day', s.first_charge, s.last_charge) AS days_between,
+       r.REQUEST_STATUS, r.ENTRY_VISA_IMMIGRATION_APPROVED AS approval_now
+FROM stratified s
+JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS r ON r.REQUEST_ID = s.VISA_REQUEST_ID
+LEFT JOIN (SELECT VISA_REQUEST_ID, MAX(CONTRACT_TYPE) AS CONTRACT_TYPE
+           FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES GROUP BY 1) e
+       ON e.VISA_REQUEST_ID = s.VISA_REQUEST_ID
+WHERE (s.stratum = '1 · excess 1'  AND s.pick <= 10)
+   OR (s.stratum = '2 · excess 2'  AND s.pick <= 6)
+   OR (s.stratum = '3 · excess 3+' AND s.pick <= 4)
+ORDER BY s.stratum, s.excess_charges DESC, s.charged_aed DESC;
+
+
+-- S2 · The timeline for those same 20 requests -- what you actually read.
+--      One row per event. A genuine duplicate looks like: two charges, one step
+--      visit, no rejection between them, no refund. An ordinary re-application
+--      looks like: charge, rejection, refund, charge -- and should NOT be in here
+--      at all, so any that appear are a rule defect worth knowing about.
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, COUNT(*) AS charges_added
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added' AND VISA_REQUEST_ID IS NOT NULL
+  GROUP BY 1
+), visits AS (
+  SELECT VISA_REQUEST_ID, MAX(ITERATION) AS step_visits
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME='Apply for entry Visa' GROUP BY 1
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS WHERE NEW_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT DISTINCT VISA_REQUEST_ID AS request_id FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+  UNION
+  SELECT DISTINCT b.NEW_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), pool AS (
+  SELECT ch.VISA_REQUEST_ID, ch.charges_added - v.step_visits AS excess_charges
+  FROM ch JOIN visits v ON v.VISA_REQUEST_ID = ch.VISA_REQUEST_ID
+  LEFT JOIN rf ON rf.request_id = ch.VISA_REQUEST_ID
+  WHERE v.step_visits >= 1 AND ch.charges_added > v.step_visits AND rf.request_id IS NULL
+), sample AS (
+  SELECT VISA_REQUEST_ID, excess_charges FROM (
+    SELECT p.*, ROW_NUMBER() OVER (PARTITION BY CASE WHEN excess_charges=1 THEN 1
+                                                     WHEN excess_charges=2 THEN 2 ELSE 3 END
+                                   ORDER BY HASH(p.VISA_REQUEST_ID)) AS pick
+    FROM pool p)
+  WHERE (excess_charges = 1 AND pick <= 10)
+     OR (excess_charges = 2 AND pick <= 6)
+     OR (excess_charges > 2 AND pick <= 4)
+), events AS (
+  SELECT s.VISA_REQUEST_ID, e.CREATION_DATE AS event_at,
+         IFF(e.PURPOSE='REFUND_FOR_ENTRY_VISA','REFUND','CHARGE') AS event_type,
+         CAST(e.AMOUNT AS NUMBER(18,2)) AS amount_aed, e.STATUS AS status,
+         e.PURPOSE || ' · ' || COALESCE(e.PAYMENT_TYPE,'') AS detail
+  FROM sample s JOIN BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+    ON e.VISA_REQUEST_ID = s.VISA_REQUEST_ID
+  WHERE e.PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000','REFUND_FOR_ENTRY_VISA')
+  UNION ALL
+  SELECT s.VISA_REQUEST_ID, t.STARTED_AT, 'STEP_ENTERED', NULL, t.STEP_STATUS,
+         t.TASK_NAME || ' · visit ' || t.ITERATION::VARCHAR
+  FROM sample s JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS t
+    ON t.VISA_REQUEST_ID = s.VISA_REQUEST_ID
+  WHERE t.TASK_NAME ILIKE '%entry%visa%'
+  UNION ALL
+  SELECT s.VISA_REQUEST_ID, h.LAST_MODIFICATION_DATE, 'IMMIGRATION', NULL, NULL,
+         'approval set to ' || h.ENTRY_VISA_IMMIGRATION_APPROVED
+  FROM sample s JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY h
+    ON h.REQUEST_ID = s.VISA_REQUEST_ID
+  WHERE h.ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND NULLIF(TRIM(h.ENTRY_VISA_IMMIGRATION_APPROVED),'') IS NOT NULL
+)
+SELECT VISA_REQUEST_ID AS request_id, event_at::DATE AS on_date, event_type,
+       amount_aed, status, detail
+FROM events ORDER BY request_id, event_at;
