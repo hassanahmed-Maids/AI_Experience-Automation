@@ -1136,3 +1136,161 @@ SELECT CASE WHEN refund_between OR rejection_between OR refund_step_between
        ROUND(SUM(amount_aed))                     AS second_charge_aed,
        ROUND(MEDIAN(DATEDIFF('day',prev_charged_at,charged_at)),1) AS median_days_apart
 FROM pairs GROUP BY 1 ORDER BY verdict;
+
+
+-- =====================================================================
+-- A-SERIES · CHECK A re-cut to MAID grain, as the business defined it.
+-- "No duplicate payments for the same maid" -- not for the same request. A maid
+-- can hold more than one visa request (a stopped case then a fresh one), so
+-- paying twice ACROSS requests is a duplicate the request-grain rule cannot see.
+--
+-- Keeps W4's justifying-event logic and adds the one that only exists at maid
+-- grain: a genuinely NEW visa journey after an earlier one ended. Without it,
+-- every maid who failed once and was re-tried would read as a duplicate.
+-- =====================================================================
+
+-- A1 · Duplicate entry-visa payments for the same maid.
+WITH req AS (                            -- maid <-> her initial visa requests
+  SELECT REQUEST_ID, OWNER_ID AS maid_id, REQUEST_STATUS, STOPPED_COMPLETED_DATE
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE = 'HOUSEMAID' AND OWNER_ID IS NOT NULL
+), ch AS (
+  SELECT r.maid_id, e.VISA_REQUEST_ID, e.CREATION_DATE AS charged_at,
+         CAST(e.AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND e.REQUEST_TYPE = 'NewRequest' AND e.STATUS = 'Added'
+), bridge AS (
+  SELECT NEW_REQUEST_ID, REQUEST_ID AS cancel_request_id
+  FROM BA_VIEWS.VISA_SILVER.CANCEL_VISA_REQUESTS WHERE NEW_REQUEST_ID IS NOT NULL
+), refunds AS (                          -- refunds, either leg, resolved TO THE MAID
+  SELECT r.maid_id, e.CREATION_DATE AS at
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='NewRequest'
+  UNION ALL
+  SELECT r.maid_id, e.CREATION_DATE
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  JOIN bridge b ON b.cancel_request_id = e.VISA_REQUEST_ID
+  JOIN req r    ON r.REQUEST_ID = b.NEW_REQUEST_ID
+  WHERE e.PURPOSE='REFUND_FOR_ENTRY_VISA' AND e.STATUS='Added' AND e.REQUEST_TYPE='CancelRequest'
+), rejections AS (
+  SELECT r.maid_id, h.LAST_MODIFICATION_DATE AS at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY h JOIN req r ON r.REQUEST_ID = h.REQUEST_ID
+  WHERE h.ENTRY_VISA_IMMIGRATION_APPROVED_MODIFIED = 1
+    AND h.ENTRY_VISA_IMMIGRATION_APPROVED = 'Rejected'
+), refund_step AS (
+  SELECT r.maid_id, t.STARTED_AT AS at
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS t JOIN req r ON r.REQUEST_ID = t.VISA_REQUEST_ID
+  WHERE t.TASK_NAME = 'Refund Entry Visa Application'
+), journey_end AS (                      -- justifying event that ONLY exists at maid grain:
+  SELECT maid_id, STOPPED_COMPLETED_DATE AS at   -- an earlier visa journey actually ended
+  FROM req WHERE STOPPED_COMPLETED_DATE IS NOT NULL
+), seq AS (
+  SELECT ch.*,
+         LAG(charged_at)      OVER (PARTITION BY maid_id ORDER BY charged_at) AS prev_at,
+         LAG(VISA_REQUEST_ID) OVER (PARTITION BY maid_id ORDER BY charged_at) AS prev_request
+  FROM ch
+), pairs AS (
+  SELECT s.*,
+         s.VISA_REQUEST_ID <> s.prev_request AS crosses_requests,
+         EXISTS (SELECT 1 FROM refunds     x WHERE x.maid_id=s.maid_id AND x.at>s.prev_at AND x.at<s.charged_at) AS refund_between,
+         EXISTS (SELECT 1 FROM rejections  x WHERE x.maid_id=s.maid_id AND x.at>s.prev_at AND x.at<s.charged_at) AS rejection_between,
+         EXISTS (SELECT 1 FROM refund_step x WHERE x.maid_id=s.maid_id AND x.at>s.prev_at AND x.at<s.charged_at) AS refund_step_between,
+         EXISTS (SELECT 1 FROM journey_end x WHERE x.maid_id=s.maid_id AND x.at>s.prev_at AND x.at<s.charged_at) AS prior_journey_ended
+  FROM seq s WHERE s.prev_at IS NOT NULL
+)
+SELECT CASE WHEN refund_between OR rejection_between OR refund_step_between
+              THEN 'a · justified — refund / rejection / refund step'
+            WHEN prior_journey_ended AND crosses_requests
+              THEN 'b · justified — a new visa journey after the last one ended'
+            WHEN crosses_requests
+              THEN 'c · DUPLICATE across requests — nothing ended, nothing refunded'
+            ELSE  'd · DUPLICATE on one request — nothing happened between' END AS verdict,
+       COUNT(*) AS charge_pairs, COUNT(DISTINCT maid_id) AS maids,
+       ROUND(SUM(amount_aed)) AS second_charge_aed,
+       ROUND(MEDIAN(DATEDIFF('day',prev_at,charged_at)),1) AS median_days_apart
+FROM pairs GROUP BY 1 ORDER BY verdict;
+
+-- A2 · How much of the duplicate population is only visible at MAID grain --
+--      i.e. what the request-grain rule was structurally missing.
+WITH req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), ch AS (
+  SELECT r.maid_id, e.VISA_REQUEST_ID, CAST(e.AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND e.REQUEST_TYPE='NewRequest' AND e.STATUS='Added'
+)
+SELECT COUNT(DISTINCT maid_id)                                   AS maids_with_any_charge,
+       COUNT(*)                                                  AS charges,
+       COUNT(DISTINCT VISA_REQUEST_ID)                           AS requests,
+       ROUND(1.0*COUNT(DISTINCT VISA_REQUEST_ID)/NULLIF(COUNT(DISTINCT maid_id),0),3) AS requests_per_maid
+FROM ch;
+
+
+-- =====================================================================
+-- D-SERIES · CHECK D, change of status. Inside-country branch only, per the chart
+-- and per CheckEntryVisaImmigrationApprovalStep.onDone. Stated cost 572, against
+-- three other figures circulating in the company (590.54, 575.65, 572.50) -- so
+-- establish what the ledger actually holds before adopting any of them.
+-- =====================================================================
+
+-- D1 · What change of status costs, and who pays it.
+SELECT TRIM(CONTRACT_TYPE) AS contract_type, OWNER_TYPE,
+       CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed,
+       COUNT(*) AS n,
+       ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (),2) AS pct,
+       MIN(CREATION_DATE)::DATE AS earliest, MAX(CREATION_DATE)::DATE AS latest
+FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+WHERE PURPOSE = 'CHANGE_OF_STATUS' AND STATUS = 'Added'
+  AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+GROUP BY 1,2,3 HAVING COUNT(*) >= 5 ORDER BY n DESC;
+
+-- D2 · Duplicate change-of-status payments for the same maid. Same shape as A1,
+--      minus the refund logic -- change of status has no refund purpose at all,
+--      so the only justifying event is a new visa journey.
+WITH req AS (
+  SELECT REQUEST_ID, OWNER_ID AS maid_id, STOPPED_COMPLETED_DATE
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+  WHERE OWNER_TYPE='HOUSEMAID' AND OWNER_ID IS NOT NULL
+), ch AS (
+  SELECT r.maid_id, e.VISA_REQUEST_ID, e.CREATION_DATE AS charged_at,
+         CAST(e.AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e JOIN req r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+  WHERE e.PURPOSE='CHANGE_OF_STATUS' AND e.REQUEST_TYPE='NewRequest' AND e.STATUS='Added'
+), journey_end AS (
+  SELECT maid_id, STOPPED_COMPLETED_DATE AS at FROM req WHERE STOPPED_COMPLETED_DATE IS NOT NULL
+), seq AS (
+  SELECT ch.*, LAG(charged_at) OVER (PARTITION BY maid_id ORDER BY charged_at) AS prev_at,
+         LAG(VISA_REQUEST_ID) OVER (PARTITION BY maid_id ORDER BY charged_at) AS prev_request
+  FROM ch
+)
+SELECT CASE WHEN EXISTS (SELECT 1 FROM journey_end x
+                         WHERE x.maid_id=s.maid_id AND x.at>s.prev_at AND x.at<s.charged_at)
+             AND s.VISA_REQUEST_ID <> s.prev_request
+              THEN 'a · justified — a new visa journey after the last one ended'
+            ELSE  'b · DUPLICATE change-of-status payment' END AS verdict,
+       COUNT(*) AS charge_pairs, COUNT(DISTINCT s.maid_id) AS maids,
+       ROUND(SUM(s.amount_aed)) AS second_charge_aed,
+       ROUND(MEDIAN(DATEDIFF('day',s.prev_at,s.charged_at)),1) AS median_days_apart
+FROM seq s WHERE s.prev_at IS NOT NULL GROUP BY 1 ORDER BY verdict;
+
+-- D3 · The fines question: "if fines apply, check who is responsible for repayment".
+--      FINES_PAID_TO_US is literally that field. Four overstay money columns exist
+--      and the spec already records that they are NOT reconciled to each other --
+--      so read them side by side before building any rule on one of them.
+SELECT FINES_PAID_TO_US,
+       COUNT(*)                                              AS requests,
+       COUNT_IF(OVERSTAY_FINE > 0)                           AS have_overstay_fine,
+       ROUND(SUM(IFF(OVERSTAY_FINE > 0, OVERSTAY_FINE, 0)))  AS overstay_fine_aed,
+       COUNT_IF(OVERSTAY_FEE  > 0)                           AS have_overstay_fee,
+       ROUND(SUM(IFF(OVERSTAY_FEE  > 0, OVERSTAY_FEE,  0)))  AS overstay_fee_aed,
+       COUNT_IF(OVERSTAY_FINES_BEFORE_CHALLENGING > 0)       AS have_before_challenge,
+       COUNT_IF(OVERSTAY_FINES_AFTER_CHALLENGING  > 0)       AS have_after_challenge,
+       ROUND(SUM(GREATEST(COALESCE(OVERSTAY_FINES_BEFORE_CHALLENGING,0)
+                        - COALESCE(OVERSTAY_FINES_AFTER_CHALLENGING,0),0)))  AS reduced_by_challenge_aed
+FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
+WHERE CREATION_DATE >= DATEADD('month',-24,CURRENT_DATE())
+GROUP BY 1 ORDER BY requests DESC;
