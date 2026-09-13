@@ -686,3 +686,83 @@ warehouse and fails.
 
 **The one-line unblock:**
 `GRANT USAGE ON WAREHOUSE MONEY_CONTROL_WH TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE;`
+
+---
+
+## 🔴 B8 — F0c restated. The recoverable figure is AED 974,448, and it is being left on the table.
+
+### The headline cell
+
+**Cancellations that paid for an entry visa, never consumed it, had the refund route available, and
+did not claim:**
+
+> **2,538 cancellations · 1,644 maids · AED 1,692,508 charged · AED 974,448 recoverable**
+> 2024-10-19 → 2026-09-12 (≈1.90 years) ⇒ **≈ AED 513,000 per year, ongoing**
+
+In that same population the company **does** claim on 657 cases. So the claim rate is
+**657 of 3,195 — 20.6% by count, 23.9% by value.** Four out of five recoverable claims are not made.
+
+### Why this is credible without knowing GDRFA's policy
+
+The obvious objection is that these were cancellations, not rejections, and nobody has verified that
+GDRFA refunds a voluntarily-cancelled unused entry permit. **That objection does not need answering,
+because the refunds are observed.** 657 successful claims sit in exactly this population — same leg,
+same period, same unconsumed condition. The route demonstrably works. Empirical proof of a working
+claim beats a policy reading, and it is the strongest evidence in this audit.
+
+### The full grid
+
+| period | consumed | outcome | cancellations | charged AED | recoverable AED |
+| --- | --- | --- | ---: | ---: | ---: |
+| after step existed | never consumed | ran the refund step | 216 | 177,013 | 115,885 |
+| after step existed | never consumed | refund booked, no step | 441 | 312,957 | 190,476 |
+| **after step existed** | **never consumed** | **NO REFUND CLAIMED** | **2,538** | **1,692,508** | **974,448** |
+| after step existed | CONSUMED | ran the refund step | 7 | 11,993 | 10,012 |
+| after step existed | CONSUMED | refund booked, no step | 172 | 330,875 | 282,199 |
+| after step existed | CONSUMED | no refund claimed | 17,533 | 14,411,034 | 9,449,195 |
+| before it existed | never consumed | no refund claimed | 5,208 | 2,976,565 | 1,502,701 |
+| before it existed | CONSUMED | no refund claimed | 15,600 | 13,391,387 | 8,976,587 |
+| *(small cells)* | | | 17 | 11,723 | 6,912 |
+
+### ✅ Both anti-over-claim constraints earned their place
+
+**The consumed split saved the finding from being nonsense.** The CONSUMED branch holds **33,133
+cancellations and AED 18.4m of nominal "recoverable"** — and it is ordinary business: the maid
+arrived, worked, the contract ended, the visa was cancelled. The entry visa was used. Nothing is
+owed. Had I not split it, this would have been reported as **~AED 20m recoverable**, and it would
+have been wrong by a factor of twenty.
+
+**The period split separates money from history.** Pre-step unconsumed unclaimed is **5,208
+cancellations, AED 1,502,701**, running back to 2017. That is a real historical exposure but it is
+**not recoverable** — the claim route did not exist and GDRFA will not entertain claims from 2018.
+Report it as sunk, never as an opportunity.
+
+### What replaces the disputed AED 3.45m
+
+| bucket | AED | status |
+| --- | ---: | --- |
+| Never consumed, route available, unclaimed | **974,448** | **RECOVERABLE — act on this** |
+| Never consumed, before the route existed | 1,502,701 | historical loss, not recoverable |
+| Consumed, either period | 18,425,782 | correctly cost — the visa was used |
+
+**F0c's AED 3.45m must be restated, not flipped.** The original figure did not separate consumed from
+unconsumed or before from after, and each of those splits changes the answer by an order of
+magnitude. The number to carry forward is **AED 974,448 recoverable (~513k/yr)**.
+
+### Two corrections this forces on my own earlier work
+
+1. **B7's "236 cancel requests ran the refund step" was a poor proxy for refund activity.** In the
+   post-step unconsumed population, **441 refunds were booked WITHOUT the step against 216 with it** —
+   the workflow step is the minority path, roughly 1:2. Any measure keyed on the task alone
+   under-counts refunds by about two thirds. Key on the **expense**, use the task only as a hint.
+2. **179 refunds were booked on visas the data says were CONSUMED** (172 + 7). Either
+   `RVISA_ISSUANCE_DATE` is not a reliable consumption marker, or refunds are being claimed where no
+   entitlement exists. Small, but it cuts both ways and should be sampled — it is the one cell in
+   this grid that could embarrass the finding.
+
+### Also visible: the unclaimed cases skew to the cheaper visa
+
+Unclaimed cancellations average **AED 667 of charge** (974,448 ÷ 2,538 = 384 recoverable, +283
+retention). That is close to the **372.50** inside-country band, not the 1,022.50 outside-country one.
+Whatever causes the claim to be skipped is more common on inside-country cases — a lead worth
+following when the check is built.
