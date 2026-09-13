@@ -96,3 +96,61 @@ anything in scope:
 application did not succeed and the money did not come back* — differing only in whether immigration
 said no or the clock ran out. The chart's branch B already covers the rejection half; excluding the
 expiry half leaves the larger portion uncontrolled.
+
+
+---
+
+# Measured, 2026-09-13
+
+## Check A — duplicate payments per maid
+
+| verdict | pairs | maids | AED | median days apart |
+| --- | --- | --- | --- | --- |
+| a · justified — refund / rejection / refund step | 911 | 873 | 878,712 | **8.0** |
+| b · justified — a new journey after the last one ended | 391 | 387 | 339,712 | **214.0** |
+| **c · DUPLICATE across requests** | **76** | 75 | **36,575** | 74.0 |
+| **d · DUPLICATE on one request** | **522** | 486 | **459,865** | 17.5 |
+
+> ### Check A's answer: **598 duplicate charge pairs across ~561 maids, AED 496,440.**
+
+**Both justifying rules are doing real work and neither is over-forgiving.** (a)'s median gap is
+**8 days**, which lines up almost exactly with the measured refund turnaround of 7 — the
+reject → refund → re-charge cycle, visible as a timing signature rather than an assumption. (b)'s
+median gap is **214 days**, which is a genuinely new visa journey, not a re-payment.
+
+⚠️ **I over-stated the case for the re-cut.** I said request grain was "structurally blind" to
+cross-request duplicates, implying a large hidden population. Measured, it is **76 pairs and
+AED 36,575 — 7% of the finding**. The maid-grain rule is still correct, and it is the business's
+stated definition, but it adds a small population rather than a large one.
+
+## Check D — change of status
+
+### 🔴 The three "competing tariffs" are one tariff on three payment channels
+
+| observed | lines | what it is |
+| --- | --- | --- |
+| **572.50** | 7,407 (**78.6%**) | the base fee — the chart's 572, confirmed |
+| 575.65 | 302 | **572.50 + 3.15** — flat channel surcharge |
+| 590.54 | 793 | **572.50 × 1.0315** — proportional 3.15% channel surcharge |
+
+**This settles a question that was open across three documents.** 590.54, 575.65 and 572.50 were
+circulating as rival figures for change of status with nothing reconciling them. They are the same
+fee. And the **same two surcharges appear on the entry visa**: 1,025.65 = 1,022.50 + 3.15 and
+1,054.71 = 1,022.50 × 1.0315; 375.65 = 372.50 + 3.15 and 384.24 = 372.50 × 1.0315. One surcharge
+structure, both fees, consistent to the fils.
+
+### 🔴 The overstay fine is bundled inside the change-of-status fee
+
+The long tail is an arithmetic progression: **572.50 + 50.00 × n**, and on the surcharged channel
+**590.54 + 51.57 × n** — the same AED 50/day carrying the same 3.15%. Observed up to 2,272.50, i.e.
+**34 days of overstay charged inside a line labelled `CHANGE_OF_STATUS`**.
+
+Three consequences, and they change what check D can be:
+
+1. **"If fines apply, check who is responsible for repayment" cannot be answered from the expense
+   ledger** — the fine has no line of its own. It must be decomposed as `amount − base`, or read from
+   the request's own overstay columns, which the spec already records as **not reconciled to each
+   other**.
+2. **A duplicate test on change of status cannot compare amounts.** Two different amounts can both be
+   correct for the same maid because the overstay differs. Match on the **base**, not the total.
+3. **The company has a fines exposure it cannot currently see.** `D4` decomposes and prices it.

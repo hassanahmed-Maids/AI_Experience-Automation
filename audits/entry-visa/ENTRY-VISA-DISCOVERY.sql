@@ -1294,3 +1294,48 @@ SELECT FINES_PAID_TO_US,
 FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS
 WHERE CREATION_DATE >= DATEADD('month',-24,CURRENT_DATE())
 GROUP BY 1 ORDER BY requests DESC;
+
+
+-- D4 · DECOMPOSE the change-of-status amount into base fee + embedded overstay fine.
+--      D1 revealed the structure. Two coexisting schedules, and the "three
+--      competing tariffs" turn out to be one tariff on three payment channels:
+--        572.50            base
+--        575.65 = 572.50 + 3.15          flat channel surcharge
+--        590.54 = 572.50 x 1.0315        proportional channel surcharge (3.15%)
+--      and the long tail is an arithmetic progression on top of each base:
+--        572.50 + 50.00n   (n = overstay days)
+--        590.54 + 51.57n   (the same 50/day carrying the same 3.15%)
+--      So the overstay fine is NOT a separate line -- it is bundled INSIDE the
+--      change-of-status fee. That is why "who repays the fine" cannot be answered
+--      from the expense ledger alone: the fine has no line of its own.
+WITH cos AS (
+  SELECT VISA_REQUEST_ID, OWNER_ID, TRIM(CONTRACT_TYPE) AS contract_type,
+         CREATION_DATE, CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='CHANGE_OF_STATUS' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+), split AS (
+  SELECT c.*,
+         CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2 THEN 'plain 572.50 + 50/day'
+              WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2 THEN 'flat +3.15 channel'
+              WHEN ABS(ROUND((amount_aed - 590.54)/51.575) * 51.575 - (amount_aed - 590.54)) < 0.05
+                                                                        THEN 'proportional +3.15% channel'
+              ELSE 'unexplained' END AS schedule,
+         CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2 THEN ROUND((amount_aed-572.50)/50.0)
+              WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2 THEN ROUND((amount_aed-575.65)/50.0)
+              WHEN ABS(ROUND((amount_aed - 590.54)/51.575) * 51.575 - (amount_aed - 590.54)) < 0.05
+                                                                        THEN ROUND((amount_aed-590.54)/51.575)
+              ELSE NULL END AS implied_overstay_days
+  FROM cos c
+)
+SELECT schedule,
+       IFF(COALESCE(implied_overstay_days,0) = 0,'no fine','fine embedded') AS has_fine,
+       COUNT(*)                                  AS lines,
+       COUNT(DISTINCT OWNER_ID)                  AS maids,
+       ROUND(SUM(amount_aed))                    AS total_aed,
+       ROUND(SUM(IFF(COALESCE(implied_overstay_days,0) > 0,
+                     amount_aed - IFF(schedule='proportional +3.15% channel',590.54,
+                                 IFF(schedule='flat +3.15 channel',575.65,572.50)), 0)))
+                                                 AS embedded_fine_aed,
+       MAX(implied_overstay_days)                AS max_implied_days
+FROM split GROUP BY 1,2 ORDER BY lines DESC;
