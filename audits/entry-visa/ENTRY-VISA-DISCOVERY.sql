@@ -1339,3 +1339,98 @@ SELECT schedule,
                                                  AS embedded_fine_aed,
        MAX(implied_overstay_days)                AS max_implied_days
 FROM split GROUP BY 1,2 ORDER BY lines DESC;
+
+
+-- D5 · RECONCILE the two fines figures. D4 says AED 970,081/yr of overstay fine is
+--      embedded in the change-of-status fee. D3 says the request's own OVERSTAY_FINE
+--      column holds ~2.97m/yr. A 3x gap. Either they are different populations, or
+--      one is the fine DECLARED and the other the part SETTLED, or the same fine is
+--      double-counted. Join them at request grain -- the only place the question is
+--      decidable. No fines figure is publishable until this runs.
+WITH cos AS (
+  SELECT VISA_REQUEST_ID, CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='CHANGE_OF_STATUS' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+), split AS (
+  SELECT VISA_REQUEST_ID,
+         CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2
+                   THEN GREATEST(amount_aed - 572.50, 0)
+              WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2
+                   THEN GREATEST(amount_aed - 575.65, 0)
+              WHEN ABS(ROUND((amount_aed - 590.54)/51.575) * 51.575 - (amount_aed - 590.54)) < 0.05
+                   THEN GREATEST(amount_aed - 590.54, 0)
+              ELSE 0 END AS embedded_fine_aed
+  FROM cos
+), agg AS (
+  SELECT VISA_REQUEST_ID, SUM(embedded_fine_aed) AS embedded_fine_aed
+  FROM split GROUP BY 1
+)
+SELECT CASE WHEN a.embedded_fine_aed = 0 AND COALESCE(r.OVERSTAY_FINE,0) = 0
+                 THEN 'a · no fine on either side'
+            WHEN a.embedded_fine_aed > 0 AND COALESCE(r.OVERSTAY_FINE,0) = 0
+                 THEN 'b · fine embedded in the fee, NOTHING in OVERSTAY_FINE'
+            WHEN a.embedded_fine_aed = 0 AND COALESCE(r.OVERSTAY_FINE,0) > 0
+                 THEN 'c · OVERSTAY_FINE recorded, NOTHING embedded in the fee'
+            WHEN ABS(a.embedded_fine_aed - r.OVERSTAY_FINE) < 1
+                 THEN 'd · both, and they agree'
+            ELSE 'e · both, and they DISAGREE' END                       AS reconciliation,
+       COUNT(*)                                          AS requests,
+       ROUND(SUM(a.embedded_fine_aed))                   AS embedded_aed,
+       ROUND(SUM(COALESCE(r.OVERSTAY_FINE,0)))           AS overstay_fine_col_aed,
+       ROUND(SUM(COALESCE(r.OVERSTAY_FEE,0)))            AS overstay_fee_col_aed,
+       COUNT_IF(r.FINES_PAID_TO_US = '01')               AS flagged_repaid_to_us
+FROM agg a
+JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS r ON r.REQUEST_ID = a.VISA_REQUEST_ID
+GROUP BY 1 ORDER BY requests DESC;
+
+
+-- D6 · The seven lines the tariff model does not explain, at AED 8,563 average --
+--      15x the base fee, against a ledger whose next-largest line is 2,272.50.
+--      Aggregate only: no names, no ids that identify a person.
+WITH cos AS (
+  SELECT VISA_REQUEST_ID, TRIM(CONTRACT_TYPE) AS contract_type, OWNER_TYPE,
+         CREATION_DATE, CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='CHANGE_OF_STATUS' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+)
+SELECT amount_aed, contract_type, OWNER_TYPE,
+       COUNT(*) AS lines, MIN(CREATION_DATE)::DATE AS earliest, MAX(CREATION_DATE)::DATE AS latest
+FROM cos
+WHERE NOT (ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2
+        OR ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2
+        OR ABS(ROUND((amount_aed - 590.54)/51.575) * 51.575 - (amount_aed - 590.54)) < 0.05)
+GROUP BY 1,2,3 ORDER BY amount_aed DESC;
+
+
+-- D7 · Is the AED 50/day ladder real, or is the modulo matcher inventing it?
+--      D4's max implied 515 days is not credible. If the ladder is real the implied
+--      day counts cluster at small integers; if the matcher is over-permissive they
+--      spread uniformly. This is the control on D4's headline figure.
+WITH cos AS (
+  SELECT CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='CHANGE_OF_STATUS' AND STATUS='Added' AND REQUEST_TYPE='NewRequest'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+), d AS (
+  SELECT CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2
+                   THEN ROUND((amount_aed - 572.50)/50.0)
+              WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2
+                   THEN ROUND((amount_aed - 575.65)/50.0)
+              WHEN ABS(ROUND((amount_aed - 590.54)/51.575) * 51.575 - (amount_aed - 590.54)) < 0.05
+                   THEN ROUND((amount_aed - 590.54)/51.575)
+              ELSE NULL END AS implied_days
+  FROM cos
+)
+SELECT CASE WHEN implied_days IS NULL THEN 'z · unexplained'
+            WHEN implied_days = 0     THEN '0 days'
+            WHEN implied_days <= 7    THEN '1-7 days'
+            WHEN implied_days <= 30   THEN '8-30 days'
+            WHEN implied_days <= 90   THEN '31-90 days'
+            WHEN implied_days <= 180  THEN '91-180 days'
+            ELSE '181+ days (suspect)' END              AS band,
+       COUNT(*)                                         AS lines,
+       ROUND(100.0*COUNT(*)/SUM(COUNT(*)) OVER (),2)    AS pct_of_lines,
+       MIN(implied_days) AS min_days, MAX(implied_days) AS max_days
+FROM d GROUP BY 1 ORDER BY band;

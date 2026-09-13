@@ -154,3 +154,94 @@ Three consequences, and they change what check D can be:
 2. **A duplicate test on change of status cannot compare amounts.** Two different amounts can both be
    correct for the same maid because the overstay differs. Match on the **base**, not the total.
 3. **The company has a fines exposure it cannot currently see.** `D4` decomposes and prices it.
+
+### ✅ D4 — the tariff model holds, and the hidden fine is priced
+
+`D4` decomposed all 9,696 change-of-status lines over the rolling 12 months. **9,689 of 9,696
+(99.93%) fit the model** — base fee on one of three payment channels, plus AED 50/day of overstay.
+Seven lines do not (below). A model that explains 99.93% of a ledger it was inferred from is
+adopted.
+
+| schedule | fine? | lines | maids | total AED | embedded fine AED |
+| --- | --- | ---: | ---: | ---: | ---: |
+| plain 572.50 | no | 7,407 | 7,396 | 4,240,508 | — |
+| plain 572.50 | **yes** | 998 | 995 | 1,455,005 | **883,650** |
+| proportional ×1.0315 | no | 795 | 795 | 469,479 | — |
+| flat +3.15 | no | 304 | 304 | 174,998 | — |
+| proportional ×1.0315 | **yes** | 147 | 147 | 150,040 | **63,231** |
+| flat +3.15 | **yes** | 38 | 38 | 45,075 | **23,200** |
+| unexplained | — | 7 | 7 | 59,938 | — |
+
+**AED 970,081 of overstay fine per year is being paid inside a line labelled `CHANGE_OF_STATUS`,
+on 1,180 maids (12.2% of lines).** Implied ≈ 19,363 overstay days, averaging 16.4 days per affected
+maid. Nothing in the expense ledger names this as a fine.
+
+⚠️ **The seven unexplained lines average AED 8,563 each** — 15× the base fee, against a ledger whose
+next-largest line is 2,272.50. Either a different fee is booked under this purpose, or the amount is
+wrong. `D6` isolates them. Until it runs, do not describe the 9,689 as "all lines".
+
+⚠️ **`MAX_IMPLIED_DAYS = 515`** on the plain schedule (AED 26,322.50). At 515 days the arithmetic
+match is probably coincidental — any amount ending in the right fils lands on the ladder. The mean
+is 17.7 days, so the outlier moves the total by <3%, but the per-maid figure is not safe at the tail.
+
+### 🔴 D3 — the company recovers one fifth of the overstay fines it records
+
+Over 24 months, 916 requests carry a recorded `OVERSTAY_FINE`, totalling **AED 5,942,450**. Only
+**90 of them (9.8%), worth AED 1,233,300 (20.8%), are flagged `FINES_PAID_TO_US = '01'`.**
+
+| FINES_PAID_TO_US | requests | with overstay fine | fine AED | with overstay fee | fee AED |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `'00'` — not repaid | 64,268 | 811 | 4,616,250 | 2,443 | 1,321,595 |
+| *(blank)* | 8,569 | 15 | 92,900 | 222 | 123,450 |
+| `'01'` — repaid to us | 131 | 90 | **1,233,300** | 88 | 696,699 |
+
+This is the chart's "who is responsible for repayment" question, answered: **on the ledger's own
+telling, AED 4,709,150 over 24 months (~2.35m/yr) was fined and not recorded as recovered.** That is
+not yet a loss figure — an unrepaid fine may be correctly the company's to bear, depending on cause.
+It is the *population* the audit must adjudicate, and it is currently invisible.
+
+⚠️ **`REDUCED_BY_CHALLENGE_AED` is a measurement artifact — do not publish it.** The query computed
+`before − after`, but only 50 of the 209 requests with a before-challenge value have any after-
+challenge value. Where `after` is null the formula scores the *entire* fine as "reduced", which
+reads a missing record as a total win. The AED 1,798,075 and AED 832,630 figures are therefore
+meaningless. What the columns *do* show is that the challenge process is recorded on **209 of 916
+fined requests (22.8%)** — the appeal route exists and is barely tracked.
+
+### ⚠️ D3 and D4 do not reconcile, and must
+
+| source | population | annualised |
+| --- | --- | ---: |
+| D4 — fine embedded in the change-of-status fee | NewRequest change-of-status, 12mo | **970,081** |
+| D3 — `OVERSTAY_FINE` on the request | all requests, 24mo | **2,971,225** |
+
+A 3× gap. Three readings, and they are not distinguishable from these two queries: (a) different
+populations, since D3 spans renew and cancel legs that D4 excludes; (b) `OVERSTAY_FINE` is the fine
+*declared*, while the change-of-status payment settles only part of it; (c) the same fine is counted
+in both places, and the company's true exposure is the smaller of the two. **`D5` joins them at
+request grain and settles it.** No fines figure should be published until it runs.
+
+### D2 — duplicate change of status: 24 payments, AED 17,527
+
+| verdict | pairs | maids | AED | median days apart |
+| --- | ---: | ---: | ---: | ---: |
+| a · justified — new journey after the last ended | 170 | 169 | 131,601 | **767.0** |
+| b · **DUPLICATE** | **24** | 24 | **17,527** | **15.0** |
+
+Small, and clean. The justifying rule validates on its timing signature exactly as it did in check A,
+and more sharply: a **767-day** median gap is unambiguously a new visa journey, not a re-payment. The
+duplicates sit at **15 days**, within a day of check A's 17.5-day on-request duplicates — the same
+operational failure showing the same signature on a different fee.
+
+### ✅ A2 — check A closes, with an exact internal control
+
+| maids with a charge | charges | requests | requests per maid |
+| ---: | ---: | ---: | ---: |
+| 59,524 | 61,424 | 60,127 | **1.010** |
+
+Excess charges over maids = 61,424 − 59,524 = **1,900**. Check A's four verdicts summed to
+911 + 391 + 76 + 522 = **1,900 pairs**. Every excess charge in the ledger is accounted for by exactly
+one adjudicated pair — the finding has no unclassified remainder.
+
+It also confirms the over-statement correction rather than excusing it: at **1.010 requests per
+maid**, 99% of maids have a single request, so request grain was structurally blind to only ~1% of
+the population. The re-cut was right and small, as measured — not right and large, as I first claimed.
