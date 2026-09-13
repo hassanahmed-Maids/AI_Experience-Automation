@@ -360,21 +360,26 @@ passed".** Every family below therefore states all four outcomes, not just its R
 - **G4 · Positive controls.** Two, and both must pass before F3 reports a number.
   - *Arrival source* — ✅ **PASSED**: `HOUSEMAID_STATUS_LOGS` carries `LANDED_IN_DUBAI` 43,505 ·
     `VISA_UNSUCCESSFUL` 52,266 · `NO_SHOW` 76,933, all current to 2026-09-13.
-  - *Date population* — 🔴 **RAN, AND THE CONTROL WAS MIS-SPECIFIED.** Measured: of 37,867 in-window
-    requests, **12,902 (34.1%)** carry `ENTRY_VISA_ISSUANCE_DATE` and **12,898 (34.1%)** carry
-    `ENTRY_VISA_EXPIRY_DATE` — under the 50% bar I set, which would fail the control and void F3.
-    **That reading is wrong, and the fault is mine: the denominator is.** "All requests created in
-    the window" includes every request that never reached the entry-visa step at all. Two pieces of
-    evidence say the columns are healthy, not sparse: the two dates differ by **4 rows out of
-    12,900**, which is what you see when one step writes both; and `RVISA_ISSUANCE_DATE` sits
-    *below* them at 11,836, which is a coherent funnel (issued → travelled → residence) rather than
-    the erratic pattern a broken column gives.
-    **Corrected control (Q6c): the denominator is requests carrying an `Added` entry-visa charge**,
-    not all requests. Same 50% bar. **F3 stays VOID until Q6c runs** — a control that was measured
-    against the wrong population has not been passed, and must not be quietly re-read as a pass.
+  - *Date population* — ✅ **PASSED, after the control itself was corrected.** The first run measured
+    against all 37,867 requests created in the window and read **34.1%**, under my 50% bar. That
+    denominator was wrong: it counted every request that never reached the entry-visa step. Measured
+    against **requests that actually paid** (Q6c): **13,882 paying requests, 13,367 with an issuance
+    date (96.3%) and 13,363 with an expiry date (96.3%)**. The columns are healthy; my control was
+    not. **F3 is no longer VOID.**
+    *Carried as a standing lesson: a positive control is only as good as its denominator, and a
+    control measured against the wrong population must be re-run, never re-interpreted.*
+    Also from Q6c: **12,344 of 13,882 paying requests (88.9%) reached a residence visa**, so
+    **1,538** did not — the in-window ceiling for F3 and F10 combined.
+
 - **G5 · Point-in-time — read BOTH rejection sources and union them.** *(Corrected by measurement;
   the table, the 868-request union and the provenance split are in §2.1's D6 note and the guard
   block that follows it.)*
+- **G5e · A fourth floor: the 2019-04-02 system cutover.** The workflow task history **starts**
+  2019-04-02 and the revision history's legacy rejection codes **end** 2019-04-02 — the same day.
+  That is a system cutover, and it means any test joining a charge to its workflow steps is
+  **BLOCKED before 2019-04-02**, not clean. `UNVERIFIED` — the shared date is strong evidence of a
+  migration but has not been confirmed against the code; `Q9d` sizes it by year.
+
 - **G6 · Window vs scan window.** The 12-month window is a **reporting** window. F4 and F5 compare
   *pairs of charges*, so a pair straddling the boundary would otherwise never be compared and both
   charges would go GREEN. Those two families therefore **scan the full charge history of any request
@@ -471,16 +476,30 @@ passed".** Every family below therefore states all four outcomes, not just its R
   two, 32 with three, 3 with four, 1 with twelve), **AED 921,880** charged. That is before the
   rejection and bulk-posting guards — the real finding will be a fraction of it, and this is the
   denominator to report against.
-- 🔴 **A sharper primary test, from Q9: compare charges against step visits.** `ITERATION` counts
-  how many times a request re-entered `Apply for entry Visa`. ✅ Measured: **61,189 requests visited
-  it once, 844 twice, 43 three times, 2 four times** — so only **889 requests ever re-applied**,
-  against **1,248 requests carrying 2+ `Added` charges**. A genuine re-application re-enters the
-  step; **a second charge booked against a single step visit is a duplicate payment with no
-  application behind it.** That gap — roughly **359 requests** on the aggregates — is a far more
-  specific signal than "two charges and no refund between", because it does not depend on the
-  rejection history at all, and the rejection history is exactly what has false negatives.
-  Precise per-request measurement is `Q9c`; until it runs, the 359 is an aggregate difference, not a
-  finding count.
+- ✅ **PRIMARY TEST, measured: more paid charges than applications.** `ITERATION` counts re-entries
+  to `Apply for entry Visa`. A genuine re-application re-enters the step; **a second charge booked
+  against a single step visit is a duplicate with no application behind it.** This test needs **no
+  rejection history at all**, which matters because that is exactly where the false negatives are.
+
+  🔴 **It needs one guard, and Q9c is why.** The raw result's largest row is **4,520 requests with
+  one charge and *zero* step visits, AED 2,371,063** — which is not a duplicate at all. The task
+  history (`workflowtaskhistorys`) begins **2019-04-02** while charges begin **2017-06-21**, so
+  roughly two years of charges have no step rows to compare against. Those requests are **BLOCKED,
+  never RED**: absence of a step there is absence of *recording*. Without the guard this test would
+  have published AED 2.37m of "duplicates" that are an ingestion boundary.
+
+  ✅ **With `step_visits ≥ 1` enforced, the population is:**
+
+  | | requests | AED |
+  | --- | --- | --- |
+  | More charges than applications, **and no refund at all** → RED pool | **415** | **760,338** |
+  | More charges than applications, some refund taken → CANDIDATE | 86 | 156,849 |
+  | **Total excess-charge requests** | **501** | **917,187** |
+  | Excluded by the guard — no step history (pre-2019-04-02) | 4,565 | 2,421,886 |
+
+  The 415 are the tightest duplicate-payment evidence in this audit: more money posted than
+  applications made, and nothing given back. Cross-check against the older test — 521 requests with
+  2+ charges and no refund — and adjudicate the overlap at G3.
 - **Bulk-posting cluster, provisional: ≥5 candidate pairs sharing one charge date** is treated as
   **one posting event**, CANDIDATE, not N findings. The number is provisional pending the date
   distribution (`Q4b`) and is flagged as such rather than presented as settled.

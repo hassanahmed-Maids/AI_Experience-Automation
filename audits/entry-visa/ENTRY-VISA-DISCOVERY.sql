@@ -374,3 +374,30 @@ LEFT JOIN visits  v  ON v.VISA_REQUEST_ID  = c.VISA_REQUEST_ID
 LEFT JOIN refunds rf ON rf.VISA_REQUEST_ID = c.VISA_REQUEST_ID
 WHERE c.charges_added > COALESCE(v.step_visits,0)
 GROUP BY 1,2,3,4 ORDER BY excess_charges DESC, requests DESC;
+
+
+-- Q9d · Confirm the guard in Q9c is an ingestion boundary, not a business event.
+--       Hypothesis: requests with charges but NO 'Apply for entry Visa' step row are
+--       simply older than the workflow task history, which begins 2019-04-02 --
+--       the same day the revision history's legacy rejection codes stop. If the
+--       counts collapse after 2019, the boundary is a system cutover and those
+--       requests are BLOCKED, not duplicates.
+WITH charges AS (
+  SELECT VISA_REQUEST_ID, MIN(CREATION_DATE) AS first_charge, COUNT(*) AS charges_added,
+         ROUND(SUM(CAST(AMOUNT AS NUMBER(18,2))),2) AS charged_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+  GROUP BY 1
+), visits AS (
+  SELECT VISA_REQUEST_ID, MAX(ITERATION) AS step_visits
+  FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME = 'Apply for entry Visa' GROUP BY 1
+)
+SELECT YEAR(c.first_charge)                                AS charge_year,
+       COUNT(*)                                            AS requests,
+       COUNT_IF(COALESCE(v.step_visits,0) = 0)             AS no_step_history,
+       ROUND(100.0*COUNT_IF(COALESCE(v.step_visits,0) = 0)/NULLIF(COUNT(*),0),1) AS pct_no_step,
+       ROUND(SUM(IFF(COALESCE(v.step_visits,0) = 0, c.charged_aed, 0))) AS aed_no_step
+FROM charges c LEFT JOIN visits v ON v.VISA_REQUEST_ID = c.VISA_REQUEST_ID
+GROUP BY 1 ORDER BY 1;
