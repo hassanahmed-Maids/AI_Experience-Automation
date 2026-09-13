@@ -355,7 +355,7 @@ passed".** Every family below therefore states all four outcomes, not just its R
 - **G3 · One verdict per charge, by this severity order.** Pair-grain families collapse to charge
   grain **before** any sum. The order is fixed, highest first, and is "whole fee lost" before
   "part of fee lost" before "no money at stake":
-  **F4 → F3(avoidable) → F5 → F10 → F1 → F2 → F3(unavoidable) → F8 → F9 → F6 → F7.**
+  **F4 → F3(avoidable) → F5 → F10 → F1 → F2 → F3(unavoidable) → F8 → F9 → F6b → F6 → F7.**
   A charge carrying both an F4 and an F1 verdict counts once, at F4, and its amount enters M3 not M1.
 - **G4 · Positive controls.** Two, and both must pass before F3 reports a number.
   - *Arrival source* — ✅ **PASSED**: `HOUSEMAID_STATUS_LOGS` carries `LANDED_IN_DUBAI` 43,505 ·
@@ -374,11 +374,33 @@ passed".** Every family below therefore states all four outcomes, not just its R
 - **G5 · Point-in-time — read BOTH rejection sources and union them.** *(Corrected by measurement;
   the table, the 868-request union and the provenance split are in §2.1's D6 note and the guard
   block that follows it.)*
-- **G5e · A fourth floor: the 2019-04-02 system cutover.** The workflow task history **starts**
-  2019-04-02 and the revision history's legacy rejection codes **end** 2019-04-02 — the same day.
-  That is a system cutover, and it means any test joining a charge to its workflow steps is
-  **BLOCKED before 2019-04-02**, not clean. `UNVERIFIED` — the shared date is strong evidence of a
-  migration but has not been confirmed against the code; `Q9d` sizes it by year.
+- **G5e · A fourth floor: step history begins 2019-04-02.** ✅ **Confirmed by year (Q9d), and it is
+  an ingestion boundary, not behaviour:**
+
+  | first charge | requests | with no step history | AED |
+  | --- | --- | --- | --- |
+  | 2017 | 604 | **100.0%** | 342,951 |
+  | 2018 | 2,936 | **100.0%** | 1,416,241 |
+  | 2019 | 3,655 | **27.9%** | 660,181 |
+  | 2020–2022 | 9,465 | **0.0%** | 0 |
+  | 2023–2026 | 43,969 | **0.0%** (5 rows) | 2,513 |
+
+  A clean step: total absence before 2019, a partial year consistent with an April cutover, then
+  effectively complete. Any test joining a charge to its workflow steps is therefore **BLOCKED
+  before 2019-04-02**, never clean. The *boundary* is measured; the *cause* — that the legacy
+  rejection codes stop on the same day, implying one migration — remains `UNVERIFIED` against the
+  code, and nothing depends on it.
+
+### F6b — Paid, with no application step *(the mirror of F6, and the residual of G5e)*
+
+- ✅ **5 requests, AED 2,513**, paid an entry-visa charge with **no `Apply for entry Visa` step at
+  all**, in years where the step history is complete: **1 in 2023, 2 in 2025, 2 in 2026**.
+- F6 asks "the step was done — where is the payment?". This asks the reverse: **the payment was
+  made — where is the application?** Both are step/expense mismatches; only this one is money
+  already out.
+- **CANDIDATE**, at request grain. What would settle it: whether the step exists under a different
+  task name, or the charge was posted to the wrong request. Tiny money, but it survived a guard that
+  removed 4,565 look-alikes, which is exactly what makes it worth a human minute.
 
 - **G6 · Window vs scan window.** The 12-month window is a **reporting** window. F4 and F5 compare
   *pairs of charges*, so a pair straddling the boundary would otherwise never be compared and both
@@ -785,7 +807,7 @@ the charges it would have covered are priced in coverage. *A test that could not
 | NewRequest ↔ CancelRequest link | F1's cancel-leg match has **no defined key** | Ask the code which column links them (`CancelRequestController.addExpense`). Until then, match by owner + date window and **publish the match rate with a floor** |
 | G4 date-population control | **F3 VOID.** Q6 ran against the wrong denominator; the control has not been passed | `Q6c` — one query |
 | Refund-recording floor 2024-02-06 | Refund-recovery tests **BLOCKED** before it | Nothing recoverable — state it |
-| Per-request charges-vs-step-visits | F4's sharpest test unquantified | `Q9c` — one query |
+| — | *(closed)* F4's primary test is measured and its guard confirmed | — |
 | Legacy `0`/`1` meaning | Only matters for a backfill before 2025-09-05 | Ask the code |
 | History blackout 2019-04 → 2025-09 | Rejection-keyed families **BLOCKED**, not clean, in that range | Nothing recoverable — state it |
 
