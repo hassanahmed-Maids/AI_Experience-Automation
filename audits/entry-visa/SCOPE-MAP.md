@@ -667,3 +667,22 @@ from table statistics, no compute), but adding a `COUNT(DISTINCT …)` fails wit
 error. The MCP session is pooled and has not picked up the new default. It needs the connector
 reconnected, or the warehouse set in the connector's own config — the tool exposes only a `sql`
 argument, so there is nothing settable from this side.
+
+### 🚧 RESOLVED (as a diagnosis): why Snowflake is read-only-ish for the agent
+
+`SHOW GRANTS TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE` returns **zero WAREHOUSE grants**. The role
+holds SELECT on the views and USAGE on **no warehouse at all**.
+
+So this is not a session or default-setting problem and `ALTER USER … SET DEFAULT_WAREHOUSE` cannot
+fix it — there is nothing for a default to point at. Snowsight works because the interactive session
+reaches `MONEY_CONTROL_WH` through a different role; the MCP pins the session to
+`PAYROLL_AND_MONEY_CONTROL_ROLE`.
+
+**What the agent CAN run without compute** (worth knowing — it is how the `ITERATION` column, the
+118-column check and the cancel-task discovery were done):
+`SHOW COLUMNS` / `SHOW VIEWS` / `SHOW GRANTS`, `GET_DDL`, and a **bare `COUNT(*)`** (Snowflake serves
+it from table statistics). Anything with a `GROUP BY`, a `JOIN` or a `COUNT(DISTINCT)` needs a
+warehouse and fails.
+
+**The one-line unblock:**
+`GRANT USAGE ON WAREHOUSE MONEY_CONTROL_WH TO ROLE PAYROLL_AND_MONEY_CONTROL_ROLE;`
