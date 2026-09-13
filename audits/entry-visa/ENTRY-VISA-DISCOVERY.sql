@@ -611,3 +611,141 @@ LEFT JOIN (SELECT VISA_REQUEST_ID, MIN(charged_at) AS charged_at FROM ch GROUP B
 LEFT JOIN (SELECT DISTINCT VISA_REQUEST_ID FROM ch) any_ch
   ON any_ch.VISA_REQUEST_ID = rf.VISA_REQUEST_ID
 GROUP BY 1,2 ORDER BY refunds DESC;
+
+
+-- =====================================================================
+-- V-SERIES · Confirmation tests. Several are self-checks on figures this
+-- battery has already produced. V1 is the one that could retract a finding.
+-- =====================================================================
+
+-- V1 · SELF-CHECK ON F11. R1b pairs each refund with the NEAREST PRECEDING charge.
+--      If a request has a large charge, then a small charge, then one refund of
+--      739.50, that rule pairs the refund with the SMALL charge and scores it as a
+--      +650 "over-refund" -- when it is an ordinary refund of the large one.
+--      The mirror applies to the -650 "short refunds".
+--      DECISIVE TEST: if short/over requests mostly carry ONE charge, the findings
+--      are real. If they mostly carry TWO OR MORE, they are my pairing artefact and
+--      F11 must be retracted and re-cut on band matching, not on proximity.
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS charged_at, CAST(AMOUNT AS NUMBER(18,2)) AS charge_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS refunded_at, CAST(ABS(AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), paired AS (
+  SELECT rf.VISA_REQUEST_ID, rf.refund_aed, ch.charge_aed,
+         ROUND(rf.refund_aed - (IFF(ch.charge_aed >= 700, 1022.50, 372.50) - 283.00),2) AS variance
+  FROM rf JOIN ch ON ch.VISA_REQUEST_ID = rf.VISA_REQUEST_ID AND ch.charged_at <= rf.refunded_at
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY rf.VISA_REQUEST_ID, rf.refunded_at, rf.refund_aed
+                             ORDER BY ch.charged_at DESC) = 1
+), shape AS (
+  SELECT VISA_REQUEST_ID,
+         COUNT(*) AS charges_on_request,
+         COUNT_IF(charge_aed >= 700) AS large_band_charges,
+         COUNT_IF(charge_aed <  700) AS small_band_charges
+  FROM ch GROUP BY 1
+)
+SELECT CASE WHEN ABS(p.variance) <= 0.50 THEN 'a · matches the tariff'
+            WHEN p.variance < -0.50      THEN 'b · SHORT refund'
+            ELSE                              'c · OVER refund' END AS outcome,
+       s.charges_on_request,
+       s.large_band_charges, s.small_band_charges,
+       COUNT(*) AS refunds, COUNT(DISTINCT p.VISA_REQUEST_ID) AS requests
+FROM paired p JOIN shape s ON s.VISA_REQUEST_ID = p.VISA_REQUEST_ID
+GROUP BY 1,2,3,4 ORDER BY outcome, s.charges_on_request;
+
+-- V2 · Has the tariff ever been a different number? A real government schedule
+--      changes on a date and holds; a coincidence drifts. If the retention has
+--      always been exactly 283.00 since 2017, or stepped once on a clean date,
+--      that is the schedule. If it wanders, the "flat 283" claim is too strong.
+WITH ch AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS charged_at, CAST(AMOUNT AS NUMBER(18,2)) AS charge_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE = 'NewRequest' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+), rf AS (
+  SELECT VISA_REQUEST_ID, CREATION_DATE AS refunded_at, CAST(ABS(AMOUNT) AS NUMBER(18,2)) AS refund_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE = 'REFUND_FOR_ENTRY_VISA' AND STATUS = 'Added' AND VISA_REQUEST_ID IS NOT NULL
+)
+SELECT YEAR(rf.refunded_at) AS refund_year,
+       IFF(ch.charge_aed >= 700,'large band','small band') AS band,
+       ch.charge_aed, rf.refund_aed,
+       ROUND(ch.charge_aed - rf.refund_aed,2) AS kept_by_government,
+       COUNT(*) AS pairs
+FROM rf JOIN ch ON ch.VISA_REQUEST_ID = rf.VISA_REQUEST_ID AND ch.charged_at <= rf.refunded_at
+QUALIFY ROW_NUMBER() OVER (PARTITION BY rf.VISA_REQUEST_ID, rf.refunded_at, rf.refund_aed
+                           ORDER BY ch.charged_at DESC) = 1
+GROUP BY 1,2,3,4,5 HAVING COUNT(*) >= 3 ORDER BY refund_year, band, pairs DESC;
+
+-- V3 · Reconcile MY unclaimed population against the COMPANY'S. R1c found 164
+--      unrefunded charges keyed on REJECTION. LOST_VISA_EXPENSES reports 444
+--      cases of "Expired & Pending Approval (Should Have Been Refunded)" keyed on
+--      EXPIRY. If those 444 barely overlap my 164, my headline is understating by
+--      a whole family and F3 needs pricing alongside F1.
+WITH mine AS (
+  SELECT DISTINCT e.VISA_REQUEST_ID AS request_id
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+  WHERE e.PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND e.REQUEST_TYPE = 'NewRequest' AND e.STATUS = 'Added' AND e.VISA_REQUEST_ID IS NOT NULL
+    AND EXISTS (SELECT 1 FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS r
+                WHERE r.REQUEST_ID = e.VISA_REQUEST_ID AND r.ENTRY_VISA_IMMIGRATION_APPROVED='Rejected')
+    AND NOT EXISTS (SELECT 1 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES x
+                    WHERE x.VISA_REQUEST_ID = e.VISA_REQUEST_ID
+                      AND x.PURPOSE='REFUND_FOR_ENTRY_VISA' AND x.STATUS='Added')
+), theirs AS (
+  SELECT DISTINCT REQUEST_ID AS request_id FROM BA_VIEWS.VISA_SILVER.LOST_VISA_EXPENSES
+  WHERE CATEGORY='ENTRY VISA' AND EXPENSES_TYPE='Expired & Pending Approval (Should Have Been Refunded)'
+)
+SELECT CASE WHEN m.request_id IS NOT NULL AND t.request_id IS NOT NULL THEN 'in BOTH populations'
+            WHEN m.request_id IS NOT NULL                              THEN 'only in mine (rejection-keyed)'
+            ELSE                                                            'only in theirs (expiry-keyed)' END AS overlap,
+       COUNT(*) AS requests
+FROM mine m FULL OUTER JOIN theirs t ON t.request_id = m.request_id
+GROUP BY 1 ORDER BY requests DESC;
+
+-- V4 · What did the 26 do differently? R3 found 26 of 5,747 cancelled-after-
+--      approval cases DID get money back. They are the proof recovery is possible,
+--      so the question is what distinguishes them -- year, cancellation route, or
+--      simply that someone opened the refund step.
+WITH cancelled AS (
+  SELECT DISTINCT REQUEST_ID FROM BA_VIEWS.VISA_SILVER.LOST_VISA_EXPENSES
+  WHERE CATEGORY='ENTRY VISA' AND EXPENSES_TYPE='Approved and Canceled Entry Visas'
+), rf AS (
+  SELECT DISTINCT VISA_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='REFUND_FOR_ENTRY_VISA' AND STATUS='Added'
+), step AS (
+  SELECT DISTINCT VISA_REQUEST_ID FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS
+  WHERE TASK_NAME='Refund Entry Visa Application'
+)
+SELECT IFF(rf.VISA_REQUEST_ID IS NULL,'no refund','REFUNDED')            AS outcome,
+       IFF(st.VISA_REQUEST_ID IS NULL,'refund step never opened',
+           'refund step WAS opened')                                     AS refund_step,
+       YEAR(r.CREATION_DATE)                                             AS request_year,
+       COUNT(*)                                                          AS requests
+FROM cancelled c
+JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS r ON r.REQUEST_ID = c.REQUEST_ID
+LEFT JOIN rf   ON rf.VISA_REQUEST_ID = c.REQUEST_ID
+LEFT JOIN step st ON st.VISA_REQUEST_ID = c.REQUEST_ID
+GROUP BY 1,2,3 ORDER BY outcome DESC, requests DESC;
+
+-- V5 · Price the pre-2019 population honestly. 4,565 requests have no step history
+--      and are excluded from F4. Are they excluded from EVERYTHING? If two years of
+--      charges can be reached by no family at all, that is a coverage slice that
+--      must be named and priced, not left to look clean.
+SELECT YEAR(e.CREATION_DATE)                                       AS charge_year,
+       COUNT(*)                                                    AS charges,
+       ROUND(SUM(CAST(e.AMOUNT AS NUMBER(18,2))))                  AS aed,
+       COUNT_IF(r.ENTRY_VISA_ISSUANCE_DATE IS NOT NULL)            AS has_issuance_date,
+       COUNT_IF(r.ENTRY_VISA_IMMIGRATION_APPROVED IS NOT NULL)     AS has_approval_state,
+       COUNT_IF(EXISTS (SELECT 1 FROM BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS t
+                        WHERE t.VISA_REQUEST_ID = e.VISA_REQUEST_ID
+                          AND t.TASK_NAME='Apply for entry Visa'))  AS has_step_history
+FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES e
+LEFT JOIN BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS r ON r.REQUEST_ID = e.VISA_REQUEST_ID
+WHERE e.PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+  AND e.REQUEST_TYPE = 'NewRequest' AND e.STATUS = 'Added'
+GROUP BY 1 ORDER BY 1;
