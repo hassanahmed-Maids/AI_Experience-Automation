@@ -1,0 +1,361 @@
+<title>Entry Visa Money-Out Report</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F4F6F3; --card:#FFFFFF; --ink:#16202B; --ink-2:#47565F; --ink-3:#78868C;
+  --rule:#DDE2DC; --rule-2:#EAEEE8;
+  --seal:#0B6E4F; --seal-soft:#E4EFE9;
+  --red:#B3261E; --red-soft:#FBE9E7; --amber:#8A5200; --amber-soft:#FBF0DF;
+  --slate:#4A5B6A; --slate-soft:#E8ECEF; --green:#1E6B3A; --green-soft:#E6F0E8;
+  --shadow:0 1px 2px rgba(22,32,43,.06), 0 1px 12px rgba(22,32,43,.04);
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#10161B; --card:#161D23; --ink:#E8EDE9; --ink-2:#A3B1B5; --ink-3:#7C8A8E;
+    --rule:#28323A; --rule-2:#1E272E;
+    --seal:#4FBF92; --seal-soft:#13302A;
+    --red:#F0857C; --red-soft:#33191A; --amber:#E0A44F; --amber-soft:#2E2417;
+    --slate:#9BAAB8; --slate-soft:#1E262D; --green:#6FC08B; --green-soft:#16281C;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 1px 12px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#10161B; --card:#161D23; --ink:#E8EDE9; --ink-2:#A3B1B5; --ink-3:#7C8A8E;
+  --rule:#28323A; --rule-2:#1E272E;
+  --seal:#4FBF92; --seal-soft:#13302A;
+  --red:#F0857C; --red-soft:#33191A; --amber:#E0A44F; --amber-soft:#2E2417;
+  --slate:#9BAAB8; --slate-soft:#1E262D; --green:#6FC08B; --green-soft:#16281C;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 1px 12px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.55; margin:0; padding:0 20px; padding-block:36px 64px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; display:flex; flex-direction:column; gap:28px}
+h1,h2,h3{font-family:Archivo,"IBM Plex Sans",sans-serif; margin:0; text-wrap:balance; letter-spacing:-.012em}
+h1{font-size:clamp(26px,4.2vw,34px); font-weight:700; line-height:1.15}
+h2{font-size:15px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-2)}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3)}
+
+/* ---- example-data banner ---- */
+.mock{
+  display:flex; gap:12px; align-items:flex-start;
+  border:1px dashed var(--amber); background:var(--amber-soft); color:var(--amber);
+  border-radius:3px; padding:12px 14px; font-size:13.5px; line-height:1.5;
+}
+.mock strong{font-weight:600}
+
+/* ---- header ---- */
+header{display:flex; flex-direction:column; gap:10px; border-bottom:2px solid var(--ink); padding-bottom:16px}
+.hrow{display:flex; flex-wrap:wrap; gap:10px 20px; align-items:baseline; justify-content:space-between}
+.prov{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-3); line-height:1.7}
+.prov b{color:var(--ink-2); font-weight:500}
+
+/* ---- kpi ---- */
+.kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:3px; overflow:hidden}
+.kpi{background:var(--card); padding:16px 18px; display:flex; flex-direction:column; gap:5px; min-width:0}
+.kpi .k{font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3); font-family:"IBM Plex Mono",monospace}
+.kpi .v{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:24px; font-weight:600; letter-spacing:-.02em; line-height:1.1}
+.kpi .s{font-size:12px; color:var(--ink-2)}
+.kpi.lead .v{color:var(--red)}
+
+/* ---- coverage ---- */
+.cov{background:var(--card); border:1px solid var(--rule); border-radius:3px; padding:18px; display:flex; flex-direction:column; gap:14px}
+.bar{display:flex; height:30px; border-radius:2px; overflow:hidden; border:1px solid var(--rule)}
+.bar span{display:block}
+.legend{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:9px 20px; font-size:13px}
+.lg{display:flex; gap:9px; align-items:baseline}
+.sw{width:11px; height:11px; flex:none; border-radius:2px; transform:translateY(1px)}
+.lg .t{flex:1; min-width:0}
+.lg .a{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; color:var(--ink-2); white-space:nowrap}
+.note{font-size:13px; color:var(--ink-2); border-left:2px solid var(--seal); padding-left:12px}
+
+/* ---- tables ---- */
+.tw{overflow-x:auto; border:1px solid var(--rule); border-radius:3px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:840px}
+th{
+  text-align:left; font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:500; padding:11px 12px;
+  border-bottom:1px solid var(--rule); white-space:nowrap; background:var(--card);
+}
+td{padding:11px 12px; border-bottom:1px solid var(--rule-2); vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.n{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap}
+td.r{text-align:right}
+.stripe{border-left:3px solid transparent}
+.s-red{border-left-color:var(--red)} .s-amber{border-left-color:var(--amber)}
+.s-slate{border-left-color:var(--slate)} .s-green{border-left-color:var(--green)}
+.id{font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--ink-2)}
+.settle{color:var(--ink-2); font-size:12.5px; display:block; margin-top:3px}
+
+/* ---- verdict chips ---- */
+.v{display:inline-flex; align-items:center; gap:5px; font-family:"IBM Plex Mono",monospace; font-size:10.5px;
+   letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:2px; font-weight:500; white-space:nowrap}
+.v::before{content:""; width:5px; height:5px; border-radius:50%; background:currentColor; flex:none}
+.v-red{background:var(--red-soft); color:var(--red)}
+.v-green{background:var(--green-soft); color:var(--green)}
+.v-cand{background:var(--amber-soft); color:var(--amber)}
+.v-void{background:var(--slate-soft); color:var(--slate); border:1px dashed var(--slate)}
+.v-block{background:var(--slate-soft); color:var(--slate); border:1px solid var(--slate)}
+.v-void::before,.v-block::before{border-radius:0}
+.fam{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-3)}
+
+/* ---- control finding ---- */
+.f0{background:var(--card); border:1px solid var(--red); border-left:3px solid var(--red); border-radius:3px; padding:18px; display:flex; flex-direction:column; gap:9px}
+.f0 h3{font-size:16px; font-weight:600; color:var(--red)}
+.f0 p{margin:0; color:var(--ink-2); font-size:14px; max-width:68ch}
+.f0 code{font-family:"IBM Plex Mono",monospace; font-size:12.5px; background:var(--rule-2); padding:1px 5px; border-radius:2px; color:var(--ink)}
+footer{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--rule); padding-top:14px; line-height:1.7}
+@media (max-width:760px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:430px){
+  .kpis{grid-template-columns:1fr}
+}
+</style>
+
+<div class="wrap">
+
+  <div class="mock">
+    <span aria-hidden="true">▲</span>
+    <div><strong>Layout mockup — every figure below is an example, not a measurement.</strong>
+    This role holds <span class="num">SELECT</span> on the warehouse views but no warehouse grant, so no row has been read.
+    Real figures arrive when <span class="num">ENTRY-VISA-DISCOVERY.sql</span> is run. Request and person ids are synthetic.</div>
+  </div>
+
+  <header>
+    <div class="hrow">
+      <div>
+        <div class="eyebrow">Police &amp; Control · Visa module · money out</div>
+        <h1>Entry Visa Audit</h1>
+      </div>
+      <div class="prov">
+        Period <b>2025-09-13 → 2026-09-12</b> (rolling 12m)<br>
+        Sources <b>VISA_SILVER.VISAREQUESTEXPENSES</b> · <b>INITIAL_VISA_REQUESTS(_HISTORY, _TASKS)</b> · <b>MISSING_EXPENSES</b> · <b>HOUSEMAID_STATUS_LOGS</b><br>
+        Purposes <b>ENTRY_VSIA</b> · <b>ENTRY_VISA_LESS_THAN_1000</b> · refunds <b>REFUND_FOR_ENTRY_VISA</b> (both request channels)
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="kpis">
+      <div class="kpi lead">
+        <div class="k">Recoverable · M1</div>
+        <div class="v">AED 105,758</div>
+        <div class="s">Headline. Refundable portion still outstanding.</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Gross exposure · M2</div>
+        <div class="v">AED 164,299</div>
+        <div class="s">Full fee on every red row.</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Avoidable waste · M3</div>
+        <div class="v">AED 28,133</div>
+        <div class="s">Whole fee, where we caused it.</div>
+      </div>
+      <div class="kpi">
+        <div class="k">Recovery rate · M4</div>
+        <div class="v">70.6%</div>
+        <div class="s">536 of 759 refunds due, both sides measured.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cov">
+    <div class="hrow"><h2>Coverage — what was examined, and what was not</h2>
+      <span class="prov"><b>1,842</b> charge lines · <b>AED 1,731,400</b> total</span></div>
+    <div class="bar" role="img" aria-label="Coverage: 59 percent examined, 41 percent excluded across five named slices">
+      <span style="width:59.4%;background:var(--seal)"></span>
+      <span style="width:14.1%;background:var(--slate)"></span>
+      <span style="width:11.2%;background:var(--amber)"></span>
+      <span style="width:8.0%;background:var(--ink-3)"></span>
+      <span style="width:4.6%;background:var(--red)"></span>
+      <span style="width:2.7%;background:var(--rule)"></span>
+    </div>
+    <div class="legend">
+      <div class="lg"><span class="sw" style="background:var(--seal)"></span><span class="t">Examined — every applicable test ran</span><span class="a">1,095 · AED 1,028,500</span></div>
+      <div class="lg"><span class="sw" style="background:var(--slate)"></span><span class="t">BLOCKED — awaiting N3 location ingest (M6 cannot run)</span><span class="a">260 · AED 243,900</span></div>
+      <div class="lg"><span class="sw" style="background:var(--amber)"></span><span class="t">BLOCKED — before the MISSING_EXPENSES floor of 2025-06-02</span><span class="a">206 · AED 193,900</span></div>
+      <div class="lg"><span class="sw" style="background:var(--ink-3)"></span><span class="t">Pakistani nationals — excluded by LOST_VISA_EXPENSES, priced here</span><span class="a">147 · AED 138,500</span></div>
+      <div class="lg"><span class="sw" style="background:var(--red)"></span><span class="t">VOID — amount outside the ±50,000 sanity guard</span><span class="a">85 · AED 79,600</span></div>
+      <div class="lg"><span class="sw" style="background:var(--rule)"></span><span class="t">Charges stranded at <span class="num">Pending</span> — neither paid nor cancelled</span><span class="a">49 · AED 47,000</span></div>
+    </div>
+    <p class="note"><strong>Green means every applicable test ran and passed — not “audited”.</strong>
+    A blocked test is not a pass, and a void one is not a clean. 40.6% of this period’s entry-visa
+    money has not been examined; it is priced above rather than left silent.</p>
+  </section>
+
+  <section>
+    <h2 style="margin-bottom:12px">Exceptions — one row per charge</h2>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>Request</th><th>Population</th><th>Charge</th><th class="r">Amount</th>
+            <th>Family</th><th>Verdict</th><th class="r">Recoverable</th><th class="r">Days open</th><th>Owner action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="stripe s-red">
+            <td><span class="id">#90564</span><br><span class="id">maid 109230</span></td>
+            <td>MV maid<br><span class="fam">outside UAE</span></td>
+            <td class="n">2025-11-28</td>
+            <td class="n r">1,054.71</td>
+            <td><span class="fam">F1 · never filed</span></td>
+            <td><span class="v v-red">Red</span></td>
+            <td class="n r">739.50</td>
+            <td class="n r">289</td>
+            <td>File the claim<span class="settle">Refund step closed, request stopped, no refund line on either channel</span></td>
+          </tr>
+          <tr class="stripe s-red">
+            <td><span class="id">#91412</span><br><span class="id">maid 110179</span></td>
+            <td>MV maid<br><span class="fam">inside UAE</span></td>
+            <td class="n">2025-10-22</td>
+            <td class="n r">1,054.71</td>
+            <td><span class="fam">F2 · claim vs ledger</span></td>
+            <td><span class="v v-red">Red</span></td>
+            <td class="n r">739.50</td>
+            <td class="n r">297</td>
+            <td>Chase the stuck claim<span class="settle"><span class="num">refundedStatus</span> reads Refunded while the −739.50 line sits <span class="num">Pending</span></span></td>
+          </tr>
+          <tr class="stripe s-red">
+            <td><span class="id">#93088</span><br><span class="id">maid 112044</span></td>
+            <td>CC maid<br><span class="fam">outside UAE</span></td>
+            <td class="n">2026-02-11</td>
+            <td class="n r">372.50</td>
+            <td><span class="fam">F3 · expired unused</span></td>
+            <td><span class="v v-red">Red</span></td>
+            <td class="n r">372.50</td>
+            <td class="n r">148</td>
+            <td>Explain the lapse<span class="settle">Approved, permit expired, maid never landed. Expiry job wrote no financial record at all</span></td>
+          </tr>
+          <tr class="stripe s-red">
+            <td><span class="id">#92147</span><br><span class="id">maid 110942</span></td>
+            <td>MV maid<br><span class="fam">inside → outside</span></td>
+            <td class="n">2025-10-31</td>
+            <td class="n r">1,022.50</td>
+            <td><span class="fam">F5 · two price points</span></td>
+            <td><span class="v v-red">Red</span></td>
+            <td class="n r">283.00</td>
+            <td class="n r">—</td>
+            <td>Recover the waste<span class="settle">Inside price paid, rejected, 739.50 refunded, outside price re-paid same day. Whole remainder is loss, not cost</span></td>
+          </tr>
+          <tr class="stripe s-red">
+            <td><span class="id">#115902</span><br><span class="id">staff 4471</span></td>
+            <td>Office staff<br><span class="fam">inside UAE</span></td>
+            <td class="n">2026-04-21</td>
+            <td class="n r">1,022.50</td>
+            <td><span class="fam">F4 · paid twice</span></td>
+            <td><span class="v v-red">Red</span></td>
+            <td class="n r">1,022.50</td>
+            <td class="n r">—</td>
+            <td>Recover the duplicate<span class="settle">Second charge, no rejection and no Added refund between. Not part of the 2026-04-21 bulk-posting cluster</span></td>
+          </tr>
+          <tr class="stripe s-amber">
+            <td><span class="id">#114521</span><br><span class="id">maid 135387</span></td>
+            <td>MV maid<br><span class="fam">outside UAE</span></td>
+            <td class="n">2026-07-18</td>
+            <td class="n r">1,054.71</td>
+            <td><span class="fam">F1 · filed, stuck</span></td>
+            <td><span class="v v-cand">Candidate</span></td>
+            <td class="n r">739.50</td>
+            <td class="n r">27</td>
+            <td>Confirm abandonment<span class="settle">Would settle it: is the request abandoned on the refund step, or still worked? Stopped = true, step never closed</span></td>
+          </tr>
+          <tr class="stripe s-amber">
+            <td><span class="id">#115431</span><br><span class="id">maid 136002</span></td>
+            <td>CC maid<br><span class="fam">outside UAE</span></td>
+            <td class="n">2026-05-30</td>
+            <td class="n r">372.50</td>
+            <td><span class="fam">F7 · stranded Pending</span></td>
+            <td><span class="v v-cand">Candidate</span></td>
+            <td class="n r">—</td>
+            <td class="n r">106</td>
+            <td>Resolve the line<span class="settle">Would settle it: was this ever paid? An 89.50 refund is Added against a charge still at <span class="num">Pending</span></span></td>
+          </tr>
+          <tr class="stripe s-slate">
+            <td><span class="id">#88210</span><br><span class="id">maid 107338</span></td>
+            <td>MV maid<br><span class="fam">unknown</span></td>
+            <td class="n">2025-09-19</td>
+            <td class="n r">1,073.00</td>
+            <td><span class="fam">M6 · unit price</span></td>
+            <td><span class="v v-block">Blocked</span></td>
+            <td class="n r">—</td>
+            <td class="n r">—</td>
+            <td>Ingest N3<span class="settle">Location is computed, never stored — no reference price can be chosen for this charge</span></td>
+          </tr>
+          <tr class="stripe s-slate">
+            <td><span class="id">#94663</span><br><span class="id">maid 113901</span></td>
+            <td>CC maid<br><span class="fam">outside UAE</span></td>
+            <td class="n">2026-01-08</td>
+            <td class="n r">—</td>
+            <td><span class="fam">F3 · expiry dates thin</span></td>
+            <td><span class="v v-void">Void</span></td>
+            <td class="n r">—</td>
+            <td class="n r">—</td>
+            <td>Re-run after G4<span class="settle">Positive control failed: issuance and expiry dates unpopulated on this cohort. Not zero — untrustworthy</span></td>
+          </tr>
+          <tr class="stripe s-green">
+            <td><span class="id">#114752</span><br><span class="id">maid 135364</span></td>
+            <td>MV maid<br><span class="fam">inside UAE</span></td>
+            <td class="n">2026-06-08</td>
+            <td class="n r">1,022.50</td>
+            <td><span class="fam">F4 · cleared</span></td>
+            <td><span class="v v-green">Green</span></td>
+            <td class="n r">0.00</td>
+            <td class="n r">—</td>
+            <td>None<span class="settle">Two identical charges 32 days apart, but a −739.50 refund sits between them — an ordinary reject-refund-recharge cycle. History carried no rejection row: a known false negative</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 style="margin-bottom:12px">By finding family</h2>
+    <div class="tw">
+      <table style="min-width:700px">
+        <thead><tr><th>Family</th><th>What it catches</th><th class="r">Cases</th><th class="r">Recoverable</th><th class="r">Gross</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td class="id">F1</td><td>Rejected, refund never recovered — split never filed / stuck / withdrawn</td><td class="n r">223</td><td class="n r">105,758</td><td class="n r">164,299</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F2</td><td>The claim says refunded, the ledger does not</td><td class="n r">14</td><td class="n r">7,103</td><td class="n r">14,766</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F3</td><td>Paid, approved, expired unused — no rejection, no financial record</td><td class="n r">61</td><td class="n r">—</td><td class="n r">22,714</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F4</td><td>Paid twice for one entry visa, bulk postings collapsed to one</td><td class="n r">9</td><td class="n r">4,003</td><td class="n r">4,003</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F5</td><td>Two different price points across a rejection</td><td class="n r">50</td><td class="n r">—</td><td class="n r">24,131</td><td><span class="v v-red">Red</span></td></tr>
+          <tr><td class="id">F6</td><td>Step done, no payment booked — floor 2025-06-02</td><td class="n r">31</td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-cand">Candidate</span></td></tr>
+          <tr><td class="id">F7</td><td>Paid with no transaction and no reference; stranded <span class="num">Pending</span></td><td class="n r">49</td><td class="n r">—</td><td class="n r">47,000</td><td><span class="v v-cand">Candidate</span></td></tr>
+          <tr><td class="id">M6</td><td>Amount paid vs the 1073 / 403 accounting default</td><td class="n r">—</td><td class="n r">—</td><td class="n r">—</td><td><span class="v v-block">Blocked</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="f0">
+    <div class="eyebrow" style="color:var(--red)">F0 · standing control finding · reported once per run</div>
+    <h3>The entry-visa fee has no authorised amount</h3>
+    <p>The amount is typed by an agent and saved unconditionally — no price list, no cap, no approval
+    routing. <code>ENTRY_VISA_COST_INSIDE_UAE = 900</code> and <code>ENTRY_VISA_COST_OUTSIDE_UAE = 400</code>
+    are dead code: <code>getEntryVisaCost()</code> has zero callers and is <code>@JsonIgnore</code>. The
+    auto-costing service that once used them was commented out in 2018. The only server-side code
+    touching the amount is the July-2025 reclassification, which rewrites
+    <code>ENTRY_VSIA</code> to <code>ENTRY_VISA_LESS_THAN_1000</code> at or below a threshold of 1000 —
+    a relabel, not a control.</p>
+    <p>Every unit-price test downstream is therefore empirical rather than authoritative, anchored on
+    accounting’s <code>getDefaultEntryVisaExpenses()</code> fallback of 1073 / 403. That is a default,
+    not a tariff. <strong>This affects every charge in the population.</strong></p>
+  </section>
+
+  <footer>
+    Verdicts are six values: <strong>Green</strong> · <strong>Red</strong> · <strong>Candidate</strong> ·
+    <strong>Void</strong> · <strong>Blocked</strong> · Reported. One red outweighs any number of greens, and one blocked does too.<br>
+    Rejection is read only from <span class="num">INITIAL_VISA_REQUESTS_HISTORY</span> revisions, never from the live column — it is overwritten on re-application and loses exactly the re-applied cases.<br>
+    Export is at row grain: ids, counts and amounts only. No names, no contact details, no salaries.
+  </footer>
+
+</div>
