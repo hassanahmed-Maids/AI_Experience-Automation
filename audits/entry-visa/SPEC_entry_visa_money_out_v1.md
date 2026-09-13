@@ -250,7 +250,7 @@ example.
 | D3 | Payment evidence | same | `TRANSACTION_ID`, `REFERENCE_NUMBER`, `PAYMENT_TYPE`, `BUCKET`, `PAYMENT_DATE` | `PAYMENT_DATE` carries a sentinel `0025-11-06`; filter `> '1900-01-01'`. `REFERENCE_NUMBER` is Qashio or Noqodi depending on portal |
 | D4 | Population dimensions | same | `CONTRACT_TYPE`, `OWNER_TYPE`, `EMPLOYEE_TYPE`, `OWNER_ID` | `CONTRACT_TYPE` values carry a **trailing space** (`'CC '`, `'MV '`) — `TRIM` before comparing |
 | D5 | Request header | `BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS` | `REQUEST_STATUS`, `STOPPED_COMPLETED_DATE`, `ENTRY_VISA_APPLICATION_DATE`, `ENTRY_VISA_ISSUANCE_DATE`, `ENTRY_VISA_EXPIRY_DATE`, `ENTRY_VISA_PERMIT_NUMBER`, `PROBLEM_OF_ENTRY_VISA`, `RVISA_ISSUANCE_DATE` | `REQUEST_STATUS ∈ {ONGOING, COMPLETED, STOPPED}` |
-| D6 | Dated rejection | `BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY` | `ENTRY_VISA_IMMIGRATION_APPROVED` + `_MODIFIED`, `LAST_MODIFICATION_DATE`, `LAST_MODIFIER` | Envers-style revision pairs. **The only point-in-time source** — the live column is overwritten on re-application |
+| D6 | Dated rejection | `BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_HISTORY` | `ENTRY_VISA_IMMIGRATION_APPROVED` + `_MODIFIED`, `LAST_MODIFICATION_DATE`, `LAST_MODIFIER` | Revision rows. ✅ `_MODIFIED` is **NUMBER(18,5), never NULL** — filter `= 1`; `IS NOT NULL` is a no-op and reads carried-forward state as change events. ⚠️ **Not sufficient alone** — see G5: it misses 196 of 868 rejected requests, and records nothing between 2019-04 and 2025-09 |
 | D7 | Step timing & rework | `BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS_TASKS` | `TASK_NAME`, `STEP_STATUS`, `STARTED_AT`, `COMPLETED_AT`, `ITERATION`, `MOVE_OUT_DATE_SET_BY` | `ITERATION` is the ERP's own re-entry count for a step — a re-application counter that needs no expense join |
 | D8 | Unbooked payments | `BA_VIEWS.VISA_SILVER.MISSING_EXPENSES` | `MISSING_EXPENSE_NAME = 'ENTRY_VSIA_OR_ENTRY_VISA_LESS_THAN_1000'`, `MOVE_OUT_FROM_MISSING_EXPENSES_STEP` | ERP's own detector: step done, no expense row. **Earliest row 2025-06-02** — hard floor on F6 |
 | D9 | Arrival / outcome | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_STATUS_LOGS` | `HOUSEMAID_ID`, `TO_STATUS`, `CHANGE_DATE`, `NEXT_CHANGE_DATE` | Interval table — as-of reads are plain containment. `LANDED_IN_DUBAI`, `VISA_UNSUCCESSFUL`, `NO_SHOW` are the outcome vocabulary |
@@ -348,11 +348,50 @@ One red outweighs any number of greens; **one blocked test does too**.
 - **G4 · Positive control on the expiry family.** Before reporting any count of expired-unused
   permits, confirm `ENTRY_VISA_ISSUANCE_DATE` and `ENTRY_VISA_EXPIRY_DATE` are populated at a
   plausible rate (Q6). If they are not, **F3 is VOID, not zero.**
-- **G5 · Point-in-time.** Rejection is read **only** from D6 revisions. Reading the live column is
-  forbidden: it is overwritten on re-application and loses exactly the re-applied cases — the ones
-  where an unclaimed refund hides. The history additionally has **known false negatives**; a charge
-  with no rejection revision but an `Added` refund between two charges is treated as *rejected,
-  undated*, not as *never rejected*.
+- **G5 · Point-in-time — CORRECTED 2026-09-13 by measurement. Read BOTH sources, union them.**
+  v1 said "read only from the history, never the live column". **That rule is measurably wrong and
+  would have dropped 22.6% of rejected requests.** Measured on 2026-09-13:
+
+  | | requests |
+  |---|---|
+  | Ever `Rejected` in the history (dated change events) | **672** |
+  | Reads `Rejected` on the live row today | **508** |
+  | In both | 312 |
+  | History only — **lost by a point read** (overwritten on re-application) | **360** |
+  | Live only — **history false negatives** | **196** |
+  | **Union — the true ever-rejected population** | **868** |
+
+  Neither source alone is sufficient: the live column misses **41.5%** of the union, the history
+  misses **22.6%**. So the population is the **union**, and each member carries its provenance,
+  because provenance decides which tests can run:
+
+  | Class | n | Tests available |
+  |---|---|---|
+  | Dated rejection in history | 672 | All. Ordering tests (refund at/after rejection, bounded by next charge) can run |
+  | Live-only, **rejected but UNDATED** | 196 | Refund-existence only. **Every ordering and ageing test is BLOCKED, not GREEN** — there is no date to measure from |
+
+  A charge with no rejection in either source, but an `Added` refund between two charges, is still
+  treated as *rejected, undated* rather than *never rejected*.
+
+- **G5b · The history has a 6½-year blackout, and it is a hard floor.** Measured: entry-visa
+  approval change events exist **only** in 2018-06-13 → 2019-04-02 (legacy numeric codes) and
+  **2025-09-05 → present** (text statuses). Between 2019-04-02 and 2025-09-05 the field records
+  **no change events at all**. Therefore **every rejection-keyed test before 2025-09-05 is BLOCKED,
+  never clean** — an absence of rejections in that gap is an absence of *recording*, not of
+  rejections. This exactly explains, and independently confirms, the 2025-09-05 floor the prior
+  check discovered empirically without being able to say why.
+
+- **G5c · The legacy codes are out of scope for a rolling window, not out of scope in principle.**
+  `0` (235 requests) and `1` (2,503) appear only in the 2018–19 era, so they fall outside a 12-month
+  window and the strict `'Rejected'` literal is correct **for this audit's period**. Their meaning is
+  `UNVERIFIED` — the 10.7:1 ratio of `1` to `0` resembles the text era's 19.5:1 Approved-to-Rejected,
+  suggesting `1`=approved / `0`=rejected, but nothing confirms it. **Any backfill past 2025-09-05
+  must resolve this with the code before running.**
+
+- **G5d · The profiled enum was short by one.** `SHOW COLUMNS` listed nine values; the data holds
+  **ten** — `E_Visa_Need_Inside_Payment` (1 row, 2025-11-11) appears in no metadata. A singleton the
+  profiler missed. This is the second independent failure of this view's own metadata (after
+  `IS_DELETED` and the `_MODIFIED` type), and the reason G0 exists.
 
 ---
 
