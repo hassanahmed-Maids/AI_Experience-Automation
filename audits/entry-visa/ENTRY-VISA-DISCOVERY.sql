@@ -2250,3 +2250,110 @@ SELECT PURPOSE, REQUEST_TYPE,
 FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
 WHERE STATUS='Added' AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
 GROUP BY 1,2 ORDER BY total_aed DESC;
+
+
+-- D9-fixed · D9 failed: "CASE_FLATTENED(...) is not a valid group by expression".
+--      Snowflake will not accept a CASE inside a window PARTITION BY when the same
+--      expression is the GROUP BY key. Classify once in a CTE and group on the column.
+WITH ev AS (
+  SELECT VISA_REQUEST_ID,
+         SUM(CAST(AMOUNT AS NUMBER(18,2))) AS entry_visa_aed,
+         MIN(CAST(AMOUNT AS NUMBER(18,2))) AS first_amt
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+  GROUP BY 1
+), cos_raw AS (
+  SELECT VISA_REQUEST_ID, CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='CHANGE_OF_STATUS' AND REQUEST_TYPE='NewRequest' AND STATUS='Added'
+), cos AS (
+  SELECT VISA_REQUEST_ID,
+         SUM(amount_aed) AS cos_paid_aed,
+         SUM(CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2 THEN 572.50
+                  WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2 THEN 575.65
+                  WHEN ABS(ROUND((amount_aed - 590.54)/51.575)*51.575 - (amount_aed - 590.54)) < 0.05
+                                                                          THEN 590.54
+                  ELSE amount_aed END)                    AS cos_base_aed
+  FROM cos_raw GROUP BY 1
+), tagged AS (
+  SELECT CASE WHEN ev.first_amt BETWEEN 370 AND 390   THEN 'a · lower band (372.50 family)'
+              WHEN ev.first_amt BETWEEN 1020 AND 1060 THEN 'b · higher band (1,022.50 family)'
+              ELSE 'c · some other amount' END                          AS entry_visa_band,
+         IFF(c.VISA_REQUEST_ID IS NOT NULL,
+             'ALSO paid change of status','no change of status')        AS route,
+         ev.entry_visa_aed,
+         COALESCE(c.cos_base_aed,0)                                     AS cos_base_aed,
+         COALESCE(c.cos_paid_aed,0) - COALESCE(c.cos_base_aed,0)        AS embedded_fine_aed
+  FROM ev LEFT JOIN cos c ON c.VISA_REQUEST_ID = ev.VISA_REQUEST_ID
+)
+SELECT entry_visa_band, route,
+       COUNT(*)                                                             AS requests,
+       ROUND(100.0*COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY entry_visa_band),1) AS pct_of_band,
+       ROUND(AVG(entry_visa_aed),2)                                         AS avg_entry_visa,
+       ROUND(AVG(cos_base_aed),2)                                           AS avg_cos_base,
+       ROUND(AVG(entry_visa_aed + cos_base_aed),2)                          AS avg_govt_cost_per_maid,
+       ROUND(AVG(embedded_fine_aed),2)                                      AS avg_embedded_fine
+FROM tagged GROUP BY 1,2 ORDER BY entry_visa_band, route;
+
+
+-- D11 · SIGN-FLIPPED MONEY, and it is live. D10 exposed it in the min/max columns:
+--         REFUND_FOR_ENTRY_VISA  NewRequest    min -739.50  MAX +739.50
+--         REFUND_MEDICAL_...     CancelRequest min -270.00  MAX +270.00
+--         ENTRY_VSIA             NewRequest    MIN  739.50  (= 1,022.50 - 283.00)
+--         ENTRY_VISA_LESS_...    NewRequest    MIN   89.50  (=   372.50 - 283.00)
+--         IMMIGRATION_CANCELLATION             MIN -739.50
+--       A refund booked positive is a refund recorded as a COST; a charge booked at a
+--       refund value is the mirror. Both are F9, and both are inside the rolling year.
+--       THIS BITES THIS AUDIT DIRECTLY: the B-series refund CTEs use ABS(AMOUNT), so a
+--       sign-flipped row counts as a refund that may never have been received. If so,
+--       claimed is overstated and UNCLAIMED IS HIGHER THAN F12 REPORTS -- the same
+--       direction as every other correction in this audit, which is its own warning.
+SELECT PURPOSE, REQUEST_TYPE,
+       CASE WHEN PURPOSE LIKE 'REFUND%' AND CAST(AMOUNT AS NUMBER(18,2)) > 0
+                 THEN 'a · REFUND booked POSITIVE — recorded as a cost'
+            WHEN PURPOSE NOT LIKE 'REFUND%' AND CAST(AMOUNT AS NUMBER(18,2)) < 0
+                 THEN 'b · CHARGE booked NEGATIVE — recorded as a refund'
+            ELSE 'c · sign is correct' END                    AS sign_check,
+       COUNT(*)                                               AS lines,
+       COUNT(DISTINCT VISA_REQUEST_ID)                        AS requests,
+       ROUND(SUM(ABS(CAST(AMOUNT AS NUMBER(18,2)))))          AS abs_aed,
+       MIN(CREATION_DATE)::DATE AS earliest, MAX(CREATION_DATE)::DATE AS latest
+FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+WHERE STATUS='Added' AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+GROUP BY 1,2,3 HAVING sign_check <> 'c · sign is correct'
+ORDER BY lines DESC;
+
+
+-- D12 · WHAT ELSE IS BUNDLED? The overstay fine hid inside CHANGE_OF_STATUS and was
+--       only found because the max was 46x the median. D10 shows the same shape on
+--       several other purposes, and one of them is not a bundle at all:
+--         MOHRE_INSURANCE   median   189.00   min 144.38   MAX 14,438.00  = 144.38 x 100
+--         APPLY_FOR_RVISA   median   443.50                MAX  8,943.50
+--         RENEW_RESIDENCE   median   457.46                MAX  4,593.50
+--         EID               median   350.76                MAX  1,361.05
+--       An exact 100x is a units error, not a bundled fee. Separate the two readings
+--       before anyone reconciles a total: a bundle has a ladder, an error does not.
+WITH x AS (
+  SELECT PURPOSE, REQUEST_TYPE, VISA_REQUEST_ID, CAST(AMOUNT AS NUMBER(18,2)) AS amt
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE STATUS='Added' AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+    AND CAST(AMOUNT AS NUMBER(18,2)) > 0
+), m AS (
+  SELECT PURPOSE, REQUEST_TYPE, MEDIAN(amt) AS med FROM x GROUP BY 1,2
+)
+SELECT x.PURPOSE, x.REQUEST_TYPE,
+       ROUND(m.med,2)                                        AS median_aed,
+       CASE WHEN ABS(x.amt - m.med*100) < 0.02 THEN 'a · EXACTLY 100x the median — units error'
+            WHEN x.amt >= m.med*10             THEN 'b · 10x or more — bundle or error'
+            WHEN x.amt >= m.med*2              THEN 'c · 2x to 10x — likely a bundled extra'
+            ELSE                                    'd · ordinary' END AS shape,
+       COUNT(*)                                              AS lines,
+       COUNT(DISTINCT x.VISA_REQUEST_ID)                     AS requests,
+       ROUND(SUM(x.amt))                                     AS total_aed,
+       ROUND(MAX(x.amt),2)                                   AS max_aed
+FROM x JOIN m ON m.PURPOSE = x.PURPOSE AND m.REQUEST_TYPE = x.REQUEST_TYPE
+GROUP BY 1,2,3,4
+HAVING shape <> 'd · ordinary'
+ORDER BY total_aed DESC;
