@@ -18,11 +18,11 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | Finding | AED | Archetype | Basis |
 |---|---:|---|---|
 | ⚪ **RETRACTED to candidate — "bonus at referral rates, no referral, over a year in"** | *was 143,965* | — | BN3 classified the population from the narrative the code actually writes, and it does not hold together. The claim rested on *median 765 days into service* and *avg 878*. The unclassified-no-referral group is **148 notes, AED 100,310, avg 678, median 290 days** — under a year, and priced between the signing rate (500) and the referral rate (866). It is not one population and it is not characterised as the row said. Replaced by the two rows below |
-| Airfare duplicates via the unguarded manual route | **49,500** | paid twice | 29 notes inside the 5-month guard, on a path that never calls it |
+| ⚪ **RETRACTED — "airfare duplicates via the unguarded manual route"** | *was 49,500* | — | **Reconciled 2026-09-14 and it does not survive.** A3c carried no `AMOUNT > 0` filter, so it paired a real payment against a **zero-amount** predecessor. Split by whether money moved on both sides: **26 notes / AED 46,000 had a zero-amount prior note — there was never a first payment**; only **4 notes / AED 5,500** are two real payments, and those four are a top-up, a dispute settlement, an exception release and a salary advance, each separately authorised through the expense route and *booked under the airfare head*. As a duplicate-payment finding: **zero**. 26 + 4 = 30 and 46,000 + 5,500 = 51,500 reconciles A3c's 29 / 49,500 inside rounding |
 | 🔴 **Bonus over the referral entitlement** | **10,500** | not deserved | 15 maids paid AED 20,000 against 9,500 entitled — **validated by 466 maids matching to the penny** |
 | Anti-attrition paid before any enrolment existed | **9,019** | not deserved | 42 notes, measured on `CREATION_DATE` |
 | Selection-lag payments to already-ineligible maids | 3,050 | off-rule | 11 notes; corroborates the code's select-once flaw |
-| Airfare — the automatic guard itself failed | 3,000 | paid twice | 7 notes, automatic → automatic |
+| ⚪ **RETRACTED — "airfare, the automatic guard itself failed"** | *was 3,000* | — | Same reconciliation. Every `automatic → automatic` pair inside 5 months has no money on one side or both; the single one with a real second payment (AED 1,500) had a zero-amount predecessor, so it is the same artefact |
 | Anti-attrition to MV maids against a CC-only rule | **5,726** | off-rule | **21 notes — revised up 131% (S5).** The original 11 notes / AED 2,476 resolved contract type from `HOUSEMAIDS_INFO_REVISION`, an Envers audit table. `HOUSEMAID_TYPE_LOGS` is the purpose-built timeline with closed intervals, and it finds nearly twice as many |
 | Note exceeds its approved expense request | 1,304 | off-rule | 4 notes of 11,819 linked |
 | Anti-attrition same-day excess over entitlement | 838 | paid twice | 17 groups |
@@ -332,11 +332,17 @@ decision.**
 | MV Prorated Salary | recent | **770 notes, zero eligibility violations** |
 | Office Work Addition | — | **92/92 assigned. Zero findings** |
 | Anti-attrition | older | Checks eligibility at **selection**, pays two async hops later → AED 14,545 |
-| Airfare, manual route | legacy expense path | **Skips its duplicate guard entirely** → AED 49,500 |
+| Airfare, manual route | legacy expense path | ⚪ **RETRACTED** — the AED 49,500 was a zero-amount pairing artefact. The route does skip the guard, but no duplicate payment resulted |
 | Bonus | — | **No gate at all** → AED 143,965 |
 
 **Every one of the newest three validates its condition at the moment it writes the note. Every finding
 in this ledger comes from a producer that does not.**
+
+> ⚠️ **2026-09-14 — the two airfare guard findings above are RETRACTED.** They were the largest single item
+> in the confirmed column (AED 52,500 of roughly AED 103,100). The confirmed total must be recomputed; do
+> not quote the old figure. The cause was a missing `AMOUNT > 0` filter pairing real payments against
+> zero-amount notes — the ninth retraction in this audit, and the second caused by a filter rather than by
+> a misread column.
 
 That is a design recommendation the audit earned rather than asserted, and it is worth more than the
 AED 232,500: **the fix is not thirteen separate patches, it is one rule — validate at write time.**

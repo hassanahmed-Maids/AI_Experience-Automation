@@ -24,8 +24,8 @@ Ordered by money. The first three carry AED 5.01m of the AED 6.79m examined.
 | A1 | Only **CC** maids receive it; MV maids never do | 🟩 + confirmed by you 2026-09-07 |
 | A2 | Entitlement arises at **visa renewal**, and the amount is a **flat per-nationality figure**, not tenure- or salary-based | 🟩 |
 | A3 | A maid may not receive two airfares **within 5 months**, by any route | 🟩 |
-| A4 | 🔴 **A maid who received a company-bought ticket should NOT also receive the cash** | 🟥 — the code performs no such check, and we do not know whether that is intended |
-| A5 | 🔴 The **manual expense route** should apply the same 5-month guard as the automatic one | 🟥 — it does not today, and this is our largest single finding at AED 49,500 |
+| A4 | 🔴 **A maid who received a company-bought ticket should NOT also receive the cash** | 🟥 — the code performs no such check. ✅ **The rule itself is now code-verified (session 46385)**: `AddScheduledAnnualVacationService`, fired at the `GetFormFromGDRFAStep` (Upload the e-Residency) renewal step — CC only (`!isMaidVisa()`), no airfare within 5 months, and >= 16 months since the last ticket. The ticket-vs-cash question remains open |
+| A5 | 🔴 The **manual expense route** should apply the same 5-month guard as the automatic one | 🟥 — it does not today. ⚠️ **The AED 49,500 attached to this row is RETRACTED (2026-09-14)**: it was a zero-amount pairing artefact. The route genuinely skips the guard, but **no duplicate payment resulted** — the four real second payments were separately authorised top-ups and settlements booked under the airfare head. Still worth confirming as a control question, no longer as a loss |
 | A6 | **Freedom Operator** and **Walk-in** months count as CC months for the tenure clock | 🟥 |
 
 ---
