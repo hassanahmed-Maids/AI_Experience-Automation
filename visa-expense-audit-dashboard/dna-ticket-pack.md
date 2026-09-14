@@ -438,6 +438,19 @@ descending, **never by date**).
 
 ## Filters — per audit, additional
 
+**LAWP reservoir** — finding (unused paperwork / paid twice, never in the reservoir / paid again
+despite reuse / MOHRE overlap / duplicate pairs) · outcome · grain toggle (payment / bundle) · age
+band against the 0/60/120 clock · nationality · `HOUSEMAID_TYPE` · `WORK_PERMIT_TYPE` · partial
+bundle · bundles per payment · alert agreement · purpose · in the reservoir or never
+
+**R-visa** — grain toggle (per request / per maid) · verdict · blocking reason (multi) · recovery ·
+channel · purpose · fee era · term · pair bucket (A / B / C1 / C2·S1 / C2·S2 / C2·S3) · span ·
+year of last payment · leg
+
+**E-ID** — sub-audit (duplicates / fines / replacements) · charge class · expense head · gap band
+(0–120 red / 121–599 amber / 600+ normal renewal) · fine days · cap hit · loan status · recovery
+route (maid loan / MV client) · price era · visa term
+
 **Change of status** — month (default last closed) · leg (MV / CC) · verdict (default *needs action*)
 · rule R1–R10 · fine vs gate · overstay days · collection state · waiver · loan status · contract
 present · head-vs-type mismatch · monthly discount present
@@ -476,7 +489,7 @@ screenshot into a finding, and colour vision deficiency. The flag drives a left-
 
 ## Also required
 
-- **CSV export** of row-level detail, excluding every column in ①'s Sensitivity list.
+- **CSV export** of row-level detail, excluding every column in the model ticket's Sensitivity list.
 - **Drill-down** per row, to the spec's own definition. Where a case carries an AI verdict, the
   drill-down shows the **model-redacted quote** it rests on — redaction happens at the model, before
   the text leaves it, and without the quote a verdict cannot be checked. **The quote is never in the
