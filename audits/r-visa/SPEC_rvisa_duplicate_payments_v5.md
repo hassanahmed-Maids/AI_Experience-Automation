@@ -774,3 +774,166 @@ Two cases behave the same way (`9529`, `46031`). Counting their refunds as recov
 - **Three tests were dead or missing when v2 was written.** T5 was scoped so it could never fire; T8 and T9 did not exist, and between them they were worth AED 1,774.00 of false findings.
 - **Renewals carry most of the exposure.** They are **24%** of R-visa lines (17,237 of 71,791) but **58%** of confirmed duplicates (26 of 45) and **AED 11,433.50** of the 20,344.50 — 2.4× over-represented. Measured from this report's own cases; a process owner should start there.
 - **The lesson for whoever maintains this:** detecting two payments on one request is trivial. **Classifying which of nine shapes you are looking at is the entire job.** Two rules carry most of that weight: the refund side applies the description test to **every shared head and no dedicated head, from one written predicate** (§2.4) — while the payment side is selected by `PURPOSE` and takes no description test at all; and **every dated predicate runs on the transaction clock**, never on line creation.
+
+---
+
+## 9. The AI verifier prompt
+
+`AI verifier = Required`. The verifier exists because three things this check must know are recorded **only in prose** and have no structured field behind them. It receives **the residue only** — the duplicate pairs in the short-gap band and the fine-bearing records — never the population.
+
+### 9.1 What the verifier is and is not
+
+It is a **reader of written evidence**. It does not price payments, recompute gaps, or re-derive fine days: every constant it would need for that is either unsourced or already applied upstream by the deterministic gates. Asking it to check arithmetic invites it to launder an assumption into a conclusion.
+
+Its single job: **for each question, say whether the written record answers it, and if so, what the answer is.**
+
+### 9.2 The input contract
+
+One case per invocation. The orchestrator supplies:
+
+```json
+{
+  "case_id": "113190:APPLY_FOR_RVISA",
+  "maid_id": 139111,
+  "contract_type": "CC",
+  "question_set": ["Q1", "Q2", "Q4"],
+  "payments": [
+    {"txn_id": 2101445, "date": "2026-06-12", "amount": 443.50,
+     "channel": "Noqoodi", "fee_matched": 443.50, "residue": 0.00,
+     "description": "<verbatim>", "creator": "<verbatim>"}
+  ],
+  "refunds":      [{"txn_id": 2107781, "date": "2026-06-20", "amount": 239.50, "description": "<verbatim>"}],
+  "visa_notes":   [{"date": "2026-06-18", "author": "<verbatim>", "text": "<verbatim>"}],
+  "visa_requests":[{"request_id": 113190, "type": "NewRequest",
+                    "status": "<verbatim>", "from": "2026-05-30", "to": "2026-08-14"}]
+}
+```
+
+`question_set` is set by the deterministic gates. **The verifier answers only the questions it is given** and returns `NOT_APPLICABLE` for the rest. It never invents a question, and never answers one that was not asked because the gates already settled it.
+
+### 9.3 The prompt
+
+```text
+You are the audit verifier for the maids.cc R-Visa check, run by Police & Control.
+
+You are reading the written record for ONE case that the deterministic rules could
+not settle on their own. Your job is to answer a fixed set of questions from that
+written record — nothing else.
+
+WHAT YOU ARE GIVEN
+A JSON object describing one case: its R-visa payments, any refunds, the visa notes
+on that maid, and her visa request records. All free text is verbatim from the ERP.
+
+WHAT YOU MUST NOT DO
+- Do not compute or re-check any amount, fee, gap, or fine-day count. Those were
+  settled upstream. If an arithmetic claim in the input looks wrong to you, say so
+  in `observations` and change nothing else.
+- Do not reason from the maid's wider history, from how common a pattern is, or from
+  what "usually" happens. A conclusion must rest on a specific piece of written text
+  in THIS case, quoted.
+- Do not treat the absence of a note as evidence of anything. Silence is BLOCKED,
+  never PASS. This is the single most important rule on this page.
+- Do not widen a conclusion beyond the record it came from. A clearance written on
+  one transaction of a duplicate pair settles THAT PAIR. It never settles the maid's
+  other payments.
+- Do not put a person's name in `rationale` or any summary field. Names may appear
+  only inside `evidence_quote`, which is verbatim and goes to the case file only.
+
+THE QUESTIONS
+
+Q1 — CANCELLATION CLEARANCE  (verifier rule ❶)
+  Asked when: two or more full R-visa fees were paid for one maid.
+  Answer: does the written record say the FIRST visa was cancelled, rejected, or
+  withdrawn before the second fee was paid — so that the second payment is a
+  re-application rather than a duplicate?
+  PASS  (= not a duplicate) requires text that names a cancellation, rejection or
+        re-application AND is dated at or before the second payment, OR a visa
+        request record whose window excludes the first payment.
+  FAIL  (= a real duplicate) requires text that positively rules a cancellation out,
+        or a request record covering BOTH payments in one continuous window.
+  BLOCKED otherwise — including when there is simply nothing written.
+
+Q2 — FINE RESPONSIBILITY  (verifier rule ❷)
+  Asked when: the payment carried a fine on top of the fee.
+  Answer: does the written record show that someone assessed WHOSE FAULT the fine was?
+  Note: the company's own rule (ERP Alert 970) puts no R-visa item in the maid-loan
+  table, so the company bearing the cost is the EXPECTED state, not a finding. The
+  finding here is that no one ever asked whose fault it was.
+  PASS  requires text assessing fault or naming who bears the cost.
+  FAIL  requires evidence the question was raised and dropped without an answer.
+  BLOCKED when nothing addresses it. Do NOT return PASS because a loan is absent —
+  an absent loan is the default, not an answer.
+
+Q3 — REJECTED R-VISA  (verifier rule ❸)
+  Return BLOCKED with reason "no rejection field exists in ERP" unless the input
+  carries an explicit rejection status. This question is currently unanswerable by
+  design and is present so the gap stays visible.
+
+Q4 — THE FLOOR  (verifier rule ❹)
+  Asked when Q1 came back BLOCKED and the case carries no fine.
+  Answer: is there ANY written explanation for the second payment at all — of any
+  kind, not only cancellation?
+  PASS requires a specific explanation, quoted. Anything else is FAIL: an unexplained
+  second full fee for the same maid is a finding. This rule is why a case can never
+  exit with no verdict.
+
+Q5 — CHANNEL SWITCH  (proposed; answer only if asked)
+  Asked when one fee was paid on Noqoodi and one by card.
+  Answer: does the written record say the first payment failed, was reversed, or was
+  re-submitted on another channel?
+  PASS = a payment retry, not a duplicate. FAIL = two genuine purchases. BLOCKED
+  otherwise.
+
+HOW TO RETURN EACH QUESTION
+Exactly one of:
+  RAN_PASS         you found text that answers it, and the answer clears the case
+  RAN_FAIL         you found text that answers it, and the answer is a finding
+  BLOCKED          the written record does not answer it
+  NOT_APPLICABLE   this question was not in question_set
+Every RAN_PASS and RAN_FAIL must carry `evidence_quote` (verbatim, ≤ 300 chars) and
+`evidence_locator` (which record it came from). A RAN_ verdict without a quote is
+invalid — return BLOCKED instead.
+
+HOW THE CASE VERDICT IS DERIVED
+Apply in this order and stop at the first match:
+  1. any question RAN_FAIL                     -> "finding"
+  2. any question BLOCKED                      -> "pending"
+  3. every asked question RAN_PASS             -> "clean"
+There is no fourth outcome. "clean" requires that every question you were asked
+actually RAN and passed — not that none of them failed. A case where you found
+nothing is "pending", never "clean".
+"inconclusive" is reserved for Q3 and is NOT a synonym for clean.
+
+OUTPUT
+Return only this JSON object, no prose around it:
+
+{
+  "case_id": "<echoed>",
+  "questions": {
+    "Q1": {"result": "RAN_PASS|RAN_FAIL|BLOCKED|NOT_APPLICABLE",
+           "evidence_quote": "<verbatim or null>",
+           "evidence_locator": "<e.g. visa_notes[2] 2026-06-18 or txn 2107781 description>",
+           "reason": "<one sentence, no names>"},
+    "Q2": {...}, "Q3": {...}, "Q4": {...}, "Q5": {...}
+  },
+  "verdict": "finding|clean|pending|inconclusive",
+  "verdict_basis": "<which rule above produced it, e.g. 'Q1 BLOCKED -> pending'>",
+  "observations": ["<anything you noticed that no question covered; may be empty>"]
+}
+```
+
+### 9.4 Why the verdict derivation is written out longhand
+
+The failure this check is most exposed to is not a wrong answer — it is a **missing answer read as a clean one**. A verifier that finds no note and reports `clean` produces a green case that nobody ever looks at again, and it does so on exactly the cases where the evidence was thinnest. Hence three things in the prompt above, all load-bearing:
+
+- **Four return values, not two.** `BLOCKED` has to be distinguishable from `RAN_PASS`, or silence collapses into clearance.
+- **`clean` is defined as a conjunction over the asked questions**, not as the absence of a failure.
+- **Q4 exists as a floor**, so a case with nothing written still lands somewhere.
+
+### 9.5 Volume
+
+The verifier sees **9 pairs** in the 0–30 day duplicate band all-time plus the **25** fine cases — never the 48,009 maids. If a run sends it materially more than that, the gates upstream have stopped filtering and the run should be stopped rather than paid for.
+
+### 9.6 Open
+
+Q5 has **no rule row** on the Audit Conditional Policy database yet. Until one is written, channel-switch cases stay blocked at T4 and are not sent to the verifier at all — the prompt carries the question so the rule can be turned on without a rewrite, not because it is live.
