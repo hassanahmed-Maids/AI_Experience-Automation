@@ -67,6 +67,64 @@ question did not surface. One follow-up owed.
 
 Full answer: `evidence-machine-notes-conv46380.md`.
 
+
+## ✅ ALL TEN ATTRIBUTED (ask-the-code session 46381) — 99.93% of the money
+
+**AED 3,973,992 of AED 3,976,776 now has a named code path and an owning function.**
+Remaining: AED 2,784 (7 machine Salary Dispute notes + 1 MV Extra Salary).
+
+| Type | AED | Creator (class · module) | Job | Owner |
+|---|---:|---|---|---|
+| MV Prorated Salary | 803,257 | `AsyncService.processCurrentMonthHousemaidsBatchBT` · payroll-mgmt | no — accountant transfer BGT | **Maid Payroll** |
+| Prorated salary | 98,836 | `_ProratedSalariesTransaction.calculate()` · payroll-mgmt | daily `generate_payroll_audit_todo_list` | **Maid Payroll** (`payroll_auditor`) |
+| Forgive Deduction | 53,680 | `NegativeSalariesService.negativeSalariesBean()` · payroll-mgmt | none — inline in payroll file generation, gated days **26→5** (`Payroll Jobs Start`=26 / `End`=5) | **Maid Payroll** (`payroll_auditor`) |
+| Last Day CC Switch | 13,616 | `PayrollAuditTodoService.doMaidSwitchedToMvCalculations()` · payroll-mgmt | BGT `createCcSwitchingToMvTodo` off the daily job | **Maid Payroll**; source rows from the sales-side CC→MV switch (SAL-3842) |
+| Airfare Ticket | 2,189,000 | `HousemaidAirFareTicketBusinessRule` · payroll-mgmt | **none exists** | **Visa** (`fromManager = managers/jad`) |
+| Bonus | 604,775 | `HousemaidReferralService.createPayrollManagerNoteDeduction` **and** `PayrollManagerNoteController.syncSigningBonus` | `referral_bonuses_manager_job` / recruitment-driven | Referral programme **and Recruitment** |
+| Raffle Prize | 180,000 | `RafflePerformerJob.addPrizesToPayroll()` · housemaid-mgmt | `job_to_start_raffle_draw` | Raffle programme |
+| Office Work Addition | 30,828 | `PayrollGroupService.checkOfficeWorkDaysBeforeStartDate()` · payroll-mgmt | BGT `calculateSalaryBeforeStartDate` off `HousemaidStartDateBR` | Assigned by the **accommodation-manager team** (`PARAM_STAFF_ACCOMMODATION_MANAGER_TEAM`); confirmation email names **"Delighters Manager"** and **"money control manager"** |
+
+### 🔴 The authorship mechanism ALREADY EXISTS in the codebase
+
+`RafflePerformerJob` sets `creator` to the system user **`erp_user`** (`USER_ERP_LOGIN_NAME`)
+when it would otherwise be null. **One path out of six does this; the other five set nothing.**
+
+That reframes the dev ask from "invent a way to stamp automated notes" to **"do what the raffle
+job already does"** — and it is evidence that nobody decided these notes should be authorless.
+
+### 🔴 A SECOND automatic bonus path
+
+`PayrollManagerNoteController.syncSigningBonus` (payroll-mgmt) — the **signing bonus**, driven
+cross-module from recruitment when a `MaidsAtCandidateWA` reaches `SUCCESSFULL`.
+`noteReasone = "Singing Bonus"` (the typo is in the code), and **no `referral_bonus` purpose**.
+
+So the AED 604,775 of expense-less Bonus is **two programmes with different owners**, not one.
+The 20-hour tension was legitimate; the answer is BOTH — run duration explains most of the
+spread (heavy per-row I/O, per-maid IMC HTTP calls, one execution stretching hours) AND a second
+path genuinely exists.
+
+### Three of my own readings the code corrected
+
+1. **Last Day CC Switch is NOT human bulk entry.** 16 distinct hours over three days read as a
+   person typing; it is `PayrollAuditTodoService` in a background task off the daily job. It
+   *can* be triggered lazily when an auditor opens the CC-switch screen — which is likely what
+   put the timestamps in working hours. Automated creation, human-triggered timing.
+2. **`FROM_MANAGER_ID` is worth far less than claimed above.** Five of these six paths set no
+   `fromManager` at all. Airfare is the exception (AED 2.19m — the largest single type, but not
+   the general fix implied in the earlier correction).
+3. **Prorated salary is not a monthly batch.** It is the DAILY job with a narrow eligibility
+   window (start date ≥27th of the previous month), which is why it lands on ~11 days a year.
+
+### The verification owed
+
+The `noteReasone` strings are now known, so the code answer can be tested against the data
+rather than taken on trust — group expense-less additions by `NOTE_REASON` and map each to its
+predicted code path. **The column that matters is `(unmatched)`**: anything there is a producer
+the code answer did not account for, which is exactly the check that caught `syncSigningBonus`.
+Query in the audit transcript; it also splits Bonus into referral vs signing for the first time.
+
+Full answer: `evidence-machine-notes-conv46381.md`.
+
 ## The headline (as first measured — read the correction above first)
 
 **AED 3,976,775.54 across 5,345 notes — 58% of all manager-note money — is written with no
