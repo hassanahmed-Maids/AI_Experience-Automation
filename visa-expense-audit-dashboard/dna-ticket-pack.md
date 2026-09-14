@@ -184,16 +184,37 @@ count falls while the fault stays put.
 
 See ticket ③. None stops this build; each one narrows what an audit can conclude.
 
-## What needs a decision, not engineering
+## Rulings already made — build to these
 
-| Ref | Question | Owner | Blocks the build? |
-|---|---|---|---|
-| **COS O2** | **Does P&C need to save a review status against a case?** A write-back makes this an application rather than a dashboard. The design assumes **yes** and specifies `T_CASE_REVIEW` as the only writable table | Abdullah Mahdi | **Yes — needed before build** |
-| **COS O12** | May the AI verifier's redacted quote be **displayed**, or only its verdict and category? Reading the notes is what finds "the waiver that was never written down" (413 of 564 fine cases carry text against 182 typed waivers), but hygiene 10 forbids rendering note bodies. The quote is suppressed until this is ruled | Abdullah Mahdi | **Yes, for the quote** |
-| **COS O4** | R7 found 3 wrongly-headed charges since Dec 2025. Is one re-posted to the right head, or only reported? | Abdullah Mahdi | No |
-| **EV O7** | `Active_Visa` (169 requests, 30.2% refunded) and `Another_Issue` (499, 18.0%) refund well above the 2.6% approved baseline but are **not** counted as turn-downs. Including them widens `EV.M1` again | Visa team | No |
-| **EV O2b** | 19 refund claims are dated **before** their turn-down stamp, up to 74 days. "Days unclaimed" can be negative and there is no rule for it | Abdullah Mahdi | No |
-| **Cross-cutting** | **Where does the assurance surface live?** The tie-outs, the baseline-drift control and the coverage tables have no home in the current design. Every spec requires its tie-out be **displayed** | Hassan Ahmed | No — but it must be answered before ② ships |
+P&C settled every open item it owns on 2026-09-14. Nothing below needs a further answer.
+
+| Ruling | Effect on this build |
+|---|---|
+| **A review status IS saved against a case** | `T_CASE_REVIEW` is the **only** writable table: `REVIEW_STATUS`, `ASSIGNEE`, a note and an outcome, keyed on `(AUDIT_CODE, CASE_ID)`. It never touches a computed column, and never feeds a filter default that changes a metric |
+| **A verifier's redacted quote MAY be displayed** | In the drill-down only, never in the CSV export. Redaction happens **at the model**, before the text leaves it. Without the quote a verdict cannot be checked |
+| **Duplicates are treated as loss** | Recovery is **partial by design** — ~239.50 against a 443.50 fee, **never full in 15 of 15 observed cases**. The ~204 residue per case is unrecoverable, so a refunded duplicate is still a loss. Underpins `RV.M3` |
+| **Cleaners are in scope** | Head `149` stays in `R-VISA-HEADS`. The company paid a residence-visa fee for a person it sponsors |
+| **The three refund-before-duplicate R-visa cases stay BLOCKED** | A refund predating the second payment reads as a correction cycle. Treating them as confirmed would add AED 1,330.50 to Duplicated and AED 618.50 to Refunded — the less conservative call, so it is not taken |
+| **The S1 re-payer defect files as ONE process defect, not twenty findings** | AED 8,870 either way; twenty findings means nobody is asked to fix the cause, which is a missing ERP guard at the *"Apply for R-visa"* task |
+| **Overstay stays OFF the R-visa node** | R-visa carries the Modification-fine leg only (`RV.T10`, `RV.M12`). Overstay remains with the CC and MV overstay checks. Prevents the same money being counted twice |
+| **R-visa R1 is carried out of coverage, with its size** | The rejected-R-visa refund leg cannot be built — the ERP exposes no rejection status and no refund-request field. An ERP gap, not a spec gap. It shows on the tab as out-of-coverage, never as absent |
+| **The 221 single-payment unexplained-amount cases are OUT of scope here** | They belong to a price-accuracy audit that does not yet exist. Do not widen this build to absorb them |
+| **LAWP proceeds on the `HOUSEMAID_TYPE` proxy for PAWP** | With the caveat printed on the tab. Some PAWP bundles may be in the population |
+| **The E-ID 121–599 day amber band is kept** | 47 pairs, AED 16,633.77, routed to the verifier. It is the band the verifier exists to resolve |
+| **Medical shows pre-2025 findings separately, labelled historical** | `MED.M1` stays Jan 2025 onward so the headline stays collectable. 2024 findings quantify a historical leak; the portal window for claiming them has almost certainly closed |
+| **COS: a wrongly-headed charge is reported, not re-posted** | R7 is a reason column. Re-posting is an accounting correction owned elsewhere |
+| **COS: a credit note clears nothing** | Only a reduction **on the fine** is relief, which `WAIVED` already reads. `D8` stays display-only |
+| **COS: `COLLECTED` accepts a payment on ANY non-fake contract of the maid** | Narrowing it to the contract running on the charge date risks dropping a payment made by the prior client after a handover |
+| **Entry visa: a negative "days unclaimed" displays as `0` and flags the row** | 19 claims are dated before their turn-down stamp, up to 74 days — the same posting-lag family |
+| **Entry visa: no backfill before 2025-09-05** | No dated immigration rejection exists earlier |
+| **Entry visa: the roadmap's AED 12,929,222 is NOT recoverable** | Measured exposure is **AED 137,043** over 12.3 months — about **94× smaller**. It must never be quoted as recoverable, and the roadmap row is being corrected |
+| **E-ID: the 5 `UNCLASSIFIED` rows park as pending** | AED 3,295.85. A rising unclassified count is the signal that the expense names changed again — which is why the class exists |
+
+**Still with other teams, and none of it blocks this build:** `Active_Visa` / `Another_Issue` as
+entry visa turn-downs (Visa team) · the R-visa fee schedule, the 50-dirham step, `293.50` and the
+refund amounts (Finance) · Credit_Card reversal behaviour (Finance) · whether MOHRE insurance
+attaches to the paperwork or the person (Mohammad Khalil) · the COS P&L reconciliation and the MV
+client recharge ingestion (Snowflake team).
 
 ## Sensitivity — so it does not stall at intake
 
@@ -288,6 +309,11 @@ column name, not by intent.**
 12. Every personal-data column in the Sensitivity list returns zero hits against the view definitions:
     `SELECT * FROM INFORMATION_SCHEMA.VIEWS WHERE VIEW_DEFINITION ILIKE '%DESCRIPTION%'` and the rest,
     reviewed by name.
+13. `T_CASE_REVIEW` exists, is the only writable object in the schema, and no computed column in any
+    view reads from it.
+14. Medical returns pre-2025 findings in a class separate from `MED.M1`, and `MED.M1` covers
+    Jan 2025 onward only.
+15. Entry visa renders a negative "days unclaimed" as `0` with the row flagged, never as a negative.
 
 ---
 ---
@@ -349,6 +375,10 @@ The same build as ①A, over the same shared layer, for the three remaining audi
    bucket below it is unsafe.
 9. Every rule that cannot decide a case returns `BLOCKED` with its reason and **stays in the
    denominator** — never absent, never silently clean.
+10. Head `149` (cleaners) is present in `R-VISA-HEADS`; the three refund-before-duplicate cases
+    return `BLOCKED`, not `CONFIRMED`; `RV.M12` scopes to modification heads `1622` / `1649` /
+    `1735` only, never to 50-step residue; and R1 appears as a named out-of-coverage line with its
+    size, never as an absent rule.
 
 ---
 ---
