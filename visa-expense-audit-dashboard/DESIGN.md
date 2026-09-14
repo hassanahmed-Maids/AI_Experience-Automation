@@ -21,7 +21,7 @@
 > | Entry visa v1 | 🟠 Rebuilt draft; open items O2–O7, none blocking |
 > | **LAWP v4** | 🔴 The gate ran on **v1 only**. v2, v3 and v4 have never been gated, and v4 adds three rules and four metrics |
 > | **E-ID v2** | 🔴 The gate covers **v1 only**; v2 adds a fourth audit. Its own open item 7 says re-run |
-> | R-visa v6 | 🔴 Draft — §6 decisions outstanding, and its predecessor pair was withdrawn |
+> | R-visa v7 | 🔴 Two of its three flowchart legs read **SPECIFIED, NOT MEASURED**. Three queries and one Ask-the-Code answer are owed, plus five decisions. Its own §0.7: *"the corrected DNA pair cannot be raised on this"* |
 
 ---
 
@@ -47,7 +47,7 @@ The seven:
 | **Entry visa** | Phase 2 — entry visa, inside/outside country | `SPEC_entry_visa_audit_v1` | charge (M2) / maid (M3) |
 | **Medical** | Phase 3 — medical fitness test | `SPEC_medical_from_visa_expenses_v1` (v4) | one fee, one maid, one visa request |
 | **ILOE** | Phase 3 — ILOE subscription + fines | `SPEC_iloe_checker_v2` | finding (payment or loan) |
-| **R-visa** | Phase 3 — residence visa | `Rvisa_Duplicate_Payments_v6` | case = (`VISA_REQUEST_ID`, `PURPOSE`) |
+| **R-visa** | Phase 3 — residence visa | `Rvisa_Duplicate_Payments_v7` | case = (`VISA_REQUEST_ID`, `PURPOSE`) |
 | **Change of status** | Phase 2 — change of visa status, AED 575.65 + fine | `Change_of_Status_v5` **(approved)** | one Change of Status transaction |
 | **E-ID** | Phase 3 — Emirates ID | `SPEC_e_id_audit_v2` | transaction / pair / maid, per sub-audit |
 
@@ -109,6 +109,9 @@ this document still specifies and the dashboard no longer shows anywhere:
 3. **The coverage map** (§6) — which checks in the flow PDF are built, and the named blind spots.
 4. The guards each spec demands be *published* — match rates, head guards, unclassified counts,
    loan-snapshot dedupe checks.
+5. The **source-coverage tables** three specs now carry (LAWP §9, E-ID §9, R-visa §9). R-visa v7
+   makes the strongest case for surfacing them: it distinguishes **BUILT** from **SPECIFIED, NOT
+   MEASURED**, and a dashboard showing neither lets an unmeasured leg read as a working check.
 
 **The build must still compute all four.** Where they surface is now an open question for the
 requestor: a collapsed strip on each audit tab, a separate report, or a monthly sign-off sheet
@@ -392,10 +395,10 @@ Priced honestly, on the front page. Derived by walking every check in
 | Medical | no duplicate payments | medical audit 2 | ✅ (low-volume monitor) |
 | Medical | refund claimed within 90 days | medical audit 1 | ✅ |
 | R-visa | no duplicate payments | R-visa T1 / pair bucket A | ✅ |
-| R-visa | 1-year vs 2-year matches contract & validity | R-visa §3.8 | 🟠 **partial** — 25 cases AMBER, needs the issued validity read at build |
-| R-visa | fine responsibility | R-visa §2.6 | 🟠 **partial** — the finding is defined ("nobody assessed fault") but no rule is built |
+| R-visa | 1-year vs 2-year matches contract & validity | R-visa §3.8 + §9.3 | 🟡 **specified, not measured** — 25 pairs AMBER. v7 routes it to `HOUSEMAIDS_VISA_INFORMATION`; query `Q-TERM` has not run |
+| R-visa | fine responsibility | R-visa §2.6 + **T10** (§3.9) + M12 | 🟡 **specified, not measured** — v7 makes it a rule with a full verdict contract. The number does not exist; `Q-FINE` has not run |
+| **R-visa — from the roadmap, not the PDF** | *"rejected R-visas with no refund request within 60 days"* | — | 🔴 **carried out of coverage, unmeasurable.** The ERP exposes no rejection status and no refund-request field for R-visa. An **ERP gap, not a spec gap** |
 | E-ID | no duplicate payments | e-ID M2 | ✅ |
-| E-ID | **1-year vs 2-year matches contract & validity** | — | 🔴 **not in the e-ID spec at all** |
 | E-ID | lost card — whose fault, charge her loan | e-ID M4 + verifier cats 5/6 | ✅ |
 | E-ID | fine responsibility | e-ID M3 | ✅ |
 
@@ -409,6 +412,13 @@ Priced honestly, on the front page. Derived by walking every check in
   `HOUSEMAID_TYPE` proxy is in use and the caveat prints on the tab.
 - **E-ID: the MV client recharge route is not in the warehouse** (N1) — 131 MV
   replacement cases, AED 58,649.84, can be neither cleared nor condemned.
+- **R-visa: the flowchart is not the only thing that scopes a check.** v7's §9 comparison found
+  a **fourth leg in the Security Room roadmap that the PDF does not carry** — a rejected-R-visa
+  refund check at 60 days, the same shape entry visa and medical both have. It had been known and
+  recorded as unbuildable, and was never carried forward as a rule, so no gate could miss it.
+  **Every other spec here was compared against the PDF alone.** The roadmap should be compared too.
+- **R-visa: the roadmap and §2.6 disagree on whether overstay fines belong to this check.** v6
+  moved them off on evidence but without authority; that is a live scope question for P&C (§6.17).
 - **LAWP: whether MOHRE insurance attaches to the paperwork or to the person is
   unanswered** — it decides AED 383,177.57 across 2,018 events. Routed to the process
   owner and reported as its own class, never red, until he rules (R20a).
