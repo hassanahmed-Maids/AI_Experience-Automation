@@ -41,18 +41,49 @@ ticket as a nice-to-have.
 attributable for the first time.** Jobs run under a system user, so it should resolve the
 machine set as well; that last clause is an EXPECTATION until the column is actually seen.
 
-## Schedule fingerprint — inference from timing, NOT ownership from code
+## 🔴 CORRECTION (same day): "no author recorded" is NOT the same as "written by a bot"
+
+The first pass classified these by RUN-DAY COUNT alone and called all ten "jobs". The HOUR
+fingerprint breaks that. Three distinct signatures, two of them anchored to a known case:
+
+| Fingerprint | Types | Reading |
+|---|---|---|
+| **One hour, midnight, all 7 days** | Airfare (100% exactly midnight), Raffle Prize (100%), Prorated salary (100%), Salary Dispute (87.5%) | A true **scheduled job**. 2,423 notes, AED 2.47m |
+| **All 24 hours, ~0% midnight** | Bonus (20 distinct hours), Forgive Deduction (19) | **Event-driven service** — fires when its trigger fires |
+| **Business hours only, never Sunday** | **MV Prorated Salary** (9–21, six days, 226 run days), Last Day CC Switch (7–22, Fri/Mon/Tue only) | **A HUMAN IS ACTING** and requestedBy is simply not recorded |
+
+**Both fingerprints are anchored, not guessed:**
+- *Positive control on row 2:* **Forgive Deduction is code-confirmed automatic** (the
+  `cover_deduction_limit` / `cover_negative_salary` additions) and it shows the all-hours
+  spread. So that signature genuinely means automatic-but-event-triggered, not human.
+- *Positive control on row 1:* Airfare's single-midnight-hour matches the airfare **producer
+  signature** (midnight timestamps) independently identified earlier in this audit.
+
+### The standout
+
+**MV Prorated Salary — AED 803,257 across 782 notes, 226 days a year, 9am to 9pm, never on a
+Sunday, with no author recorded.** That is not a bot. Something a PERSON does is writing
+AED 803k onto payslips without stamping who did it. This is now the highest-value open
+question in the machine-written set, ahead of Airfare by mechanism if not by amount.
+
+### Anomaly RESOLVED
+
+Last Day CC Switch's "213 notes over 3 run days" is **not** a job that fired three times: the
+notes spread over 16 hours of the day on Fri/Mon/Tue. It is a **human bulk-entry session**.
+That also removes the tension with the earlier `median_days_to_switch = 0` measurement.
+
+## Schedule fingerprint — the raw evidence
 
 | Payment type | Notes | AED | Run days | /day | % month-edge | Reads as |
 |---|---:|---:|---:|---:|---:|---|
-| Airfare Ticket | 1,220 | 2,189,000 | 313 | 3.9 | 19.8 | Daily, event-driven |
-| MV Prorated Salary | 782 | 803,256.89 | 226 | 3.5 | 15.9 | Near-daily, event-driven |
-| Bonus | 796 | 604,775 | 261 | 3.0 | 20.4 | Near-daily, event-driven |
+| Airfare Ticket | 1,220 | 2,189,000 | 313 | 3.9 | 19.8 | Scheduled job, midnight, 100% |
+| MV Prorated Salary | 782 | 803,256.89 | 226 | 3.5 | 15.9 | 🔴 **Human hours** (9–21, never Sunday) |
+| Bonus | 801 | 609,775 | 264 | 3.0 | 20.3 | Event-driven service (20 hours) |
 | Raffle Prize | 576 | 180,000 | 12 | 48.0 | 0.0 | Monthly, off-cycle draw |
 | Prorated salary | 619 | 98,836 | 11 | 56.3 | 100.0 | Monthly payroll batch |
 | Forgive Deduction | 1,038 | 53,680 | 91 | 11.4 | 38.6 | Payroll-adjacent, > monthly |
 | Office Work Addition | 93 | 30,828 | 72 | 1.3 | 14.0 | Sporadic |
-| Last Day CC Switch | 213 | 13,616 | 3 | 71.0 | 100.0 | ⚠️ see anomaly below |
+| Last Day CC Switch | 213 | 13,616 | 3 | 71.0 | 100.0 | Human bulk entry (16 hours, Fri/Mon/Tue) |
 | Salary Dispute (machine) | 7 | 2,483.65 | 3 | 2.3 | 100.0 | Rare, month-edge |
 | MV Extra Salary | 1 | 300 | 1 | 1.0 | 100.0 | Once |
 
@@ -62,7 +93,7 @@ They are not duplicates. `Prorated salary` is a **monthly payroll batch** (11 ru
 month-edge); `MV Prorated Salary` is **event-driven** (226 runs, 15.9% month-edge). Different
 mechanisms, therefore different owners. AED 902,092.89 between them. Confirm against code.
 
-### ⚠️ Anomaly to resolve
+### ⚠️ Anomaly as first recorded (now resolved above — kept for the method)
 
 **Last Day CC Switch Adjustment: 213 notes across only 3 run days** (71 per run). A monthly
 job would show ~12. Either it fired three times in a year or the switch events themselves
@@ -84,5 +115,14 @@ batch. This sits awkwardly beside the earlier measurement that `median_days_to_s
 3. **MV Prorated Salary vs Prorated salary** — confirm the two-mechanism hypothesis above.
    (AED 902,092.89)
 
-Blocked 2026-09-14: ERP token expired (`invalid_token / Token is expired`). Token goes in
-`.env` only — never into a prompt, a doc, or a commit.
+Submitted 2026-09-14, ask-the-code session **46380**, pinned to
+`erp/magnamedia-housemaid-management, erp/magnamedia-payroll-management,
+erp/magnamedia-accounting`. Question order revised after the hour fingerprint: **MV Prorated
+Salary first** (is it user-triggered, and why is `requestedBy` null on that path?), then
+Airfare, then Bonus.
+
+⚠️ Alias trap: `erp/magnamedia-payroll` does not exist and fails the whole multi-repo clone
+(`require_all_modules_to_exit is enabled: all 3 repositories must succeed, but only 2
+succeeded`). The alias is **`erp/magnamedia-payroll-management`** — see `docs/code-llm-api.md`.
+
+Token goes in `.env` only — never into a prompt, a doc, or a commit.
