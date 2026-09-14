@@ -76,13 +76,17 @@ Two rules about that layout are load-bearing and are implemented, not just descr
 
 ### Portfolio tab
 
-- Four exposure tiles (§3), never one total
-- The **audit × exposure-class matrix** — the whole portfolio in one grid, money and cases
+- **One card per audit**, largest first — that audit's own total, its case count, and a split
+  into Recoverable / Lost / counted-not-valued. Clicking a card opens that audit's tab.
 - One chart: exposure by audit, stacked by class, direct-labelled
 
-Deliberately **not** on this tab: the coverage map. Exposure and coverage answer different
-questions — *where is the money* against *what is nobody watching* — and an auditor opening
-the portfolio is working the first. Coverage lives on Assurance, with the controls.
+There is **no grand total across the six** — the reason in §3.1 stands, it is just carried by
+the absence of a total rather than by a caption explaining one.
+
+Deliberately **not** on this tab: the **UNDECIDED class**, the **coverage map**, and the
+per-tab **provenance line** and **tie-out bars**. Undecided money is still computed and still
+shown on each audit's own tab; coverage and the tie-outs live on Assurance. The portfolio is
+worked, not read, so it carries figures and nothing that explains figures.
 
 ### Assurance tab
 

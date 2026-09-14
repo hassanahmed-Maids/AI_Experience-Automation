@@ -65,8 +65,6 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
 .tab[aria-selected=true] .n{color:var(--accent)}
 
 /* ---------- generic blocks ---------- */
-.prov{font-size:12px;color:var(--ink-3);padding:16px 0 0;display:flex;flex-wrap:wrap;gap:4px 18px}
-.prov b{color:var(--ink-2);font-weight:600}
 .band{margin-top:18px}
 .band-h{display:flex;align-items:baseline;gap:10px;margin-bottom:9px;flex-wrap:wrap}
 .band-h h2{font-family:var(--cond);font-size:15px;font-weight:700;letter-spacing:.01em}
@@ -85,19 +83,6 @@ select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid 
 .kpi.is-red .k-val{color:var(--red)} .kpi.is-amber .k-val{color:#a9740a} .kpi.is-grey .k-val{color:var(--grey)}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .kpi.is-amber .k-val{color:var(--amber)}}
 :root[data-theme=dark] .kpi.is-amber .k-val{color:var(--amber)}
-.kpi-caption{font-size:11.5px;color:var(--ink-3);margin-top:7px;display:flex;align-items:center;gap:6px}
-.lock{font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-size:10px;font-weight:700;
-  color:var(--ink-2);background:var(--sunken);border:1px solid var(--rule);border-radius:2px;padding:1px 5px}
-
-/* ---------- tie-out ---------- */
-.tieout{margin-top:12px;border:1px solid var(--rule);border-left:3px solid var(--good);
-  background:var(--surface);border-radius:3px;padding:10px 14px;display:flex;flex-wrap:wrap;
-  gap:4px 14px;align-items:baseline}
-.tieout.fail{border-left-color:var(--red);background:var(--red-wash)}
-.tieout .t-lab{font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:700;color:var(--ink-2)}
-.tieout .eq{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
-.tieout .var{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--good)}
-.tieout.fail .var{color:var(--red)}
 
 /* ---------- filters ---------- */
 .filters{margin-top:14px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:11px 13px}
@@ -151,15 +136,26 @@ tr.f-GREEN  td:first-child{border-left-color:var(--good)}
 .empty{padding:26px 14px;color:var(--ink-3);font-size:13px;text-align:center}
 
 /* ---------- portfolio ---------- */
-.matrix{margin-top:12px;overflow-x:auto;border:1px solid var(--rule);border-radius:4px;background:var(--surface)}
-.matrix table{font-size:12.5px}
-.matrix tbody td:first-child{border-left:0;font-weight:600;white-space:nowrap}
-.matrix tfoot td{padding:9px 11px;border-top:2px solid var(--rule-2);font-family:var(--mono);
-  font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
-.matrix tfoot td:first-child{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;
-  font-size:10.5px;text-align:left;font-weight:700;color:var(--ink-2)}
-.grain{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);font-weight:400}
-
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.card{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--rule-2);
+  border-radius:4px;padding:14px 16px 15px;text-align:left;font-family:var(--sans);cursor:pointer;
+  display:flex;flex-direction:column;gap:0;color:inherit}
+.card:hover{border-color:var(--rule-2);border-left-color:var(--accent)}
+.card .c-top{display:flex;flex-direction:column;gap:1px}
+.card .c-name{font-family:var(--cond);font-size:14px;font-weight:700;letter-spacing:.01em;color:var(--ink)}
+.card .c-grain{font-family:var(--mono);font-size:10px;color:var(--ink-3);white-space:nowrap}
+.card .c-val{font-family:var(--mono);font-size:23px;font-weight:600;letter-spacing:-.02em;
+  margin-top:9px;line-height:1.1;color:var(--red)}
+.card .c-cur{font-size:13px;color:var(--ink-3);font-weight:500;margin-right:2px}
+.card .c-cases{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+.split{display:flex;gap:2px;margin-top:11px;height:5px;border-radius:2px;overflow:hidden}
+.split i{display:block;height:100%}
+.card dl{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin:9px 0 0;
+  font-size:11.5px;align-items:baseline}
+.card dt{display:flex;align-items:center;gap:5px;color:var(--ink-2);white-space:nowrap}
+.card dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;
+  color:var(--ink);white-space:nowrap}
+.card dd.none{color:var(--ink-3)}
 .chart{margin-top:12px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:15px 16px 8px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px}
 .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
@@ -187,7 +183,9 @@ tr.f-GREEN  td:first-child{border-left-color:var(--good)}
 .rule-list li b{color:var(--ink);font-weight:600}
 
 footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-3);max-width:82ch}
+@media (max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:640px){
+  .cards{grid-template-columns:1fr}
   .mast-in{flex-direction:column}
   .kpi .k-val{font-size:20px}
 }
@@ -234,17 +232,18 @@ const el = (h)=>{const t=document.createElement('template');t.innerHTML=h.trim()
 const CLASSES = [
   {k:'RECOVERABLE',lab:'Recoverable',  col:'var(--amber)', desc:'A route exists and it is still open'},
   {k:'LOST',       lab:'Lost',        col:'var(--red)',   desc:'Money out, no recovery route'},
-  {k:'UNDECIDED',  lab:'Undecided',   col:'var(--grey)',  desc:'A person or an ingestion must rule first'},
 ];
-const PORTFOLIO = [
-  {code:'ILOE',      name:'ILOE',            grain:'finding',       rec:658029.52, recN:1894, lost:864.58,    lostN:6,   und:null,      undN:0,   unv:168},
-  {code:'LAWP',      name:'LAWP reservoir',  grain:'payment / bundle', rec:63897.92, recN:45,  lost:271171.06, lostN:202, und:null,     undN:0,   unv:null},
-  {code:'ENTRY_VISA',name:'Entry visa',      grain:'charge / maid', rec:90276.00,  recN:188,  lost:74580.90,  lostN:105, und:14206.00,  undN:28,  unv:7},
-  {code:'EID',       name:'E-ID',            grain:'txn / pair / maid', rec:null,  recN:0,    lost:57390.34,  lostN:149, und:75283.61,  undN:178, unv:5},
-  {code:'MEDICAL',   name:'Medical',         grain:'fee',           rec:39910.00,  recN:173,  lost:710.00,    lostN:3,   und:2430.00,   undN:9,   unv:119},
-  {code:'RVISA',     name:'R-visa',          grain:'case',          rec:null,      recN:0,    lost:16853.50,  lostN:45,  und:8873.50,   undN:45,  unv:25},
+const PORTFOLIO_RAW = [
+  {code:'ILOE',      name:'ILOE',            grain:'finding',       rec:658029.52, recN:1894, lost:864.58,    lostN:6,   unv:168},
+  {code:'LAWP',      name:'LAWP reservoir',  grain:'payment / bundle', rec:63897.92, recN:45,  lost:271171.06, lostN:202, unv:null},
+  {code:'ENTRY_VISA',name:'Entry visa',      grain:'charge / maid', rec:90276.00,  recN:188,  lost:74580.90,  lostN:105, unv:7},
+  {code:'EID',       name:'E-ID',            grain:'txn / pair / maid', rec:null,  recN:0,    lost:57390.34,  lostN:149, unv:5},
+  {code:'MEDICAL',   name:'Medical',         grain:'fee',           rec:39910.00,  recN:173,  lost:710.00,    lostN:3,   unv:119},
+  {code:'RVISA',     name:'R-visa',          grain:'case',          rec:null,      recN:0,    lost:16853.50,  lostN:45,  unv:25},
 ];
-const TOT = {rec:852113.44,recN:2300,lost:421570.38,lostN:510,und:100793.11,undN:260,unv:324};
+const PORTFOLIO = PORTFOLIO_RAW.slice().sort((a,b)=>
+  ((b.rec||0)+(b.lost||0)) - ((a.rec||0)+(a.lost||0)));
+const TOT = {rec:852113.44,recN:2300,lost:421570.38,lostN:510,unv:324};
 
 const COVERAGE = [
   ['Phase 1 · LAWP reservoir','Over 60 days in the pool is a loss','LAWP M5 / M6','ok','Built'],
@@ -282,10 +281,7 @@ AUDITS.LAWP = {
     {lab:'Lost — never reused',id:'M7',val:'AED 271,171.06',sub:'202 payments · 232 bundles',tone:'is-red'},
     {lab:'Still recoverable',id:'M5',val:'AED 63,897.92',sub:'45 payments · claim before the window shuts',tone:'is-amber'},
     {lab:'Loss rate',id:'M9',val:'2.76%',sub:'202 of 7,313 payments in scope'},
-    {lab:'No fee on record',id:'M8',val:'from run',sub:'Never written off, never cleared',tone:'is-grey'},
   ],
-  tie:[['M2 + M3 + M4 + M5 + M6 = M1','6,767 + 296 + 3 + 45 + 202 = 7,313','0'],
-       ['Money grain vs case grain','202 payments behind 232 bundles','30 bundles share a payment']],
   filters:[['Outcome',['All outcomes','Lost (past 120 days)','Recoverable (60–120)','Under 60 days','Cleared by reuse','Consumed','No fee on record','Alert disagreement']],
            ['Grain',['Case = bundle','Money = payment']],
            ['Work permit type',['QUOTA and REPLACEMENT','QUOTA','REPLACEMENT']],
@@ -321,9 +317,6 @@ AUDITS.ENTRY_VISA = {
     {lab:'Refund failure rate',id:'M5',val:'20.6%',sub:'188 of 913 turned-down charges'},
     {lab:'Cannot be judged',id:'grey',val:'7',sub:'5 maid-id disagreements · 2 with no note',tone:'is-grey'},
   ],
-  tie:[['Charge side — turn-downs = refunded + not','913 = 697 + 216','0'],
-       ['Refund side — refunds in window','892 = 701 + 119 + 70 + 2','0'],
-       ['Cross-check — the tripwire','701 (refund side) vs 697 (charge side)','4 listed case by case']],
   filters:[['List',['Refund we can still claim (M2)','Paid twice (M3)']],
            ['Flag',['Action + Hold','Action only','Hold only','Unreadable','Clean','All']],
            ['Band',['Inside and outside','Inside country (739.50)','Outside country (89.50)']],
@@ -359,8 +352,6 @@ AUDITS.MEDICAL = {
     {lab:'No medical fee charged',id:'—',val:'119',sub:'Counted, never valued — there is no refund to lose',tone:'is-grey'},
     {lab:'Refund pending',id:'—',val:'AED 2,430',sub:'9 cases in flight — hold, do not action',tone:'is-amber'},
   ],
-  tie:[['never claimed + failed + pending + clean = eligible','132 + 41 + 9 + 971 = 1,153','0'],
-       ['The AED side ties the same way','29,490 + 10,420 + 2,430 + 230,670 = 273,010','0.00']],
   filters:[['Verdict',['All verdicts','Refund never claimed','Refund failed','No medical fee charged','Refund pending','Clean']],
            ['Stage',['New and renewal','New (MEDICAL)','Renewal (MEDICAL_RENEW)']],
            ['Era rate',['Both rates','AED 220 (before 2026)','AED 270 (2026 on)']],
@@ -396,7 +387,6 @@ AUDITS.ILOE = {
     {lab:'Total exposure',id:'R2+R3+R4',val:'AED 658,894.10',sub:'1,900 cases. R2 and R3 cannot overlap'},
     {lab:'Reported, not in the total',id:'—',val:'168',sub:'Unclassified · bulk · reversals · R1',tone:'is-grey'},
   ],
-  tie:[['Fines paid = charged to a maid + charged to nobody','1,163,242.82 = 587,351.55 + 575,891.27','0.00']],
   filters:[['Rule',['All rules','R2 — fine paid, nobody charged','R3 — charged, not recovered','R4 — waiver with no to-do','R1 — subscription paid twice']],
            ['Class',['Fines and subscriptions','Fine','Subscription','Unclassified']],
            ['Loan type',['All types','_FINES','_PREMIUM (pre-rename)','_PLAN','No loan at all']],
@@ -432,8 +422,6 @@ AUDITS.RVISA = {
     {lab:'Confirmed of multi-payment',id:'M6',val:'50.0%',sub:'45 of 90 multi-payment cases'},
     {lab:'Of all R-visa payments',id:'M6',val:'0.066%',sub:'46 duplicated fees of 69,218 payments'},
   ],
-  tie:[['Coverage waterfall','71,791 − 802 − 1,770 − 1 = 69,218','0'],
-       ['Renewal gap vs the 730-day term — the check\'s own sanity test','median 716 days over 16,013 pairs','14 days']],
   filters:[['Grain',['Per request (case)','Per maid (pair classifier)']],
            ['Verdict',['Confirmed','Blocked','Clean','All']],
            ['Recovery',['Unrecovered','Partial','Full','Unknown','Not applicable','All']],
@@ -471,8 +459,6 @@ AUDITS.EID = {
     {lab:'Fines not recovered',id:'M3',val:'56 of 57',sub:'One recovered, AED 60.43. Not 57'},
     {lab:'Total E-ID spend audited',id:'M1',val:'AED 7,007,545.03',sub:'20,142 transactions · variance AED 0.00'},
   ],
-  tie:[['Classes re-add to the ledger','19,033 + 57 + 256 + 789 + 5 + 2 = 20,142 rows','AED 0.00'],
-       ['Replacement recovery reconciles per line','paid − recovered − waived = unrecovered','0.00']],
   filters:[['Sub-audit',['All three','1 — Duplicate payments','2 — Fines not recovered','3 — Replacements not recovered']],
            ['Charge class',['All classes','APPLICATION','APPLICATION_WITH_FINE','REPLACEMENT','TYPING_SERVICE','UNCLASSIFIED','REFUND']],
            ['CC / MV',['Both','CC','MV']],
@@ -497,9 +483,11 @@ AUDITS.EID = {
 };
 
 /* ============================ RENDER ============================ */
-const TABS = [['PORTFOLIO','Portfolio','—'],['LAWP','LAWP','202'],['ENTRY_VISA','Entry visa','293'],
-  ['MEDICAL','Medical','292'],['ILOE','ILOE','1,900'],['RVISA','R-visa','91'],['EID','E-ID','327'],
-  ['ASSURANCE','Assurance','—']];
+const CASE_N = Object.fromEntries(PORTFOLIO_RAW.map(p=>
+  [p.code, I((p.recN||0)+(p.lostN||0)+(p.unv||0))]));
+const TABS = [['PORTFOLIO','Portfolio','—'],['LAWP','LAWP',CASE_N.LAWP],['ENTRY_VISA','Entry visa',CASE_N.ENTRY_VISA],
+  ['MEDICAL','Medical',CASE_N.MEDICAL],['ILOE','ILOE',CASE_N.ILOE],['RVISA','R-visa',CASE_N.RVISA],
+  ['EID','E-ID',CASE_N.EID],['ASSURANCE','Assurance','—']];
 let active = 'PORTFOLIO';
 
 const tabBar = document.getElementById('tabs');
@@ -519,16 +507,7 @@ function flagCell(f){return `<span class="flag fl-${f}"><span class="g">${GLYPH[
 function kpiStrip(kpis){
   return `<div class="kpis">${kpis.map(k=>`<div class="kpi ${k.tone||''}">
     <div class="k-lab">${k.lab}${k.id&&k.id!=='—'?`<span class="mid">${k.id}</span>`:''}</div>
-    <div class="k-val">${k.val}</div><div class="k-sub">${k.sub}</div></div>`).join('')}</div>
-  <div class="kpi-caption"><span class="lock">Full population</span>
-    These tiles do not respond to the filter bar — filtering to one flag must never make the other tiles drop to zero.</div>`;
-}
-
-function tieBlock(ties){
-  return ties.map(([lab,eq,v])=>{
-    const fail = v!=='0' && v!=='0.00' && !/listed|days/.test(v);
-    return `<div class="tieout${fail?' fail':''}"><span class="t-lab">Tie-out · ${lab}</span>
-      <span class="eq">${eq}</span><span class="var">variance ${v}</span></div>`;}).join('');
+    <div class="k-val">${k.val}</div><div class="k-sub">${k.sub}</div></div>`).join('')}</div>`;
 }
 
 function filterBlock(a){
@@ -573,14 +552,11 @@ function auditView(key){
       <div class="eyebrow">One clock, from the day the money left — it never resets</div>
       ${clockSvg()}
     </div>` : '';
-  return `
-  <div class="prov"><span><b>Sources</b> ${a.sources}</span><span><b>Clock</b> ${a.clock}</span>
-    <span><b>Spec</b> ${a.spec}</span><span><b>Window</b> ${a.window}</span><span><b>As of</b> 2026-09-14</span></div>
-  <div class="band">${kpiStrip(a.kpis)}${tieBlock(a.tie)}</div>
+  return `  <div class="band">${kpiStrip(a.kpis)}</div>
   ${clockStrip}
   ${filterBlock(a)}
   <div class="inview">
-    <span>Showing <b>${a.rows.length}</b> example rows of <b>${a.tabN}</b> cases ·
+    <span>Showing <b>${a.rows.length}</b> example rows of <b>${CASE_N[key]}</b> cases ·
       in view <b>AED ${F(a.rows.reduce((s,r)=>{const i=a.cols.findIndex(c=>/Amount AED|Recoverable AED|Still out|Loss AED|Unrecovered AED/.test(c[0]));return s+(typeof r.c[i]==='number'?r.c[i]:0);},0))}</b></span>
     <span class="dash">The live build lists every case; this mockup carries the spec's worked examples.</span>
   </div>
@@ -609,11 +585,11 @@ function clockSvg(){
 }
 
 function chartSvg(){
-  const rows = PORTFOLIO.map(p=>({name:p.name, seg:[p.rec||0,p.lost||0,p.und||0], tot:(p.rec||0)+(p.lost||0)+(p.und||0)}))
+  const rows = PORTFOLIO.map(p=>({name:p.name, seg:[p.rec||0,p.lost||0], tot:(p.rec||0)+(p.lost||0)}))
                         .sort((a,b)=>b.tot-a.tot);
   const W=980,rowH=38,padL=126,padR=112,top=6, H=top+rows.length*rowH+30;
   const max=rows[0].tot, sx=v=>(W-padL-padR)*v/max;
-  const cols=['var(--amber)','var(--red)','var(--grey)'];
+  const cols=['var(--amber)','var(--red)'];
   let g='';
   rows.forEach((r,i)=>{
     const y=top+i*rowH; let x=padL;
@@ -636,49 +612,35 @@ function chartSvg(){
 
 function portfolioView(){
   const cls = c=>`<span class="sw" style="background:${c}"></span>`;
+  const cards = PORTFOLIO.map(p=>{
+    const tot=(p.rec||0)+(p.lost||0), n=(p.recN||0)+(p.lostN||0)+(p.unv||0);
+    const seg=[[p.rec,'var(--amber)'],[p.lost,'var(--red)']]
+      .filter(([v])=>v>0).map(([v,c])=>`<i style="width:${(v/tot*100).toFixed(2)}%;background:${c}"></i>`).join('');
+    const line=(v,cN,col,lab)=> v
+      ? `<dt>${cls(col)}${lab}</dt><dd>${F(v)} <span style="color:var(--ink-3)">· ${I(cN)}</span></dd>`
+      : `<dt>${cls(col)}${lab}</dt><dd class="none">none</dd>`;
+    return `<button class="card" type="button" data-go="${p.code}">
+      <div class="c-top"><span class="c-name">${p.name}</span><span class="c-grain">${p.grain}</span></div>
+      <div class="c-val"><span class="c-cur">AED</span>${F(tot)}</div>
+      <div class="c-cases">${I(n)} cases to work</div>
+      <div class="split">${seg}</div>
+      <dl>
+        ${line(p.rec,p.recN,'var(--amber)','Recoverable')}
+        ${line(p.lost,p.lostN,'var(--red)','Lost — no route')}
+        <dt>${cls('transparent')}Counted, not valued</dt>
+        <dd class="${p.unv?'':'none'}">${p.unv!=null?I(p.unv)+' cases':'—'}</dd>
+      </dl></button>`;
+  }).join('');
   return `
-  <div class="prov"><span><b>Six audits</b> LAWP · Entry visa · Medical · ILOE · R-visa · E-ID</span>
-    <span><b>As of</b> 2026-09-14</span>
-    <span><b>Period</b> Spec window — each audit on its own clock</span></div>
-
   <div class="band">
-    <div class="band-h"><h2>Exposure</h2>
-      <span class="note">Four numbers, never one. Money with a route to get it back and money that is simply gone
-        are different things, and three of the six specs forbid a combined total outright.</span></div>
-    <div class="kpis">
-      <div class="kpi is-amber"><div class="k-lab">Recoverable<span class="mid">class</span></div>
-        <div class="k-val">AED ${F(TOT.rec)}</div><div class="k-sub">${I(TOT.recN)} cases · a route exists and it is still open</div></div>
-      <div class="kpi is-red"><div class="k-lab">Lost — no route<span class="mid">class</span></div>
-        <div class="k-val">AED ${F(TOT.lost)}</div><div class="k-sub">${I(TOT.lostN)} cases · find out how it happened</div></div>
-      <div class="kpi is-grey"><div class="k-lab">Undecided<span class="mid">class</span></div>
-        <div class="k-val">AED ${F(TOT.und)}</div><div class="k-sub">${I(TOT.undN)} cases · the number to drive down</div></div>
-      <div class="kpi is-grey"><div class="k-lab">Counted, not valued<span class="mid">class</span></div>
-        <div class="k-val">${I(TOT.unv)} cases</div><div class="k-sub">Real findings the specs forbid pricing</div></div>
-    </div>
-    <div class="kpi-caption"><span class="lock">No total</span>
-      There is deliberately no grand figure here. Adding a claimable refund to a fee paid twice asserts something false.</div>
-  </div>
-
-  <div class="band">
-    <div class="band-h"><h2>By audit</h2><span class="note">Case counts are a worklist size and may be added;
-      money may not cross a class. Each audit's grain is named, because a case means a different thing in each.</span></div>
-    <div class="matrix"><table>
-      <thead><tr><th>Audit</th><th>Grain</th><th class="num">Recoverable AED</th><th class="num">Cases</th>
-        <th class="num">Lost AED</th><th class="num">Cases</th><th class="num">Undecided AED</th><th class="num">Cases</th>
-        <th class="num">Not valued</th></tr></thead>
-      <tbody>${PORTFOLIO.map(p=>`<tr>
-        <td>${p.name}</td><td><span class="grain">${p.grain}</span></td>
-        <td class="num">${p.rec?F(p.rec):'<span class="dash">—</span>'}</td><td class="num">${p.recN||'<span class="dash">—</span>'}</td>
-        <td class="num">${p.lost?F(p.lost):'<span class="dash">—</span>'}</td><td class="num">${p.lostN||'<span class="dash">—</span>'}</td>
-        <td class="num">${p.und?F(p.und):'<span class="dash">—</span>'}</td><td class="num">${p.undN||'<span class="dash">—</span>'}</td>
-        <td class="num">${p.unv!=null?I(p.unv):'<span class="unval">from run</span>'}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td>Total within class</td><td></td>
-        <td>${F(TOT.rec)}</td><td>${I(TOT.recN)}</td><td>${F(TOT.lost)}</td><td>${I(TOT.lostN)}</td>
-        <td>${F(TOT.und)}</td><td>${I(TOT.undN)}</td><td>${I(TOT.unv)}</td></tr></tfoot>
-    </table></div>
-    <p class="note" style="margin-top:8px">R-visa is carried at its per-request grain. Its per-maid pair classifier
-      finds 68 duplicate pairs worth AED 29,905 gross — shown on the R-visa tab, and deliberately absent here,
-      because that spec forbids adding the two.</p>
+    <div class="band-h"><h2>Exposure by audit</h2>
+      <span class="note">One card per audit, largest first. Each figure is that audit's own total —
+        there is deliberately no grand figure across the six, because adding a claimable refund to a fee
+        paid twice asserts something false. Open a card to work its cases.</span></div>
+    <div class="cards">${cards}</div>
+    <p class="note" style="margin-top:10px">R-visa is carried at its per-request grain. Its per-maid pair
+      classifier finds 68 duplicate pairs worth AED 29,905 gross — shown on the R-visa tab, and deliberately
+      absent here, because that spec forbids adding the two.</p>
   </div>
 
   <div class="band">
@@ -728,9 +690,6 @@ function assuranceView(){
               : s==='warn' ? '<span class="st st-part">▲ Watch</span>'
               : '<span class="st st-no">● Open</span>';
   return `
-  <div class="prov"><span><b>As of</b> 2026-09-14</span><span><b>Refresh</b> manual, on demand — never scheduled</span>
-    <span><b>Role</b> MONEY_CONTROL_ROLE</span></div>
-
   <div class="band">
     <div class="band-h"><h2>Controls</h2><span class="note">Every guard the six specs demand, in one place.
       A report that does not tie is itself a finding, so these sit on the page rather than in a corner of it.</span></div>
@@ -746,11 +705,9 @@ function assuranceView(){
       <span class="note">Each spec measured its own metrics on 12–14 Sep 2026. The build ships those measurements and
         compares every run against them, so a wrong build is visible on day one rather than plausible for a quarter.</span></div>
     <div class="cov"><table>
-      <thead><tr><th>Audit</th><th>Metric</th><th>Spec baseline</th><th class="num">This run</th><th class="num">Delta</th></tr></thead>
+      <thead><tr><th>Audit</th><th>Metric</th><th>Spec baseline</th></tr></thead>
       <tbody>${baseline.map(([a,m,v])=>`<tr><td>${a}</td><td style="color:var(--ink)">${m}</td>
-        <td class="mono" style="font-size:11.5px;color:var(--ink-2)">${v}</td>
-        <td class="num"><span class="unval">awaiting first run</span></td>
-        <td class="num"><span class="dash">—</span></td></tr>`).join('')}</tbody>
+        <td class="mono" style="font-size:11.5px;color:var(--ink-2)">${v}</td></tr>`).join('')}</tbody>
     </table></div>
     <p class="note" style="margin-top:8px">Valid only at the <em>Spec window</em> period. The six specs measure over six
       different windows, so at any other period the comparison is disabled and says why — a different measurement is not
@@ -811,6 +768,10 @@ function render(){
   v.innerHTML = active==='PORTFOLIO' ? portfolioView()
               : active==='ASSURANCE' ? assuranceView()
               : auditView(active);
+  v.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{
+    active=b.dataset.go;
+    [...tabBar.children].forEach(c=>c.setAttribute('aria-selected', c.dataset.k===active));
+    render(); window.scrollTo({top:0,behavior:'instant'});}));
   const mb=v.querySelector('[data-more]');
   if(mb) mb.addEventListener('click',()=>{const m=v.querySelector('.more');
     m.hidden=!m.hidden; mb.textContent = m.hidden ? mb.textContent.replace('Hide','More') : mb.textContent.replace('More','Hide');});
