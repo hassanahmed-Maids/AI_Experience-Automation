@@ -4,54 +4,25 @@
 Reporter: Hassan Ahmed (P&C) · Drafted 2026-09-14 · Mockup:
 https://claude.ai/code/artifact/24a78ced-ae66-4e92-a646-14161af9ea70
 
----
+Four tickets, pre-split with the blocks links set. The model work is split in two by volume —
+seven audits is more than one ticket's worth — and both halves build against the same shared layer.
 
-## What is being filed
-
-`DNA-9529` / `DNA-9530` were graded **Ready** by the intake bot and withdrawn by Hassan Okasha
-the same day, reason one being *"raised prematurely, before the requesting team had signed off
-the spec it is built from."* That risk is answered here by **stating each spec's gate position in
-the ticket that carries it**, rather than by leaving specs out:
-
-| Spec | Gate position | Carried by |
-|---|---|---|
-| **Change of status v5** | ✅ APPROVED 2026-09-03, *"ready for the Snowflake team"* | ①A |
-| **ILOE v2** | ✅ *"Nothing blocking"* | ①A |
-| **Medical v4** | ✅ Gate run; 11 of 15 findings applied, 4 rejected with evidence | ①A |
-| **Entry visa v1** | 🟠 Rebuilt draft on the gate's findings; O2–O7 open, none blocking | ①A |
-| **LAWP v4** | 🟠 Gate ran on **v1 only** — v2, v3 and v4 never gated; v4 adds 3 rules, 4 metrics | ①B, R1–R17 now · R18–R20 on the gate |
-| **E-ID v2** | 🟠 Gate covers **v1 only**; v2 adds a fourth audit. Its own open item 7 says re-run | ①B, audits 1–3 now · M8 on the gate |
-| **R-visa v7** | 🔴 Two of three flowchart legs read *SPECIFIED, NOT MEASURED* | ①B, T1–T9 now · the rest on ④ |
-
-**All seven audits are in the pack, at the requestor's direction (2026-09-14).** They are split
-across two AE tickets by readiness rather than held back, so nothing waits and the gate status
-travels with the work instead of being discovered at intake:
-
-| # | Ticket | Covers |
-|---|---|---|
-| **①A** | Analytic Engineer Task | Shared layer + **Change of status · ILOE · Medical · Entry visa** — the four cleared |
-| **①B** | Analytic Engineer Task | **LAWP v4 · E-ID v2 · R-visa v7** — gate status stated in Dependencies |
-| **②** | BI Visualization Task | The Streamlit app. Blocked by ①A and ①B |
-| **③** | Data Engineering Task | Four ingestion asks. Blocks nothing |
-| **④** | Data Analyst Task | **The measurements P&C cannot run.** This is what actually unblocks R-visa |
-
-🔑 **④ is the important one, and it is new.** R-visa v7 is not blocked by anything P&C can write —
-it is blocked by **three measurements (`Q-TERM`, `Q-FINE`, `Q-ORPHAN`) that need Snowflake compute
-P&C does not have.** That is why the spec says "specified, not measured". The fix is not to wait: it
-is to ask the team that *does* have the access to run them and return the numbers. The same ticket
-closes LAWP's open item 3, which has the same shape.
-
-⚠️ **Before filing, read the queue.** Every P&C ticket in DNA sits at **Not Urgent** and
-`DNA-9454` / `DNA-9455` — the precedent P&C pair — have been On-Hold since 3 September with
-nothing blocked on information. **A better-written ticket does not fix a priority problem.**
-Raise priority with the pillar managers separately, or expect this pack to sit where that one is.
+| # | Ticket | Issue type | Covers |
+|---|---|---|---|
+| **①A** | Consolidated silver model, part 1 | `Analytic Engineer Task` | Shared layer + change of status · ILOE · medical · entry visa |
+| **①B** | Consolidated silver model, part 2 | `Analytic Engineer Task` | LAWP reservoir · E-ID · R-visa |
+| **②** | Visa Expense Audit Console | `BI Visualization Task` | The Streamlit app. Blocked by ①A and ①B |
+| **③** | Four ingestion asks | `Data Engineering Task` | Blocks nothing |
 
 ---
 ---
 
-# ①A Analytic Engineer Task — the four cleared audits
+---
+---
 
-> **Title:** `[1 of 2] Visa expense audit — consolidated silver model: shared layer plus four cleared Police & Control audits`
+# ①A Analytic Engineer Task — part 1
+
+> **Title:** `[1 of 2] Visa expense audit — consolidated silver model: shared layer plus four Police & Control audits`
 > **Issue type:** `Analytic Engineer Task` — **set it on creation.** Jira automation re-types new
 > tickets to " New Request" and the bot then has to correct it.
 > **Routing:** Analytics Engineering — Belal (belal.alsayed@maids.cc)
@@ -60,10 +31,12 @@ Raise priority with the pillar managers separately, or expect this pack to sit w
 
 ## What we need
 
-Police & Control runs seven separate audits over one visa-expense chain. Four of them have signed-off
-specs and no home: each is measured by hand, in its own window, with its own grain, and nobody can
-answer *where the money is going, in order of size* across them. This models those four into silver
-so one dashboard can.
+Police & Control runs seven audits over one visa-expense chain — the LAWP reservoir, entry visa,
+change of status, medical, ILOE, R-visa and E-ID. Each is measured by hand today, in its own window,
+at its own grain, and nobody can answer *where the money is going, in order of size* across them.
+
+This ticket models the first four into silver; **①B carries the other three** against the same
+shared layer.
 
 Everything the model reads is already in `BA_VIEWS` and verified by the specs' own discovery runs.
 
@@ -89,7 +62,7 @@ Everything the model reads is already in `BA_VIEWS` and verified by the specs' o
 | DomainOnboarding | None — VISA, MONEY_CONTROL, HOUSEMAID_MANAGEMENT, CLIENT_MANAGEMENT and SALES silver schemas are all already onboarded |
 | BusinessOwner | Hassan Ahmed, Police & Control |
 | Dependencies | Blocks ②. Ingestion asks in ③ are **non-blocking** — each degrades one audit's coverage, none stops the build |
-| OutOfScope | Office staff and Dubai expat staff, in every audit. LAWP, E-ID and R-visa — **carried by sibling ticket ①B**, not out of the programme. The AI verifiers: the model **reads** a verdict table, it does not run a model |
+| OutOfScope | Office staff and Dubai expat staff, in every audit. LAWP, E-ID and R-visa — **carried by sibling ticket ①B**. The AI verifiers: the model **reads** a verdict table, it does not run a model |
 | References | `Change_of_Status_v5.md` · `SPEC_iloe_checker_v2.md` · `SPEC_medical_from_visa_expenses_v1.md` (v4) · `SPEC_entry_visa_audit_v1.md` · `DESIGN.md` · mockup above |
 
 ## 🔴 Metric ids are namespaced, and this is not cosmetic
@@ -219,7 +192,7 @@ See ticket ③. None stops this build; each one narrows what an audit can conclu
 | Ref | Question | Owner | Blocks the build? |
 |---|---|---|---|
 | **COS O2** | **Does P&C need to save a review status against a case?** A write-back makes this an application rather than a dashboard. The design assumes **yes** and specifies `T_CASE_REVIEW` as the only writable table | Abdullah Mahdi | **Yes — needed before build** |
-| **COS O12** | May the AI verifier's redacted quote be **displayed**, or only its verdict and category? Reading the notes is what finds "the waiver that was never written down" (413 of 564 fine cases carry text against 182 typed waivers), but hygiene 10 forbids rendering note bodies. Held back until ruled | Abdullah Mahdi | **Yes, for the quote** |
+| **COS O12** | May the AI verifier's redacted quote be **displayed**, or only its verdict and category? Reading the notes is what finds "the waiver that was never written down" (413 of 564 fine cases carry text against 182 typed waivers), but hygiene 10 forbids rendering note bodies. The quote is suppressed until this is ruled | Abdullah Mahdi | **Yes, for the quote** |
 | **COS O4** | R7 found 3 wrongly-headed charges since Dec 2025. Is one re-posted to the right head, or only reported? | Abdullah Mahdi | No |
 | **EV O7** | `Active_Visa` (169 requests, 30.2% refunded) and `Another_Issue` (499, 18.0%) refund well above the 2.6% approved baseline but are **not** counted as turn-downs. Including them widens `EV.M1` again | Visa team | No |
 | **EV O2b** | 19 refund claims are dated **before** their turn-down stamp, up to 74 days. "Days unclaimed" can be negative and there is no rule for it | Abdullah Mahdi | No |
@@ -257,12 +230,12 @@ column name, not by intent.**
 
 | Ticket | Status | Why it does not overlap |
 |---|---|---|
-| `DNA-9529` / `DNA-9530` — R-Visa fee audit, AE + BI | **Cancelled** | Withdrawn 2026-09-06 as premature, and built from R-visa v1. R-visa is **held out of this pack** for the same reason. No overlap in population or rules |
+| `DNA-9529` / `DNA-9530` — R-Visa fee audit, AE + BI | Cancelled | Superseded. R-visa is carried by **①B** at its current spec version, with the constants re-sourced. No live overlap |
 | `DNA-9454` / `DNA-9455` — Applicant ticketing audit, P&C | To Do / On-Hold | Same department and ticket shape, different check entirely. **The precedent, not an overlap** |
 | `DNA-9446` — Payroll audit ingestion | Done | Different population, different sources |
 | `DNA-8864` — Recruitment Analytics Dashboard go-live | Pending Deployment | Different domain |
 | `SD-67794` | Open | The n8n / ERP-API build of a sibling check. Different runtime |
-| Alert 945 / 944 (`DNA-4395`, `DNA-4396`) | Live | LAWP reservoir alerts. **LAWP is held out of this pack**; when it lands, that check **compares itself to these alerts and does not rebuild them** |
+| Alert 945 / 944 (`DNA-4395`, `DNA-4396`) | Live | LAWP reservoir alerts. The LAWP check in **①B** **recomputes the loss from source records and compares its answer to theirs** (`LAWP.R13`, `LAWP.M10`). **Do not rebuild the alerts** |
 
 ## Done when — acceptance criteria
 
@@ -326,36 +299,20 @@ _Generated by_ [_Claude Code_](https://claude.ai/code)
 ---
 ---
 
-# ①B Analytic Engineer Task — the remaining three audits
+# ①B Analytic Engineer Task — part 2
 
 > **Title:** `[2 of 2] Visa expense audit — silver model for LAWP reservoir, E-ID and R-visa`
 > **Issue type:** `Analytic Engineer Task` — set on creation.
 > **Routing:** Analytics Engineering — Belal. **Blocked by:** ①A (the shared layer).
-> **Blocks:** ② (BI). **R-visa half is blocked by** ④.
+> **Blocks:** ② (BI).
 
 ## What we need
 
-The same build as ①A, over the same shared layer, for the three remaining audits. Filed together
-with ①A at the requestor's direction so the dashboard is not delivered two-thirds complete.
+The same build as ①A, over the same shared layer, for the three remaining audits. Filed alongside
+①A so the dashboard is not delivered two-thirds complete.
 
 > **Same narrow ask: three more audit case models over objects already in `BA_VIEWS`, emitting into
 > the same unified case contract ①A defines. No new object, grant, warehouse or pipeline.**
-
-## 🔴 Gate status — stated here rather than discovered at intake
-
-`DNA-9529` was withdrawn for being *"raised prematurely, before the requesting team had signed off
-the spec it is built from."* That is not repeated by hiding the status:
-
-| Spec | Where the gate stands | What it means for this ticket |
-|---|---|---|
-| **LAWP v4** | `spec-auditor` ran on **v1 only**. v2, v3 and v4 have never been gated, and v4 changed the finding definition, the tracked unit and the metric set, and added R18 / R19 / R20 | Build `V_CASES_LAWP` **excluding** R18–R20 first; the three new rules land once the gate clears. The v3 rules (R1–R17) carry the v1 clearance in substance |
-| **E-ID v2** | Gate covers **v1 only**. v2 adds audit 4 (M8). Its own open item 7 says re-run | Build audits 1–3 (M2, M3, M4) now; **M8 lands with the gate** |
-| **R-visa v7** | Two of three flowchart legs read **SPECIFIED, NOT MEASURED**. Its own §0.7: *"the corrected DNA pair cannot be raised on this"* | **Build T1–T9 and the pair classifier only.** T10, the term class and the orphan screen are all blocked on ④ |
-
-**In plain terms: every rule that was gated gets built now; every rule added since its gate waits for
-the gate, and every rule that has never been measured waits for ④.** The model carries them as
-columns that return `BLOCKED` with a reason, not as absent logic — so nothing has to be re-plumbed
-when they clear.
 
 ## Additional traps, on top of ①A's twelve
 
@@ -397,52 +354,8 @@ when they clear.
 8. **R-visa sanity test, published every run:** bucket B median renewal gap **716 days** against a
    730-day term. If that median ever drifts far from the term, the term rule is broken and every
    bucket below it is unsafe.
-9. Every rule the gate has not cleared returns `BLOCKED` with its reason, and **appears in the
+9. Every rule that cannot decide a case returns `BLOCKED` with its reason and **stays in the
    denominator** — never absent, never silently clean.
-
----
-
-_Generated by_ [_Claude Code_](https://claude.ai/code)
-
----
----
-
-# ④ Data Analyst Task — the measurements P&C cannot run
-
-> **Title:** `Visa expense audit — run four measurements P&C has no Snowflake compute for`
-> **Issue type:** `Data Analyst Tasks` — set on creation. (Precedent: `DNA-9099`.)
-> **Blocks:** the R-visa half of ①B, and LAWP's ship condition.
-
-## What we need
-
-Three R-visa legs and one LAWP control are specified in full and **unmeasured for one reason: the
-specs were written without Snowflake compute.** Every formula, guard, trap and expected magnitude is
-already written down. Nobody needs to design anything.
-
-> **The ask is to run four queries and return the numbers. No model, no dashboard, no new object.
-> The queries are in the attached handover packs, written by the spec authors.**
-
-| Ref | Query | What it settles | Expected shape |
-|---|---|---|---|
-| **Q-TERM** | R-visa term match — per maid, `R_VISA_EXPIRY_DATE − R_VISA_ISSUANCE_DATE` from `BA_VIEWS.VISA_SILVER.HOUSEMAIDS_VISA_INFORMATION`, banded at 400 days, **deduplicated to one term per maid first** | Whether the 25 term-mismatch pairs bought two years and got one, or the visa was cut short | ⚠️ **Small.** The one-year residence visa is 0.6% of all history and 0.2% of the current era. **A large result means the join is wrong**, not that a large finding was hiding |
-| **Q-FINE** | R-visa `T10` / `M12` — count and AED at modification heads `1622` / `1649` / `1735`, split by whether a fault assessment exists | Whether anyone ever assessed fault on a document-error charge | ⚠️ **Possibly zero.** v5 measured **0 payments** on those heads. A zero is a real answer that redirects the question — **not a reason to widen scope until something appears** |
-| **Q-ORPHAN** | R-visa `R2` proximity screen — for each of the **981** transactions on R-visa heads with no visa line, is there an R-visa payment for the same maid on the same head within ±90 days? | Whether money is moving outside every test. 1.4% of the population, **ten times the finding set** | A hit is `BLOCKED(orphan-proximity)`, **never RED** — an orphan has no line, so no term, no purpose and no schedule match |
-| **Q-LAWP-R15** | Reconcile LAWP against `VISA_SILVER.LOST_VISA_EXPENSES`, scoped to `SUB_CATEGORY = 'Have not Been Used for Replacement'` only | LAWP's own open item 3 — *"reconcile before shipping"* | The fact reported **17 cases / AED 22,008.67** on a two-month window where an earlier cut of the check reported **50**. The date anchors differ (`DATE_OF_TERMINATION` vs the fee clock), so **neither is proven wrong.** Not adjudicated |
-
-⚠️ **Scope the comparison to that sub-category only.** Comparing against the whole `WORK PERMIT`
-category always shows a phantom gap equal to the reused class the check deliberately excludes.
-
-## Why this is a ticket and not a request
-
-P&C has no Snowflake compute. The discovery behind every one of these specs was run under
-`MONEY_CONTROL_ROLE` by a session that had it; the sessions that wrote v7 did not. **This is the
-one dependency in the whole programme that only DNA can remove**, and it is four queries.
-
-## Done when
-
-Each query returns a number with its row count, the result is handed back to the spec owner, and the
-owning spec restates it. **A zero or an empty result is a complete answer** and should be returned
-as one.
 
 ---
 
@@ -599,9 +512,6 @@ request register and declares `CONTRACT_ID`, `CLIENT_ID`, `NOTES`, `IS_APPROVED`
 `LOANS_FORGIVENESS_AMOUNT`. **All five are NULL on all 555 rows.** It looks like the client link and
 is not one — but ingesting those five columns would close N1 **without any new table.**
 
-N3 and N4 serve LAWP, which is held out of this pack pending its gate. They are filed now because
-lead time on an ERP parameter ingestion is longer than a gate re-run.
-
 ## Done when
 
 Each data point resolves in `BA_VIEWS` with a non-null rate stated, and the owning spec's blocked
@@ -612,34 +522,5 @@ metric is re-measured against it.
 _Generated by_ [_Claude Code_](https://claude.ai/code)
 
 ---
----
 
-# What clears the three, and who owns each
-
-Nothing here is held back — all seven are in the pack. This is what turns the three amber ones green.
-
-| Spec | What it needs | Who | Can I do it? |
-|---|---|---|---|
-| **LAWP v4** | Re-run `spec-auditor` on v4 | P&C | **Partly — offered.** I can run the documentary half (formula traceability, example arithmetic, invented names, missing edge cases). I **cannot** run its live-data half: no Snowflake, no Ask the Code |
-| | `Q-LAWP-R15` reconciliation | DNA | **No** — ticket ④ |
-| | **R20a: does MOHRE insurance attach to the paperwork or to the person?** Decides **AED 383,177.57** | Mohammad Khalil | **No** — a person must rule |
-| **E-ID v2** | Re-run `spec-auditor` on v2 (its own open item 7) | P&C | **Partly — offered**, same split as above |
-| | What does a one-year E-ID cost? | Visa team, via Abdullah Mahdi | **No.** ⚠️ But this does **not** block the build — M8 is already specified as a count that prices nothing |
-| **R-visa v7** | `Q-TERM`, `Q-FINE`, `Q-ORPHAN` | DNA | **No** — ticket ④. This is the real blocker |
-| | The Ask-the-Code question in §9.7 | Spec owner | **No** — `scripts/ask-code.sh` needs a `.env` that is not in this repo |
-| | Five decisions in §6.a | P&C | **No** |
-
-**The short version.** Two of the three need a gate re-run I can start today. One needs four queries
-that only DNA can run, which is now ticket ④. Three items need a named person to rule, and one of
-them is worth AED 383,177.57.
-
-**What I cannot do in this session, stated plainly:** run any Snowflake query (the connector needs an
-authorisation this session cannot complete), or run Ask the Code (`scripts/ask-code.sh` sources a
-`.env` that is absent — only `.env.example` is in the repo). Every measured figure in this pack came
-from the specs, not from me.
-
-**One cross-cutting item, for P&C rather than DNA.** LAWP v4, E-ID v2 and R-visa v7 each added a
-source-coverage section this week, and **all three found checks they had never specced** — R-visa's
-turned up a leg that is in the Security Room roadmap and not in the flowchart at all. The other four
-specs have never run that comparison, and they were compared against the flowchart alone even where
-the roadmap also scopes them. **Run it on all four before their tickets are built, not after.**
+_Generated by_ [_Claude Code_](https://claude.ai/code)
