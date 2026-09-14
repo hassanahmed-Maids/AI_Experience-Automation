@@ -239,7 +239,7 @@ column name, not by intent.**
 | File | |
 |---|---|
 | `DESIGN.md` | **Start here** — the consolidation model and why money may not be summed across audits |
-| `DNA_ATTACHMENT_source_tables.md` | D1–D16 with every column each audit reads |
+| `DNA_ATTACHMENT_source_tables.md` | **D1–D23** — every object and every column read from it, with the trap attached to each. D1–D16 are this ticket's; D17–D22 are ①B's; D23 is shared. Carries the object-to-audit matrix and the sensitivity register |
 | `DNA_ATTACHMENT_verification_queries.md` | every measured figure below with the query that produced it — aggregate only, controls first |
 | `Change_of_Status_v5.md` · `SPEC_iloe_checker_v2.md` · `SPEC_medical_from_visa_expenses_v1.md` · `SPEC_entry_visa_audit_v1.md` | the four specs |
 | `sql/` | a **reference implementation written from the specs and never executed.** Every table and column name in it came from a spec that measured it; none was invented. Treat it as commentary, not as code to run |
@@ -354,6 +354,16 @@ The same build as ①A, over the same shared layer, for the three remaining audi
    instruction. The dashboard card carries the second below a rule.
 2. **R-visa per-request and per-maid grains.** `M3` (AED 16,853.50, 45 cases) and bucket A
    (AED 29,905 gross, 68 pairs) answer different questions. *"Do not add the two AED totals together."*
+
+## Attached
+
+| File | |
+|---|---|
+| `DESIGN.md` | **Start here** — the consolidation model and why money may not be summed across audits |
+| `DNA_ATTACHMENT_source_tables.md` | **D17–D22 are this ticket's objects** — `HOUSEMAIDS_VISA_INFORMATION`, `LOST_VISA_EXPENSES`, `DUPLICATE_EXPENSES`, `QUOTA_CONSUMPTION_DETAILS`, `MAID_SERVICES`, `VISAREQUESTSNOTES` — on top of the shared D1–D16 ①A builds |
+| `DNA_ATTACHMENT_verification_queries.md` | controls **C11** and **C12** are this ticket's; tie-outs **T-LAWP**, **T-EID**, **T-RVISA**; the LAWP, E-ID and R-visa figure tables in §3 |
+| `Non-Used_Lawp_Reservoir_v4.md` · `EID_Audit_v2_from_Abdullah_Mahdi.md` · `Rvisa_Duplicate_Payments_v7.md` | the three specs |
+| `sql/` | reference implementation for the shared layer and ①A's audits only. **There is no reference SQL for LAWP v4, E-ID v2 or R-visa v7** — the specs are the source |
 
 ## Done when
 
@@ -513,6 +523,15 @@ rates, head guards, unclassified counts, loan-dedupe checks), and its comparison
 measured baseline. A dashboard that computes a tie-out and shows it nowhere lets a broken check read
 as a working one.
 
+## Attached
+
+| File | |
+|---|---|
+| `DESIGN.md` | **Start here** — §2 the shape of the page, §4 the tables and their filters, §7 colour and flags |
+| `DNA_ATTACHMENT_source_tables.md` | the sensitivity register — **the CSV export excludes every column in it by name** |
+| `DNA_ATTACHMENT_verification_queries.md` | §2 — the tie-outs the assurance strip displays, and what a non-zero variance means |
+| the seven specs | each one's report section defines its own tab's columns, in order |
+
 ## Done when
 
 1. Eight tabs render, each audit tab with all four bands.
@@ -553,6 +572,13 @@ as a working one.
 request register and declares `CONTRACT_ID`, `CLIENT_ID`, `NOTES`, `IS_APPROVED` and
 `LOANS_FORGIVENESS_AMOUNT`. **All five are NULL on all 555 rows.** It looks like the client link and
 is not one — but ingesting those five columns would close N1 **without any new table.**
+
+## Attached
+
+| File | |
+|---|---|
+| `DNA_ATTACHMENT_source_tables.md` | **Start here** — **D20** (`QUOTA_CONSUMPTION_DETAILS`, N3), **D21** (`MAID_SERVICES`, N1 and the five all-NULL columns that would close it without a new table), **D22** (`VISAREQUESTSNOTES`, N2 and the 323 rows that can change id between runs) |
+| `DESIGN.md` | why each ask widens an audit rather than unblocking one |
 
 ## Done when
 
