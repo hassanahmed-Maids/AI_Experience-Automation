@@ -43,6 +43,43 @@
 --
 -- ⚠️ Names staff identities and departments. Organisational, not personal-financial, but
 --    still attribution data - do not forward it on.
+--
+-- ── 2026-09-14 · WHY NOTES GO UNRESOLVED (measured across all 24 types, 16,831 notes) ───
+-- AED 4.14m of AED 6.85m (60.5%) of manager-note money resolved to NO department. The
+-- decomposition (DEPT-6, in the audit transcript) settled why, and it is not a directory gap:
+--   * 96% of the unresolved money - AED 3.98m over 5,345 notes - is CLASS A: notes written
+--     with NO requester at all. 58% of ALL manager-note money is written by JOBS, not people.
+--     Airfare Ticket 1,220 of 1,306 notes / AED 2.19m. Bonus 796 of 1,157 / AED 605k.
+--     MV Prorated Salary 782/782. Forgive Deduction 1,038. Raffle Prize 576. Both Airfare and
+--     Bonus LOOK human-raised (28 and 41 requesters) and are overwhelmingly machine-written.
+--     🔴 NO WAREHOUSE JOIN CAN EVER RESOLVE THESE - there is no name. The owning department
+--     comes from the ERP code that runs the job (CLAUDE.md rule 1). Already known: Forgive
+--     Deduction = automatic cover-deduction-limit / cover-negative-salary additions;
+--     Raffle Prize = RaffleService; Last Day CC Switch = the note IS the event (median 0 days).
+--   * CLASS B IS EMPTY. Not one person raising money is unknown to USERS_INFO.
+--   * The rest is CLASS E - a real ERP user who is not CURRENT office staff (leaver or
+--     service account). 226 notes / AED 86,438 stay unresolved even after the widening below.
+--   * 🔴 ONE NAME SPANS TEN UNRELATED PAYMENT TYPES. A person doing their job does not raise
+--     Salary Dispute, Airfare, Bonus, Maids.at, MOHRE, Taxi, Accommodation, Passport, Lost
+--     Luggage AND Medical. That is a shared/service account wearing a human name - a bot a
+--     department owns. CANDIDATE, not a finding; payment_types + notes_per_day is the test.
+--
+-- ── THE WIDENING APPLIED HERE (2026-09-14) ─────────────────────────────────────────────
+-- `chg` no longer filters IS_DEPARTMENT_CHANGE='true'. Envers rows are entity SNAPSHOTS, so
+-- DEPARTMENT_NAME is the department as of that revision on ANY change type - the old filter
+-- discarded ~9,400 rows carrying a department (2,809 on terminations, 1,806 on manager
+-- changes, 1,762 on name changes). MEASURED GAIN: 176 notes / AED 76,366 recovered, every
+-- one a leaver or service account now placed in a real department (Rafca Fares -> PRO
+-- Services, Abedalilah Hmaidy -> CC Delighters, Mayar Baydoun -> Visa, Nadine Kadi -> MV
+-- Resolvers, Anthony Assaf -> Part-Time Cleaners). Free and strictly better, so it is the
+-- default. Tier 2 (the PREVIOUS-value path) fired ZERO times on all 24 types and survives
+-- only as dead weight - drop it if this is ever rewritten.
+--
+-- ── A PREDICTION THAT WAS WRONG, KEPT AS A CHECK ON THE NEXT ONE ───────────────────────
+-- I predicted the largest Maids.at requester (53 notes, AED 4,542) would be class C, a
+-- SPELLING VARIANT. She came back class E: a real USERS_INFO user who is not current office
+-- staff. The evidence was already on screen - her identity_caveat was blank, which means she
+-- resolved to exactly one user - and I read past it. Classify from the columns, not the story.
 -- =====================================================================================
 
 
@@ -91,7 +128,7 @@ WITH mx AS (
            CHANGED_AT::DATE AS changed_on, DEPARTMENT_NAME AS dept_after,
            PREVIOUS_DEPARTMENT_NAME AS dept_before
     FROM BA_VIEWS.CORE_SILVER.OFFICE_STAFF_CHANGES
-    WHERE TO_VARCHAR(IS_DEPARTMENT_CHANGE) = 'true' AND CHANGED_AT IS NOT NULL
+    WHERE CHANGED_AT IS NOT NULL AND DEPARTMENT_NAME IS NOT NULL
       AND EMPLOYEE_NAME IS NOT NULL AND TRIM(EMPLOYEE_NAME) <> ''
 ), back AS (
     SELECT k.note_id, c.dept_after AS dept FROM k JOIN chg c
@@ -189,7 +226,7 @@ WITH mx AS (
            CHANGED_AT::DATE AS changed_on, DEPARTMENT_NAME AS dept_after,
            PREVIOUS_DEPARTMENT_NAME AS dept_before
     FROM BA_VIEWS.CORE_SILVER.OFFICE_STAFF_CHANGES
-    WHERE TO_VARCHAR(IS_DEPARTMENT_CHANGE) = 'true' AND CHANGED_AT IS NOT NULL
+    WHERE CHANGED_AT IS NOT NULL AND DEPARTMENT_NAME IS NOT NULL
       AND EMPLOYEE_NAME IS NOT NULL AND TRIM(EMPLOYEE_NAME) <> ''
 ), back AS (
     SELECT k.note_id, c.dept_after AS dept FROM k JOIN chg c
@@ -284,7 +321,7 @@ WITH mx AS (
            CHANGED_AT::DATE AS changed_on, DEPARTMENT_NAME AS dept_after,
            PREVIOUS_DEPARTMENT_NAME AS dept_before
     FROM BA_VIEWS.CORE_SILVER.OFFICE_STAFF_CHANGES
-    WHERE TO_VARCHAR(IS_DEPARTMENT_CHANGE) = 'true' AND CHANGED_AT IS NOT NULL
+    WHERE CHANGED_AT IS NOT NULL AND DEPARTMENT_NAME IS NOT NULL
       AND EMPLOYEE_NAME IS NOT NULL AND TRIM(EMPLOYEE_NAME) <> ''
 ), back AS (
     SELECT k.note_id, c.dept_after AS dept FROM k JOIN chg c
@@ -375,7 +412,7 @@ WITH mx AS (
            CHANGED_AT::DATE AS changed_on, DEPARTMENT_NAME AS dept_after,
            PREVIOUS_DEPARTMENT_NAME AS dept_before
     FROM BA_VIEWS.CORE_SILVER.OFFICE_STAFF_CHANGES
-    WHERE TO_VARCHAR(IS_DEPARTMENT_CHANGE) = 'true' AND CHANGED_AT IS NOT NULL
+    WHERE CHANGED_AT IS NOT NULL AND DEPARTMENT_NAME IS NOT NULL
       AND EMPLOYEE_NAME IS NOT NULL AND TRIM(EMPLOYEE_NAME) <> ''
 ), back AS (
     SELECT k.note_id, c.dept_after AS dept FROM k JOIN chg c
