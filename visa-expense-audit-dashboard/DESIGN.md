@@ -37,13 +37,13 @@ The six:
 
 | Audit | Process step | Spec | Canonical grain |
 |---|---|---|---|
-| **LAWP reservoir** | Phase 1 — work permit · MOHRE insurance · labour card | `SPEC_non_used_lawp_reservoir_v3` | payment (money) / bundle (cases) |
+| **LAWP reservoir** | Phase 1 — work permit · MOHRE insurance · labour card | `SPEC_non_used_lawp_reservoir_v4` | payment (money) / bundle (cases) |
 | **Entry visa** | Phase 2 — entry visa, inside/outside country | `SPEC_entry_visa_audit_v1` | charge (M2) / maid (M3) |
 | **Medical** | Phase 3 — medical fitness test | `SPEC_medical_from_visa_expenses_v1` (v4) | one fee, one maid, one visa request |
 | **ILOE** | Phase 3 — ILOE subscription + fines | `SPEC_iloe_checker_v2` | finding (payment or loan) |
 | **R-visa** | Phase 3 — residence visa | `Rvisa_Duplicate_Payments_v6` | case = (`VISA_REQUEST_ID`, `PURPOSE`) |
 | **Change of status** | Phase 2 — change of visa status, AED 575.65 + fine | `Change_of_Status_v5` **(approved)** | one Change of Status transaction |
-| **E-ID** | Phase 3 — Emirates ID | `SPEC_e_id_audit_v1` | transaction / pair / maid, per sub-audit |
+| **E-ID** | Phase 3 — Emirates ID | `SPEC_e_id_audit_v2` | transaction / pair / maid, per sub-audit |
 
 ---
 
@@ -145,6 +145,15 @@ And `WHO_IS_OUT_OF_POCKET` — COMPANY / MAID / CLIENT — because it is not alw
 company. ILOE R1 is the case where **the maid** paid twice and is owed AED 124; a report
 that assumes the company is always the victim renders that row as a company loss.
 *(ILOE §4, "Where the money lands on R1")*
+
+### 3.2b One audit can carry two totals that must never be added
+
+LAWP v4 is the case: `M7` prices paperwork nobody took, `M12 + M13` price money paid
+twice, and **one payment can sit in both**. The spec's instruction is explicit — *"print
+two headline figures side by side"* — so the LAWP card carries its exposure total as
+normal and its **AED 485,246.97 of paid-twice separately, below a rule, with the reason
+printed.** The card model accommodates this rather than choosing one figure, because
+choosing would be the error.
 
 ### 3.3 Case counts may be summed; case counts across grains may not
 
@@ -360,6 +369,9 @@ Priced honestly, on the front page. Derived by walking every check in
 | Entry visa | partial refund claimed on rejection | entry visa M2 | ✅ |
 | Entry visa | correct inside/outside type | entry visa M4 | ✅ (reason column, by ruling) |
 | Change of status | no duplicate payments | Change of status R1 | ✅ |
+| LAWP reservoir | duplicate work-permit / MOHRE / labour-card payments | LAWP R20 / R20a → M13, M14 | ✅ **built in v4** |
+| LAWP reservoir | maids with duplicated payments in the LAWP table | LAWP R18 → R19 → M11, M12 | ✅ **built in v4** |
+| E-ID | 1-year vs 2-year matches contract and validity | E-ID M8 | ✅ **built in v2** — a monitor, 58 cases, no money figure |
 | Change of status | fine responsibility | Change of status R3 / R5 / R6 | ✅ — MV to the client above AED 300, CC to the maid's loan above AED 200 |
 | ILOE | no duplicate payments | ILOE R1 | ✅ (informational, by ruling) |
 | ILOE | fine responsibility | ILOE R2/R3/R4 | ✅ |
@@ -383,6 +395,12 @@ Priced honestly, on the front page. Derived by walking every check in
   `HOUSEMAID_TYPE` proxy is in use and the caveat prints on the tab.
 - **E-ID: the MV client recharge route is not in the warehouse** (N1) — 131 MV
   replacement cases, AED 58,649.84, can be neither cleared nor condemned.
+- **LAWP: whether MOHRE insurance attaches to the paperwork or to the person is
+  unanswered** — it decides AED 383,177.57 across 2,018 events. Routed to the process
+  owner and reported as its own class, never red, until he rules (R20a).
+- **E-ID: nobody knows what a one-year E-ID costs** — M8 finds 58 one-year-visa maids
+  charged the two-year band and cannot price the gap, because the warehouse carries one
+  price per era. Naming a cheaper one would be inventing a constant.
 - **Entry visa: nothing before 2025-09-05 can be audited** — no dated rejection exists earlier.
 - **Medical: `VISAREQUESTSNOTES` has no primary key** — note citations use a surrogate.
 - **Change of status: M1 and M8 have never been reconciled against the approved P&L lines** —

@@ -156,6 +156,12 @@ tr.f-GREEN  td:first-child{border-left-color:var(--good)}
 .card dd{margin:0;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;
   color:var(--ink);white-space:nowrap}
 .card dd.none{color:var(--ink-3)}
+.card .aside{margin-top:11px;padding-top:9px;border-top:1px dashed var(--rule-2);
+  display:flex;flex-direction:column;gap:1px;text-align:left}
+.card .a-lab{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;
+  font-size:9.5px;font-weight:700;color:var(--ink-3)}
+.card .a-val{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--red)}
+.card .a-note{font-size:10.5px;color:var(--ink-3);line-height:1.35}
 .chart{margin-top:12px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:15px 16px 8px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px}
 .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
@@ -235,9 +241,10 @@ const CLASSES = [
 ];
 const PORTFOLIO_RAW = [
   {code:'ILOE',      name:'ILOE',            grain:'finding',       rec:658029.52, recN:1894, lost:864.58,    lostN:6,   unv:168},
-  {code:'LAWP',      name:'LAWP reservoir',  grain:'payment / bundle', rec:63897.92, recN:45,  lost:271171.06, lostN:202, unv:null},
+  {code:'LAWP',      name:'LAWP reservoir',  grain:'payment / bundle', rec:63897.92, recN:45,  lost:271171.06, lostN:202, unv:null,
+   aside:{lab:'Paid twice — M12 + M13', val:'AED 485,246.97', note:'A separate total, never added to the one above: one payment can sit in both'}},
   {code:'ENTRY_VISA',name:'Entry visa',      grain:'charge / maid', rec:90276.00,  recN:188,  lost:74580.90,  lostN:105, unv:7},
-  {code:'EID',       name:'E-ID',            grain:'txn / pair / maid', rec:null,  recN:0,    lost:57390.34,  lostN:149, unv:5},
+  {code:'EID',       name:'E-ID',            grain:'txn / pair / maid', rec:null,  recN:0,    lost:57390.34,  lostN:149, unv:63},
   {code:'MEDICAL',   name:'Medical',         grain:'fee',           rec:39910.00,  recN:173,  lost:710.00,    lostN:3,   unv:119},
   {code:'COS',       name:'Change of status',grain:'transaction',   rec:9325.00,   recN:5,    lost:null,      lostN:0,   unv:1},
   {code:'RVISA',     name:'R-visa',          grain:'case',          rec:null,      recN:0,    lost:16853.50,  lostN:45,  unv:25},
@@ -247,11 +254,11 @@ const PORTFOLIO = PORTFOLIO_RAW.slice().sort((a,b)=>
 const TOT = {rec:852113.44,recN:2300,lost:421570.38,lostN:510,unv:324};
 
 const COVERAGE = [
-  ['Phase 1 · LAWP reservoir','Over 60 days in the pool is a loss','LAWP M5 / M6','ok','Built'],
+  ['Phase 1 · LAWP reservoir','Over 60 days in the pool is a loss','LAWP R5 / R6','part','Deviates deliberately — the loss falls at 120 days; 60–120 is the recoverable worklist. Ruled 2026-09-12'],
   ['Phase 1 · LAWP reservoir','Reuse confirmed, otherwise a loss','LAWP R2 / R17','ok','Built'],
   ['Phase 1 · LAWP reservoir','Replacement maid used it or passed it on','LAWP R2 / R13','ok','Built'],
-  ['Phase 1 · LAWP reservoir','Duplicate work-permit / MOHRE / labour-card payments','—','no','No check exists'],
-  ['Phase 1 · LAWP reservoir','Maids with duplicated payments appearing in the LAWP table','—','no','No check exists'],
+  ['Phase 1 · LAWP reservoir','Duplicate work-permit / MOHRE / labour-card payments','LAWP R20 / R20a → M13, M14','ok','Built in v4 — MOHRE routed to the process owner, not red'],
+  ['Phase 1 · LAWP reservoir','Maids with duplicated payments appearing in the LAWP table','LAWP R18 → R19 → M11, M12','ok','Built in v4'],
   ['Phase 2 · Entry visa','No duplicate payments','Entry visa M3','ok','Built'],
   ['Phase 2 · Entry visa','Partial refund claimed on a turn-down','Entry visa M2','ok','Built'],
   ['Phase 2 · Entry visa','Correct inside / outside type','Entry visa M4','ok','Built as a reason column, by ruling'],
@@ -265,7 +272,7 @@ const COVERAGE = [
   ['Phase 3 · R-visa','1-year vs 2-year matches contract and validity','R-visa §3.8','part','Partial — 25 cases amber, needs the issued validity read'],
   ['Phase 3 · R-visa','Fine responsibility','R-visa §2.6','part','Partial — the finding is defined, no rule is built'],
   ['Phase 3 · E-ID','No duplicate payments','E-ID M2','ok','Built'],
-  ['Phase 3 · E-ID','1-year vs 2-year matches contract and validity','—','no','Not in the E-ID spec at all'],
+  ['Phase 3 · E-ID','1-year vs 2-year matches contract and validity','E-ID M8','ok','Built in v2 — a monitor, 58 cases, no money figure'],
   ['Phase 3 · E-ID','Lost card — whose fault, charge her loan','E-ID M4','ok','Built'],
   ['Phase 3 · E-ID','Fine responsibility','E-ID M3','ok','Built'],
 ];
@@ -277,20 +284,29 @@ AUDITS.LAWP = {
   name:'LAWP reservoir', tabN:'202',
   sources:'VISA_SILVER.CANCEL_VISA_REQUESTS(_TASKS) · INITIAL_VISA_REQUESTS · VISAREQUESTEXPENSES · HOUSEMAIDS_INFO',
   clock:'work-permit fee CREATION_DATE on the paying request — it never resets',
-  spec:'SPEC_non_used_lawp_reservoir_v3', window:'Reservoir entries Sep 2025 – Jul 2026',
+  spec:'SPEC_non_used_lawp_reservoir_v4', window:'Reservoir entries Sep 2025 – Jul 2026',
   kpis:[
     {lab:'Lost — never reused',id:'M7',val:'AED 271,171.06',sub:'202 payments · 232 bundles',tone:'is-red'},
     {lab:'Still recoverable',id:'M5',val:'AED 63,897.92',sub:'45 payments · claim before the window shuts',tone:'is-amber'},
     {lab:'Loss rate',id:'M9',val:'2.76%',sub:'202 of 7,313 payments in scope'},
+    {lab:'Paid twice, and never in the reservoir',id:'M12',val:'AED 242,379.50',
+     sub:'2,427 pairs over 1,577 maids, all-time · AED 51,607.41 since Sep 2025. A SEPARATE total — one payment can sit in both, so this is never added to M7',tone:'is-red'},
+    {lab:'Paid again despite reuse — permit and labour card',id:'M13',val:'AED 242,867.47',
+     sub:'879 events all-time · AED 54,487.07 since Sep 2025. The bundle was handed on, and the new request bought a paper it already carried',tone:'is-red'},
+    {lab:'MOHRE overlap — routed, not red',id:'M14',val:'AED 383,177.57',
+     sub:'2,018 events. Does MOHRE insurance attach to the PAPERWORK or to the PERSON? Unanswered — Mohammad Khalil, open item 5. Displayed, never summed',tone:'is-grey'},
   ],
-  filters:[['Outcome',['All outcomes','Lost (past 120 days)','Recoverable (60–120)','Under 60 days','Cleared by reuse','Consumed','No fee on record','Alert disagreement']],
+  filters:[['Finding',['All findings','Unused paperwork (M5 / M7)','Paid twice, never in the reservoir (M12)','Paid again despite reuse (M13)','MOHRE overlap (M14)','Duplicate pairs (M11)']],
+           ['Outcome',['All outcomes','Lost (past 120 days)','Recoverable (60–120)','Under 60 days','Cleared by reuse','Consumed','No fee on record','Alert disagreement']],
            ['Grain',['Case = bundle','Money = payment']],
            ['Work permit type',['QUOTA and REPLACEMENT','QUOTA','REPLACEMENT']],
            ['Nationality',['All nationalities','Ethiopian','Filipino','Pakistani','Kenyan','Ugandan']]],
   more:[['Age band',['Any age','0–59','60–119','120–364','365+']],
         ['Partial bundle',['Any','Complete (all three fees)','Work permit missing','MOHRE missing','Labour card missing']],
         ['Bundles per payment',['Any','1','2+','5+']],
-        ['Days to deadline',['Any','Under 14','Under 30','Passed']]],
+        ['Days to deadline',['Any','Under 14','Under 30','Passed']],
+        ['Purpose',['All three papers','WORK_PERMIT','MOHRE_INSURANCE','PAY_LABOR_CARD_FEE']],
+        ['In the reservoir?',['Either','In the reservoir (the timer governs it)','Never in the reservoir (M12)']]],
   cols:[['Bundle','mono'],['Maid','mono'],['Line',''],['Nat.',''],['Paid by',''],
         ['Clock start','mono'],['Lost on','mono'],['Age','num'],['Amount AED','num'],['Why','wrap']],
   rows:[
@@ -302,6 +318,9 @@ AUDITS.LAWP = {
     {f:'GREEN',c:['89774','Maid #120915','CC','Ethiopian','QUOTA','2026-02-11','2026-06-11',215,null,'Consumed — reused and the new maid arrived. This is 92.5% of the money']},
     {f:'GREY',c:['88120','Maid #118702','MV','Filipino','QUOTA','2025-11-20','2026-03-20',298,null,'No fee on record — never written off and never cleared. Needs a person']},
     {f:'GREY',c:['86644','Maid #112338','CC','Ethiopian','REPLACEMENT','2025-10-02','2026-01-30',347,null,'Replacement walk hit the @MAX_REPLACEMENT_COUNT@ bound before reaching a QUOTA request']},
+    {f:'RED',c:['2,427 pairs','1,577 maids','—','—','—','all-time','—',null,242379.50,'M12 · paid for twice on the same request and the same purpose, amounts equal within AED 0.01, and never entered the reservoir — so no timer governs her. The 1,108 in-reservoir pairs (AED 77,211.07) are shown but never added']},
+    {f:'RED',c:['879 events','—','—','—','—','all-time','—',null,242867.47,'M13 · the bundle was handed on under R2, and the new request then bought a work permit or labour card the bundle ALREADY carried. Buying a paper it did not carry is a legitimate top-up, never a finding']},
+    {f:'GREY',c:['2,018 events','—','—','—','—','all-time','—',null,383177.57,'M14 · the same overlap on MOHRE insurance. Routed to the process owner, NOT red, until it is settled whether MOHRE attaches to the paperwork or to the person']},
   ],
   extra:'clock',
 };
@@ -496,18 +515,21 @@ AUDITS.EID = {
   name:'E-ID', tabN:'327',
   sources:'MONEY_CONTROL_SILVER.TRANSACTIONS · HOUSEMAID_OUTSTANDING_BALANCE_DETAILS · CLIENT_MANAGEMENT_SILVER.COMPLAINTS(_COMMENTS)',
   clock:'TRANSACTION_DATE — the date inside the description text is unreliable',
-  spec:'SPEC_e_id_audit_v1', window:'12 months to 2026-08-31',
+  spec:'SPEC_e_id_audit_v2', window:'12 months to 2026-08-31',
   kpis:[
     {lab:'Money we never got back',id:'M7',val:'AED 57,390.34',sub:'149 red cases · dupes + fines + CC replacements',tone:'is-red'},
     {lab:'Pending — the number to drive down',id:'M6',val:'AED 75,283.61',sub:'178 cases · 131 MV blocked on N1',tone:'is-amber'},
     {lab:'Duplicate pairs',id:'M2',val:'46 red · 47 amber',sub:'0–120 days red · 121–599 to the verifier'},
     {lab:'Fines not recovered',id:'M3',val:'56 of 57',sub:'One recovered, AED 60.43. Not 57'},
     {lab:'Total E-ID spend audited',id:'M1',val:'AED 7,007,545.03',sub:'20,142 transactions · variance AED 0.00'},
+    {lab:'Visa term vs E-ID price',id:'M8',val:'58 maids',
+     sub:'One-year residence visas charged AED 340+ — the two-year band. A COUNT, never a money figure: the warehouse carries no one-year E-ID price, and naming one would be inventing a constant',tone:'is-grey'},
   ],
   filters:[['Sub-audit',['All three','1 — Duplicate payments','2 — Fines not recovered','3 — Replacements not recovered']],
            ['Charge class',['All classes','APPLICATION','APPLICATION_WITH_FINE','REPLACEMENT','TYPING_SERVICE','UNCLASSIFIED','REFUND']],
            ['CC / MV',['Both','CC','MV']],
-           ['Recovery route',['All routes','Maid loan','MV client (blocked on N1)','None attempted']]],
+           ['Recovery route',['All routes','Maid loan','MV client (blocked on N1)','None attempted']],
+           ['Visa term',['Any term','1 year (201–400 days)','2 years (601–800 days)','Neither band (401–600)','No term on record (grey)']]],
   more:[['Gap band',['All gaps','0–120 (red)','121–599 (amber)','600+ (normal renewal)']],
         ['Expense head',['All 15 heads','646 / 1594 — NEW CC','647 / 1631 — RENEW CC','738 / 1682 — NEW MV','748 / 1719 — RENEW MV','1597 / 1634 — Replacement CC','1685 / 1722 — Replacement MV','1598 / 1686 / 1600 — Typing']],
         ['Loan status',['Any','PAID','PARTIALLY_PAID','NOT_YET_PAID','No loan']],
@@ -524,6 +546,7 @@ AUDITS.EID = {
     {f:'AMBER',c:['Duplicates','Maid #119673','CC','1688420 / 1751902','2026-01-30',353.91,214,'—',null,null,353.91,'121–599 day gap — an early re-application. Routed to the verifier, not red']},
     {f:'GREEN',c:['Replacements','Maid #104992','CC','1489117','2025-10-07',454.62,null,'PAID',475.00,0.00,0.00,'Repaid in full. A REPEAT_EID loan is raised at 475 against a 454.62 card, so the columns are capped to the cost they offset']},
     {f:'GREY',c:['—','—','—','5 transactions','various',3295.85,null,'—',null,null,null,'UNCLASSIFIED — goes to pending, never red. Name them or confirm they park (open item 2)']},
+    {f:'GREY',c:['Audit 4','58 maids','—','—','various',353.91,null,'—',null,null,null,'M8 · their residence visa runs ONE year and they were charged the two-year band. The median paid is AED 353.91 on a one-year visa and AED 353.91 on a two-year one — the price does not track the term at all. Report the 58, price nothing, ask the Visa team what a one-year E-ID costs']},
   ],
 };
 
@@ -674,7 +697,10 @@ function portfolioView(){
         ${line(p.lost,p.lostN,'var(--red)','Lost — no route')}
         <dt>${cls('transparent')}Counted, not valued</dt>
         <dd class="${p.unv?'':'none'}">${p.unv!=null?I(p.unv)+' cases':'—'}</dd>
-      </dl></button>`;
+      </dl>
+      ${p.aside?`<div class="aside"><span class="a-lab">${p.aside.lab}</span>
+        <span class="a-val">${p.aside.val}</span><span class="a-note">${p.aside.note}</span></div>`:''}
+      </button>`;
   }).join('');
   return `
   <div class="band">
@@ -702,6 +728,12 @@ function assuranceView(){
     ['LAWP','Tie-out — M2+M3+M4+M5+M6 = M1','pass','variance 0 on 7,313 payments'],
     ['LAWP','Grain control — payments vs bundles','pass','202 / 232, both displayed'],
     ['LAWP','Reconcile against LOST_VISA_EXPENSES','fail','Open item 3 — 17 cases / AED 22,008.67 against 50. Not adjudicated'],
+    ['LAWP','R18 duplicate test keys on AMOUNT EQUALITY within AED 0.01','pass','7,049 of the 7,171 different-amount pairs are one fee booked under two purposes. A rule that merely counted rows would red AED 5.24M of correctly-paid money'],
+    ['LAWP','M11–M14 kept as a separate total, never added to M7','pass','One payment can sit in both. Two headline figures side by side: unused paperwork, and paid twice'],
+    ['LAWP','Spec re-read against the flow PDF (§9)','warn','Two of Phase 1\'s five checks had never been specced — v1 cited the PDF but took its requirements from a Google Doc instead. Found 2026-09-14'],
+    ['E-ID','Visa term deduplicated to one per maid before the join','pass','HOUSEMAIDS_VISA_INFORMATION is one row per REQUEST — the same query returned 1,682 charges for 82 maids before the dedupe and 95 after'],
+    ['E-ID','Spec re-read against the flow PDF (§9)','warn','Audit 4 was missing from a spec that had been gated twice. A missing rule leaves no hole to find'],
+    ['E-ID','Re-run spec-auditor on v2','fail','The twice-run clearance covers v1 only; v2 adds a fourth audit (open item 7)'],
     ['Entry visa','Tie-out — charge side','pass','913 = 697 + 216'],
     ['Entry visa','Tie-out — refund side','pass','892 = 701 + 119 + 70 + 2'],
     ['Entry visa','Cross-check — the tripwire','warn','701 vs 697 — the 4-row excess is listed case by case, never absorbed'],
@@ -738,6 +770,9 @@ function assuranceView(){
     ['R-visa','Pair classifier B median gap','716 days against a 730-day term'],
     ['R-visa','Rates, each with its denominator','0.13% of requests paid more than once (90 of 69,124) · 0.066% of all payments are a duplicated fee (46 of 69,218)'],
     ['E-ID','M7 red','AED 57,390.34 · 149 cases'],
+    ['E-ID','M8 visa-term monitor','58 of 95 one-year-visa maids charged AED 340 or more'],
+    ['LAWP','M12 duplicate, never in the reservoir','2,427 pairs · 1,577 maids · AED 242,379.50 all-time'],
+    ['LAWP','M13 paid again despite reuse (permit + labour card)','879 events · AED 242,867.47 all-time'],
     ['E-ID','Class tie-out','20,142 rows · AED 7,007,545.03'],
   ];
   const st = s => s==='pass' ? '<span class="st st-ok">✓ Pass</span>'
