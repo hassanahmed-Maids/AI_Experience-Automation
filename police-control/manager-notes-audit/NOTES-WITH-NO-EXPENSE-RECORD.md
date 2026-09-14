@@ -69,6 +69,90 @@ Full answer: `evidence-machine-notes-conv46380.md`.
 
 
 
+
+## ✅ RESOLVED FROM THE ACTUAL STRINGS (ask-the-code session 46385)
+
+### 1. THE AIRFARE ENTITLEMENT RULE, IN CODE (closes A4/A5 in RULES-TO-CONFIRM.md)
+
+`AddScheduledAnnualVacationService.execute(RenewRequest)` · **visa-processing**, fired by the
+renewal step `GetFormFromGDRFAStep` — STEP_ID "Get Form from GDRFA" **is** the Upload-the-
+e-Residency step. It creates a `vacation_airfare` ScheduledAnnualVacation carrying the
+`information` string; `HousemaidAirFareTicketBusinessRule` (AfterCreate) copies it to
+`noteReasone` and POSTs the ADDITION.
+
+- **Gate:** `isforHousemaid() && !housemaid.isMaidVisa()` — **CC only**, never MV, never office staff
+- **Guard 1:** `!isThereMultipleAirFareTickets()` — no airfare within the last **5 months**
+- **Guard 2:** `validateOnExpiryDateOrLastAirfareTicket()` — expiry within N months on first
+  renewal, or last ticket **>= 16 months** ago on subsequent ones
+- **Amount:** `default_ticket_allowance_amount`, or nationality tag `ScheduledAnnualVacationAmount`
+- **Params:** `PARAM_AIRFARE_TICKET_AFTER_EXPIRY_DATE_MONTHS`, `PARAM_AIRFARE_TICKET_LAST_TICKET_MONTHS_AGO`
+- **Owner:** `fromManager = managers/jad`, hard-coded. A picklist manager, not a role or team.
+
+**What this settles:**
+- 🔴 **Airfare to MV maids (AED 4,500 confirmed) is a GUARD BYPASS**, not an interpretation
+  question. `!isMaidVisa()` is explicit.
+- 🔴 **The AED 49,500 of duplicates should be IMPOSSIBLE** through this service — Guard 1 blocks
+  anything within 5 months. But the service is one of SIX entry points (`WithZajelVisaStampingStep`,
+  `UploadContractToTasheelStep`, `ZajelController`, `DataCorrectionController`, manual
+  `RenewRequestController#addScheduledAnnualVacation`) and, critically,
+  **`ScheduledAnnualVacationController.createEntity` creates the vacation DIRECTLY and never calls
+  the guarded service.** That is the likely duplicate mechanism. TESTABLE.
+
+### 2. 🔴 THE OVERRIDE GAP, CODE-CONFIRMED AND WORSE THAN THE NARRATIVES SUGGESTED
+
+1. Edits go through the **generic `PUT /ManagerNotes/{id}`** (inherited `BaseRepositoryController`).
+   No airfare-specific path, no validation: whatever `noteReasone` and `noteDate` the UI sends is
+   persisted. "Moving the payment date" IS editing `noteDate`.
+2. `AbstractPayrollManagerNote` **has `postponedAmount` and `postponedDate` — COMMENTED OUT**,
+   dead code under Jira **ACC-645**. The structured postponement record was built and disabled.
+3. **No approver column exists** on the note.
+4. `AuditorAction` logging fires **only** when the editing user holds position `payroll_auditor`
+   AND `logActionRequired` is set — true on `customdelete`, **NOT on ordinary edits**.
+
+**So an airfare entitlement date can be moved, by anyone with the screen, with no structured
+record, no approver, and no audit row.** "Approved by Medhat", "DM requested", "todo/657202"
+exist only because someone chose to type them. This is a control finding of a different KIND from
+the rest of this audit: not a wrong payment, but a rule anyone can waive with a sentence.
+
+### 3. Forgive Deduction is NOT automatic — it is a person
+
+`HousemaidUnpaidDayService.takeAction(unpaidDay, true, forgivenessType)` via
+`GET /housemaidUnpaidDay/takeAction/{id}` and bulk `POST /takeActionForAllSelected`, permission
+`housemaidUnpaidDay:takeAction`. A note is written ONLY when the payroll month has already
+closed (`notInSamePayrollMonth`). Amount = daily group salary / days in month — hence AED 18-633.
+No `fromManager`.
+
+### 4. MV Prorated Salary = a human request, then a job
+
+`AccountantToDoService.createAccountantTodoForTerminatedProratedMVMaids`, driven by
+`LastMvSalaryMaidServiceJob` (housemaid-mgmt) for contracts that are pre-collected
+(`BaseAdditionalInfo.preCollectedSalary = true`) AND cancelled — but only after an agent raises
+the `LAST_MV_SALARY_FOR_A_PRE_COLLECTED_CONTRACT` MaidService (`MaidServicesController`, or
+`ChatGPTController`). Human request -> job -> note. Exactly the business-hours fingerprint.
+Owner: the **accountants / payroll team**
+(`PARAMETER_PAYROLL_AUDITORS_RECIPIENTS_OF_PAYROLL_FILES_AFTER_CFO_APPROVAL`).
+
+⚠️ **UNRESOLVED GAP — do not paper over.** The code says this path writes a `HousemaidPayrollLog`
+and a `PayrollAccountantTodo`, **not a manager note** — yet 782 manager notes carry that exact
+string. Either the string is copied onto a note somewhere the search did not reach, or there is
+another writer. Open.
+
+### 5. NEW CHECK (not a finding) — two airfare amount sources that may not agree
+
+Payroll-side limits are **2000 / 1350** (`PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` /
+`..._OTHER_NATIONALITY_...`). Visa-side amount is `default_ticket_allowance_amount` or the
+nationality tag. Production airfare amounts cluster on **2000 and 1500** — and **1500 is neither
+limit**. Two sources, possibly disagreeing. Test before treating any airfare amount as authorised.
+
+### The "machine-written" label is now fully dead
+
+Of the AED 3.98m: airfare is auto-created but its DATES are humanly adjusted; MV Prorated Salary
+is agent-requested; Forgive Deduction is a human click; Last Day CC Switch is auditor-triggerable;
+Office Work is a person assigning then a BGT computing. Only Raffle, Prorated salary and the
+referral Bonus run with no human in the loop.
+
+Full answer: `evidence-machine-notes-conv46385.md`.
+
 ## 🔴 THE CODE ANSWER FAILED VERIFICATION ON THE THREE BIGGEST TYPES (2026-09-14)
 
 Grouping expense-less additions by their actual `NOTE_REASON` and mapping each to the predicted
