@@ -114,7 +114,7 @@ thead th{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;f
 thead th.num{text-align:right}
 tbody td{padding:8px 11px;border-bottom:1px solid var(--rule);vertical-align:top;white-space:nowrap}
 tbody td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
-tbody td.wrap{white-space:normal;min-width:200px;color:var(--ink-2)}
+tbody td.wrap{white-space:normal;min-width:200px;max-width:340px;color:var(--ink-2);line-height:1.45}
 tbody tr:hover{background:var(--surface-2)}
 tbody tr td:first-child{border-left:3px solid transparent}
 tr.f-RED    td:first-child{border-left-color:var(--red)}
@@ -196,8 +196,8 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);font-si
   <div class="mast-in">
     <div>
       <h1>Visa Expense Audit Console <span class="mockup-chip">Design mockup</span></h1>
-      <p class="sub">Six Police &amp; Control audits over one visa-expense chain, on one clock. Figures are the
-        measurements in each spec, dated 12–14 Sep 2026; table rows are the specs' own worked examples.</p>
+      <p class="sub">Seven Police &amp; Control audits over one visa-expense chain, on one clock. Figures are the
+        measurements in each spec, dated 3–14 Sep 2026; table rows are the specs' own worked examples.</p>
     </div>
     <div class="period">
       <label for="period">Period</label>
@@ -214,8 +214,8 @@ footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);font-si
 <div class="wrap"><div id="view"></div>
   <footer>
     Design mockup for review — not a live report. Every figure shown is the measurement recorded in the source spec
-    (LAWP v3, entry visa v1, medical v4, ILOE v2, R-visa v6, E-ID v1), and reproduces only at the
-    <em>Spec window</em> period, because the six specs measure over six different windows. Maids appear as
+    (LAWP v3, entry visa v1, change of status v5, medical v4, ILOE v2, R-visa v6, E-ID v1), and reproduces only at the
+    <em>Spec window</em> period, because the seven specs measure over seven different windows. Maids appear as
     <span class="mono">Maid&nbsp;#id</span> only; no names, note text or descriptions are shown or exported anywhere
     in this design.
   </footer>
@@ -239,6 +239,7 @@ const PORTFOLIO_RAW = [
   {code:'ENTRY_VISA',name:'Entry visa',      grain:'charge / maid', rec:90276.00,  recN:188,  lost:74580.90,  lostN:105, unv:7},
   {code:'EID',       name:'E-ID',            grain:'txn / pair / maid', rec:null,  recN:0,    lost:57390.34,  lostN:149, unv:5},
   {code:'MEDICAL',   name:'Medical',         grain:'fee',           rec:39910.00,  recN:173,  lost:710.00,    lostN:3,   unv:119},
+  {code:'COS',       name:'Change of status',grain:'transaction',   rec:9325.00,   recN:5,    lost:null,      lostN:0,   unv:1},
   {code:'RVISA',     name:'R-visa',          grain:'case',          rec:null,      recN:0,    lost:16853.50,  lostN:45,  unv:25},
 ];
 const PORTFOLIO = PORTFOLIO_RAW.slice().sort((a,b)=>
@@ -254,8 +255,8 @@ const COVERAGE = [
   ['Phase 2 · Entry visa','No duplicate payments','Entry visa M3','ok','Built'],
   ['Phase 2 · Entry visa','Partial refund claimed on a turn-down','Entry visa M2','ok','Built'],
   ['Phase 2 · Entry visa','Correct inside / outside type','Entry visa M4','ok','Built as a reason column, by ruling'],
-  ['Phase 2 · Change of status (AED 572)','No duplicate payments','—','no','No spec exists'],
-  ['Phase 2 · Change of status (AED 572)','Fine responsibility','—','no','No spec exists'],
+  ['Phase 2 · Change of status','No duplicate payments','Change of status R1','ok','Built — the same maid charged twice in the month, or in the month before'],
+  ['Phase 2 · Change of status','Fine responsibility','Change of status R3 / R5 / R6','ok','Built — MV to the client above AED 300, CC to the maid\'s loan above AED 200'],
   ['Phase 3 · ILOE','No duplicate payments','ILOE R1','ok','Built as informational, by ruling'],
   ['Phase 3 · ILOE','Fine responsibility','ILOE R2 / R3 / R4','ok','Built'],
   ['Phase 3 · Medical','No duplicate payments','Medical audit 2','ok','Built as a low-volume monitor'],
@@ -290,7 +291,7 @@ AUDITS.LAWP = {
         ['Partial bundle',['Any','Complete (all three fees)','Work permit missing','MOHRE missing','Labour card missing']],
         ['Bundles per payment',['Any','1','2+','5+']],
         ['Days to deadline',['Any','Under 14','Under 30','Passed']]],
-  cols:[['Flag',''],['Bundle','mono'],['Maid','mono'],['Line',''],['Nat.',''],['Paid by',''],
+  cols:[['Bundle','mono'],['Maid','mono'],['Line',''],['Nat.',''],['Paid by',''],
         ['Clock start','mono'],['Lost on','mono'],['Age','num'],['Amount AED','num'],['Why','wrap']],
   rows:[
     {f:'RED',c:['87189','Maid #35207','MV','Ethiopian','QUOTA','2023-03-30','2023-07-28',1262,1447.93,'Lost. Four sibling bundles point at this same payment — counted once (R8)']},
@@ -327,7 +328,7 @@ AUDITS.ENTRY_VISA = {
         ['Days unclaimed',['Any','Under 60','60–180','181–300','300+','Negative (open item O2b)']],
         ['CC / MV',['Both','CC','MV']],
         ['Review status',['All','New','Under review','Escalated','Closed']]],
-  cols:[['Flag',''],['Request','mono'],['Maid','mono'],['Type',''],['Applied','mono'],['Paid AED','num'],
+  cols:[['Request','mono'],['Maid','mono'],['Type',''],['Applied','mono'],['Paid AED','num'],
         ['Turned down','mono'],['Days','num'],['Claim state',''],['Recoverable AED','num'],['Verdict',''],['Reason','wrap']],
   rows:[
     {f:'RED',c:['91412·b','Maid #110179','Inside','2025-10-23',1054.71,'2025-10-23',327,'Never filed',739.50,'NOT_RELATED','No claim was ever filed — the Visa team files one']},
@@ -337,6 +338,47 @@ AUDITS.ENTRY_VISA = {
     {f:'AMBER',c:['99105','Maid #121770','Outside','2026-07-22',375.65,'2026-07-29',47,'Too recent',89.50,'—','Under 60 days. Nothing yet']},
     {f:'GREEN',c:['105707','Maid #125459','Outside','2026-02-28',384.24,'2026-02-28',0,'Received',null,'JUSTIFIED','Refunded the same day. Wrong type is why there were two applications — not a finding']},
     {f:'GREY',c:['91704','Maid #124816','Inside','2026-01-19',1025.65,'2026-01-20',238,'Never filed',null,'—','OWNER_ID says #124816, TRANSACTIONS says #110512. Shown, counted, never assigned to one of them']},
+  ],
+};
+
+AUDITS.COS = {
+  name:'Change of status', spec:'Change_of_Status_v5 — APPROVED 2026-09-03',
+  kpis:[
+    {lab:'Money at risk',id:'M12',val:'AED 9,325',
+     sub:'6 red cases — all of it MV shortfall in July. The R5, R6 and R8 terms are built and read zero; a real one would otherwise show red with nothing at risk',tone:'is-red'},
+    {lab:'Collected from clients',id:'M8',val:'AED 50,750',
+     sub:'74.3% of the AED 68,300 charged above the AED 300 gate (M7, 47 cases). Narrower than the approved P&L line — capped at fines charged in the month'},
+    {lab:'Billed under the gate',id:'R4',val:'AED 4,275',
+     sub:'33 cases · the CLIENT was charged for a fine the company said it absorbs',tone:'is-amber'},
+    {lab:'CC loans not recovered',id:'M6',val:'AED 1,300',
+     sub:'2 cases above the AED 200 gate · AED 0 repaid so far (M5)',tone:'is-amber'},
+    {lab:'Company absorbs, by policy',id:'M9+M3',val:'AED 7,650',
+     sub:'MV at or under 300: AED 7,150 over 51 cases · CC at or under 200: AED 500 over 4. Not findings'},
+    {lab:'Unclassified overage',id:'R2',val:'AED 0 in July',
+     sub:'But AED 40,967.35 in Jan 2026 and AED 35,168.06 in March — a fine that is not a whole multiple of 50. Never scored as a fine; a person reads each one',tone:'is-grey'},
+  ],
+  filters:[['Month',['July 2026 (last closed)','June 2026','May 2026','April 2026','March 2026','February 2026','January 2026','December 2025','All ten live months']],
+           ['Leg',['MV and CC','MV (client pays above 300)','CC (maid loan above 200)']],
+           ['Verdict',['Needs action (red + amber + grey)','Red only','Amber only','Grey only','Green','All']],
+           ['Rule',['All rules','R1 charged twice','R2 not a multiple of 50','R3 MV shortfall','R4 billed under the gate','R5 loan gap','R6 over-loaned','R7 wrong ledger','R8 no contract','R9 billed with no fine','R10 loaned under the gate']]],
+  more:[['Fine vs gate',['Any','Above the gate','At or under the gate','No fine at all']],
+        ['Overstay days',['Any','1–5','6–30','31–100','100+']],
+        ['Collection',['Any','Paid in full','Part paid','Nothing collected','Tied by a sum, not one payment']],
+        ['Waiver',['Any','Fully waived','Partly waived','No waiver']],
+        ['Loan status',['Any','PAID','PARTIALLY_PAID','NOT_YET_PAID','Blank status','No loan']],
+        ['Contract',['Any','Has a non-fake contract','No contract (R8 grey)']],
+        ['Head vs type',['Any','Head agrees with the type log','Head disagrees (R7)']],
+        ['Monthly discount',['Any','Active discount exists','None']]],
+  cols:[['Transaction','mono'],['Date','mono'],['Maid','mono'],['Leg',''],['Paid out AED','num'],['Fine AED','num'],
+        ['Days','num'],['Collected AED','num'],['Waived AED','num'],['Loaned AED','num'],['At risk AED','num'],['Rule',''],['Why','wrap']],
+  rows:[
+    {f:'RED',c:['2032918','2026-07-18','Maid #137671','MV',13325.65,12750.00,255,5750.00,null,null,7000.00,'R3','The exception this report exists for. Collected by a SUM, not one matching payment, so the row is marked. Her AED 650 monthly-package discount is displayed and does NOT reduce the residue']},
+    {f:'RED',c:['2037629','2026-07-25','Maid #130583','MV',1325.65,750.00,15,null,375.00,null,375.00,'R3','Half the fine written off with authority; the other half neither collected nor written off']},
+    {f:'RED',c:['2044152','2026-07-31','Maid #38910','CC',1625.65,1050.00,21,null,null,1050.00,null,'R7','Green on the money — the loan matches the fine exactly. But it sat on head 1677, the MV head, so AED 1,050 of CC cost is in the MV visa-expense line. Without R7 as a separate flag this reads as clean']},
+    {f:'AMBER',c:['33 cases','2026-07','—','MV',null,4275.00,null,4275.00,null,null,null,'R4','Under the AED 300 gate, where the company absorbs the fine — and the client was billed anyway']},
+    {f:'AMBER',c:['1 case','2026-07','—','MV',575.65,0.00,0,840.00,null,null,null,'R9','No fine on the charge at all, yet a RECEIVED Overstay Fee sits within ±60 days. With no date bound this would falsely report 4, three of them on payments 560–1,215 days old']},
+    {f:'GREEN',c:['2032321','2026-07-17','Maid #136963','MV',13925.65,13350.00,267,13350.00,null,null,null,'—','Client paid in full, one exact payment. The company still absorbed the AED 575.65 base, by policy']},
+    {f:'GREEN',c:['2031315','2026-07-15','Maid #137541','CC',825.65,250.00,5,null,null,250.00,null,'—','The loan table returned this ONE loan (id 79123) twice. Un-deduplicated it reads R6 red at AED 250 — a false finding the July draft shipped twice before the table was checked']},
   ],
 };
 
@@ -362,7 +404,7 @@ AUDITS.MEDICAL = {
         ['Has text',['Any','Has complaint thread','Has staff note','No text at all']],
         ['CC / MV',['Both','CC','MV']],
         ['Duplicate pairs',['Exclude','Audit 2 only (duplicate medical payments)']]],
-  cols:[['Flag',''],['Request','mono'],['Maid','mono'],['Stage',''],['Fee date','mono'],['Fee AED','num'],
+  cols:[['Request','mono'],['Maid','mono'],['Stage',''],['Fee date','mono'],['Fee AED','num'],
         ['Refund','' ],['Age','num'],['Step?',''],['Loss AED','num'],['Cause','wrap']],
   rows:[
     {f:'RED',c:['118442.1','Maid #103881','Renewal','2025-09-14',270.00,'none',363,'Never created',220.00,'Cancellation raised as NORMAL, but the Refund Medical Application step was never created. That absence IS the failure']},
@@ -397,7 +439,7 @@ AUDITS.ILOE = {
         ['Who is out of pocket',['Either','The company','The maid']],
         ['Repeat gap',['Any','Same day','1–119 days','365+ days (annual renewal)']],
         ['Bucket',['Findings only','Bulk, no maid attached','Unmatched reversals','Office staff (excluded)','Accounting adjustment (excluded)']]],
-  cols:[['Flag',''],['Rule',''],['Maid','mono'],['Line',''],['Txn / Loan','mono'],['Date','mono'],['Paid AED','num'],
+  cols:[['Rule',''],['Maid','mono'],['Line',''],['Txn / Loan','mono'],['Date','mono'],['Paid AED','num'],
         ['Repaid','num'],['Waived','num'],['Still owed','num'],['Out of pocket',''],['Amount AED','num'],['Note','wrap']],
   rows:[
     {f:'RED',c:['R2','Maid #116898','CC','txn 1637842','2025-12-13',402.86,null,null,null,'Company',402.86,'Booked under NEW - ILOE Mandatory Insurance - CC Maids. No fine loan of any type at any date']},
@@ -416,11 +458,14 @@ AUDITS.RVISA = {
   clock:'TRANSACTIONS.TRANSACTION_DATE — the line-creation date runs a day earlier and is never used',
   spec:'Rvisa_Duplicate_Payments_v6', window:'All time — a period-scoped duplicate test splits pairs and passes both halves',
   kpis:[
-    {lab:'Still out',id:'M3',val:'AED 16,853.50',sub:'45 confirmed cases · zero fully recovered, ever',tone:'is-red'},
-    {lab:'Pending a ruling',id:'M4',val:'AED 8,873.50',sub:'45 blocked cases',tone:'is-amber'},
-    {lab:'Unrecovered',id:'M7',val:'27 · AED 12,713.00',sub:'Partial 15 · Full 0 · Unknown 3'},
-    {lab:'Confirmed of multi-payment',id:'M6',val:'50.0%',sub:'45 of 90 multi-payment cases'},
-    {lab:'Of all R-visa payments',id:'M6',val:'0.066%',sub:'46 duplicated fees of 69,218 payments'},
+    {lab:'Still out — per request',id:'M3',val:'AED 16,853.50',
+     sub:'45 of 90 multi-payment cases confirmed (50.0%) · 27 unrecovered, 15 partial, 0 fully recovered, ever',tone:'is-red'},
+    {lab:'Charged for cover she already had — per maid',id:'A',val:'AED 29,905',
+     sub:'68 pairs over 67 maids · 37 since 2025 · gross, before refunds. A DIFFERENT GRAIN — never added to M3',tone:'is-red'},
+    {lab:'Last 24 months',id:'M10',val:'AED 8,607',
+     sub:'25 cases — over half of all-time exposure. Run-rate ≈ 4,300/yr against a ≈ 2,100 all-time average: this is rising, not decaying',tone:'is-red'},
+    {lab:'Re-payer defect — one control gap',id:'S1',val:'AED 8,870',
+     sub:'20 pairs · an initial request opened while her renewal was in flight. Not twenty errors — fix the ERP guard',tone:'is-red'},
   ],
   filters:[['Grain',['Per request (case)','Per maid (pair classifier)']],
            ['Verdict',['Confirmed','Blocked','Clean','All']],
@@ -433,7 +478,7 @@ AUDITS.RVISA = {
         ['Pair bucket',['All buckets','A — same request','B — renewal','C1 — re-application','C2·S1 — re-payer defect','C2·S2 — term mismatch','C2·S3 — unexplained']],
         ['Year of last payment',['All years','2026','2025','2024','2023','2021','2020','2019','2018']],
         ['Span (days)',['Any','0','1–30','31–300','300+']]],
-  cols:[['Flag',''],['Case','mono'],['Rule breached','wrap'],['Pays','num'],['First / last','mono'],
+  cols:[['Case','mono'],['Rule breached','wrap'],['Pays','num'],['First / last','mono'],
         ['Era fee','num'],['Duplicated','num'],['Refunded','num'],['Still out','num'],['Recovery',''],['Span','num'],['Channel','']],
   rows:[
     {f:'RED',c:['24296 · APPLY_FOR_RVISA','Two fee payments matched the schedule on one application',2,'2024-03-11 / 2024-03-11',443.50,443.50,0.00,443.50,'Unrecovered',0,'Noqoodi']},
@@ -469,7 +514,7 @@ AUDITS.EID = {
         ['Fine days',['Any','1–10','11–30','31–49','50 (the cap)']],
         ['Price era',['Both','Before 2025-08-11','From 2025-08-11']],
         ['Verifier verdict',['All','JUSTIFIED','PLAUSIBLE','AMBIGUOUS','NOT_RELATED','UNRESOLVED','NO_TEXT','NOT_READ']]],
-  cols:[['Flag',''],['Audit',''],['Maid','mono'],['Line',''],['Transaction','mono'],['Date','mono'],['Amount AED','num'],
+  cols:[['Audit',''],['Maid','mono'],['Line',''],['Transaction','mono'],['Date','mono'],['Amount AED','num'],
         ['Gap','num'],['Loan status',''],['Recovered','num'],['Waived','num'],['Unrecovered AED','num'],['Reason','wrap']],
   rows:[
     {f:'RED',c:['Duplicates','Maid #21014','MV','1763388 / 1763389','2026-02-24',353.91,0,'—',null,null,353.91,'Two government reference numbers ending …896 and …894 — two genuinely separate applications filed the same day']},
@@ -486,7 +531,7 @@ AUDITS.EID = {
 const CASE_N = Object.fromEntries(PORTFOLIO_RAW.map(p=>
   [p.code, I((p.recN||0)+(p.lostN||0)+(p.unv||0))]));
 const TABS = [['PORTFOLIO','Portfolio','—'],['LAWP','LAWP',CASE_N.LAWP],['ENTRY_VISA','Entry visa',CASE_N.ENTRY_VISA],
-  ['MEDICAL','Medical',CASE_N.MEDICAL],['ILOE','ILOE',CASE_N.ILOE],['RVISA','R-visa',CASE_N.RVISA],
+  ['COS','Change of status',CASE_N.COS],['MEDICAL','Medical',CASE_N.MEDICAL],['ILOE','ILOE',CASE_N.ILOE],['RVISA','R-visa',CASE_N.RVISA],
   ['EID','E-ID',CASE_N.EID],['ASSURANCE','Assurance','—']];
 let active = 'PORTFOLIO';
 
@@ -537,7 +582,7 @@ function auditTable(a){
   const body = a.rows.map(r=>{
     const cells = r.c.map((v,i)=>{
       const cls=a.cols[i][1];
-      if(v===null) return `<td class="${cls==='num'?'num':''}"><span class="${cls==='num'?'unval':'dash'}">${cls==='num'?'not valued':'—'}</span></td>`;
+      if(v===null) return `<td class="${cls==='num'?'num':''}"><span class="dash">—</span></td>`;
       const out = (cls==='num'&&typeof v==='number') ? (Number.isInteger(v)&&Math.abs(v)<10000&&a.cols[i][0].indexOf('AED')<0 ? I(v) : F(v)) : v;
       return `<td class="${cls}">${out}</td>`;
     }).join('');
@@ -557,7 +602,7 @@ function auditView(key){
   ${filterBlock(a)}
   <div class="inview">
     <span>Showing <b>${a.rows.length}</b> example rows of <b>${CASE_N[key]}</b> cases ·
-      in view <b>AED ${F(a.rows.reduce((s,r)=>{const i=a.cols.findIndex(c=>/Amount AED|Recoverable AED|Still out|Loss AED|Unrecovered AED/.test(c[0]));return s+(typeof r.c[i]==='number'?r.c[i]:0);},0))}</b></span>
+      in view <b>AED ${F(a.rows.reduce((s,r)=>{const i=a.cols.findIndex(c=>/Amount AED|Recoverable AED|Still out|Loss AED|Unrecovered AED|At risk AED/.test(c[0]));return s+(typeof r.c[i]==='number'?r.c[i]:0);},0))}</b></span>
     <span class="dash">The live build lists every case; this mockup carries the spec's worked examples.</span>
   </div>
   ${auditTable(a)}`;
@@ -635,7 +680,7 @@ function portfolioView(){
   <div class="band">
     <div class="band-h"><h2>Exposure by audit</h2>
       <span class="note">One card per audit, largest first. Each figure is that audit's own total —
-        there is deliberately no grand figure across the six, because adding a claimable refund to a fee
+        there is deliberately no grand figure across the seven, because adding a claimable refund to a fee
         paid twice asserts something false. Open a card to work its cases.</span></div>
     <div class="cards">${cards}</div>
     <p class="note" style="margin-top:10px">R-visa is carried at its per-request grain. Its per-maid pair
@@ -660,6 +705,12 @@ function assuranceView(){
     ['Entry visa','Tie-out — charge side','pass','913 = 697 + 216'],
     ['Entry visa','Tie-out — refund side','pass','892 = 701 + 119 + 70 + 2'],
     ['Entry visa','Cross-check — the tripwire','warn','701 vs 697 — the 4-row excess is listed case by case, never absorbed'],
+    ['Change of status','Tie-out 1 — base + fines + unclassified overage = M1','pass','405,257.60 + 77,250.00 + 0.00 = 482,507.60 · variance 0.00 in all ten live months'],
+    ['Change of status','Tie-out 2 — every fine has a destination','pass','55,025 + 8,775 + 2,325 + 1,300 + 500 + 9,325 + 0 = 77,250 · variance 0.00. Seven terms; the seventh is zero but must exist or a grey case vanishes'],
+    ['Change of status','Loan table deduplicated on ID before any sum','pass','415 rows across 405 distinct ids. Un-deduplicated it produced a false AED 250 over-loan finding, shipped twice'],
+    ['Change of status','Float guard — FINE_CENTS, never TRANSACTION_AMOUNT − 575.65','pass','Without it R3 fires 35 times in July instead of 5, and BOTH tie-outs still read variance 0.00 while it happens'],
+    ['Change of status','Relief is a pool, spent once, earliest charge first','warn','One live test case — maid 110051, whose AED 2,050 waiver would otherwise fund AED 3,150 of relief (O7)'],
+    ['Change of status','Reconcile M1 and M8 against the approved P&L lines','fail','OPENFLOW_DB is not authorised under MONEY_CONTROL_ROLE — never reconciled (O3)'],
     ['Medical','Tie-out — cases and AED','pass','1,153 cases · AED 273,010'],
     ['Medical','Quarterly failure rate direction','fail','Risen five quarters running, 3.5% → 11.6%. A regression to escalate'],
     ['ILOE','Tie-out — fines paid = charged + uncharged','pass','AED 1,163,242.82, variance 0.00'],
@@ -680,9 +731,12 @@ function assuranceView(){
     ['Entry visa','M2 red','188 cases · AED 90,276.00'],
     ['Entry visa','M3 paid twice','105 charges / 99 maids · AED 74,580.90'],
     ['Medical','M1 / M2 / M3','AED 39,910 · 173 cases · 11.6%'],
+    ['Change of status','M12 money at risk','AED 9,325 · 6 red · 34 amber · 0 grey · 5.8% of 104 fines (July 2026)'],
+    ['Change of status','M1 / M7 / M8','AED 482,507.60 over 704 charges · AED 68,300 charged above the gate · AED 50,750 collected (74.3%)'],
     ['ILOE','R2 / R3 / R4','1,530 / 364 / 6 · AED 575,891.27 / 82,138.25 / 864.58'],
     ['R-visa','Still out (M3)','AED 16,853.50 · 45 confirmed · 46 blocked · 69,033 clean'],
     ['R-visa','Pair classifier B median gap','716 days against a 730-day term'],
+    ['R-visa','Rates, each with its denominator','0.13% of requests paid more than once (90 of 69,124) · 0.066% of all payments are a duplicated fee (46 of 69,218)'],
     ['E-ID','M7 red','AED 57,390.34 · 149 cases'],
     ['E-ID','Class tie-out','20,142 rows · AED 7,007,545.03'],
   ];
@@ -691,7 +745,7 @@ function assuranceView(){
               : '<span class="st st-no">● Open</span>';
   return `
   <div class="band">
-    <div class="band-h"><h2>Controls</h2><span class="note">Every guard the six specs demand, in one place.
+    <div class="band-h"><h2>Controls</h2><span class="note">Every guard the seven specs demand, in one place.
       A report that does not tie is itself a finding, so these sit on the page rather than in a corner of it.</span></div>
     <div class="cov"><table>
       <thead><tr><th>Audit</th><th>Control</th><th>Status</th><th>Reading</th></tr></thead>
@@ -709,7 +763,7 @@ function assuranceView(){
       <tbody>${baseline.map(([a,m,v])=>`<tr><td>${a}</td><td style="color:var(--ink)">${m}</td>
         <td class="mono" style="font-size:11.5px;color:var(--ink-2)">${v}</td></tr>`).join('')}</tbody>
     </table></div>
-    <p class="note" style="margin-top:8px">Valid only at the <em>Spec window</em> period. The six specs measure over six
+    <p class="note" style="margin-top:8px">Valid only at the <em>Spec window</em> period. The seven specs measure over seven
       different windows, so at any other period the comparison is disabled and says why — a different measurement is not
       a discrepancy.</p>
   </div>
@@ -752,12 +806,12 @@ function assuranceView(){
         fault stayed put.</li>
       <li><b>Workflow status is not a verdict</b> and never feeds a filter default that changes a metric.</li>
       <li><b>Every price is era-bound.</b> There is not a single hardcoded fee anywhere: prices moved on 2025-08-11,
-        2026-01-01, 2023-05-17 and 2025-03-02 across these six checks, and a constant bands an entire earlier period as
+        2026-01-01, 2023-05-17 and 2025-03-02 across these seven checks, and a constant bands an entire earlier period as
         wrong.</li>
       <li><b>Personal data never leaves the predicate.</b> Transaction descriptions, staff names and note text are read
         to compute and are never shown, exported or emailed. Maids appear as an id. Verifier quotes are the redacted
         ones the model returned, never re-fetched raw text.</li>
-      <li><b>Refresh is manual.</b> No scheduled task, no standing unattended report — every one of the six specs says
+      <li><b>Refresh is manual.</b> No scheduled task, no standing unattended report — every one of the seven specs says
         so, and a standing warehouse process belongs to the ERP and Data teams.</li>
     </ul></div>
   </div>`;

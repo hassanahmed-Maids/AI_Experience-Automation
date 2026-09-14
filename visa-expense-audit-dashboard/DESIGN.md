@@ -1,7 +1,7 @@
 # Visa Expense Audit — consolidated dashboard design
 
 **For:** Police & Control auditors · **Built on:** Snowflake (view layer + Streamlit-in-Snowflake app)
-**Consolidates:** six audit specs covering the visa-expense chain in `Visa_Process_Audit_Flow.pdf`
+**Consolidates:** seven audit specs covering the visa-expense chain in `Visa_Process_Audit_Flow.pdf`
 **Date:** 2026-09-14 · **Author:** Hassan Ahmed, P&C
 **Interface mockup:** https://claude.ai/code/artifact/24a78ced-ae66-4e92-a646-14161af9ea70
 
@@ -11,9 +11,11 @@
 > never executed* — see §9. The ticket pack that carries it is still to be drafted, and
 > **DNA-9529 / DNA-9530 (the earlier R-visa pair) were withdrawn on 2026-09-06** for being
 > "raised prematurely, before the requesting team had signed off the spec", so the pack must cover
-> only audits whose specs have cleared. On that test today: ILOE v2 ("nothing blocking") and
-> medical v4 (gate passed) are clear; entry visa v1 is a rebuilt draft; LAWP v3 has never been
-> through the spec-auditor gate; E-ID v1 has nine majors open; R-visa v6 has §6 decisions outstanding.
+> only audits whose specs have cleared. On that test today: **change of status v5 is APPROVED by
+> Abdullah Mahdi (2026-09-03) and explicitly "ready for the Snowflake team"** — the strongest
+> candidate to file first; ILOE v2 says "nothing blocking" and medical v4 passed its gate; entry
+> visa v1 is a rebuilt draft; LAWP v3 has never been through the spec-auditor gate; E-ID v1 has
+> nine majors open; R-visa v6 has §6 decisions outstanding.
 
 ---
 
@@ -40,16 +42,17 @@ The six:
 | **Medical** | Phase 3 — medical fitness test | `SPEC_medical_from_visa_expenses_v1` (v4) | one fee, one maid, one visa request |
 | **ILOE** | Phase 3 — ILOE subscription + fines | `SPEC_iloe_checker_v2` | finding (payment or loan) |
 | **R-visa** | Phase 3 — residence visa | `Rvisa_Duplicate_Payments_v6` | case = (`VISA_REQUEST_ID`, `PURPOSE`) |
+| **Change of status** | Phase 2 — change of visa status, AED 575.65 + fine | `Change_of_Status_v5` **(approved)** | one Change of Status transaction |
 | **E-ID** | Phase 3 — Emirates ID | `SPEC_e_id_audit_v1` | transaction / pair / maid, per sub-audit |
 
 ---
 
 ## 2. The shape of the page
 
-Eight tabs. Seven of them an auditor works; one proves the report is honest.
+Nine tabs. Eight of them an auditor works; one proves the report is honest.
 
 ```
-┌ Portfolio ┬ LAWP ┬ Entry visa ┬ Medical ┬ ILOE ┬ R-visa ┬ E-ID ┬ Assurance ┐
+┌ Portfolio ┬ LAWP ┬ Entry visa ┬ Change of status ┬ Medical ┬ ILOE ┬ R-visa ┬ E-ID ┬ Assurance ┐
 ```
 
 **Every audit tab has the same four bands, in the same order**, so an auditor learns one
@@ -132,7 +135,8 @@ the row, and the six specs each answer that in their own words. That answer beco
 | `ACTION_OWNER` | Rows | The action |
 |---|---|---|
 | Visa team | entry visa M2, medical M1, LAWP M5 | File / re-file / chase the government refund claim |
-| Payroll — charge the maid | ILOE R2, R3; e-ID fines & CC replacements | Raise the missing loan, or chase the stalled one |
+| Payroll — charge the maid | ILOE R2, R3; e-ID fines & CC replacements; change of status R5 | Raise the missing loan, or chase the stalled one |
+| Client billing | change of status R3 (MV fines above AED 300) | Bill the client for the overstay fine the company paid |
 | MV client billing | e-ID MV replacements | Blocked until the client recharge route is ingested (e-ID N1) |
 | P&C | every "paid twice" row; ILOE R4 | Find out how it happened; there is no claim to file |
 | Engineering | medical (robot), R-visa S1 (re-payer defect) | The finding is a process defect, and it recurs |
@@ -166,6 +170,7 @@ This is the single most surprising thing about consolidating them, and it must b
 |---|---|---|
 | LAWP | reservoir entries Sep 2025 – Jul 2026 | `CREATION_DATE` of the work-permit fee (never resets) |
 | Entry visa | applications from 2025-09-05 | `VISAREQUESTEXPENSES.CREATION_DATE` — the **application** date, never the posting date |
+| Change of status | one closed month (July 2026 worked); live era from 2025-12-19 | `TRANSACTIONS.TRANSACTION_DATE`, and the maid's CC/MV type **on that date** from the type log |
 | Medical | fees Jan 2025 – Sep 2026 | `CREATION_DATE` of the medical fee |
 | ILOE | all history from 2024-02-10 | `TRANSACTION_DATE` (payments) / `BALANCE_DATE` (loans) |
 | E-ID | 12 months to 2026-08-31 | `TRANSACTION_DATE` |
@@ -324,6 +329,9 @@ why at any other period.
 | Entry visa | M3 paid twice | 105 charges / 99 maids · AED 74,580.90 |
 | Entry visa | tie-out, charge side | 913 = 697 + 216 |
 | Entry visa | tie-out, refund side | 892 = 701 + 119 + 70 + 2, cross-check 701 vs 697 |
+| Change of status | M12 money at risk | AED 9,325 · 6 red · 34 amber · 0 grey · 5.8% of 104 fines |
+| Change of status | tie-out 1 — base + fines + overage = M1 | 405,257.60 + 77,250.00 + 0.00 = 482,507.60 · variance 0.00 |
+| Change of status | tie-out 2 — every fine has a destination | 55,025 + 8,775 + 2,325 + 1,300 + 500 + 9,325 + 0 = 77,250 |
 | Medical | M1 / M2 / M3 | AED 39,910 · 173 cases · 11.6% latest quarter |
 | Medical | tie-out | 132+41+9+971 = 1,153 · AED 273,010 |
 | ILOE | R2 / R3 / R4 | 1,530 · AED 575,891.27 / 364 · AED 82,138.25 / 6 · AED 864.58 |
@@ -351,8 +359,8 @@ Priced honestly, on the front page. Derived by walking every check in
 | Entry visa | no duplicate payments | entry visa M3 | ✅ |
 | Entry visa | partial refund claimed on rejection | entry visa M2 | ✅ |
 | Entry visa | correct inside/outside type | entry visa M4 | ✅ (reason column, by ruling) |
-| **Change of status (AED 572)** | no duplicate payments | — | 🔴 **no spec exists** |
-| **Change of status (AED 572)** | fine responsibility | — | 🔴 **no spec exists** |
+| Change of status | no duplicate payments | Change of status R1 | ✅ |
+| Change of status | fine responsibility | Change of status R3 / R5 / R6 | ✅ — MV to the client above AED 300, CC to the maid's loan above AED 200 |
 | ILOE | no duplicate payments | ILOE R1 | ✅ (informational, by ruling) |
 | ILOE | fine responsibility | ILOE R2/R3/R4 | ✅ |
 | Medical | no duplicate payments | medical audit 2 | ✅ (low-volume monitor) |
@@ -377,6 +385,9 @@ Priced honestly, on the front page. Derived by walking every check in
   replacement cases, AED 58,649.84, can be neither cleared nor condemned.
 - **Entry visa: nothing before 2025-09-05 can be audited** — no dated rejection exists earlier.
 - **Medical: `VISAREQUESTSNOTES` has no primary key** — note citations use a surrogate.
+- **Change of status: M1 and M8 have never been reconciled against the approved P&L lines** —
+  `OPENFLOW_DB` is not authorised under `MONEY_CONTROL_ROLE` (O3). And two of its ten rules
+  (R5, R10) rest on aggregates rather than cases read one by one (O10).
 
 ---
 
