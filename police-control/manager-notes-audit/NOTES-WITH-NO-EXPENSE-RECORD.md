@@ -68,7 +68,65 @@ question did not surface. One follow-up owed.
 Full answer: `evidence-machine-notes-conv46380.md`.
 
 
-## ✅ ALL TEN ATTRIBUTED (ask-the-code session 46381) — 99.93% of the money
+
+## 🔴 THE CODE ANSWER FAILED VERIFICATION ON THE THREE BIGGEST TYPES (2026-09-14)
+
+Grouping expense-less additions by their actual `NOTE_REASON` and mapping each to the predicted
+code path: **3 of 6 predicted strings verified; the three largest types did not match at all.**
+**~AED 3.05m is created by paths ask-the-code did not identify.**
+
+**VERIFIED** (which is what makes the failures credible):
+- Prorated salary → `_ProratedSalariesTransaction` — 619 notes, exact string match
+- Last Day CC Switch → `PayrollAuditTodoService` — 213 notes, exact
+- Office Work → `PayrollGroupService` — every "She has worked for N days..." row
+
+**FAILED — Airfare Ticket (AED 2.19m).** The code said `ScheduledAnnualVacation` AfterCreate.
+Production says, on 1,072 notes / AED 1,923,000, verbatim:
+> "Auto added by the system when the housemaid passes **Upload The e-Residency step**"
+
+An e-Residency/visa step, not a vacation record. A different creator exists.
+
+**FAILED — MV Prorated Salary (AED 803k), and it is not proration.** Every narrative reads:
+> "**Last MV Salary for a Cancelled Pre-collected Contract** from 2026-08-01 until 2026-08-31"
+
+A cancelled pre-collected contract. This explains the business-hours fingerprint exactly: a
+contract cancellation is a HUMAN act and the note follows it. The earlier "two prorated heads,
+two mechanisms" hypothesis was right that they differ, wrong about what the second one is.
+
+**FAILED — Forgive Deduction (AED 53.7k).** Neither `Automatic Addition to Cover Deduction
+Limit` nor `Cover Negative Salary` appears ONCE in the expense-less set. The actual string is
+`Forgiveness for 2026-06-14` — one per calendar date, AED 18-633, several maids per date. Reads
+as unpaid-day forgiveness (`HousemaidUnpaidDayService` was named on the MANUAL path).
+
+### 🔴 FINDING — airfare entitlement dates are moved BY HAND, recorded only in free text
+
+A large share of airfare narratives carry an appended override:
+> "... / Postponed till she completes 22 months" · "... / DM requested to release now before
+> completing 22 months" · "... / Approved by Medhat to release earlier todo/657202" ·
+> "... / Requested by delighters to release it earlier" · "... / requested by the RBs to be
+> released earlier" · "... / Changed the date as exception from Maid retention team"
+
+So the AED 2.19m "automatic" type is **auto-created, then manually postponed or released early**
+by Delighters, the Delighters Manager, MV Resolvers, Retention and named individuals — with **no
+structured field for the override, no approver field, and no rule**. This is the mechanism behind
+the airfare findings already confirmed (AED 49,500 duplicates; the AED 3,000 guard failure).
+
+### 🔴 FINDING — a different payment rides the Airfare head
+
+At least 18 notes / ~AED 32,500 are booked as `Airfare Ticket` but read "Approved renewal bonus
+upon the switch to MV", "CC converted to MV, approved by switch to MV team", "MV Resolvers
+requested to release AED 1500 as an exception". Mis-categorised at the head, so any airfare rule
+tested against them is testing the wrong thing.
+
+### Correction — the signing bonus is NOT a separate programme
+
+The two narratives are "X was referred by Y" (the REFERRER's bonus) and "Signing bonus for being
+referred by Y" (the REFERRED maid's). Two halves of the SAME referral scheme, written by two code
+paths. The previous entry read "driven from recruitment" as a different programme; it is not.
+
+Re-asked with the verbatim strings: ask-the-code session in `evidence-machine-notes-strings.md`.
+
+## ⚠️ SUPERSEDED IN PART — ALL TEN ATTRIBUTED (session 46381) — see the verification failure above
 
 **AED 3,973,992 of AED 3,976,776 now has a named code path and an owning function.**
 Remaining: AED 2,784 (7 machine Salary Dispute notes + 1 MV Extra Salary).
