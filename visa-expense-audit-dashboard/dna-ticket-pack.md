@@ -6,21 +6,22 @@ https://claude.ai/code/artifact/24a78ced-ae66-4e92-a646-14161af9ea70
 
 ---
 
-## What is being filed, and what is deliberately held
+## What is being filed
 
 `DNA-9529` / `DNA-9530` were graded **Ready** by the intake bot and withdrawn by Hassan Okasha
 the same day, reason one being *"raised prematurely, before the requesting team had signed off
-the spec it is built from."* This pack applies that test to all seven specs:
+the spec it is built from."* That risk is answered here by **stating each spec's gate position in
+the ticket that carries it**, rather than by leaving specs out:
 
-| Spec | Gate status | In this pack? |
+| Spec | Gate position | Carried by |
 |---|---|---|
-| **Change of status v5** | ✅ APPROVED 2026-09-03, *"ready for the Snowflake team"* | **Yes** |
-| **ILOE v2** | ✅ *"Nothing blocking"* | **Yes** |
-| **Medical v4** | ✅ Gate run; 11 of 15 findings applied, 4 rejected with evidence | **Yes** |
-| **Entry visa v1** | 🟠 Rebuilt draft on the gate's findings; O2–O7 open, none blocking | **Yes** |
-| **LAWP v4** | 🔴 Gate ran on **v1 only** — v2, v3 and v4 never gated; v4 adds 3 rules, 4 metrics | **Held** |
-| **E-ID v2** | 🔴 Gate covers **v1 only**; v2 adds a fourth audit. Its own open item 7 says re-run | **Held** |
-| **R-visa v7** | 🔴 Two of three flowchart legs read *SPECIFIED, NOT MEASURED*. Its own §0.7: *"the corrected DNA pair cannot be raised on this"* | **Held** |
+| **Change of status v5** | ✅ APPROVED 2026-09-03, *"ready for the Snowflake team"* | ①A |
+| **ILOE v2** | ✅ *"Nothing blocking"* | ①A |
+| **Medical v4** | ✅ Gate run; 11 of 15 findings applied, 4 rejected with evidence | ①A |
+| **Entry visa v1** | 🟠 Rebuilt draft on the gate's findings; O2–O7 open, none blocking | ①A |
+| **LAWP v4** | 🟠 Gate ran on **v1 only** — v2, v3 and v4 never gated; v4 adds 3 rules, 4 metrics | ①B, R1–R17 now · R18–R20 on the gate |
+| **E-ID v2** | 🟠 Gate covers **v1 only**; v2 adds a fourth audit. Its own open item 7 says re-run | ①B, audits 1–3 now · M8 on the gate |
+| **R-visa v7** | 🔴 Two of three flowchart legs read *SPECIFIED, NOT MEASURED* | ①B, T1–T9 now · the rest on ④ |
 
 **All seven audits are in the pack, at the requestor's direction (2026-09-14).** They are split
 across two AE tickets by readiness rather than held back, so nothing waits and the gate status
@@ -88,7 +89,7 @@ Everything the model reads is already in `BA_VIEWS` and verified by the specs' o
 | DomainOnboarding | None — VISA, MONEY_CONTROL, HOUSEMAID_MANAGEMENT, CLIENT_MANAGEMENT and SALES silver schemas are all already onboarded |
 | BusinessOwner | Hassan Ahmed, Police & Control |
 | Dependencies | Blocks ②. Ingestion asks in ③ are **non-blocking** — each degrades one audit's coverage, none stops the build |
-| OutOfScope | Office staff and Dubai expat staff, in every audit. LAWP, E-ID and R-visa (held — see the pack header). The AI verifiers: the model **reads** a verdict table, it does not run a model |
+| OutOfScope | Office staff and Dubai expat staff, in every audit. LAWP, E-ID and R-visa — **carried by sibling ticket ①B**, not out of the programme. The AI verifiers: the model **reads** a verdict table, it does not run a model |
 | References | `Change_of_Status_v5.md` · `SPEC_iloe_checker_v2.md` · `SPEC_medical_from_visa_expenses_v1.md` (v4) · `SPEC_entry_visa_audit_v1.md` · `DESIGN.md` · mockup above |
 
 ## 🔴 Metric ids are namespaced, and this is not cosmetic
