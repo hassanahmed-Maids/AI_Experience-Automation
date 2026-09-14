@@ -766,3 +766,44 @@ Unclaimed cancellations average **AED 667 of charge** (974,448 ÷ 2,538 = 384 re
 retention). That is close to the **372.50** inside-country band, not the 1,022.50 outside-country one.
 Whatever causes the claim to be skipped is more common on inside-country cases — a lead worth
 following when the check is built.
+
+---
+
+## ⚠️ Correction — the band↔location mapping was asserted, never tested
+
+Prompted by a question I could not answer cleanly: *if she is already inside the UAE, why is there an
+entry-visa payment at all?*
+
+**The answer is that there always is one.** The entry permit is the legal instrument authorising a
+new residence application, not a plane ticket, so every new sponsorship needs one wherever the maid
+is standing. What differs is activation — a maid arriving from abroad activates it by entering on it;
+a maid already here cannot, so it is activated through **change of status**. That is why the two fees
+coexist and why change of status sits on one branch only.
+
+🔴 **But I have been writing "372.50 = inside-country" as established fact,** in the artifact's fee
+table, in D9's own comments, and in the explanatory paragraph. It is an inference and it was never
+tested. The tell is in the ERP's own vocabulary: the cheaper purpose is named
+`ENTRY_VISA_LESS_THAN_1000` — **after its price, not after the maid's location.** Reading location out
+of it is exactly the circularity recorded as check C's blocker, which I then leaned on anyway.
+
+| claim | status |
+| --- | --- |
+| Two price bands exist (372.50 / 1,022.50 families) | ✅ measured |
+| `isInsideUae()` decides the workflow branch | ✅ read from the code |
+| That value is computed at runtime and never stored | ✅ confirmed — 118 columns, none holds it |
+| The purpose label is derived from the amount | ✅ — this is why check C is blocked |
+| **The cheap band is the inside-country one** | ⚠️ **INFERRED, NOT TESTED** |
+
+The nationality correlation is consistent with the inference but was already ruled out as evidence —
+it is recruitment geography.
+
+✅ **This raises D9's value.** It was written as a positive control on the code reading; it is more
+than that. Change of status is reached *through* the `isInsideUae()` branch, a source owing nothing
+to the amount — so a clean pairing with one band is **the first non-circular evidence for the
+band↔location mapping**, arriving from a third direction. It does not unblock check C's per-case
+test (that still needs the location stored), but it would turn the mapping from assumption into
+measurement. A muddy split means the band means something else and several statements here need
+rewriting.
+
+Artifact corrected (v3): the fee table now names the bands "higher" and "lower" rather than by
+location, and states the permit-and-activation mechanism plus the open mapping question explicitly.
