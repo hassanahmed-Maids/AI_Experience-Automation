@@ -79,15 +79,18 @@ Two rules about that layout are load-bearing and are implemented, not just descr
 - Four exposure tiles (§3), never one total
 - The **audit × exposure-class matrix** — the whole portfolio in one grid, money and cases
 - One chart: exposure by audit, stacked by class, direct-labelled
-- **Coverage map**: every check in `Visa_Process_Audit_Flow.pdf` against whether a built
-  check covers it (§6). The gaps are on the front page, not in an appendix.
-- Control strip: green/red per audit for tie-out, baseline drift, and guard failures
+
+Deliberately **not** on this tab: the coverage map. Exposure and coverage answer different
+questions — *where is the money* against *what is nobody watching* — and an auditor opening
+the portfolio is working the first. Coverage lives on Assurance, with the controls.
 
 ### Assurance tab
 
 Every guard the six specs demand, in one place, each with a pass/fail and an as-of stamp:
 coverage waterfalls, the two-sided tie-outs, head guards, match rates, unclassified counts,
-loan-snapshot dedupe checks, and the baseline-drift table (§5).
+loan-snapshot dedupe checks, and the baseline-drift table (§5). Then the **coverage map** —
+every check in `Visa_Process_Audit_Flow.pdf` against whether a built check covers it (§6) —
+and the named blind spots inside the checks that *are* built.
 
 ---
 
