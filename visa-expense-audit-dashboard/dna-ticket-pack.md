@@ -477,18 +477,28 @@ screenshot into a finding, and colour vision deficiency. The flag drives a left-
 ## Also required
 
 - **CSV export** of row-level detail, excluding every column in ①'s Sensitivity list.
-- **Drill-down** per row, to the spec's own drill-down definition. **No free-text note body is
-  rendered** — the reader follows the maid-id link into ERP to read notes.
+- **Drill-down** per row, to the spec's own definition. Where a case carries an AI verdict, the
+  drill-down shows the **model-redacted quote** it rests on — redaction happens at the model, before
+  the text leaves it, and without the quote a verdict cannot be checked. **The quote is never in the
+  CSV export**, and **no raw free-text note body is ever rendered** — the reader follows the maid-id
+  link into ERP to read notes.
 - **Refresh is manual, on demand.** No scheduled task, no stream, no standing unattended run.
   Every one of the specs says so independently.
 - **Provenance**: sources and as-of stamp available on the page.
 
-## Open before this ships
+## The assurance strip — required, one per audit tab
 
-**Where does the assurance surface live?** The tie-outs, the baseline-drift control and the
-coverage tables currently have no home. Every spec requires its tie-out be **displayed**, and a
-non-zero variance is itself a finding. Options: a collapsed strip per audit tab, a separate report,
-or a monthly sign-off sheet outside the dashboard. → Hassan Ahmed.
+Every spec requires its tie-out be **displayed**, and a non-zero variance is itself a finding. It
+lives as a **collapsed strip at the top of each audit tab**:
+
+- **Everything ties** → one quiet grey line: `All controls pass · as of <timestamp>`. Expandable.
+- **Anything fails** → the strip opens by itself as a **red bar naming the failing control and its
+  variance**, and stays open. It cannot be dismissed.
+
+The strip carries that audit's tie-outs with their variances, its published guard counts (match
+rates, head guards, unclassified counts, loan-dedupe checks), and its comparison against the spec's
+measured baseline. A dashboard that computes a tie-out and shows it nowhere lets a broken check read
+as a working one.
 
 ## Done when
 
@@ -499,6 +509,10 @@ or a monthly sign-off sheet outside the dashboard. → Hassan Ahmed.
 5. Each flag renders its word and glyph with colour disabled.
 6. CSV export contains no column from the Sensitivity list.
 7. The grey count is visible on every audit tab even when the flag filter excludes it.
+8. The assurance strip renders on all seven audit tabs, and a forced non-zero variance opens it as a
+   red bar that cannot be dismissed.
+9. A verifier quote appears in the drill-down and in no export.
+10. Review status and assignee are editable, and changing either leaves every KPI tile unchanged.
 
 ---
 ---
