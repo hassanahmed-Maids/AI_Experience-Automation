@@ -55,10 +55,10 @@ The seven:
 
 ## 2. The shape of the page
 
-Nine tabs. Eight of them an auditor works; one proves the report is honest.
+Eight tabs — a portfolio, then one per audit.
 
 ```
-┌ Portfolio ┬ LAWP ┬ Entry visa ┬ Change of status ┬ Medical ┬ ILOE ┬ R-visa ┬ E-ID ┬ Assurance ┐
+┌ Portfolio ┬ LAWP ┬ Entry visa ┬ Change of status ┬ Medical ┬ ILOE ┬ R-visa ┬ E-ID ┐
 ```
 
 **Every audit tab has the same four bands, in the same order**, so an auditor learns one
@@ -93,18 +93,26 @@ Two rules about that layout are load-bearing and are implemented, not just descr
 There is **no grand total across the seven** — the reason in §3.1 stands, it is just carried by
 the absence of a total rather than by a caption explaining one.
 
-Deliberately **not** on this tab: the **UNDECIDED class**, the **coverage map**, and the
-per-tab **provenance line** and **tie-out bars**. Undecided money is still computed and still
-shown on each audit's own tab; coverage and the tie-outs live on Assurance. The portfolio is
-worked, not read, so it carries figures and nothing that explains figures.
+Deliberately **not** on this tab: the **UNDECIDED class**, and the per-tab **provenance line**
+and **tie-out bars**. Undecided money is still computed and still shown on each audit's own tab.
+The portfolio is worked, not read, so it carries figures and nothing that explains figures.
 
-### Assurance tab
+### ⚠️ There is no assurance surface, and that is a live risk
 
-Every guard the seven specs demand, in one place, each with a pass/fail and an as-of stamp:
-coverage waterfalls, the two-sided tie-outs, head guards, match rates, unclassified counts,
-loan-snapshot dedupe checks, and the baseline-drift table (§5). Then the **coverage map** —
-every check in `Visa_Process_Audit_Flow.pdf` against whether a built check covers it (§6) —
-and the named blind spots inside the checks that *are* built.
+An Assurance tab was built and then removed at the requestor's direction. It carried four things
+this document still specifies and the dashboard no longer shows anywhere:
+
+1. **The tie-outs** (§5 and each spec's own). Every one of the seven specs says a report that does
+   not tie is itself a finding. Nothing on the page now displays a variance.
+2. **The baseline-drift table** (§5) — spec value against this run, the control that makes a wrong
+   build visible on day one.
+3. **The coverage map** (§6) — which checks in the flow PDF are built, and the named blind spots.
+4. The guards each spec demands be *published* — match rates, head guards, unclassified counts,
+   loan-snapshot dedupe checks.
+
+**The build must still compute all four.** Where they surface is now an open question for the
+requestor: a collapsed strip on each audit tab, a separate report, or a monthly sign-off sheet
+outside the dashboard. What is not available is not computing them.
 
 ---
 

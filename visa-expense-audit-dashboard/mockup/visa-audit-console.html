@@ -167,26 +167,8 @@ tr.f-GREEN  td:first-child{border-left-color:var(--good)}
 .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
 .sw{width:11px;height:11px;border-radius:2px;display:inline-block}
 
-.cov{margin-top:12px;overflow-x:auto;border:1px solid var(--rule);border-radius:4px;background:var(--surface)}
-.cov td:first-child{border-left:0}
-.st{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:700}
-.st-ok{color:var(--good)} .st-part{color:#8a6005} .st-no{color:var(--red)}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st-part{color:var(--amber)}}
-:root[data-theme=dark] .st-part{color:var(--amber)}
 
 .clock{margin-top:12px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:15px 16px 12px}
-.blind{margin-top:12px;border:1px solid var(--rule);border-left:3px solid var(--grey);background:var(--surface);
-  border-radius:3px;padding:12px 15px}
-.blind ul{margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:12.5px}
-.blind li{margin-bottom:5px}
-.blind li b{color:var(--ink);font-weight:600}
-
-.panel{margin-top:12px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:14px 16px}
-.panel p{margin:0 0 9px;color:var(--ink-2);font-size:12.5px;max-width:82ch}
-.panel p:last-child{margin-bottom:0}
-.rule-list{list-style:none;margin:10px 0 0;padding:0}
-.rule-list li{padding:9px 0;border-top:1px solid var(--rule);font-size:12.5px;color:var(--ink-2);max-width:88ch}
-.rule-list li b{color:var(--ink);font-weight:600}
 
 footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-3);max-width:82ch}
 @media (max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}}
@@ -252,30 +234,6 @@ const PORTFOLIO_RAW = [
 const PORTFOLIO = PORTFOLIO_RAW.slice().sort((a,b)=>
   ((b.rec||0)+(b.lost||0)) - ((a.rec||0)+(a.lost||0)));
 const TOT = {rec:852113.44,recN:2300,lost:421570.38,lostN:510,unv:324};
-
-const COVERAGE = [
-  ['Phase 1 · LAWP reservoir','Over 60 days in the pool is a loss','LAWP R5 / R6','part','Deviates deliberately — the loss falls at 120 days; 60–120 is the recoverable worklist. Ruled 2026-09-12'],
-  ['Phase 1 · LAWP reservoir','Reuse confirmed, otherwise a loss','LAWP R2 / R17','ok','Built'],
-  ['Phase 1 · LAWP reservoir','Replacement maid used it or passed it on','LAWP R2 / R13','ok','Built'],
-  ['Phase 1 · LAWP reservoir','Duplicate work-permit / MOHRE / labour-card payments','LAWP R20 / R20a → M13, M14','ok','Built in v4 — MOHRE routed to the process owner, not red'],
-  ['Phase 1 · LAWP reservoir','Maids with duplicated payments appearing in the LAWP table','LAWP R18 → R19 → M11, M12','ok','Built in v4'],
-  ['Phase 2 · Entry visa','No duplicate payments','Entry visa M3','ok','Built'],
-  ['Phase 2 · Entry visa','Partial refund claimed on a turn-down','Entry visa M2','ok','Built'],
-  ['Phase 2 · Entry visa','Correct inside / outside type','Entry visa M4','ok','Built as a reason column, by ruling'],
-  ['Phase 2 · Change of status','No duplicate payments','Change of status R1','ok','Built — the same maid charged twice in the month, or in the month before'],
-  ['Phase 2 · Change of status','Fine responsibility','Change of status R3 / R5 / R6','ok','Built — MV to the client above AED 300, CC to the maid\'s loan above AED 200'],
-  ['Phase 3 · ILOE','No duplicate payments','ILOE R1','ok','Built as informational, by ruling'],
-  ['Phase 3 · ILOE','Fine responsibility','ILOE R2 / R3 / R4','ok','Built'],
-  ['Phase 3 · Medical','No duplicate payments','Medical audit 2','ok','Built as a low-volume monitor'],
-  ['Phase 3 · Medical','Refund claimed within 90 days','Medical audit 1','ok','Built'],
-  ['Phase 3 · R-visa','No duplicate payments','R-visa T1 / bucket A','ok','Built'],
-  ['Phase 3 · R-visa','1-year vs 2-year matches contract and validity','R-visa §3.8','part','Partial — 25 cases amber, needs the issued validity read'],
-  ['Phase 3 · R-visa','Fine responsibility','R-visa §2.6','part','Partial — the finding is defined, no rule is built'],
-  ['Phase 3 · E-ID','No duplicate payments','E-ID M2','ok','Built'],
-  ['Phase 3 · E-ID','1-year vs 2-year matches contract and validity','E-ID M8','ok','Built in v2 — a monitor, 58 cases, no money figure'],
-  ['Phase 3 · E-ID','Lost card — whose fault, charge her loan','E-ID M4','ok','Built'],
-  ['Phase 3 · E-ID','Fine responsibility','E-ID M3','ok','Built'],
-];
 
 /* ============================ AUDIT TABS ============================ */
 const AUDITS = {};
@@ -555,7 +513,7 @@ const CASE_N = Object.fromEntries(PORTFOLIO_RAW.map(p=>
   [p.code, I((p.recN||0)+(p.lostN||0)+(p.unv||0))]));
 const TABS = [['PORTFOLIO','Portfolio','—'],['LAWP','LAWP',CASE_N.LAWP],['ENTRY_VISA','Entry visa',CASE_N.ENTRY_VISA],
   ['COS','Change of status',CASE_N.COS],['MEDICAL','Medical',CASE_N.MEDICAL],['ILOE','ILOE',CASE_N.ILOE],['RVISA','R-visa',CASE_N.RVISA],
-  ['EID','E-ID',CASE_N.EID],['ASSURANCE','Assurance','—']];
+  ['EID','E-ID',CASE_N.EID]];
 let active = 'PORTFOLIO';
 
 const tabBar = document.getElementById('tabs');
@@ -723,140 +681,9 @@ function portfolioView(){
   </div>`;
 }
 
-function assuranceView(){
-  const controls = [
-    ['LAWP','Tie-out — M2+M3+M4+M5+M6 = M1','pass','variance 0 on 7,313 payments'],
-    ['LAWP','Grain control — payments vs bundles','pass','202 / 232, both displayed'],
-    ['LAWP','Reconcile against LOST_VISA_EXPENSES','fail','Open item 3 — 17 cases / AED 22,008.67 against 50. Not adjudicated'],
-    ['LAWP','R18 duplicate test keys on AMOUNT EQUALITY within AED 0.01','pass','7,049 of the 7,171 different-amount pairs are one fee booked under two purposes. A rule that merely counted rows would red AED 5.24M of correctly-paid money'],
-    ['LAWP','M11–M14 kept as a separate total, never added to M7','pass','One payment can sit in both. Two headline figures side by side: unused paperwork, and paid twice'],
-    ['LAWP','Spec re-read against the flow PDF (§9)','warn','Two of Phase 1\'s five checks had never been specced — v1 cited the PDF but took its requirements from a Google Doc instead. Found 2026-09-14'],
-    ['E-ID','Visa term deduplicated to one per maid before the join','pass','HOUSEMAIDS_VISA_INFORMATION is one row per REQUEST — the same query returned 1,682 charges for 82 maids before the dedupe and 95 after'],
-    ['E-ID','Spec re-read against the flow PDF (§9)','warn','Audit 4 was missing from a spec that had been gated twice. A missing rule leaves no hole to find'],
-    ['E-ID','Re-run spec-auditor on v2','fail','The twice-run clearance covers v1 only; v2 adds a fourth audit (open item 7)'],
-    ['Entry visa','Tie-out — charge side','pass','913 = 697 + 216'],
-    ['Entry visa','Tie-out — refund side','pass','892 = 701 + 119 + 70 + 2'],
-    ['Entry visa','Cross-check — the tripwire','warn','701 vs 697 — the 4-row excess is listed case by case, never absorbed'],
-    ['Change of status','Tie-out 1 — base + fines + unclassified overage = M1','pass','405,257.60 + 77,250.00 + 0.00 = 482,507.60 · variance 0.00 in all ten live months'],
-    ['Change of status','Tie-out 2 — every fine has a destination','pass','55,025 + 8,775 + 2,325 + 1,300 + 500 + 9,325 + 0 = 77,250 · variance 0.00. Seven terms; the seventh is zero but must exist or a grey case vanishes'],
-    ['Change of status','Loan table deduplicated on ID before any sum','pass','415 rows across 405 distinct ids. Un-deduplicated it produced a false AED 250 over-loan finding, shipped twice'],
-    ['Change of status','Float guard — FINE_CENTS, never TRANSACTION_AMOUNT − 575.65','pass','Without it R3 fires 35 times in July instead of 5, and BOTH tie-outs still read variance 0.00 while it happens'],
-    ['Change of status','Relief is a pool, spent once, earliest charge first','warn','One live test case — maid 110051, whose AED 2,050 waiver would otherwise fund AED 3,150 of relief (O7)'],
-    ['Change of status','Reconcile M1 and M8 against the approved P&L lines','fail','OPENFLOW_DB is not authorised under MONEY_CONTROL_ROLE — never reconciled (O3)'],
-    ['Medical','Tie-out — cases and AED','pass','1,153 cases · AED 273,010'],
-    ['Medical','Quarterly failure rate direction','fail','Risen five quarters running, 3.5% → 11.6%. A regression to escalate'],
-    ['ILOE','Tie-out — fines paid = charged + uncharged','pass','AED 1,163,242.82, variance 0.00'],
-    ['ILOE','Unclassified count','pass','47 payments, AED 4,173.74 — a rise here means the names changed again'],
-    ['R-visa','Coverage waterfall','pass','71,791 − 802 − 1,770 − 1 = 69,218'],
-    ['R-visa','Match rate (M11) ≥ 50%','pass','18 / 18 = 100%'],
-    ['R-visa','Chance baseline beside the observed rate','pass','12 of 18 refunds land on the exact day of the last payment'],
-    ['R-visa','Head guard — every EXPENSE_ID in the list','pass','Surplus head 779 carries 0 negatives'],
-    ['R-visa','Recovery Unknown — no maid id','warn','3 cases'],
-    ['R-visa','T7 line status — non-Added paid lines','pass','0 of 69,218'],
-    ['E-ID','Class tie-out re-adds to the ledger','pass','20,142 rows · AED 7,007,545.03 · variance AED 0.00'],
-    ['E-ID','Loan snapshot deduped before any sum','pass','169 loans across 257 rows'],
-    ['E-ID','MV client route (N1)','fail','No source in the warehouse. 131 cases cannot be scored'],
-  ];
-  const baseline = [
-    ['LAWP','M7 lost','202 payments · 232 bundles · AED 271,171.06'],
-    ['LAWP','M5 recoverable','45 payments · AED 63,897.92'],
-    ['Entry visa','M2 red','188 cases · AED 90,276.00'],
-    ['Entry visa','M3 paid twice','105 charges / 99 maids · AED 74,580.90'],
-    ['Medical','M1 / M2 / M3','AED 39,910 · 173 cases · 11.6%'],
-    ['Change of status','M12 money at risk','AED 9,325 · 6 red · 34 amber · 0 grey · 5.8% of 104 fines (July 2026)'],
-    ['Change of status','M1 / M7 / M8','AED 482,507.60 over 704 charges · AED 68,300 charged above the gate · AED 50,750 collected (74.3%)'],
-    ['ILOE','R2 / R3 / R4','1,530 / 364 / 6 · AED 575,891.27 / 82,138.25 / 864.58'],
-    ['R-visa','Still out (M3)','AED 16,853.50 · 45 confirmed · 46 blocked · 69,033 clean'],
-    ['R-visa','Pair classifier B median gap','716 days against a 730-day term'],
-    ['R-visa','Rates, each with its denominator','0.13% of requests paid more than once (90 of 69,124) · 0.066% of all payments are a duplicated fee (46 of 69,218)'],
-    ['E-ID','M7 red','AED 57,390.34 · 149 cases'],
-    ['E-ID','M8 visa-term monitor','58 of 95 one-year-visa maids charged AED 340 or more'],
-    ['LAWP','M12 duplicate, never in the reservoir','2,427 pairs · 1,577 maids · AED 242,379.50 all-time'],
-    ['LAWP','M13 paid again despite reuse (permit + labour card)','879 events · AED 242,867.47 all-time'],
-    ['E-ID','Class tie-out','20,142 rows · AED 7,007,545.03'],
-  ];
-  const st = s => s==='pass' ? '<span class="st st-ok">✓ Pass</span>'
-              : s==='warn' ? '<span class="st st-part">▲ Watch</span>'
-              : '<span class="st st-no">● Open</span>';
-  return `
-  <div class="band">
-    <div class="band-h"><h2>Controls</h2><span class="note">Every guard the seven specs demand, in one place.
-      A report that does not tie is itself a finding, so these sit on the page rather than in a corner of it.</span></div>
-    <div class="cov"><table>
-      <thead><tr><th>Audit</th><th>Control</th><th>Status</th><th>Reading</th></tr></thead>
-      <tbody>${controls.map(([a,c,s,r])=>`<tr><td>${a}</td><td class="wrap" style="color:var(--ink)">${c}</td>
-        <td>${st(s)}</td><td class="wrap">${r}</td></tr>`).join('')}</tbody>
-    </table></div>
-  </div>
-
-  <div class="band">
-    <div class="band-h"><h2>Baseline drift</h2>
-      <span class="note">Each spec measured its own metrics on 12–14 Sep 2026. The build ships those measurements and
-        compares every run against them, so a wrong build is visible on day one rather than plausible for a quarter.</span></div>
-    <div class="cov"><table>
-      <thead><tr><th>Audit</th><th>Metric</th><th>Spec baseline</th></tr></thead>
-      <tbody>${baseline.map(([a,m,v])=>`<tr><td>${a}</td><td style="color:var(--ink)">${m}</td>
-        <td class="mono" style="font-size:11.5px;color:var(--ink-2)">${v}</td></tr>`).join('')}</tbody>
-    </table></div>
-    <p class="note" style="margin-top:8px">Valid only at the <em>Spec window</em> period. The seven specs measure over seven
-      different windows, so at any other period the comparison is disabled and says why — a different measurement is not
-      a discrepancy.</p>
-  </div>
-
-  <div class="band">
-    <div class="band-h"><h2>Coverage</h2>
-      <span class="note">Every check drawn in <em>Visa_Process_Audit_Flow.pdf</em>, against whether one is built.
-        Five are not.</span></div>
-    <div class="cov"><table>
-      <thead><tr><th>Process step</th><th>Check in the flow</th><th>Covered by</th><th>Status</th></tr></thead>
-      <tbody>${COVERAGE.map(([step,chk,by,s,txt])=>`<tr>
-        <td>${step}</td><td class="wrap" style="color:var(--ink)">${chk}</td>
-        <td class="mono" style="font-size:11.5px;color:var(--ink-2)">${by}</td>
-        <td class="wrap"><span class="st st-${s}">${s==='ok'?'✓ ':s==='part'?'▲ ':'● '}${txt}</span></td></tr>`).join('')}</tbody>
-    </table></div>
-    <div class="blind">
-      <div class="eyebrow">Named blind spots inside the built checks</div>
-      <ul>
-        <li><b>R-visa — 981 transactions</b> sit on R-visa heads with no visa line at all. 1.4% of the population,
-          ten times the finding set, and no test examines them.</li>
-        <li><b>E-ID — the MV client recharge route is not in the warehouse.</b> 131 MV replacement cases,
-          AED 58,649.84, can be neither cleared nor condemned until it is ingested.</li>
-        <li><b>LAWP — paperwork that never entered the reservoir is invisible</b>, and PAWP bundles cannot be
-          reliably excluded: the check scopes on a proxy, at 3.8–7.4% flag coverage.</li>
-        <li><b>Entry visa — nothing before 2025-09-05 can be audited.</b> The ERP records no dated rejection earlier.</li>
-        <li><b>Medical — <span class="mono">VISAREQUESTSNOTES</span> has no primary key</b>, so note citations use a
-          surrogate that can move between runs.</li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="band">
-    <div class="band-h"><h2>Rules this console holds itself to</h2></div>
-    <div class="panel"><ul class="rule-list">
-      <li><b>Nothing is clean by silence.</b> Grey means the check could not judge the case at all. It is counted and
-        shown beside the red count, never folded into clean, and a verifier that failed to run is counted apart from one
-        that read the text and found nothing.</li>
-      <li><b>Recovery never changes a verdict.</b> A refund cannot turn a red into a green — otherwise a team could make
-        a broken process look healthy by cleaning up after itself, and the control-failure count would fall while the
-        fault stayed put.</li>
-      <li><b>Workflow status is not a verdict</b> and never feeds a filter default that changes a metric.</li>
-      <li><b>Every price is era-bound.</b> There is not a single hardcoded fee anywhere: prices moved on 2025-08-11,
-        2026-01-01, 2023-05-17 and 2025-03-02 across these seven checks, and a constant bands an entire earlier period as
-        wrong.</li>
-      <li><b>Personal data never leaves the predicate.</b> Transaction descriptions, staff names and note text are read
-        to compute and are never shown, exported or emailed. Maids appear as an id. Verifier quotes are the redacted
-        ones the model returned, never re-fetched raw text.</li>
-      <li><b>Refresh is manual.</b> No scheduled task, no standing unattended report — every one of the seven specs says
-        so, and a standing warehouse process belongs to the ERP and Data teams.</li>
-    </ul></div>
-  </div>`;
-}
-
 function render(){
   const v=document.getElementById('view');
-  v.innerHTML = active==='PORTFOLIO' ? portfolioView()
-              : active==='ASSURANCE' ? assuranceView()
-              : auditView(active);
+  v.innerHTML = active==='PORTFOLIO' ? portfolioView() : auditView(active);
   v.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{
     active=b.dataset.go;
     [...tabBar.children].forEach(c=>c.setAttribute('aria-selected', c.dataset.k===active));
