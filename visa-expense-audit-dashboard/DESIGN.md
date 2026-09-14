@@ -11,17 +11,23 @@
 > never executed* — see §9. The ticket pack that carries it is still to be drafted, and
 > **DNA-9529 / DNA-9530 (the earlier R-visa pair) were withdrawn on 2026-09-06** for being
 > "raised prematurely, before the requesting team had signed off the spec", so the pack must cover
-> only audits whose specs have cleared. On that test today: **change of status v5 is APPROVED by
-> Abdullah Mahdi (2026-09-03) and explicitly "ready for the Snowflake team"** — the strongest
-> candidate to file first; ILOE v2 says "nothing blocking" and medical v4 passed its gate; entry
-> visa v1 is a rebuilt draft; LAWP v3 has never been through the spec-auditor gate; E-ID v1 has
-> nine majors open; R-visa v6 has §6 decisions outstanding.
+>only audits whose specs have cleared. On that test, as at 2026-09-14:
+>
+> | Spec | Gate status |
+> |---|---|
+> | **Change of status v5** | ✅ **APPROVED** 2026-09-03, "ready for the Snowflake team" — file this first |
+> | **ILOE v2** | ✅ "Nothing blocking" |
+> | **Medical v4** | ✅ Gate run, 11 of 15 findings accepted and fixed, 4 rejected with evidence |
+> | Entry visa v1 | 🟠 Rebuilt draft; open items O2–O7, none blocking |
+> | **LAWP v4** | 🔴 The gate ran on **v1 only**. v2, v3 and v4 have never been gated, and v4 adds three rules and four metrics |
+> | **E-ID v2** | 🔴 The gate covers **v1 only**; v2 adds a fourth audit. Its own open item 7 says re-run |
+> | R-visa v6 | 🔴 Draft — §6 decisions outstanding, and its predecessor pair was withdrawn |
 
 ---
 
 ## 1. What this is
 
-Six separate audit specs exist, each with its own report, its own grain, its own money
+Seven separate audit specs exist, each with its own report, its own grain, its own money
 semantics and its own tie-out. Each one is right on its own terms. Nobody can currently
 answer the questions an auditor actually asks across them:
 
@@ -29,11 +35,11 @@ answer the questions an auditor actually asks across them:
 - *How much of it can we still go and collect, and who collects it?*
 - *Which of these checks actually ran, and which parts of the process nothing is watching?*
 
-This dashboard answers those three, without flattening the six specs into a single
+This dashboard answers those three, without flattening the seven specs into a single
 number that would be false. **The hard part of consolidation is not the SQL — it is
 deciding what may legitimately be added together.** Section 3 is that decision.
 
-The six:
+The seven:
 
 | Audit | Process step | Spec | Canonical grain |
 |---|---|---|---|
@@ -56,7 +62,7 @@ Nine tabs. Eight of them an auditor works; one proves the report is honest.
 ```
 
 **Every audit tab has the same four bands, in the same order**, so an auditor learns one
-page and then knows six:
+page and then knows seven:
 
 ```
 1  KPI strip       3–5 tiles, each carrying its spec metric ID (M2, R3, M7 …)
@@ -84,7 +90,7 @@ Two rules about that layout are load-bearing and are implemented, not just descr
   into Recoverable / Lost / counted-not-valued. Clicking a card opens that audit's tab.
 - One chart: exposure by audit, stacked by class, direct-labelled
 
-There is **no grand total across the six** — the reason in §3.1 stands, it is just carried by
+There is **no grand total across the seven** — the reason in §3.1 stands, it is just carried by
 the absence of a total rather than by a caption explaining one.
 
 Deliberately **not** on this tab: the **UNDECIDED class**, the **coverage map**, and the
@@ -94,7 +100,7 @@ worked, not read, so it carries figures and nothing that explains figures.
 
 ### Assurance tab
 
-Every guard the six specs demand, in one place, each with a pass/fail and an as-of stamp:
+Every guard the seven specs demand, in one place, each with a pass/fail and an as-of stamp:
 coverage waterfalls, the two-sided tie-outs, head guards, match rates, unclassified counts,
 loan-snapshot dedupe checks, and the baseline-drift table (§5). Then the **coverage map** —
 every check in `Visa_Process_Audit_Flow.pdf` against whether a built check covers it (§6) —
@@ -130,7 +136,7 @@ we may not price" can never render the same.
 ### 3.2 Every case says who collects it
 
 An exposure class says what kind of money it is. The auditor still needs to know who works
-the row, and the six specs each answer that in their own words. That answer becomes a column:
+the row, and the seven specs each answer that in their own words. That answer becomes a column:
 
 | `ACTION_OWNER` | Rows | The action |
 |---|---|---|
