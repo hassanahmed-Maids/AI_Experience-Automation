@@ -70,6 +70,60 @@ Full answer: `evidence-machine-notes-conv46380.md`.
 
 
 
+
+## 🔴 2026-09-14 — WHAT THE ZERO-AMOUNT AIRFARE NOTES REVEALED
+
+### Correction to the override claim above: zeroing IS the cancellation mechanism
+
+The earlier entry said postponement/cancellation had "no structured record". **Too strong.** The
+AMOUNT going to **0** is the cancellation, and it is structured and queryable. Narratives confirm:
+"switch to MV team confirmed NOT to release renewal bonus", "RBs confirmed NOT to release",
+"Confirmed by Medhat not to release", "postponed till she completes 22 months", "MV to CC, invalid".
+
+What is genuinely missing is narrower: **the reason, the approver, and the audit row** — not the
+fact of the cancellation.
+
+### 🔴 FINDING — money paid OUTSIDE payroll is invisible to this audit
+
+~15 notes read "paid manually", "2000 dhs paid manually", "we've paid it manually based on request
+from DM in comp;477029". **The note is zeroed, so every measurement in this audit — all of which
+count note AMOUNT — sees nothing.** At 1,500-2,000 each that is roughly **AED 25,000-30,000 over
+24 months that is structurally unmeasurable from manager notes**, traceable only through a
+sentence. Any statement of the form "type X totals AED N" carries this blind spot.
+
+### 🔴 FINDING — ERP re-generates additions it has already paid
+
+Two notes say it outright:
+> "paid by ERP on Dec 8th, then ERP **re-generated the addition on Dec 15th secondary payroll**"
+> "ERP paid upon Nov 8th secondary payroll, **then listed the addition again on 14th**"
+
+A double-payment defect in the SECONDARY payroll run. Both were caught and zeroed **by a person**.
+So the duplicate risk is real — just not where A3c looked — and it is currently contained by
+manual vigilance rather than by a guard. This is the airfare duplicate story's actual ending.
+
+### A working manual duplicate control exists, undocumented
+
+Notes reading "Duplicated" / "duplicated" prove someone checks and zeroes. The control exists, it
+is human, and it is written down nowhere.
+
+### ⚠️ Ambiguity NOT resolved by assumption
+
+**65 notes dated 2026-08-17 to 2026-09-14 carry the BARE canonical string at amount 0**, no
+appended reason. Either cancellations with no comment, or entitlements created but not yet
+payable. The recency pattern favours the latter. Unresolved.
+
+### MV gate — the confound was real again, and the existing ledger figure holds
+
+| Verdict | Notes | AED |
+|---|---:|---:|
+| B — was CC when the entitlement was plausibly created (CONFOUND) | 18 | 32,500 |
+| **A — MV throughout the 5 months before the note: REAL gate breach** | **3** | **6,000** |
+
+86% confound — the same proportion that collapsed 137,500 -> 4,500. The ledger carries airfare MV
+at **AED 4,500**; this is consistent with it and slightly above. **Reconcile the two definitions
+before changing the figure — do not overwrite.** All three breaches fall on **2026-09-01**: one
+cluster, not a drift. Interval fan-out diagnostic returned 0, so the counts are sound.
+
 ## ✅ RESOLVED FROM THE ACTUAL STRINGS (ask-the-code session 46385)
 
 ### 1. THE AIRFARE ENTITLEMENT RULE, IN CODE (closes A4/A5 in RULES-TO-CONFIRM.md)
@@ -109,8 +163,9 @@ e-Residency step. It creates a `vacation_airfare` ScheduledAnnualVacation carryi
 4. `AuditorAction` logging fires **only** when the editing user holds position `payroll_auditor`
    AND `logActionRequired` is set — true on `customdelete`, **NOT on ordinary edits**.
 
-**So an airfare entitlement date can be moved, by anyone with the screen, with no structured
-record, no approver, and no audit row.** "Approved by Medhat", "DM requested", "todo/657202"
+**So an airfare entitlement date can be moved, by anyone with the screen, with no approver and no
+audit row.** ⚠️ *Narrowed 2026-09-14: a CANCELLATION is structured — the amount goes to 0. The
+reason, the approver and the audit row are what is missing.* "Approved by Medhat", "DM requested", "todo/657202"
 exist only because someone chose to type them. This is a control finding of a different KIND from
 the rest of this audit: not a wrong payment, but a rule anyone can waive with a sentence.
 
