@@ -17,9 +17,6 @@ seven audits is more than one ticket's worth — and both halves build against t
 ---
 ---
 
----
----
-
 # ①A Analytic Engineer Task — part 1
 
 > **Title:** `[1 of 2] Visa expense audit — consolidated silver model: shared layer plus four Police & Control audits`
