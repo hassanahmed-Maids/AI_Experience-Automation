@@ -104,3 +104,26 @@ External projects: `external-projects/liveout-webapp`, `contractidchecker`, `mmm
 
 ## Local code snapshot — FALLBACK ONLY (governance, 2026-07-10)
 A read-only ERP code snapshot may exist at `~/Desktop/magnamedia` (a checkout that is months old). Use it **only** when this ask-code API is down, and treat it as a hint, not truth. **The live ask-code API is always the source of truth.** On any snapshot-vs-live disagreement, live wins — do NOT reconcile to the snapshot. Verified example (2026-07-10): `MaidVisaJ2MessageService.isWithinReminderThreshold` was `diff >= 0 && diff < threshold` in the snapshot but `diff < threshold` live — opposite after-the-date behavior; live was authoritative. When the API is down, state findings as "per an older local snapshot, pending live confirmation."
+
+## Poll-loop resilience (fixed 2026-09-14)
+
+`ask-code.sh` submits, then polls in the same process. Its poll `curl` had no retry and the
+script runs under `set -euo pipefail`, so a transient **`curl (35) Recv failure: Connection
+reset by peer`** aborted the whole script — while the question stayed queued server-side and
+the answer was lost to the caller. Seen three times (twice 2026-09-09, once 2026-09-14).
+
+Fixed: the poll curl now carries `--retry 3 --retry-all-errors --retry-delay 3` and a failure
+is swallowed so the loop continues instead of aborting.
+
+**If it still dies, never resubmit.** Re-attach with the session id printed on line 1:
+
+```
+./scripts/ask-code-poll.sh <SESSION_ID> [timeout_seconds]
+```
+
+Resubmitting asks the question again and burns another run.
+
+⚠️ **Alias trap.** A wrong `project_alias` fails the ENTIRE multi-repo clone, not just that
+repo: `require_all_modules_to_exit is enabled: all 3 repositories must succeed, but only 2
+succeeded`. There is no `erp/magnamedia-payroll` — it is **`erp/magnamedia-payroll-management`**.
+Check the alias table above before submitting a multi-module question.

@@ -58,10 +58,15 @@ echo "SESSION_ID: $CONV_ID"
 DEADLINE=$(( $(date +%s) + ${ASK_CODE_TIMEOUT:-600} ))
 while (( $(date +%s) < DEADLINE )); do
   sleep 2
-  PAGE=$(curl -sS --max-time 60 "$BASE/lowcode/c2d/session/$CONV_ID/messages?page=0&size=8" \
+  # A transient curl failure here must NEVER kill the loop: the question is already queued
+  # server-side, so an abort loses an answer that was paid for. `set -e` used to abort on
+  # curl 35 (connection reset) - seen three times, 2026-09-09 and 2026-09-14. Retry, and
+  # swallow a failure so the next iteration tries again.
+  PAGE=$(curl -sS --max-time 60 --retry 3 --retry-all-errors --retry-delay 3 \
+    "$BASE/lowcode/c2d/session/$CONV_ID/messages?page=0&size=8" \
     -H "Authorization: $ERP_AUTH_TOKEN" \
     -H "secc-ch-ua-platform: $ERP_SECC_PLATFORM" \
-    -H "pageCode: lc_conversation")
+    -H "pageCode: lc_conversation") || { echo "poll attempt failed (curl $?) - retrying" >&2; PAGE=""; continue; }
   ANSWER=$(printf '%s' "$PAGE" | python3 -c '
 import json, sys
 req = sys.argv[1]
