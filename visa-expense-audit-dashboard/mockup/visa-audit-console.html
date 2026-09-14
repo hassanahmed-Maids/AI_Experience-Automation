@@ -1,0 +1,819 @@
+<title>Visa Expense Audit Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#f7f8fa; --surface:#ffffff; --surface-2:#f1f3f6; --sunken:#eceff3;
+  --ink:#0e1216; --ink-2:#545c66; --ink-3:#858d97;
+  --rule:#e2e6eb; --rule-2:#cfd5dd;
+  --accent:#1f5fa8; --accent-soft:#e8f0fa;
+  --red:#d03b3b; --amber:#fab219; --good:#0ca30c; --grey:#898781;
+  --red-wash:#fbecec; --amber-wash:#fdf4e0; --good-wash:#e9f6e9; --grey-wash:#efeeec;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0f1216; --surface:#171b20; --surface-2:#1d2228; --sunken:#12161a;
+    --ink:#f2f4f7; --ink-2:#a9b2bd; --ink-3:#7d868f;
+    --rule:#262c33; --rule-2:#333b44;
+    --accent:#4d92e0; --accent-soft:#162434;
+    --red-wash:#2a1717; --amber-wash:#2b2312; --good-wash:#14240f; --grey-wash:#22221f;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0f1216; --surface:#171b20; --surface-2:#1d2228; --sunken:#12161a;
+  --ink:#f2f4f7; --ink-2:#a9b2bd; --ink-3:#7d868f;
+  --rule:#262c33; --rule-2:#333b44;
+  --accent:#4d92e0; --accent-soft:#162434;
+  --red-wash:#2a1717; --amber-wash:#2b2312; --good-wash:#14240f; --grey-wash:#22221f;
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;margin:0}
+.wrap{max-width:1400px;margin:0 auto;padding-inline:20px;padding-block:0 64px}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:var(--accent)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--cond);text-transform:uppercase;letter-spacing:.09em;font-size:11px;font-weight:600;color:var(--ink-3)}
+
+/* ---------- masthead ---------- */
+.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:1400px;margin:0 auto;padding:18px 20px 0;
+  display:flex;flex-wrap:wrap;gap:16px 28px;align-items:flex-start;justify-content:space-between}
+.mast h1{font-size:20px;font-weight:700;letter-spacing:-.015em}
+.mast .sub{color:var(--ink-2);font-size:13px;margin-top:3px;max-width:62ch}
+.mockup-chip{display:inline-block;font-family:var(--cond);text-transform:uppercase;letter-spacing:.08em;
+  font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-soft);
+  border:1px solid var(--accent);border-radius:2px;padding:2px 6px;vertical-align:3px;margin-left:8px}
+.period{display:flex;flex-direction:column;gap:5px}
+.period label{font-family:var(--cond);text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:600;color:var(--ink-3)}
+select,input[type=search],input[type=number]{font-family:var(--sans);font-size:13px;color:var(--ink);
+  background:var(--surface);border:1px solid var(--rule-2);border-radius:3px;padding:5px 8px}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ---------- tabs ---------- */
+.tabs{max-width:1400px;margin:0 auto;padding:14px 20px 0;display:flex;gap:2px;overflow-x:auto}
+.tab{font-family:var(--cond);font-size:13px;font-weight:600;letter-spacing:.02em;
+  background:none;border:0;border-bottom:2px solid transparent;color:var(--ink-2);
+  padding:8px 13px 9px;cursor:pointer;white-space:nowrap;display:flex;gap:7px;align-items:baseline}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .n{font-family:var(--mono);font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.tab[aria-selected=true] .n{color:var(--accent)}
+
+/* ---------- generic blocks ---------- */
+.prov{font-size:12px;color:var(--ink-3);padding:16px 0 0;display:flex;flex-wrap:wrap;gap:4px 18px}
+.prov b{color:var(--ink-2);font-weight:600}
+.band{margin-top:18px}
+.band-h{display:flex;align-items:baseline;gap:10px;margin-bottom:9px;flex-wrap:wrap}
+.band-h h2{font-family:var(--cond);font-size:15px;font-weight:700;letter-spacing:.01em}
+.note{font-size:12px;color:var(--ink-3);max-width:80ch}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.kpi{background:var(--surface);padding:13px 15px 14px}
+.kpi .k-lab{font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;
+  font-weight:600;color:var(--ink-2);display:flex;gap:6px;align-items:center;min-height:15px}
+.mid{font-family:var(--mono);font-size:9.5px;font-weight:500;color:var(--ink-3);
+  border:1px solid var(--rule-2);border-radius:2px;padding:0 3px;letter-spacing:0}
+.kpi .k-val{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:6px;line-height:1.1}
+.kpi .k-sub{font-size:11.5px;color:var(--ink-3);margin-top:3px}
+.kpi.is-red .k-val{color:var(--red)} .kpi.is-amber .k-val{color:#a9740a} .kpi.is-grey .k-val{color:var(--grey)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .kpi.is-amber .k-val{color:var(--amber)}}
+:root[data-theme=dark] .kpi.is-amber .k-val{color:var(--amber)}
+.kpi-caption{font-size:11.5px;color:var(--ink-3);margin-top:7px;display:flex;align-items:center;gap:6px}
+.lock{font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-size:10px;font-weight:700;
+  color:var(--ink-2);background:var(--sunken);border:1px solid var(--rule);border-radius:2px;padding:1px 5px}
+
+/* ---------- tie-out ---------- */
+.tieout{margin-top:12px;border:1px solid var(--rule);border-left:3px solid var(--good);
+  background:var(--surface);border-radius:3px;padding:10px 14px;display:flex;flex-wrap:wrap;
+  gap:4px 14px;align-items:baseline}
+.tieout.fail{border-left-color:var(--red);background:var(--red-wash)}
+.tieout .t-lab{font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:700;color:var(--ink-2)}
+.tieout .eq{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.tieout .var{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--good)}
+.tieout.fail .var{color:var(--red)}
+
+/* ---------- filters ---------- */
+.filters{margin-top:14px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:11px 13px}
+.frow{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.f label{font-family:var(--cond);text-transform:uppercase;letter-spacing:.07em;font-size:10px;font-weight:600;color:var(--ink-3)}
+.f select,.f input{min-width:132px}
+.f input[type=search]{min-width:180px}
+.more{margin-top:11px;padding-top:11px;border-top:1px dashed var(--rule)}
+.more[hidden]{display:none!important}
+.linkbtn{background:none;border:0;color:var(--accent);font-family:var(--sans);font-size:12px;
+  cursor:pointer;padding:0;margin-top:9px;text-decoration:underline;text-underline-offset:2px}
+.btn{font-family:var(--sans);font-size:12.5px;font-weight:500;color:var(--ink);background:var(--surface-2);
+  border:1px solid var(--rule-2);border-radius:3px;padding:6px 11px;cursor:pointer}
+.btn:hover{border-color:var(--ink-3)}
+.defaults{font-size:11.5px;color:var(--ink-3);margin-top:9px}
+
+/* ---------- in-view line ---------- */
+.inview{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;
+  font-size:12.5px;color:var(--ink-2);padding-bottom:7px;border-bottom:1px solid var(--rule)}
+.inview b{font-family:var(--mono);color:var(--ink);font-weight:600}
+
+/* ---------- table ---------- */
+.tscroll{overflow-x:auto;border:1px solid var(--rule);border-top:0;background:var(--surface);border-radius:0 0 4px 4px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+thead th{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;font-weight:700;
+  color:var(--ink-2);text-align:left;padding:9px 11px;background:var(--surface-2);
+  border-bottom:1px solid var(--rule-2);white-space:nowrap;position:sticky;top:0}
+thead th.num{text-align:right}
+tbody td{padding:8px 11px;border-bottom:1px solid var(--rule);vertical-align:top;white-space:nowrap}
+tbody td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+tbody td.wrap{white-space:normal;min-width:200px;color:var(--ink-2)}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr td:first-child{border-left:3px solid transparent}
+tr.f-RED    td:first-child{border-left-color:var(--red)}
+tr.f-AMBER  td:first-child{border-left-color:var(--amber)}
+tr.f-GREY   td:first-child{border-left-color:var(--grey)}
+tr.f-GREEN  td:first-child{border-left-color:var(--good)}
+.flag{display:inline-flex;align-items:center;gap:5px;font-family:var(--cond);text-transform:uppercase;
+  letter-spacing:.06em;font-size:10px;font-weight:700;border-radius:2px;padding:2px 6px;border:1px solid}
+.flag .g{font-size:10px;line-height:1}
+.fl-RED{color:var(--red);background:var(--red-wash);border-color:var(--red)}
+.fl-AMBER{color:#8a6005;background:var(--amber-wash);border-color:var(--amber)}
+.fl-GREY{color:var(--grey);background:var(--grey-wash);border-color:var(--grey)}
+.fl-GREEN{color:var(--good);background:var(--good-wash);border-color:var(--good)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .fl-AMBER{color:var(--amber)}}
+:root[data-theme=dark] .fl-AMBER{color:var(--amber)}
+.dash{color:var(--ink-3)}
+.unval{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:9.5px;
+  font-weight:700;color:var(--grey)}
+.empty{padding:26px 14px;color:var(--ink-3);font-size:13px;text-align:center}
+
+/* ---------- portfolio ---------- */
+.matrix{margin-top:12px;overflow-x:auto;border:1px solid var(--rule);border-radius:4px;background:var(--surface)}
+.matrix table{font-size:12.5px}
+.matrix tbody td:first-child{border-left:0;font-weight:600;white-space:nowrap}
+.matrix tfoot td{padding:9px 11px;border-top:2px solid var(--rule-2);font-family:var(--mono);
+  font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+.matrix tfoot td:first-child{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;
+  font-size:10.5px;text-align:left;font-weight:700;color:var(--ink-2)}
+.grain{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);font-weight:400}
+
+.chart{margin-top:12px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:15px 16px 8px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:12px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block}
+
+.cov{margin-top:12px;overflow-x:auto;border:1px solid var(--rule);border-radius:4px;background:var(--surface)}
+.cov td:first-child{border-left:0}
+.st{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:700}
+.st-ok{color:var(--good)} .st-part{color:#8a6005} .st-no{color:var(--red)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .st-part{color:var(--amber)}}
+:root[data-theme=dark] .st-part{color:var(--amber)}
+
+.clock{margin-top:12px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:15px 16px 12px}
+.blind{margin-top:12px;border:1px solid var(--rule);border-left:3px solid var(--grey);background:var(--surface);
+  border-radius:3px;padding:12px 15px}
+.blind ul{margin:8px 0 0;padding-left:18px;color:var(--ink-2);font-size:12.5px}
+.blind li{margin-bottom:5px}
+.blind li b{color:var(--ink);font-weight:600}
+
+.panel{margin-top:12px;border:1px solid var(--rule);background:var(--surface);border-radius:4px;padding:14px 16px}
+.panel p{margin:0 0 9px;color:var(--ink-2);font-size:12.5px;max-width:82ch}
+.panel p:last-child{margin-bottom:0}
+.rule-list{list-style:none;margin:10px 0 0;padding:0}
+.rule-list li{padding:9px 0;border-top:1px solid var(--rule);font-size:12.5px;color:var(--ink-2);max-width:88ch}
+.rule-list li b{color:var(--ink);font-weight:600}
+
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-3);max-width:82ch}
+@media (max-width:640px){
+  .mast-in{flex-direction:column}
+  .kpi .k-val{font-size:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="mast">
+  <div class="mast-in">
+    <div>
+      <h1>Visa Expense Audit Console <span class="mockup-chip">Design mockup</span></h1>
+      <p class="sub">Six Police &amp; Control audits over one visa-expense chain, on one clock. Figures are the
+        measurements in each spec, dated 12–14 Sep 2026; table rows are the specs' own worked examples.</p>
+    </div>
+    <div class="period">
+      <label for="period">Period</label>
+      <select id="period">
+        <option selected>Spec window (per audit)</option>
+        <option>Last 3 months</option><option>Last 6 months</option><option>Last 12 months</option>
+        <option>Year to date</option><option>All time</option><option>Custom…</option>
+      </select>
+    </div>
+  </div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+</div>
+
+<div class="wrap"><div id="view"></div>
+  <footer>
+    Design mockup for review — not a live report. Every figure shown is the measurement recorded in the source spec
+    (LAWP v3, entry visa v1, medical v4, ILOE v2, R-visa v6, E-ID v1), and reproduces only at the
+    <em>Spec window</em> period, because the six specs measure over six different windows. Maids appear as
+    <span class="mono">Maid&nbsp;#id</span> only; no names, note text or descriptions are shown or exported anywhere
+    in this design.
+  </footer>
+</div>
+
+<script>
+const F = n => n==null ? null : n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const I = n => n==null ? '—' : n.toLocaleString('en-US');
+const GLYPH = {RED:'●',AMBER:'▲',GREY:'■',GREEN:'✓'};
+const WORD  = {RED:'Action',AMBER:'Hold',GREY:'Unreadable',GREEN:'Clean'};
+const el = (h)=>{const t=document.createElement('template');t.innerHTML=h.trim();return t.content;};
+
+/* ============================ PORTFOLIO DATA ============================ */
+const CLASSES = [
+  {k:'RECOVERABLE',lab:'Recoverable',  col:'var(--amber)', desc:'A route exists and it is still open'},
+  {k:'LOST',       lab:'Lost',        col:'var(--red)',   desc:'Money out, no recovery route'},
+  {k:'UNDECIDED',  lab:'Undecided',   col:'var(--grey)',  desc:'A person or an ingestion must rule first'},
+];
+const PORTFOLIO = [
+  {code:'ILOE',      name:'ILOE',            grain:'finding',       rec:658029.52, recN:1894, lost:864.58,    lostN:6,   und:null,      undN:0,   unv:168},
+  {code:'LAWP',      name:'LAWP reservoir',  grain:'payment / bundle', rec:63897.92, recN:45,  lost:271171.06, lostN:202, und:null,     undN:0,   unv:null},
+  {code:'ENTRY_VISA',name:'Entry visa',      grain:'charge / maid', rec:90276.00,  recN:188,  lost:74580.90,  lostN:105, und:14206.00,  undN:28,  unv:7},
+  {code:'EID',       name:'E-ID',            grain:'txn / pair / maid', rec:null,  recN:0,    lost:57390.34,  lostN:149, und:75283.61,  undN:178, unv:5},
+  {code:'MEDICAL',   name:'Medical',         grain:'fee',           rec:39910.00,  recN:173,  lost:710.00,    lostN:3,   und:2430.00,   undN:9,   unv:119},
+  {code:'RVISA',     name:'R-visa',          grain:'case',          rec:null,      recN:0,    lost:16853.50,  lostN:45,  und:8873.50,   undN:45,  unv:25},
+];
+const TOT = {rec:852113.44,recN:2300,lost:421570.38,lostN:510,und:100793.11,undN:260,unv:324};
+
+const COVERAGE = [
+  ['Phase 1 · LAWP reservoir','Over 60 days in the pool is a loss','LAWP M5 / M6','ok','Built'],
+  ['Phase 1 · LAWP reservoir','Reuse confirmed, otherwise a loss','LAWP R2 / R17','ok','Built'],
+  ['Phase 1 · LAWP reservoir','Replacement maid used it or passed it on','LAWP R2 / R13','ok','Built'],
+  ['Phase 1 · LAWP reservoir','Duplicate work-permit / MOHRE / labour-card payments','—','no','No check exists'],
+  ['Phase 1 · LAWP reservoir','Maids with duplicated payments appearing in the LAWP table','—','no','No check exists'],
+  ['Phase 2 · Entry visa','No duplicate payments','Entry visa M3','ok','Built'],
+  ['Phase 2 · Entry visa','Partial refund claimed on a turn-down','Entry visa M2','ok','Built'],
+  ['Phase 2 · Entry visa','Correct inside / outside type','Entry visa M4','ok','Built as a reason column, by ruling'],
+  ['Phase 2 · Change of status (AED 572)','No duplicate payments','—','no','No spec exists'],
+  ['Phase 2 · Change of status (AED 572)','Fine responsibility','—','no','No spec exists'],
+  ['Phase 3 · ILOE','No duplicate payments','ILOE R1','ok','Built as informational, by ruling'],
+  ['Phase 3 · ILOE','Fine responsibility','ILOE R2 / R3 / R4','ok','Built'],
+  ['Phase 3 · Medical','No duplicate payments','Medical audit 2','ok','Built as a low-volume monitor'],
+  ['Phase 3 · Medical','Refund claimed within 90 days','Medical audit 1','ok','Built'],
+  ['Phase 3 · R-visa','No duplicate payments','R-visa T1 / bucket A','ok','Built'],
+  ['Phase 3 · R-visa','1-year vs 2-year matches contract and validity','R-visa §3.8','part','Partial — 25 cases amber, needs the issued validity read'],
+  ['Phase 3 · R-visa','Fine responsibility','R-visa §2.6','part','Partial — the finding is defined, no rule is built'],
+  ['Phase 3 · E-ID','No duplicate payments','E-ID M2','ok','Built'],
+  ['Phase 3 · E-ID','1-year vs 2-year matches contract and validity','—','no','Not in the E-ID spec at all'],
+  ['Phase 3 · E-ID','Lost card — whose fault, charge her loan','E-ID M4','ok','Built'],
+  ['Phase 3 · E-ID','Fine responsibility','E-ID M3','ok','Built'],
+];
+
+/* ============================ AUDIT TABS ============================ */
+const AUDITS = {};
+
+AUDITS.LAWP = {
+  name:'LAWP reservoir', tabN:'202',
+  sources:'VISA_SILVER.CANCEL_VISA_REQUESTS(_TASKS) · INITIAL_VISA_REQUESTS · VISAREQUESTEXPENSES · HOUSEMAIDS_INFO',
+  clock:'work-permit fee CREATION_DATE on the paying request — it never resets',
+  spec:'SPEC_non_used_lawp_reservoir_v3', window:'Reservoir entries Sep 2025 – Jul 2026',
+  kpis:[
+    {lab:'Lost — never reused',id:'M7',val:'AED 271,171.06',sub:'202 payments · 232 bundles',tone:'is-red'},
+    {lab:'Still recoverable',id:'M5',val:'AED 63,897.92',sub:'45 payments · claim before the window shuts',tone:'is-amber'},
+    {lab:'Loss rate',id:'M9',val:'2.76%',sub:'202 of 7,313 payments in scope'},
+    {lab:'No fee on record',id:'M8',val:'from run',sub:'Never written off, never cleared',tone:'is-grey'},
+  ],
+  tie:[['M2 + M3 + M4 + M5 + M6 = M1','6,767 + 296 + 3 + 45 + 202 = 7,313','0'],
+       ['Money grain vs case grain','202 payments behind 232 bundles','30 bundles share a payment']],
+  filters:[['Outcome',['All outcomes','Lost (past 120 days)','Recoverable (60–120)','Under 60 days','Cleared by reuse','Consumed','No fee on record','Alert disagreement']],
+           ['Grain',['Case = bundle','Money = payment']],
+           ['Work permit type',['QUOTA and REPLACEMENT','QUOTA','REPLACEMENT']],
+           ['Nationality',['All nationalities','Ethiopian','Filipino','Pakistani','Kenyan','Ugandan']]],
+  more:[['Age band',['Any age','0–59','60–119','120–364','365+']],
+        ['Partial bundle',['Any','Complete (all three fees)','Work permit missing','MOHRE missing','Labour card missing']],
+        ['Bundles per payment',['Any','1','2+','5+']],
+        ['Days to deadline',['Any','Under 14','Under 30','Passed']]],
+  cols:[['Flag',''],['Bundle','mono'],['Maid','mono'],['Line',''],['Nat.',''],['Paid by',''],
+        ['Clock start','mono'],['Lost on','mono'],['Age','num'],['Amount AED','num'],['Why','wrap']],
+  rows:[
+    {f:'RED',c:['87189','Maid #35207','MV','Ethiopian','QUOTA','2023-03-30','2023-07-28',1262,1447.93,'Lost. Four sibling bundles point at this same payment — counted once (R8)']},
+    {f:'RED',c:['82094','Maid #116223','CC','Filipino','QUOTA','2026-03-08','2026-07-06',188,1397.57,'Lost, partial bundle — the work permit was never bought. A flat rate would charge 1,447.93']},
+    {f:'AMBER',c:['91107','Maid #134320','MV','Pakistani','QUOTA','2026-06-01','2026-09-29',103,1447.93,'Claim it now — and invisible to alert 945, which excludes Pakistani maids']},
+    {f:'AMBER',c:['90881','Maid #131044','CC','Kenyan','REPLACEMENT','2026-06-14','2026-10-12',90,1447.93,'Claim it now. Payment walked up two replacement hops to its QUOTA request']},
+    {f:'GREEN',c:['90403','Maid #122467','MV','Ugandan','QUOTA','2026-04-02','2026-07-31',163,null,'Cleared by reuse — the paperwork was handed on, so the payment is finished whatever happened after']},
+    {f:'GREEN',c:['89774','Maid #120915','CC','Ethiopian','QUOTA','2026-02-11','2026-06-11',215,null,'Consumed — reused and the new maid arrived. This is 92.5% of the money']},
+    {f:'GREY',c:['88120','Maid #118702','MV','Filipino','QUOTA','2025-11-20','2026-03-20',298,null,'No fee on record — never written off and never cleared. Needs a person']},
+    {f:'GREY',c:['86644','Maid #112338','CC','Ethiopian','REPLACEMENT','2025-10-02','2026-01-30',347,null,'Replacement walk hit the @MAX_REPLACEMENT_COUNT@ bound before reaching a QUOTA request']},
+  ],
+  extra:'clock',
+};
+
+AUDITS.ENTRY_VISA = {
+  name:'Entry visa', tabN:'293',
+  sources:'VISA_SILVER.VISAREQUESTEXPENSES · INITIAL_VISA_REQUESTS_HISTORY · CANCEL_VISA_REQUESTS · MONEY_CONTROL_SILVER.TRANSACTIONS',
+  clock:'application date (VISAREQUESTEXPENSES.CREATION_DATE) — never the posting date',
+  spec:'SPEC_entry_visa_audit_v1', window:'Applications from 2025-09-05 (the first dated rejection in the ERP)',
+  kpis:[
+    {lab:'Refund we can still claim',id:'M2',val:'AED 90,276.00',sub:'188 cases · 116 never filed, 72 cancelled by us',tone:'is-red'},
+    {lab:'Paid twice — no refund route',id:'M3',val:'AED 74,580.90',sub:'105 charges over 99 maids',tone:'is-red'},
+    {lab:'Waiting on a person',id:'M2 held',val:'AED 14,206.00',sub:'19 claims sitting · 9 too recent to judge',tone:'is-amber'},
+    {lab:'Refund failure rate',id:'M5',val:'20.6%',sub:'188 of 913 turned-down charges'},
+    {lab:'Cannot be judged',id:'grey',val:'7',sub:'5 maid-id disagreements · 2 with no note',tone:'is-grey'},
+  ],
+  tie:[['Charge side — turn-downs = refunded + not','913 = 697 + 216','0'],
+       ['Refund side — refunds in window','892 = 701 + 119 + 70 + 2','0'],
+       ['Cross-check — the tripwire','701 (refund side) vs 697 (charge side)','4 listed case by case']],
+  filters:[['List',['Refund we can still claim (M2)','Paid twice (M3)']],
+           ['Flag',['Action + Hold','Action only','Hold only','Unreadable','Clean','All']],
+           ['Band',['Inside and outside','Inside country (739.50)','Outside country (89.50)']],
+           ['Claim state',['All states','Never filed','Cancelled by us','Claim pending','Too recent']]],
+  more:[['Turn-down reason',['Both turn-downs','Rejected','E_Visa_Need_Sponser_Visit']],
+        ['Verifier verdict',['All','JUSTIFIED','PLAUSIBLE','AMBIGUOUS','NOT_RELATED','UNRESOLVED','NO_TEXT','NOT_READ']],
+        ['Reason',['All reasons','Photo rejected','Active visa','Complaint raised','Work permit not showing','Documents rejected','Portal error','Profession not allowed','Wrong type']],
+        ['Days unclaimed',['Any','Under 60','60–180','181–300','300+','Negative (open item O2b)']],
+        ['CC / MV',['Both','CC','MV']],
+        ['Review status',['All','New','Under review','Escalated','Closed']]],
+  cols:[['Flag',''],['Request','mono'],['Maid','mono'],['Type',''],['Applied','mono'],['Paid AED','num'],
+        ['Turned down','mono'],['Days','num'],['Claim state',''],['Recoverable AED','num'],['Verdict',''],['Reason','wrap']],
+  rows:[
+    {f:'RED',c:['91412·b','Maid #110179','Inside','2025-10-23',1054.71,'2025-10-23',327,'Never filed',739.50,'NOT_RELATED','No claim was ever filed — the Visa team files one']},
+    {f:'RED',c:['88640','Maid #109223','Outside','2025-11-14',384.24,'2025-11-14',305,'Cancelled by us',89.50,'PLAUSIBLE','Dismissed is OUR status, not immigration\'s. Re-file it']},
+    {f:'RED',c:['93318','Maid #114806','Inside','2026-01-08',1025.65,'2026-01-09',249,'Never filed',739.50,'AMBIGUOUS','"Still in process" is a status, not a reason — stays a finding']},
+    {f:'AMBER',c:['91412','Maid #110179','Inside','2025-10-23',1054.71,'2025-10-23',324,'Claim pending',739.50,'—','Filed seven minutes before the replacement application, Pending for 324 days. Chase it, do not re-file']},
+    {f:'AMBER',c:['99105','Maid #121770','Outside','2026-07-22',375.65,'2026-07-29',47,'Too recent',89.50,'—','Under 60 days. Nothing yet']},
+    {f:'GREEN',c:['105707','Maid #125459','Outside','2026-02-28',384.24,'2026-02-28',0,'Received',null,'JUSTIFIED','Refunded the same day. Wrong type is why there were two applications — not a finding']},
+    {f:'GREY',c:['91704','Maid #124816','Inside','2026-01-19',1025.65,'2026-01-20',238,'Never filed',null,'—','OWNER_ID says #124816, TRANSACTIONS says #110512. Shown, counted, never assigned to one of them']},
+  ],
+};
+
+AUDITS.MEDICAL = {
+  name:'Medical', tabN:'292',
+  sources:'VISA_SILVER.VISAREQUESTEXPENSES · INITIAL/RENEW_VISA_REQUESTS(_TASKS) · CANCEL_VISA_REQUESTS(_TASKS)',
+  clock:'medical fee CREATION_DATE — which also carries the AED 220 / AED 270 rate boundary',
+  spec:'SPEC_medical_from_visa_expenses_v1 (v4)', window:'Fees Jan 2025 – Sep 2026',
+  kpis:[
+    {lab:'Money we never got back',id:'M1',val:'AED 39,910',sub:'Never claimed + refund failed, at each era rate',tone:'is-red'},
+    {lab:'Refunds we never received',id:'M2',val:'173',sub:'132 never claimed · 41 refund failed',tone:'is-red'},
+    {lab:'How often it fails now',id:'M3',val:'11.6%',sub:'Latest quarter, against a 3.5% low in Q2 2025',tone:'is-red'},
+    {lab:'No medical fee charged',id:'—',val:'119',sub:'Counted, never valued — there is no refund to lose',tone:'is-grey'},
+    {lab:'Refund pending',id:'—',val:'AED 2,430',sub:'9 cases in flight — hold, do not action',tone:'is-amber'},
+  ],
+  tie:[['never claimed + failed + pending + clean = eligible','132 + 41 + 9 + 971 = 1,153','0'],
+       ['The AED side ties the same way','29,490 + 10,420 + 2,430 + 230,670 = 273,010','0.00']],
+  filters:[['Verdict',['All verdicts','Refund never claimed','Refund failed','No medical fee charged','Refund pending','Clean']],
+           ['Stage',['New and renewal','New (MEDICAL)','Renewal (MEDICAL_RENEW)']],
+           ['Era rate',['Both rates','AED 220 (before 2026)','AED 270 (2026 on)']],
+           ['Refund step created',['Any','Step created','Step never created']]],
+  more:[['Cancellation type',['All','Normal','Outside country (VPMGOV-1211)','Absconding','Immigration / used work permit','No cancellation at all']],
+        ['Fee quarter',['All quarters','2025 Q1','2025 Q2','2025 Q3','2025 Q4','2026 Q1','2026 Q2']],
+        ['Days since fee',['Any','90–180','181–365','365+']],
+        ['Has text',['Any','Has complaint thread','Has staff note','No text at all']],
+        ['CC / MV',['Both','CC','MV']],
+        ['Duplicate pairs',['Exclude','Audit 2 only (duplicate medical payments)']]],
+  cols:[['Flag',''],['Request','mono'],['Maid','mono'],['Stage',''],['Fee date','mono'],['Fee AED','num'],
+        ['Refund','' ],['Age','num'],['Step?',''],['Loss AED','num'],['Cause','wrap']],
+  rows:[
+    {f:'RED',c:['118442.1','Maid #103881','Renewal','2025-09-14',270.00,'none',363,'Never created',220.00,'Cancellation raised as NORMAL, but the Refund Medical Application step was never created. That absence IS the failure']},
+    {f:'RED',c:['121907.0','Maid #117240','New','2026-02-03',320.00,'AED 0, Dismissed',223,'Created',270.00,'Raised then voided. Under a naive "does a refund row exist" test this case reads clean']},
+    {f:'RED',c:['120338.0','Maid #115602','New','2026-01-19',323.15,'none',238,'Never created',270.00,'Outside-country cancellation — the open VPMGOV-1211 defect. 11 of 132, not the whole story']},
+    {f:'RED',c:['124910.0','Maid #128331','New','2026-03-02',null,'—',194,'—',null,'No medical fee charged. She is waiting for a test nobody paid for — invisible to an expense-anchored report']},
+    {f:'AMBER',c:['126771.1','Maid #130882','Renewal','2026-05-28',270.00,'in flight',109,'Created',null,'Refund pending — excluded from M1, M2 and M3 alike. Counting it as a failure lifts Q2 to 16% and manufactures a tail']},
+    {f:'GREEN',c:['125004.0','Maid #126115','New','2026-04-02',323.15,'AED 270 received',37,'Created',null,'Refunded 37 days later. The AED 53.15 difference is the non-refundable government charge, not a loss']},
+    {f:'RED',c:['12822.1','Maid #37842','Renewal','2025-07-13',270.00,'none',428,'Never created',270.00,'Audit 2 — expenses 427757 and 427758, same timestamp, both Added. AED 270 paid twice for one application']},
+  ],
+};
+
+AUDITS.ILOE = {
+  name:'ILOE', tabN:'1,900',
+  sources:'MONEY_CONTROL_SILVER.TRANSACTIONS · HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_OUTSTANDING_BALANCE_DETAILS',
+  clock:'TRANSACTION_DATE on payments · BALANCE_DATE on loans, compared with DATEDIFF in Asia/Dubai',
+  spec:'SPEC_iloe_checker_v2', window:'Whole history, 10 Feb 2024 onward',
+  kpis:[
+    {lab:'Fine paid, nobody charged',id:'R2',val:'AED 575,891.27',sub:'1,530 cases — raise the missing charge',tone:'is-red'},
+    {lab:'Charged, never recovered',id:'R3',val:'AED 82,138.25',sub:'364 loans open past 60 days',tone:'is-red'},
+    {lab:'Waiver with no approval',id:'R4',val:'AED 864.58',sub:'6 loans with no to-do reference',tone:'is-red'},
+    {lab:'Total exposure',id:'R2+R3+R4',val:'AED 658,894.10',sub:'1,900 cases. R2 and R3 cannot overlap'},
+    {lab:'Reported, not in the total',id:'—',val:'168',sub:'Unclassified · bulk · reversals · R1',tone:'is-grey'},
+  ],
+  tie:[['Fines paid = charged to a maid + charged to nobody','1,163,242.82 = 587,351.55 + 575,891.27','0.00']],
+  filters:[['Rule',['All rules','R2 — fine paid, nobody charged','R3 — charged, not recovered','R4 — waiver with no to-do','R1 — subscription paid twice']],
+           ['Class',['Fines and subscriptions','Fine','Subscription','Unclassified']],
+           ['Loan type',['All types','_FINES','_PREMIUM (pre-rename)','_PLAN','No loan at all']],
+           ['Era',['All time','Before the 2025-03-02 rename','After the rename']]],
+  more:[['Outstanding band',['Any','Under 100','100–400','400+']],
+        ['Days since loan',['Any','61–90','91–180','180+']],
+        ['To-do reference',['Any','Present','Missing']],
+        ['Who is out of pocket',['Either','The company','The maid']],
+        ['Repeat gap',['Any','Same day','1–119 days','365+ days (annual renewal)']],
+        ['Bucket',['Findings only','Bulk, no maid attached','Unmatched reversals','Office staff (excluded)','Accounting adjustment (excluded)']]],
+  cols:[['Flag',''],['Rule',''],['Maid','mono'],['Line',''],['Txn / Loan','mono'],['Date','mono'],['Paid AED','num'],
+        ['Repaid','num'],['Waived','num'],['Still owed','num'],['Out of pocket',''],['Amount AED','num'],['Note','wrap']],
+  rows:[
+    {f:'RED',c:['R2','Maid #116898','CC','txn 1637842','2025-12-13',402.86,null,null,null,'Company',402.86,'Booked under NEW - ILOE Mandatory Insurance - CC Maids. No fine loan of any type at any date']},
+    {f:'RED',c:['R3','Maid #118004','CC','loan 76727','2026-06-12',402.86,0.00,0.00,402.86,'Company',402.86,'Raised 94 days ago, nothing repaid. Past the 60-day inflection where instalment repayment ends']},
+    {f:'RED',c:['R4','Maid #121455','MV','loan 79210','2026-04-08',402.86,0.00,402.86,0.00,'Company',402.86,'STATUS says PAID; the amounts say nothing came back. Waived with no to-do reference in the note']},
+    {f:'GREEN',c:['R2','Maid #101266','CC','txn 1402118','2024-08-19',402.86,402.86,0.00,0.00,'Company',null,'Recovered under the pre-rename _PREMIUM type. 145 payments sit here, and v1 reported every one as a finding']},
+    {f:'GREY',c:['R1','Maid #132336','CC','txn 1970166 / 1970167','2026-06-15',252.00,250.00,2.00,0.00,'The maid',null,'Two payments created at 13:56:20 — a double-click. She paid 250 for one subscription worth 126: AED 124 is owed to HER']},
+    {f:'GREEN',c:['R1','Maid #134727','MV','txn 1968330 / 1968331','2026-06-10',252.00,null,null,null,'—',null,'Two payments of 126, but a refund of −126 exists against the same maid. Net one payment — nothing reported']},
+    {f:'GREY',c:['—','—','—','47 payments','various',4173.74,null,null,null,'—',null,'Unclassified — reported, never dropped. A rising count here IS the signal that the expense names changed again']},
+  ],
+};
+
+AUDITS.RVISA = {
+  name:'R-visa', tabN:'91',
+  sources:'VISA_SILVER.VISAREQUESTEXPENSES · MONEY_CONTROL_SILVER.TRANSACTIONS · EXPENSES_HIERARCHY',
+  clock:'TRANSACTIONS.TRANSACTION_DATE — the line-creation date runs a day earlier and is never used',
+  spec:'Rvisa_Duplicate_Payments_v6', window:'All time — a period-scoped duplicate test splits pairs and passes both halves',
+  kpis:[
+    {lab:'Still out',id:'M3',val:'AED 16,853.50',sub:'45 confirmed cases · zero fully recovered, ever',tone:'is-red'},
+    {lab:'Pending a ruling',id:'M4',val:'AED 8,873.50',sub:'45 blocked cases',tone:'is-amber'},
+    {lab:'Unrecovered',id:'M7',val:'27 · AED 12,713.00',sub:'Partial 15 · Full 0 · Unknown 3'},
+    {lab:'Confirmed of multi-payment',id:'M6',val:'50.0%',sub:'45 of 90 multi-payment cases'},
+    {lab:'Of all R-visa payments',id:'M6',val:'0.066%',sub:'46 duplicated fees of 69,218 payments'},
+  ],
+  tie:[['Coverage waterfall','71,791 − 802 − 1,770 − 1 = 69,218','0'],
+       ['Renewal gap vs the 730-day term — the check\'s own sanity test','median 716 days over 16,013 pairs','14 days']],
+  filters:[['Grain',['Per request (case)','Per maid (pair classifier)']],
+           ['Verdict',['Confirmed','Blocked','Clean','All']],
+           ['Recovery',['Unrecovered','Partial','Full','Unknown','Not applicable','All']],
+           ['Blocking reason',['All reasons','sub-fee-payment','amount-unexplained','card-reversal-unknown','line-integrity','term-unknown','two-maids-one-case','batch posting','refund before duplicate']]],
+  more:[['Channel',['All channels','Noqoodi','Credit card','Mixed']],
+        ['Purpose',['Both','APPLY_FOR_RVISA','RENEW_RESIDENCE']],
+        ['Term',['Both','1 year (343.50)','2 year (443.50 / 457.46)']],
+        ['Fee era',['All eras','393.50','443.50','457.46','343.50','pre-2020']],
+        ['Pair bucket',['All buckets','A — same request','B — renewal','C1 — re-application','C2·S1 — re-payer defect','C2·S2 — term mismatch','C2·S3 — unexplained']],
+        ['Year of last payment',['All years','2026','2025','2024','2023','2021','2020','2019','2018']],
+        ['Span (days)',['Any','0','1–30','31–300','300+']]],
+  cols:[['Flag',''],['Case','mono'],['Rule breached','wrap'],['Pays','num'],['First / last','mono'],
+        ['Era fee','num'],['Duplicated','num'],['Refunded','num'],['Still out','num'],['Recovery',''],['Span','num'],['Channel','']],
+  rows:[
+    {f:'RED',c:['24296 · APPLY_FOR_RVISA','Two fee payments matched the schedule on one application',2,'2024-03-11 / 2024-03-11',443.50,443.50,0.00,443.50,'Unrecovered',0,'Noqoodi']},
+    {f:'RED',c:['27713 · RENEW_RESIDENCE','Two fee payments matched the schedule on one renewal',2,'2024-07-02 / 2024-07-08',443.50,443.50,239.50,204.00,'Partial',6,'Noqoodi']},
+    {f:'RED',c:['41880 · APPLY_FOR_RVISA','Two fee payments on one application, nothing refunded',3,'2025-02-19 / 2025-03-04',443.50,887.00,239.50,647.50,'Partial',13,'Noqoodi']},
+    {f:'AMBER',c:['36025 · RENEW_RESIDENCE','Blocked — amount-unexplained: 472.50 is a partial payment, not an era price',2,'2024-05-16 / 2024-11-08',443.50,443.50,0.00,null,'Not applicable',176,'Mixed']},
+    {f:'AMBER',c:['12822 · APPLY_FOR_RVISA','Blocked — line-integrity: two expense lines share one TRANSACTION_ID',1,'2025-07-13 / 2025-07-13',443.50,null,null,null,'Not applicable',0,'Noqoodi']},
+    {f:'AMBER',c:['19044 · APPLY_FOR_RVISA','Blocked — batch posting on 2020-03-18; its nature is a P&C inference, not established',2,'2020-02-24 / 2020-03-18',393.50,null,null,null,'Not applicable',23,'Noqoodi']},
+    {f:'AMBER',c:['59182 · APPLY_FOR_RVISA','C2·S1 re-payer defect — an initial request opened while her renewal was in flight',2,'2024-11-06 / 2025-01-14',443.50,443.50,0.00,null,'Unknown',69,'Noqoodi']},
+    {f:'GREEN',c:['33517 · RENEW_RESIDENCE','Clean — renewal after the term expired. Gap 716 days against a 730-day term',2,'2023-06-02 / 2025-05-18',443.50,null,null,null,'Not applicable',716,'Noqoodi']},
+  ],
+};
+
+AUDITS.EID = {
+  name:'E-ID', tabN:'327',
+  sources:'MONEY_CONTROL_SILVER.TRANSACTIONS · HOUSEMAID_OUTSTANDING_BALANCE_DETAILS · CLIENT_MANAGEMENT_SILVER.COMPLAINTS(_COMMENTS)',
+  clock:'TRANSACTION_DATE — the date inside the description text is unreliable',
+  spec:'SPEC_e_id_audit_v1', window:'12 months to 2026-08-31',
+  kpis:[
+    {lab:'Money we never got back',id:'M7',val:'AED 57,390.34',sub:'149 red cases · dupes + fines + CC replacements',tone:'is-red'},
+    {lab:'Pending — the number to drive down',id:'M6',val:'AED 75,283.61',sub:'178 cases · 131 MV blocked on N1',tone:'is-amber'},
+    {lab:'Duplicate pairs',id:'M2',val:'46 red · 47 amber',sub:'0–120 days red · 121–599 to the verifier'},
+    {lab:'Fines not recovered',id:'M3',val:'56 of 57',sub:'One recovered, AED 60.43. Not 57'},
+    {lab:'Total E-ID spend audited',id:'M1',val:'AED 7,007,545.03',sub:'20,142 transactions · variance AED 0.00'},
+  ],
+  tie:[['Classes re-add to the ledger','19,033 + 57 + 256 + 789 + 5 + 2 = 20,142 rows','AED 0.00'],
+       ['Replacement recovery reconciles per line','paid − recovered − waived = unrecovered','0.00']],
+  filters:[['Sub-audit',['All three','1 — Duplicate payments','2 — Fines not recovered','3 — Replacements not recovered']],
+           ['Charge class',['All classes','APPLICATION','APPLICATION_WITH_FINE','REPLACEMENT','TYPING_SERVICE','UNCLASSIFIED','REFUND']],
+           ['CC / MV',['Both','CC','MV']],
+           ['Recovery route',['All routes','Maid loan','MV client (blocked on N1)','None attempted']]],
+  more:[['Gap band',['All gaps','0–120 (red)','121–599 (amber)','600+ (normal renewal)']],
+        ['Expense head',['All 15 heads','646 / 1594 — NEW CC','647 / 1631 — RENEW CC','738 / 1682 — NEW MV','748 / 1719 — RENEW MV','1597 / 1634 — Replacement CC','1685 / 1722 — Replacement MV','1598 / 1686 / 1600 — Typing']],
+        ['Loan status',['Any','PAID','PARTIALLY_PAID','NOT_YET_PAID','No loan']],
+        ['Fine days',['Any','1–10','11–30','31–49','50 (the cap)']],
+        ['Price era',['Both','Before 2025-08-11','From 2025-08-11']],
+        ['Verifier verdict',['All','JUSTIFIED','PLAUSIBLE','AMBIGUOUS','NOT_RELATED','UNRESOLVED','NO_TEXT','NOT_READ']]],
+  cols:[['Flag',''],['Audit',''],['Maid','mono'],['Line',''],['Transaction','mono'],['Date','mono'],['Amount AED','num'],
+        ['Gap','num'],['Loan status',''],['Recovered','num'],['Waived','num'],['Unrecovered AED','num'],['Reason','wrap']],
+  rows:[
+    {f:'RED',c:['Duplicates','Maid #21014','MV','1763388 / 1763389','2026-02-24',353.91,0,'—',null,null,353.91,'Two government reference numbers ending …896 and …894 — two genuinely separate applications filed the same day']},
+    {f:'RED',c:['Fines','Maid #113824','CC','1751475','2026-02-13',1361.05,null,'No loan',null,null,1007.14,'1,361.05 − 353.91 = 1,007.14, and ÷ 20.142857 = 50 days — the cap. No fines-type loan within 90 days']},
+    {f:'RED',c:['Replacements','Maid #108447','CC','1602233','2025-11-19',454.62,null,'NOT_YET_PAID',0.00,0.00,454.62,'CC replacement with a loan raised and nothing repaid. The maid-side ledger is complete, so this is decided']},
+    {f:'AMBER',c:['Replacements','Maid #102816','MV','1451090','2025-09-01',454.62,null,'No loan',0.00,0.00,454.62,'MV — the client should be charged, and the client recharge route is not in the warehouse (N1). Cannot clear, cannot condemn']},
+    {f:'AMBER',c:['Duplicates','Maid #119673','CC','1688420 / 1751902','2026-01-30',353.91,214,'—',null,null,353.91,'121–599 day gap — an early re-application. Routed to the verifier, not red']},
+    {f:'GREEN',c:['Replacements','Maid #104992','CC','1489117','2025-10-07',454.62,null,'PAID',475.00,0.00,0.00,'Repaid in full. A REPEAT_EID loan is raised at 475 against a 454.62 card, so the columns are capped to the cost they offset']},
+    {f:'GREY',c:['—','—','—','5 transactions','various',3295.85,null,'—',null,null,null,'UNCLASSIFIED — goes to pending, never red. Name them or confirm they park (open item 2)']},
+  ],
+};
+
+/* ============================ RENDER ============================ */
+const TABS = [['PORTFOLIO','Portfolio','—'],['LAWP','LAWP','202'],['ENTRY_VISA','Entry visa','293'],
+  ['MEDICAL','Medical','292'],['ILOE','ILOE','1,900'],['RVISA','R-visa','91'],['EID','E-ID','327'],
+  ['ASSURANCE','Assurance','—']];
+let active = 'PORTFOLIO';
+
+const tabBar = document.getElementById('tabs');
+TABS.forEach(([k,lab,n])=>{
+  const b=document.createElement('button');
+  b.className='tab'; b.type='button'; b.role='tab'; b.dataset.k=k;
+  b.setAttribute('aria-selected', k===active);
+  b.innerHTML = lab + (n!=='—' ? ' <span class="n">'+n+'</span>' : '');
+  b.addEventListener('click',()=>{active=k;
+    [...tabBar.children].forEach(c=>c.setAttribute('aria-selected', c.dataset.k===k));
+    render(); window.scrollTo({top:0,behavior:'instant'});});
+  tabBar.appendChild(b);
+});
+
+function flagCell(f){return `<span class="flag fl-${f}"><span class="g">${GLYPH[f]}</span>${WORD[f]}</span>`;}
+
+function kpiStrip(kpis){
+  return `<div class="kpis">${kpis.map(k=>`<div class="kpi ${k.tone||''}">
+    <div class="k-lab">${k.lab}${k.id&&k.id!=='—'?`<span class="mid">${k.id}</span>`:''}</div>
+    <div class="k-val">${k.val}</div><div class="k-sub">${k.sub}</div></div>`).join('')}</div>
+  <div class="kpi-caption"><span class="lock">Full population</span>
+    These tiles do not respond to the filter bar — filtering to one flag must never make the other tiles drop to zero.</div>`;
+}
+
+function tieBlock(ties){
+  return ties.map(([lab,eq,v])=>{
+    const fail = v!=='0' && v!=='0.00' && !/listed|days/.test(v);
+    return `<div class="tieout${fail?' fail':''}"><span class="t-lab">Tie-out · ${lab}</span>
+      <span class="eq">${eq}</span><span class="var">variance ${v}</span></div>`;}).join('');
+}
+
+function filterBlock(a){
+  const one = ([lab,opts],i)=>`<div class="f"><label for="f-${lab.replace(/\W/g,'')}-${i}">${lab}</label>
+    <select id="f-${lab.replace(/\W/g,'')}-${i}">${opts.map(o=>`<option>${o}</option>`).join('')}</select></div>`;
+  return `<div class="filters">
+    <div class="frow">${a.filters.map(one).join('')}
+      <div class="f"><label for="q-${a.name.replace(/\W/g,'')}">Search</label>
+        <input type="search" id="q-${a.name.replace(/\W/g,'')}" placeholder="Maid, transaction or case id"></div>
+      <button class="btn" type="button">Export CSV</button>
+    </div>
+    <button class="linkbtn" type="button" data-more>More filters (${a.more.length})</button>
+    <div class="more" hidden><div class="frow">${a.more.map(one).join('')}
+      <div class="f"><label for="min-${a.name.replace(/\W/g,'')}">Min amount AED</label>
+        <input type="number" id="min-${a.name.replace(/\W/g,'')}" placeholder="0"></div>
+      <div class="f"><label for="srt-${a.name.replace(/\W/g,'')}">Sort</label>
+        <select id="srt-${a.name.replace(/\W/g,'')}"><option>Amount at stake — worst first</option>
+        <option>Age — oldest first</option><option>Deadline — soonest first</option><option>Date</option></select></div>
+    </div></div>
+    <div class="defaults">Defaults shown: period <b>Spec window</b> · flag <b>Action + Hold</b> ·
+      review status <b>all</b> · sorted <b>worst first by amount</b>. Review status never feeds a default that changes a metric.</div>
+  </div>`;
+}
+
+function auditTable(a){
+  const head = a.cols.map(([c,cls])=>`<th class="${cls==='num'?'num':''}">${c}</th>`).join('');
+  const body = a.rows.map(r=>{
+    const cells = r.c.map((v,i)=>{
+      const cls=a.cols[i][1];
+      if(v===null) return `<td class="${cls==='num'?'num':''}"><span class="${cls==='num'?'unval':'dash'}">${cls==='num'?'not valued':'—'}</span></td>`;
+      const out = (cls==='num'&&typeof v==='number') ? (Number.isInteger(v)&&Math.abs(v)<10000&&a.cols[i][0].indexOf('AED')<0 ? I(v) : F(v)) : v;
+      return `<td class="${cls}">${out}</td>`;
+    }).join('');
+    return `<tr class="f-${r.f}"><td>${flagCell(r.f)}</td>${cells}</tr>`;
+  }).join('');
+  return `<div class="tscroll"><table><thead><tr><th>Flag</th>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function auditView(key){
+  const a = AUDITS[key];
+  const clockStrip = a.extra==='clock' ? `<div class="clock">
+      <div class="eyebrow">One clock, from the day the money left — it never resets</div>
+      ${clockSvg()}
+    </div>` : '';
+  return `
+  <div class="prov"><span><b>Sources</b> ${a.sources}</span><span><b>Clock</b> ${a.clock}</span>
+    <span><b>Spec</b> ${a.spec}</span><span><b>Window</b> ${a.window}</span><span><b>As of</b> 2026-09-14</span></div>
+  <div class="band">${kpiStrip(a.kpis)}${tieBlock(a.tie)}</div>
+  ${clockStrip}
+  ${filterBlock(a)}
+  <div class="inview">
+    <span>Showing <b>${a.rows.length}</b> example rows of <b>${a.tabN}</b> cases ·
+      in view <b>AED ${F(a.rows.reduce((s,r)=>{const i=a.cols.findIndex(c=>/Amount AED|Recoverable AED|Still out|Loss AED|Unrecovered AED/.test(c[0]));return s+(typeof r.c[i]==='number'?r.c[i]:0);},0))}</b></span>
+    <span class="dash">The live build lists every case; this mockup carries the spec's worked examples.</span>
+  </div>
+  ${auditTable(a)}`;
+}
+
+function clockSvg(){
+  const W=980,H=74,L=8,R=W-8, x=d=>L+(R-L)*Math.min(d,200)/200;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:100%;display:block" role="img"
+    aria-label="Reservoir clock: 0 to 60 days reusable, 60 to 120 recoverable, past 120 lost">
+    <rect x="${x(0)}" y="16" width="${x(60)-x(0)}" height="20" fill="var(--good)" opacity=".24"></rect>
+    <rect x="${x(60)+2}" y="16" width="${x(120)-x(60)-2}" height="20" fill="var(--amber)" opacity=".38"></rect>
+    <rect x="${x(120)+2}" y="16" width="${R-x(120)-2}" height="20" fill="var(--red)" opacity=".26"></rect>
+    ${[0,60,120,200].map(d=>`<line x1="${x(d)}" y1="12" x2="${x(d)}" y2="40" stroke="var(--rule-2)" stroke-width="1"></line>
+      <text x="${x(d)}" y="52" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--ink-3)"
+        text-anchor="${d===0?'start':d===200?'end':'middle'}">${d===200?'200+ days':'day '+d}</text>`).join('')}
+    <text x="${(x(0)+x(60))/2}" y="30" font-family="IBM Plex Sans Condensed, sans-serif" font-size="11.5"
+      font-weight="600" fill="var(--ink)" text-anchor="middle">Can still be given to another maid</text>
+    <text x="${(x(60)+x(120))/2}" y="30" font-family="IBM Plex Sans Condensed, sans-serif" font-size="11.5"
+      font-weight="600" fill="var(--ink)" text-anchor="middle">Too late to reuse — claim the refund</text>
+    <text x="${(x(120)+R)/2}" y="30" font-family="IBM Plex Sans Condensed, sans-serif" font-size="11.5"
+      font-weight="600" fill="var(--ink)" text-anchor="middle">Nothing left. This is the loss</text>
+    <text x="${L}" y="68" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="var(--ink-2)">
+      418 of the measured cases arrived in the pool already past day 60 — correct behaviour, not an anomaly.</text>
+  </svg>`;
+}
+
+function chartSvg(){
+  const rows = PORTFOLIO.map(p=>({name:p.name, seg:[p.rec||0,p.lost||0,p.und||0], tot:(p.rec||0)+(p.lost||0)+(p.und||0)}))
+                        .sort((a,b)=>b.tot-a.tot);
+  const W=980,rowH=38,padL=126,padR=112,top=6, H=top+rows.length*rowH+30;
+  const max=rows[0].tot, sx=v=>(W-padL-padR)*v/max;
+  const cols=['var(--amber)','var(--red)','var(--grey)'];
+  let g='';
+  rows.forEach((r,i)=>{
+    const y=top+i*rowH; let x=padL;
+    g+=`<text x="${padL-10}" y="${y+18}" text-anchor="end" font-family="IBM Plex Sans, sans-serif"
+         font-size="12.5" fill="var(--ink)">${r.name}</text>`;
+    r.seg.forEach((v,j)=>{ if(v<=0) return;
+      const w=Math.max(sx(v),2);
+      g+=`<rect x="${x}" y="${y+4}" width="${w}" height="20" fill="${cols[j]}" rx="1"></rect>`;
+      if(w>74) g+=`<text x="${x+w/2}" y="${y+18}" text-anchor="middle" font-family="IBM Plex Mono, monospace"
+         font-size="10.5" fill="var(--surface)" font-weight="600">${Math.round(v/1000)}k</text>`;
+      x+=w+2; });
+    g+=`<text x="${x+8}" y="${y+18}" font-family="IBM Plex Mono, monospace" font-size="11.5"
+         fill="var(--ink-2)">${I(Math.round(r.tot))}</text>`;
+  });
+  g+=`<text x="${padL}" y="${H-10}" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="var(--ink-3)">
+       AED, per audit, stacked by class — never one bar, and never one total.</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:100%;display:block" role="img"
+    aria-label="Exposure by audit, stacked by exposure class">${g}</svg>`;
+}
+
+function portfolioView(){
+  const cls = c=>`<span class="sw" style="background:${c}"></span>`;
+  return `
+  <div class="prov"><span><b>Six audits</b> LAWP · Entry visa · Medical · ILOE · R-visa · E-ID</span>
+    <span><b>As of</b> 2026-09-14</span>
+    <span><b>Period</b> Spec window — each audit on its own clock</span></div>
+
+  <div class="band">
+    <div class="band-h"><h2>Exposure</h2>
+      <span class="note">Four numbers, never one. Money with a route to get it back and money that is simply gone
+        are different things, and three of the six specs forbid a combined total outright.</span></div>
+    <div class="kpis">
+      <div class="kpi is-amber"><div class="k-lab">Recoverable<span class="mid">class</span></div>
+        <div class="k-val">AED ${F(TOT.rec)}</div><div class="k-sub">${I(TOT.recN)} cases · a route exists and it is still open</div></div>
+      <div class="kpi is-red"><div class="k-lab">Lost — no route<span class="mid">class</span></div>
+        <div class="k-val">AED ${F(TOT.lost)}</div><div class="k-sub">${I(TOT.lostN)} cases · find out how it happened</div></div>
+      <div class="kpi is-grey"><div class="k-lab">Undecided<span class="mid">class</span></div>
+        <div class="k-val">AED ${F(TOT.und)}</div><div class="k-sub">${I(TOT.undN)} cases · the number to drive down</div></div>
+      <div class="kpi is-grey"><div class="k-lab">Counted, not valued<span class="mid">class</span></div>
+        <div class="k-val">${I(TOT.unv)} cases</div><div class="k-sub">Real findings the specs forbid pricing</div></div>
+    </div>
+    <div class="kpi-caption"><span class="lock">No total</span>
+      There is deliberately no grand figure here. Adding a claimable refund to a fee paid twice asserts something false.</div>
+  </div>
+
+  <div class="band">
+    <div class="band-h"><h2>By audit</h2><span class="note">Case counts are a worklist size and may be added;
+      money may not cross a class. Each audit's grain is named, because a case means a different thing in each.</span></div>
+    <div class="matrix"><table>
+      <thead><tr><th>Audit</th><th>Grain</th><th class="num">Recoverable AED</th><th class="num">Cases</th>
+        <th class="num">Lost AED</th><th class="num">Cases</th><th class="num">Undecided AED</th><th class="num">Cases</th>
+        <th class="num">Not valued</th></tr></thead>
+      <tbody>${PORTFOLIO.map(p=>`<tr>
+        <td>${p.name}</td><td><span class="grain">${p.grain}</span></td>
+        <td class="num">${p.rec?F(p.rec):'<span class="dash">—</span>'}</td><td class="num">${p.recN||'<span class="dash">—</span>'}</td>
+        <td class="num">${p.lost?F(p.lost):'<span class="dash">—</span>'}</td><td class="num">${p.lostN||'<span class="dash">—</span>'}</td>
+        <td class="num">${p.und?F(p.und):'<span class="dash">—</span>'}</td><td class="num">${p.undN||'<span class="dash">—</span>'}</td>
+        <td class="num">${p.unv!=null?I(p.unv):'<span class="unval">from run</span>'}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total within class</td><td></td>
+        <td>${F(TOT.rec)}</td><td>${I(TOT.recN)}</td><td>${F(TOT.lost)}</td><td>${I(TOT.lostN)}</td>
+        <td>${F(TOT.und)}</td><td>${I(TOT.undN)}</td><td>${I(TOT.unv)}</td></tr></tfoot>
+    </table></div>
+    <p class="note" style="margin-top:8px">R-visa is carried at its per-request grain. Its per-maid pair classifier
+      finds 68 duplicate pairs worth AED 29,905 gross — shown on the R-visa tab, and deliberately absent here,
+      because that spec forbids adding the two.</p>
+  </div>
+
+  <div class="band">
+    <div class="band-h"><h2>Where the money is</h2></div>
+    <div class="chart">
+      <div class="legend">${CLASSES.map(c=>`<span class="lg">${cls(c.col)}${c.lab} — ${c.desc}</span>`).join('')}</div>
+      ${chartSvg()}
+    </div>
+  </div>`;
+}
+
+function assuranceView(){
+  const controls = [
+    ['LAWP','Tie-out — M2+M3+M4+M5+M6 = M1','pass','variance 0 on 7,313 payments'],
+    ['LAWP','Grain control — payments vs bundles','pass','202 / 232, both displayed'],
+    ['LAWP','Reconcile against LOST_VISA_EXPENSES','fail','Open item 3 — 17 cases / AED 22,008.67 against 50. Not adjudicated'],
+    ['Entry visa','Tie-out — charge side','pass','913 = 697 + 216'],
+    ['Entry visa','Tie-out — refund side','pass','892 = 701 + 119 + 70 + 2'],
+    ['Entry visa','Cross-check — the tripwire','warn','701 vs 697 — the 4-row excess is listed case by case, never absorbed'],
+    ['Medical','Tie-out — cases and AED','pass','1,153 cases · AED 273,010'],
+    ['Medical','Quarterly failure rate direction','fail','Risen five quarters running, 3.5% → 11.6%. A regression to escalate'],
+    ['ILOE','Tie-out — fines paid = charged + uncharged','pass','AED 1,163,242.82, variance 0.00'],
+    ['ILOE','Unclassified count','pass','47 payments, AED 4,173.74 — a rise here means the names changed again'],
+    ['R-visa','Coverage waterfall','pass','71,791 − 802 − 1,770 − 1 = 69,218'],
+    ['R-visa','Match rate (M11) ≥ 50%','pass','18 / 18 = 100%'],
+    ['R-visa','Chance baseline beside the observed rate','pass','12 of 18 refunds land on the exact day of the last payment'],
+    ['R-visa','Head guard — every EXPENSE_ID in the list','pass','Surplus head 779 carries 0 negatives'],
+    ['R-visa','Recovery Unknown — no maid id','warn','3 cases'],
+    ['R-visa','T7 line status — non-Added paid lines','pass','0 of 69,218'],
+    ['E-ID','Class tie-out re-adds to the ledger','pass','20,142 rows · AED 7,007,545.03 · variance AED 0.00'],
+    ['E-ID','Loan snapshot deduped before any sum','pass','169 loans across 257 rows'],
+    ['E-ID','MV client route (N1)','fail','No source in the warehouse. 131 cases cannot be scored'],
+  ];
+  const baseline = [
+    ['LAWP','M7 lost','202 payments · 232 bundles · AED 271,171.06'],
+    ['LAWP','M5 recoverable','45 payments · AED 63,897.92'],
+    ['Entry visa','M2 red','188 cases · AED 90,276.00'],
+    ['Entry visa','M3 paid twice','105 charges / 99 maids · AED 74,580.90'],
+    ['Medical','M1 / M2 / M3','AED 39,910 · 173 cases · 11.6%'],
+    ['ILOE','R2 / R3 / R4','1,530 / 364 / 6 · AED 575,891.27 / 82,138.25 / 864.58'],
+    ['R-visa','Still out (M3)','AED 16,853.50 · 45 confirmed · 46 blocked · 69,033 clean'],
+    ['R-visa','Pair classifier B median gap','716 days against a 730-day term'],
+    ['E-ID','M7 red','AED 57,390.34 · 149 cases'],
+    ['E-ID','Class tie-out','20,142 rows · AED 7,007,545.03'],
+  ];
+  const st = s => s==='pass' ? '<span class="st st-ok">✓ Pass</span>'
+              : s==='warn' ? '<span class="st st-part">▲ Watch</span>'
+              : '<span class="st st-no">● Open</span>';
+  return `
+  <div class="prov"><span><b>As of</b> 2026-09-14</span><span><b>Refresh</b> manual, on demand — never scheduled</span>
+    <span><b>Role</b> MONEY_CONTROL_ROLE</span></div>
+
+  <div class="band">
+    <div class="band-h"><h2>Controls</h2><span class="note">Every guard the six specs demand, in one place.
+      A report that does not tie is itself a finding, so these sit on the page rather than in a corner of it.</span></div>
+    <div class="cov"><table>
+      <thead><tr><th>Audit</th><th>Control</th><th>Status</th><th>Reading</th></tr></thead>
+      <tbody>${controls.map(([a,c,s,r])=>`<tr><td>${a}</td><td class="wrap" style="color:var(--ink)">${c}</td>
+        <td>${st(s)}</td><td class="wrap">${r}</td></tr>`).join('')}</tbody>
+    </table></div>
+  </div>
+
+  <div class="band">
+    <div class="band-h"><h2>Baseline drift</h2>
+      <span class="note">Each spec measured its own metrics on 12–14 Sep 2026. The build ships those measurements and
+        compares every run against them, so a wrong build is visible on day one rather than plausible for a quarter.</span></div>
+    <div class="cov"><table>
+      <thead><tr><th>Audit</th><th>Metric</th><th>Spec baseline</th><th class="num">This run</th><th class="num">Delta</th></tr></thead>
+      <tbody>${baseline.map(([a,m,v])=>`<tr><td>${a}</td><td style="color:var(--ink)">${m}</td>
+        <td class="mono" style="font-size:11.5px;color:var(--ink-2)">${v}</td>
+        <td class="num"><span class="unval">awaiting first run</span></td>
+        <td class="num"><span class="dash">—</span></td></tr>`).join('')}</tbody>
+    </table></div>
+    <p class="note" style="margin-top:8px">Valid only at the <em>Spec window</em> period. The six specs measure over six
+      different windows, so at any other period the comparison is disabled and says why — a different measurement is not
+      a discrepancy.</p>
+  </div>
+
+  <div class="band">
+    <div class="band-h"><h2>Coverage</h2>
+      <span class="note">Every check drawn in <em>Visa_Process_Audit_Flow.pdf</em>, against whether one is built.
+        Five are not.</span></div>
+    <div class="cov"><table>
+      <thead><tr><th>Process step</th><th>Check in the flow</th><th>Covered by</th><th>Status</th></tr></thead>
+      <tbody>${COVERAGE.map(([step,chk,by,s,txt])=>`<tr>
+        <td>${step}</td><td class="wrap" style="color:var(--ink)">${chk}</td>
+        <td class="mono" style="font-size:11.5px;color:var(--ink-2)">${by}</td>
+        <td class="wrap"><span class="st st-${s}">${s==='ok'?'✓ ':s==='part'?'▲ ':'● '}${txt}</span></td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="blind">
+      <div class="eyebrow">Named blind spots inside the built checks</div>
+      <ul>
+        <li><b>R-visa — 981 transactions</b> sit on R-visa heads with no visa line at all. 1.4% of the population,
+          ten times the finding set, and no test examines them.</li>
+        <li><b>E-ID — the MV client recharge route is not in the warehouse.</b> 131 MV replacement cases,
+          AED 58,649.84, can be neither cleared nor condemned until it is ingested.</li>
+        <li><b>LAWP — paperwork that never entered the reservoir is invisible</b>, and PAWP bundles cannot be
+          reliably excluded: the check scopes on a proxy, at 3.8–7.4% flag coverage.</li>
+        <li><b>Entry visa — nothing before 2025-09-05 can be audited.</b> The ERP records no dated rejection earlier.</li>
+        <li><b>Medical — <span class="mono">VISAREQUESTSNOTES</span> has no primary key</b>, so note citations use a
+          surrogate that can move between runs.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="band">
+    <div class="band-h"><h2>Rules this console holds itself to</h2></div>
+    <div class="panel"><ul class="rule-list">
+      <li><b>Nothing is clean by silence.</b> Grey means the check could not judge the case at all. It is counted and
+        shown beside the red count, never folded into clean, and a verifier that failed to run is counted apart from one
+        that read the text and found nothing.</li>
+      <li><b>Recovery never changes a verdict.</b> A refund cannot turn a red into a green — otherwise a team could make
+        a broken process look healthy by cleaning up after itself, and the control-failure count would fall while the
+        fault stayed put.</li>
+      <li><b>Workflow status is not a verdict</b> and never feeds a filter default that changes a metric.</li>
+      <li><b>Every price is era-bound.</b> There is not a single hardcoded fee anywhere: prices moved on 2025-08-11,
+        2026-01-01, 2023-05-17 and 2025-03-02 across these six checks, and a constant bands an entire earlier period as
+        wrong.</li>
+      <li><b>Personal data never leaves the predicate.</b> Transaction descriptions, staff names and note text are read
+        to compute and are never shown, exported or emailed. Maids appear as an id. Verifier quotes are the redacted
+        ones the model returned, never re-fetched raw text.</li>
+      <li><b>Refresh is manual.</b> No scheduled task, no standing unattended report — every one of the six specs says
+        so, and a standing warehouse process belongs to the ERP and Data teams.</li>
+    </ul></div>
+  </div>`;
+}
+
+function render(){
+  const v=document.getElementById('view');
+  v.innerHTML = active==='PORTFOLIO' ? portfolioView()
+              : active==='ASSURANCE' ? assuranceView()
+              : auditView(active);
+  const mb=v.querySelector('[data-more]');
+  if(mb) mb.addEventListener('click',()=>{const m=v.querySelector('.more');
+    m.hidden=!m.hidden; mb.textContent = m.hidden ? mb.textContent.replace('Hide','More') : mb.textContent.replace('More','Hide');});
+}
+render();
+</script>
