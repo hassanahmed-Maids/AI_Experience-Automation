@@ -2175,3 +2175,78 @@ SELECT CASE WHEN latest_refund_at >= cancel_created_at
        ROUND(SUM(GREATEST(charged_aed - 283.00, 0)))              AS recoverable_aed,
        MIN(cancel_created_at)::DATE AS earliest, MAX(cancel_created_at)::DATE AS latest
 FROM base GROUP BY 1 ORDER BY outcome;
+
+
+-- D9 · IS CHANGE OF STATUS THE IN-COUNTRY ROUTE'S SECOND HALF?
+--      The code says CheckEntryVisaImmigrationApprovalStep.onDone routes inside-UAE
+--      cases to ChangeOfStatusStep and outside-UAE cases straight to medical/flight.
+--      If that is right, change of status should pair almost exclusively with the
+--      CHEAP entry-visa band (372.50 family) and almost never with the expensive one
+--      (1,022.50 family) -- because a maid recruited abroad is arriving anyway and
+--      has no status to convert.
+--      This is a POSITIVE CONTROL on the code reading, not a finding: a clean split
+--      confirms the branch; a muddy one means the purpose-vs-band mapping is not
+--      what the audit has assumed, and check C's circularity problem is worse than
+--      recorded.
+--      Compares on the change-of-status BASE, not the paid amount -- the embedded
+--      overstay fine is not part of the price of the route.
+WITH ev AS (
+  SELECT VISA_REQUEST_ID,
+         SUM(CAST(AMOUNT AS NUMBER(18,2))) AS entry_visa_aed,
+         MIN(CAST(AMOUNT AS NUMBER(18,2))) AS first_amt
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE IN ('ENTRY_VSIA','ENTRY_VISA_LESS_THAN_1000')
+    AND REQUEST_TYPE='NewRequest' AND STATUS='Added'
+    AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+  GROUP BY 1
+), cos_raw AS (
+  SELECT VISA_REQUEST_ID, CAST(AMOUNT AS NUMBER(18,2)) AS amount_aed
+  FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+  WHERE PURPOSE='CHANGE_OF_STATUS' AND REQUEST_TYPE='NewRequest' AND STATUS='Added'
+), cos AS (
+  SELECT VISA_REQUEST_ID,
+         SUM(amount_aed) AS cos_paid_aed,
+         SUM(CASE WHEN ABS(MOD(ROUND((amount_aed - 572.50)*100), 5000)) < 2 THEN 572.50
+                  WHEN ABS(MOD(ROUND((amount_aed - 575.65)*100), 5000)) < 2 THEN 575.65
+                  WHEN ABS(ROUND((amount_aed - 590.54)/51.575)*51.575 - (amount_aed - 590.54)) < 0.05
+                                                                          THEN 590.54
+                  ELSE amount_aed END)                    AS cos_base_aed
+  FROM cos_raw GROUP BY 1
+)
+SELECT CASE WHEN ev.first_amt BETWEEN 370 AND 390   THEN 'a · inside-country band (372.50 family)'
+            WHEN ev.first_amt BETWEEN 1020 AND 1060 THEN 'b · outside-country band (1,022.50 family)'
+            ELSE 'c · some other amount' END                              AS entry_visa_band,
+       IFF(c.VISA_REQUEST_ID IS NOT NULL,
+           'ALSO paid change of status','no change of status')            AS route,
+       COUNT(*)                                                           AS requests,
+       ROUND(100.0*COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY
+            CASE WHEN ev.first_amt BETWEEN 370 AND 390   THEN 'a'
+                 WHEN ev.first_amt BETWEEN 1020 AND 1060 THEN 'b'
+                 ELSE 'c' END),1)                                         AS pct_of_band,
+       ROUND(AVG(ev.entry_visa_aed),2)                                    AS avg_entry_visa,
+       ROUND(AVG(COALESCE(c.cos_base_aed,0)),2)                           AS avg_cos_base,
+       ROUND(AVG(ev.entry_visa_aed + COALESCE(c.cos_base_aed,0)),2)       AS avg_govt_cost_per_maid,
+       ROUND(AVG(COALESCE(c.cos_paid_aed,0) - COALESCE(c.cos_base_aed,0)),2) AS avg_embedded_fine
+FROM ev LEFT JOIN cos c ON c.VISA_REQUEST_ID = ev.VISA_REQUEST_ID
+GROUP BY 1,2 ORDER BY entry_visa_band, route;
+
+
+-- D10 · WHAT A VISA JOURNEY ACTUALLY COSTS, BY PURPOSE. The flight-substitute
+--       hypothesis is only testable if a flight/ticket purpose exists in this ledger,
+--       and the audit has never enumerated the purposes -- it went straight to the
+--       two entry-visa values. Census the whole enum.
+--       Worth running whatever D9 shows: it is the denominator for every "entry visa
+--       is X% of what we spend per maid" statement this audit might want to make,
+--       and it will expose any other fee with the same bundling problem the overstay
+--       fine turned out to have.
+SELECT PURPOSE, REQUEST_TYPE,
+       COUNT(*)                                              AS lines,
+       COUNT(DISTINCT VISA_REQUEST_ID)                       AS requests,
+       ROUND(MEDIAN(CAST(AMOUNT AS NUMBER(18,2))),2)         AS median_aed,
+       ROUND(MIN(CAST(AMOUNT AS NUMBER(18,2))),2)            AS min_aed,
+       ROUND(MAX(CAST(AMOUNT AS NUMBER(18,2))),2)            AS max_aed,
+       ROUND(SUM(CAST(AMOUNT AS NUMBER(18,2))))              AS total_aed,
+       MIN(CREATION_DATE)::DATE AS first_seen, MAX(CREATION_DATE)::DATE AS last_seen
+FROM BA_VIEWS.VISA_SILVER.VISAREQUESTEXPENSES
+WHERE STATUS='Added' AND CREATION_DATE >= DATEADD('month',-12,CURRENT_DATE())
+GROUP BY 1,2 ORDER BY total_aed DESC;
