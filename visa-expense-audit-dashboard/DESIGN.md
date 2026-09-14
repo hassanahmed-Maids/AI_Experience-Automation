@@ -52,15 +52,14 @@ Eight tabs. Seven of them an auditor works; one proves the report is honest.
 ┌ Portfolio ┬ LAWP ┬ Entry visa ┬ Medical ┬ ILOE ┬ R-visa ┬ E-ID ┬ Assurance ┐
 ```
 
-**Every audit tab has the same five bands, in the same order**, so an auditor learns one
+**Every audit tab has the same four bands, in the same order**, so an auditor learns one
 page and then knows six:
 
 ```
-1  Provenance      sources · as-of · which clock this audit's dates are on
-2  KPI strip       3–5 tiles, each carrying its spec metric ID (M2, R3, M7 …)
-3  Tie-out line    the spec's own completeness identity, with its variance
-4  Filter bar      one row + a "more filters" expander
-5  Exception table worst-first by amount · flag stripe + flag WORD · drill-down · CSV
+1  KPI strip       3–5 tiles, each carrying its spec metric ID (M2, R3, M7 …)
+2  Filter bar      one row + a "more filters" expander
+3  In-view line    what the current filter selects, against the full population
+4  Exception table worst-first by amount · flag stripe + flag WORD · drill-down · CSV
 ```
 
 Two rules about that layout are load-bearing and are implemented, not just described:
@@ -70,9 +69,11 @@ Two rules about that layout are load-bearing and are implemented, not just descr
   auditor ends up believing money disappeared. The in-view subtotal sits on its own line
   directly above the table (`showing 46 of 1,900 cases · AED 21,774 of AED 658,894 in view`).
   *(Rvisa_Duplicate_Payments_v6 §4)*
-- **A non-zero tie-out variance shows a blocking banner on that tab.** The specs are
-  unanimous that a report which does not tie is itself a finding; it must not be a number
-  in a corner that nobody reads. *(ILOE §5 · e-ID §3.1 · medical §4 · LAWP §4 · entry visa §3)*
+- **A non-zero tie-out variance blocks the audit.** The specs are unanimous that a report
+  which does not tie is itself a finding. The tie-outs are **not** bars on each audit tab —
+  they are control rows on Assurance, where a failing one is visible against every other
+  guard rather than as a green bar people stop reading.
+  *(ILOE §5 · e-ID §3.1 · medical §4 · LAWP §4 · entry visa §3)*
 
 ### Portfolio tab
 
