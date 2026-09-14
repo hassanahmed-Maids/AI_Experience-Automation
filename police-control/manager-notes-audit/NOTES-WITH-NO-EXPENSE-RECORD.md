@@ -1,8 +1,73 @@
-# Machine-written manager notes — the 58% with no author
+# Manager notes with no expense record — the 58%
+
+> **RENAMED 2026-09-14 (was MACHINE-WRITTEN-NOTES.md).** The original title asserted a
+> mechanism the evidence did not support. Read the correction below before the rest.
 
 **Measured 2026-09-14.** Window: rolling 12 months, `NOTE_TYPE='ADDITION'`, `AMOUNT > 0`.
 
-## The headline
+
+## 🔴 CORRECTION THAT RESETS THE PREMISE (ask-the-code session 46380)
+
+**`REQUESTED_BY` is NOT the note's author.** `jira/DNA_ATTACHMENT_source_tables.md:42` maps it
+to `ep.REQUESTED_BY` — the EXPENSE record, carried in through the join (SPEC_v2 D7: "Requester /
+approver carried from the expense side ... arrives through the heuristic join"). The note entity
+has **no `requestedBy` field at all**: `AbstractPayrollManagerNote` has `fromManager` (a
+picklist) plus the inherited `creator` from `BaseEntity`.
+
+So `REQUESTED_BY IS NULL` never meant "no author recorded". It meant **"no expense record behind
+it"** — exactly what the 0-of-5,345 `EXPENSE_ID` probe measured. The same test was run twice and
+the second read as confirming the first.
+
+**Honest restatement:** AED 3,976,775.54 across 5,345 notes — 58% of manager-note money — has
+**no expense record behind it**, and the warehouse **carries no author column for manager notes
+at all** (`MANAGER` = the dead `EMPLOYEE_MANAGER_ID`; `CREATOR` not ingested). "58% is written by
+bots" was NOT established: some is jobs, some is people working through background tasks.
+
+### What this does to the CREATOR ingestion ask
+
+It survives, but it is **not sufficient**. `creator` comes from `BaseEntity` and is set from the
+authenticated user, so it is **null inside background tasks and scheduled jobs** (code-stated).
+Ingesting it attributes user-session writes and leaves the automated paths blank.
+
+**Two-part fix:**
+1. **Data:** ingest `CREATOR` **and `FROM_MANAGER_ID`** — airfare's owner is written to
+   `fromManager` and is invisible today.
+2. **Dev:** set an author on the automated paths.
+
+### The hour fingerprint measured the wrong thing
+
+The code is explicit that **no airfare job exists**, so airfare's 100%-exactly-midnight cannot be
+a run time — it is a **date-valued `noteDate`**. The signature detects whether the code wrote a
+DATE or a TIMESTAMP, not when work happened. Where a real timestamp is written (MV Prorated
+Salary 9–21, Last Day CC Switch 7–22) the reading holds; where it is midnight-exact it says
+nothing. The "MV Prorated Salary is a person, not a bot" read SURVIVES — and the code explains
+why no author is recorded.
+
+## ✅ ANSWERED — what creates each, and who owns it (session 46380)
+
+| Type | Creator (class · module) | Job? | Owning department |
+|---|---|---|---|
+| **MV Prorated Salary** AED 803,257 | `AsyncService.processCurrentMonthHousemaidsBatchBT` · payroll-management | **No** — background task fired when the payroll accountant processes the month's transfers | **Maid Payroll.** A person clicks; the async hand-off drops the user context, so nothing records who |
+| **Airfare Ticket** AED 2,189,000 | `HousemaidAirFareTicketBusinessRule` on `ScheduledAnnualVacation` AfterCreate (`moduleCode="visa"`) + `ScheduledAnnualVacationController.createEntity` · payroll-management | **No job exists** | **Visa** — both paths hardcode `fromManager = managers/jad`, so the note names its owner in a field the warehouse does not ingest |
+| **Bonus (automatic)** AED 604,775 | `HousemaidReferralService.createPayrollManagerNoteDeduction` driven by `ReferralBonusesManagerJob` · housemaid-management | **Yes** — quartz `referral_bonuses_manager_job` | The referral programme owner |
+
+Airfare amount config: `PARAMETER_HOUSEMAID_FILIPINO_AIRFARE_TICKET_LIMIT` (2000) and
+`PARAMETER_HOUSEMAID_OTHER_NATIONALITY_AIRFARE_TICKET_LIMIT` (1350), in `PayrollManagementModule`.
+
+**`DelighterService` is NOT a bonus creator.** It creates complaints, delighter to-dos, vacations
+and bed assignments — no `PayrollManagerNote`. This corrects a working assumption carried since
+the retraction-bonus work: that path reaches payroll through the **expense** route, a different
+mechanism.
+
+### ⚠️ Tension not smoothed over
+
+Bonus shows **20 distinct hours** (0.7% midnight) but the code found a **single** quartz job.
+Either `referral_bonuses_manager_job` runs many times a day, or a second creator exists that the
+question did not surface. One follow-up owed.
+
+Full answer: `evidence-machine-notes-conv46380.md`.
+
+## The headline (as first measured — read the correction above first)
 
 **AED 3,976,775.54 across 5,345 notes — 58% of all manager-note money — is written with no
 human identity at all.** It is the `(no requester recorded)` producer: 14.64 notes/day across
