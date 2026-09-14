@@ -433,7 +433,7 @@ AUDITS.RVISA = {
   name:'R-visa', tabN:'91',
   sources:'VISA_SILVER.VISAREQUESTEXPENSES · MONEY_CONTROL_SILVER.TRANSACTIONS · EXPENSES_HIERARCHY',
   clock:'TRANSACTIONS.TRANSACTION_DATE — the line-creation date runs a day earlier and is never used',
-  spec:'Rvisa_Duplicate_Payments_v6', window:'All time — a period-scoped duplicate test splits pairs and passes both halves',
+  spec:'Rvisa_Duplicate_Payments_v7', window:'All time — a period-scoped duplicate test splits pairs and passes both halves',
   kpis:[
     {lab:'Still out — per request',id:'M3',val:'AED 16,853.50',
      sub:'45 of 90 multi-payment cases confirmed (50.0%) · 27 unrecovered, 15 partial, 0 fully recovered, ever',tone:'is-red'},
@@ -447,14 +447,15 @@ AUDITS.RVISA = {
   filters:[['Grain',['Per request (case)','Per maid (pair classifier)']],
            ['Verdict',['Confirmed','Blocked','Clean','All']],
            ['Recovery',['Unrecovered','Partial','Full','Unknown','Not applicable','All']],
-           ['Blocking reason',['All reasons','sub-fee-payment','amount-unexplained','card-reversal-unknown','line-integrity','term-unknown','two-maids-one-case','batch posting','refund before duplicate']]],
+           ['Blocking reason',['All reasons','sub-fee-payment','amount-unexplained','card-reversal-unknown','line-integrity','term-unknown','term-unreadable','fault-unassessed-unreadable','orphan-proximity','two-maids-one-case','batch posting','refund before duplicate']]],
   more:[['Channel',['All channels','Noqoodi','Credit card','Mixed']],
         ['Purpose',['Both','APPLY_FOR_RVISA','RENEW_RESIDENCE']],
         ['Term',['Both','1 year (343.50)','2 year (443.50 / 457.46)']],
         ['Fee era',['All eras','393.50','443.50','457.46','343.50','pre-2020']],
         ['Pair bucket',['All buckets','A — same request','B — renewal','C1 — re-application','C2·S1 — re-payer defect','C2·S2 — term mismatch','C2·S3 — unexplained']],
         ['Year of last payment',['All years','2026','2025','2024','2023','2021','2020','2019','2018']],
-        ['Span (days)',['Any','0','1–30','31–300','300+']]],
+        ['Span (days)',['Any','0','1–30','31–300','300+']],
+        ['Leg',['All legs','Duplicate payments (built)','Term match (specified, not measured)','Fine responsibility — T10 (specified, not measured)','Orphan proximity screen (R2)']]],
   cols:[['Case','mono'],['Rule breached','wrap'],['Pays','num'],['First / last','mono'],
         ['Era fee','num'],['Duplicated','num'],['Refunded','num'],['Still out','num'],['Recovery',''],['Span','num'],['Channel','']],
   rows:[
@@ -466,6 +467,10 @@ AUDITS.RVISA = {
     {f:'AMBER',c:['19044 · APPLY_FOR_RVISA','Blocked — batch posting on 2020-03-18; its nature is a P&C inference, not established',2,'2020-02-24 / 2020-03-18',393.50,null,null,null,'Not applicable',23,'Noqoodi']},
     {f:'AMBER',c:['59182 · APPLY_FOR_RVISA','C2·S1 re-payer defect — an initial request opened while her renewal was in flight',2,'2024-11-06 / 2025-01-14',443.50,443.50,0.00,null,'Unknown',69,'Noqoodi']},
     {f:'GREEN',c:['33517 · RENEW_RESIDENCE','Clean — renewal after the term expired. Gap 716 days against a 730-day term',2,'2023-06-02 / 2025-05-18',443.50,null,null,null,'Not applicable',716,'Noqoodi']},
+    {f:'AMBER',c:['25 pairs','C2·S2 term mismatch — a full 2-year fee, then another full fee about 365 days later. Six carry a 343.50 second payment, the 1-year tier. v7 routes the measurement to HOUSEMAIDS_VISA_INFORMATION (expiry − issuance, banded at 400 days, deduplicated to one term per maid). It reports a COUNT first: money is attached only if the 1-year tier survives Ask the Code',null,'—',443.50,null,null,null,'Not applicable',365,'Noqoodi']},
+    {f:'GREY',c:['Modification heads','T10 fine responsibility — a charge on heads 1622 / 1649 / 1735 with no fault assessment on record. The test asks whether the question was EVER ASKED, not what the answer was: a rule of the form "red when no maid loan exists" would red every case, because Alert 970 carries no R-visa item at all and the company bearing the cost is the EXPECTED state',null,'—',143.50,null,null,null,'Not applicable',null,'—']},
+    {f:'GREY',c:['981 orphans','R2 · transactions on R-visa heads with no visa line at all — no term, no purpose, no schedule match, so everything T1 needs is missing. 1.4% of the population and ten times the finding set. v7 rules: build the ±90-day same-maid, same-head proximity screen. A hit is BLOCKED, never RED — it is a pointer for a human',null,'—',null,null,null,null,'Unknown',null,'—']},
+    {f:'GREY',c:['Roadmap leg','R1 · "rejected R-visas with no refund request within 60 days" — the Security Room roadmap scopes it, the flowchart does not, and no rule has ever carried it. UNMEASURABLE: the ERP exposes no rejection status and no refund-request field for R-visa. An ERP gap, not a spec gap',null,'—',null,null,null,null,'Not applicable',null,'—']},
   ],
 };
 
