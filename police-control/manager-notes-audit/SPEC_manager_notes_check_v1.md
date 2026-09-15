@@ -194,7 +194,7 @@ window and is date-stamped for that reason.
 | **C1** | Anti-attrition to a maid in a NO-SHOW or terminated state | not deserved | `AS_OF` status ∈ {`NO_SHOW`, `NO_SHOW_WENT_OUT_DID_NOT_RETURN`, `NO_SHOW_LEFT_CLIENT_HOME`, `NO_SHOW_FOR_TERMINATION`, `EMPLOYEMENT_TERMINATED`} | **13,257** | 110 |
 | **C2** | Bonus over the referral entitlement | not deserved | maid-level `SUM(bonus) > SUM(D8.AMOUNT where not cancelled and requested)` | **11,500** | 16 maids |
 | **C3** | Anti-attrition paid before enrolment existed | not deserved | `note_day < MIN(D10.CREATION_DATE)` | **9,019** | 42 |
-| **C4** | Anti-attrition to an MV maid against a CC-only rule | off-rule | `AS_OF` type = `MV` | **5,526** | 20 |
+| **C4** | Anti-attrition to an MV maid against a CC-only rule | off-rule | `AS_OF` type = `MV` **AND the MV change took effect more than 2 days before the note** | **see note** | |
 | **C5** | Airfare to an MV maid | off-rule | no CC interval in the 24-month entitlement window | **4,500** | 3 |
 | **C6** | Accommodation Relocation to a live-in maid | not deserved | `AS_OF` type = `CC Live In` | **3,900** | 5 |
 | **C7** | Prorated salary outside the eligibility window | not deserved | salary start not within 0–40 days before the note | **2,976** | 25 |
@@ -216,6 +216,16 @@ window and is date-stamped for that reason.
 ⚠️ **9 notes / AED 6,500 across 8 maids appear in both C2 and K1.** Neither total double-counts — the
 tables are never summed — but **half the C2 maids are in both findings**, and a write-up that tells
 both stories tells the same maids twice.
+
+🔴 **C4 was narrowed on 2026-09-15 by requestor ruling: a maid who switched to MV within 2 days of
+payment is FINE.** Selection ran while she was still CC and the async gap is accepted. That removes the
+selection-lag population (11 notes / AED 3,050 as last split) from the check entirely — it was already
+retracted as a double count of C4, and is now closed on the merits as well.
+
+**What remains in C4 is a different thing and is NOT covered by that ruling:** a maid who was *already*
+MV when the job selected her. No timing gap explains her; the CC-only rule was simply broken. Last
+split, that was 11 notes / AED 2,476 of C4's 22. **The split needs re-measuring and the ≥3-day bands
+put to management alongside B3.**
 
 ### Era gates
 
@@ -385,7 +395,9 @@ with the standing caveat, because silent exclusion is how a hole becomes a lie.
 
 | # | Item | Owner | Blocking? |
 | --- | --- | --- | --- |
-| **B3** | **Must anti-attrition eligibility hold at payment, or only at selection?** The job checks at selection and pays two async hops later. **This one line decides AED 16,307** — C1 plus C4's lag half. If selection-only is intended, both stop being findings | George Abboud | **Yes — the largest single dependency in the spec** |
+| **B3a** | ✅ **ANSWERED 2026-09-15 — a maid who switched to MV within 2 days of payment is FINE.** Selection ran while she was still CC. C4 narrowed accordingly; AED 3,050 closed on the merits as well as by the double-count retraction | Requestor | **Closed** |
+| **B3b** | 🔴 **OPEN WITH MANAGEMENT — may an anti-attrition incentive be paid to a maid who has ABSCONDED or been terminated by the payment date?** **110 notes, AED 13,257 — the largest single finding in the spec.** The job checks `status not in rejectedStatuses` at selection and pays two hops later | Requestor → management | **Yes** |
+| **B3c** | 🟡 **NEW, and not covered by B3a.** A maid who was **already MV before the job selected her** is not a lag case — nothing about the async gap explains her. Last split: 11 notes / AED 2,476. Should she also be fine, or is that still a finding? Re-measure the day-bands and put the 90+ day cases to management with B3b | Requestor | Yes for C4 |
 | **K1** | **What is `Maids.at other expenses` for, and who qualifies?** AED 51,260, 273 notes, clean on authorisation and **completely untested on entitlement because no rule exists to test against**. Seven departments raise it. Two distinct tariffs sit under it — PRO Services at ~AED 90 a note, Delighters L1 at ~AED 423 | George Abboud | **Yes for that type** |
 | **L2** | **Office work — must she be assigned on the day she is paid?** Decides AED 13,140. Only 15 of 92 notes were assigned when paid; 62 were with a client | George Abboud | Yes for that type |
 | **C5q** | **What are the rejection reasons for a bonus request?** The target set is bonuses that met a rejection condition and were paid anyway | George Abboud | No |
