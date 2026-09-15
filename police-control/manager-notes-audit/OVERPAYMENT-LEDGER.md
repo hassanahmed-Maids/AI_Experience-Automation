@@ -4,8 +4,13 @@
 Underpayment findings are byproducts and live in remediation lists, not here.
 
 **⚠️ WITHDRAWN: the ~AED 103,100 headline (2026-09-09).** Recomputed from the rows 2026-09-15 →
-**AED 56,204 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
-Against AED 7,197,642 examined — **0.78%**. Full arithmetic below.
+**AED 44,560 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
+Against AED 7,197,642 examined — **0.62%**. Full arithmetic below.
+
+🔴 **B3b limb (i) ANSWERED 2026-09-15 — the ERP's proration is correct and is not to be questioned.**
+Row 1 was AED 13,257 on the theory that an absconded maid forfeits the whole month. She does not:
+she keeps the prorated part she worked, which is what the ERP already pays. **Row 1 drops to AED 1,613**
+— the part paid for days after she left — and the ledger total falls by **AED 11,644**.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
 **3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
@@ -31,7 +36,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | ⚪ **RETRACTED — "raffle prizes to maids terminated before the draw"** | **0** | — | **RFC1: all 15 were re-hired.** Every one of the 15 notes shows status activity *after* the termination date — **1,039 status changes across the 13 maids** — and all 15 resolve to `WITH_CLIENT` on the draw date. `HOUSEMAIDS_INFO.DATE_OF_TERMINATION` is current state and is **not cleared on re-hire**, so a returning maid reads as "terminated 558 days ago" forever. The prizes went to maids actively placed with a client |
 | Prorated salary paid to maids outside the eligibility window | **2,976** | not deserved | 25 notes — 18 whose salary start predates the note by a median 650 days, 7 whose salary start is *after* it. **Resolved as-of the note date** (PS1c), down from 78 on a current-state read |
 | Airfare paid above its nationality tier | **500** | off-rule | 1 Kenyan note at 2,000 against a 1,500 tier — **the only one in 1,518** |
-| 🔴 **Anti-attrition paid to a maid in a NO-SHOW or terminated state** | **13,257** | not deserved | **110 notes (S4).** 68 `NO_SHOW_WENT_OUT_DID_NOT_RETURN` (8,147) · 21 `NO_SHOW_LEFT_CLIENT_HOME` (3,672) · 13 `NO_SHOW_FOR_TERMINATION` (748) · 6 `NO_SHOW` (419) · 2 `EMPLOYEMENT_TERMINATED` (271). The code filters `status not in rejectedStatuses` **at selection**, then pays two hops later — the same select-once flaw behind the AED 3,050 selection-lag finding, measured properly for the first time. A retention incentive to a maid who has absconded. ⚠️ **DECOMPOSED 2026-09-15 — if B3b rules "she keeps what she earned", this row is AED 1,613, not 13,257.** Prorating each note against the days she was actually eligible (`queries/anti-attrition-abscondment-cases.sql`) splits the 110 notes into **AED 10,210 she had already worked for** and **AED 1,647 for days after she left** — and of that 1,647, **AED 1,250 is a pay-period bug** (14 notes dated the 1st, where the month-truncation forces days-eligible to zero although 11 show `WITH_CLIENT` the cycle before), **AED 280 is the entitlement proxy failing** (42 implied days in a 30-day month) and **~AED 183 is last-day rounding** (65 of 105 notes have days-gone = 0). **AED 1,612.90 survives, across three maids** — 73378 (600), 110872 (852), 103699 (161). A further **AED 2,566 / 42 notes is not estimable at all** (never paid a whole month, so no proxy exists). The gross 13,257 stands only if the ruling is that an absconded maid forfeits the whole month |
+| 🔴 **Anti-attrition paid to a maid in a NO-SHOW or terminated state** | **1,613** *(was 13,257 until 2026-09-15)* | not deserved | **110 notes (S4).** 68 `NO_SHOW_WENT_OUT_DID_NOT_RETURN` (8,147) · 21 `NO_SHOW_LEFT_CLIENT_HOME` (3,672) · 13 `NO_SHOW_FOR_TERMINATION` (748) · 6 `NO_SHOW` (419) · 2 `EMPLOYEMENT_TERMINATED` (271). The code filters `status not in rejectedStatuses` **at selection**, then pays two hops later — the same select-once flaw behind the AED 3,050 selection-lag finding, measured properly for the first time. A retention incentive to a maid who has absconded. 🔴 **RE-SCOPED 2026-09-15 — B3b limb (i) is answered: the ERP prorates and that logic is correct, not to be questioned. The row is AED 1,613, not 13,257.** Prorating each note against the days she was actually eligible (`queries/anti-attrition-abscondment-cases.sql`) splits the 110 notes into **AED 10,210 she had already worked for** and **AED 1,647 for days after she left** — and of that 1,647, **AED 1,250 is a pay-period bug** (14 notes dated the 1st, where the month-truncation forces days-eligible to zero although 11 show `WITH_CLIENT` the cycle before), **AED 280 is the entitlement proxy failing** (42 implied days in a 30-day month) and **~AED 183 is last-day rounding** (65 of 105 notes have days-gone = 0). **AED 1,612.90 survives, across three maids** — 73378 (600), 110872 (852), 103699 (161). A further **AED 2,566 / 42 notes is not estimable at all** (never paid a whole month, so no proxy exists). What remains of the row is **two defects, not a proration dispute**: a maid **enrolled while already absent** (73378 — enrolled 13 days after she absconded, ⚠️ unconfirmed, see B3d) and **no eligibility re-check between cycles** (full unprorated months to maids gone 37-98 days, ⚠️ pending the `rejectedStatuses` read, see B3e) |
 | 🔴 **Accommodation Relocation paid to a live-in maid** | **3,900** | not deserved | **5 notes — revised down from 6 / AED 4,700 (S5).** `HOUSEMAID_TYPE_LOGS` carries `CC Live In` / `CC Live Out` / `MV` directly, so the rule is testable in one column instead of two. The `LIVE_OUT`-flag version was close but not exact |
 | Live-out transport allowance paid to a live-in maid | **392** *(filter recovered 2026-09-15)* | not deserved | 3 notes. Head is `EXPENSES_REQUESTS.EXPENSE_TYPE = 'Live-out Transportation Assistance'`, live-out read from `HOUSEMAIDS_INFO_REVISION.LIVE_OUT` as-of. ⚠️ **Inconsistent with the relocation row, which uses `HOUSEMAID_TYPE_LOGS`** — two as-of sources for one concept | The other **317 of 320 clear** — AED 71,457 — and 36 of them resolve to a different flag than today, so the clear is earned rather than an artifact |
 
@@ -47,7 +52,7 @@ every row named so the arithmetic can be checked.
 
 | # | Finding | AED | Archetype | Source |
 |---:|---|---:|---|---|
-| 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | 13,257 ⚠️ | not deserved | S4 · 110 notes · **pending B3b; AED 1,613 if she keeps what she earned** |
+| 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | **1,613** | not deserved | S4 → **re-scoped 2026-09-15**, 3 maids of the original 110 notes. AED 2,566 / 42 notes not estimable |
 | 2 | Bonus over the referral entitlement *(as of 2026-09-15)* | 11,500 | not deserved | O12b · 16 maids |
 | 3 | Anti-attrition paid before any enrolment existed | 9,019 | not deserved | F5 · 42 notes |
 | 4 | Anti-attrition to MV maids against a CC-only rule *(as of 2026-09-15)* | 5,526 | off-rule | L4 · 20 notes |
@@ -60,7 +65,7 @@ every row named so the arithmetic can be checked.
 | 11 | Anti-attrition same-day excess over entitlement | 838 | paid twice | F10 · 17 groups |
 | 12 | Airfare paid above its nationality tier | 500 | off-rule | A1 · 1 note |
 | 13 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | TF13 · 3 notes |
-| | **SUM OF THE SURVIVING ROWS** | **56,204** | | 12 rows |
+| | **SUM OF THE SURVIVING ROWS** | **44,560** | | 12 rows |
 
 ### Control violated — a rule broken, the money may still be owed. **DO NOT ADD TO THE ABOVE.**
 
@@ -84,7 +89,9 @@ carry **zero** of the money; their no-invoice twins carry all of it.
 | + Bonus over-entitlement re-measured 2026-09-15 (10,500 → 11,500) | +1,000 |
 | − L4 re-measured 2026-09-15 (5,726 → 5,526), one note aged off the window | −200 |
 | − L7 selection-lag: a SUBSET of the MV row, listed twice | −3,050 |
-| **= Surviving money-lost total** | **56,204** |
+| = Surviving money-lost total, as the rows stood on 2026-09-15 | 56,204 |
+| − Row 1 re-scoped: B3b (i) answered, the ERP's proration is correct (13,257 → 1,613) | −11,644 |
+| **= Surviving money-lost total** | **44,560** |
 
 110,954 − 52,500 = 58,454, and +1,000 of window drift gives **59,454**. The retraction step **reconciles exactly**, which is the check that the retraction removed
 what it claimed to and nothing else.
