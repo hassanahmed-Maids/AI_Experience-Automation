@@ -54,7 +54,7 @@ every row named so the arithmetic can be checked.
 |---:|---|---:|---|---|
 | 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | **1,613** | not deserved | S4 → **re-scoped 2026-09-15**, 3 maids of the original 110 notes. AED 2,566 / 42 notes not estimable |
 | 2 | Bonus over the referral entitlement *(as of 2026-09-15)* | 11,500 | not deserved | O12b · 16 maids |
-| 4 | Anti-attrition to MV maids against a CC-only rule *(as of 2026-09-15)* | 5,526 | off-rule | L4 · 20 notes |
+| 4 | Anti-attrition to MV maids against a CC-only rule *(as of 2026-09-15)* | 5,526 ⚠️ | off-rule | L4 · 20 notes · **may collapse to 426 — see B3g** |
 | 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes |
 | 6 | Accommodation Relocation paid to a live-in maid | 3,900 | not deserved | S5 · 5 notes |
 
