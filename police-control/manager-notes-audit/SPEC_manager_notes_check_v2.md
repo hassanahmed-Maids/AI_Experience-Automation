@@ -180,6 +180,11 @@ maid whose type changes on the as-of day can fall either side of a UTC-versus-Gu
 14. 🔴 **NEW — `HOUSEMAID_PAYROLL_HISTORY.STATUS` disagrees with D5 on many rows**, showing
     `WITH_CLIENT` where the status log says `NO_SHOW_LEFT_CLIENT_HOME`. It is a snapshot of unknown
     timing. **Read status from D5, never from the payslip.**
+16. 🔴 **NEW — `IS_TRANSFERRED` is not a payment test.** Non-transfer rates by type: `MV Prorated
+    Salary` **59.9%**, Bonus 3.7%, Maids.at 2.8%, Medical 2.3%, relocation 1.4%, Forgive Deduction 1.4%,
+    prorated 1.1%, airfare 0.8%, anti-attrition 0.5%, and **0.0% on seven types**. The outlier is the
+    terminated-maid type, so the column tracks **termination**, not non-payment. Reading it as "the
+    money never left" would have removed AED 506,309 that was almost certainly settled.
 15. 🔴 **NEW — MV conversions cluster hard at month end, and that is not the base rate.** Month-end
     switching is **10.6%** of all CC→MV changes (1,349 of 12,741). Any check that reads type as of a
     date shortly *after* a month boundary will over-fire on maids converting in the ordinary course.
@@ -222,9 +227,15 @@ different days and the maid's state can differ on them.
 
 - a rule about **entitlement** ("was she owed this?") reads `ENTITLEMENT_DAY`;
 - a rule about **whether money should have left** reads `AS_OF_PAYMENT`;
-- 🔴 **`D14.IS_TRANSFERRED = 'YES'` is required by EVERY money check, not just the payment-date ones.**
-  A note on a payslip that never transferred is not money lost, whichever check fired. This is a
-  population filter on the money table, applied once, above all eleven checks;
+- 🟡 **`D14.IS_TRANSFERRED` is an AMBER FLAG, not a filter — demoted 2026-09-15 after it failed its
+  own first test.** It was briefly specified as a hard population filter above all eleven checks. The
+  sweep across all 24 payment types shows **`MV Prorated Salary` at 59.9% not transferred** (471 notes,
+  AED 506,309) against **0.5–3.7% everywhere else** — and that type pays **terminated** maids, whose
+  payslips do not transfer through normal payroll and who the ledger already clears as entitled. So
+  `IS_TRANSFERRED = 'NO'` **does not reliably mean the money did not move**; for terminated and
+  absconded maids it may mean settled outside the normal transfer — which is exactly C1's population.
+  Until **O-TRANSFER** establishes what it means for a terminated maid, a non-transferred note is
+  flagged amber and named, never silently removed from the money;
 - `AS_OF(note)` is the fallback only where the note date *is* the governed event.
 
 **What getting this wrong cost.** C1 read status at the note date and had no transfer test. Of its 110
@@ -484,7 +495,8 @@ on the last day of a month, against **90%** in that population.
 | **O-AF** | ✅ **CLOSED 2026-09-15** — the rival airfare figure of AED 6,000 was a **5-month** lookback (Guard 1's duplicate window) against C5's **24-month** entitlement window. Run together: RED(24m) ⊆ RED(5m), 3 of 19. Disjoint sets, different questions; the 5m test reintroduces the confound C5 exists to defeat. **C5 stands at 4,500**; the 16 notes / AED 30,000 in the gap are the conservative floor's known cost and stay candidates | Audit | **Closed** |
 | **O-INSTANT** | ✅ **RESOLVED BY INSPECTION 2026-09-15 — not a blocker.** Each check was read against its own rule to decide its instant: C1 money-leaving → `AS_OF_PAYMENT`; C4 entitlement accruing over a period → pay-period start; **C6 and C12** (was she live-in when the allowance was granted) and **C7** (salary start vs note) are entitlement tests where **the note date IS the governed event** — correct as written; **C11 uses no instant at all**, being a pure amount-vs-tier comparison. C2, C5, C8, C9, C10 were already keyed to their own events. **The one dimension that applies to every check is the transfer filter, now hoisted above all eleven** (§3) | Audit | **No** |
 | **O-C4** | ✅ **RESOLVED BY RULE 2026-09-15 — not a blocker.** The 426 does not split across two checks; it needed one rule that covers both notes, and now has one: *she was not CC throughout the period the note pays for*. Maid 104507 was MV at the period's start; maid 38994 was CC for 12 of 31 days and paid a **full** whole-entitlement month. No orphaned note, no check invented for a single row | Audit | **No** |
-| **O-C2** | 🟡 **ONE MEASUREMENT OUTSTANDING — queued, not blocking.** C2 is AED 11,500, **38% of the total**, and the only check never re-tested with the transfer filter or the payment date; it also carries a known 9-note / AED 6,500 overlap with the control row *paid before the bonus was requested*. The query is written and ready to run; the build proceeds on 11,500 and the figure is date-stamped like every other rolling-window row. **If any of it sits on payslips that never transferred, C2 falls and the total falls with it** | Audit | **No — run before publication, not before build** |
+| **O-TRANSFER** | 🟡 **What does `IS_TRANSFERRED = 'NO'` mean for a terminated or absconded maid?** The sweep shows the column tracks termination, not non-payment — `MV Prorated Salary` runs at 59.9% against 0.5-3.7% elsewhere. Until this is answered the flag cannot filter money. **C1 is unaffected in its core** (its eight surviving notes are all `YES`) but may be **understated** by the 13 notes / AED 1,097 it set aside — the safe direction | Payroll / ERP | **No** |
+| **O-C2** | 🟡 **STILL OUTSTANDING — the first attempt was a bad query, not a clean result.** It filtered `REASON ILIKE '%Referral%bonus%'` and returned **zero rows**; the type is plainly **`Bonus`** (1,156 notes / AED 876,316) in the same sweep that was already in hand. Corrected query written, with the referral boolean flags compared **as text** so a type mismatch cannot silently match nothing, and an `entitlement_basis` column separating *paid above the authorised amount* from *no referral record at all*. C2 remains AED 11,500 — **38% of the total**, the largest single check, and the only one never re-tested. Bonus also carries the **highest non-transfer rate after the terminated type (3.7%)** | Audit | **No — before publication** |
 | **K1** | **What is `Maids.at other expenses` for, and who qualifies?** AED 51,260, 273 notes, clean on authorisation and **completely untested on entitlement because no rule exists to test against**. Seven departments raise it. Two distinct tariffs sit under it — PRO Services at ~AED 90 a note, Delighters L1 at ~AED 423 | George Abboud | **No for the build** — blocks *coverage* of Maids.at, not delivery |
 | **L2** | **Office work — must she be assigned on the day she is paid?** Decides AED 13,140. Only 15 of 92 notes were assigned when paid; 62 were with a client | George Abboud | **No for the build** — blocks *coverage* of office work |
 | **C5q** | **What are the rejection reasons for a bonus request?** The target set is bonuses that met a rejection condition and were paid anyway | George Abboud | No |
