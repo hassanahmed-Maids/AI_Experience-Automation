@@ -177,10 +177,11 @@ one page. The ones that affect the build:
   21% of the CC population.
 - Nothing on this page audits whether a deduction was correct. Additions are audited eleven ways;
   deductions only in one direction, and the amount never.
-- The report shows an individual maid's pay, balance, deduction limit and every extra payment she
-  received, so it is restricted to Police & Control and Payroll. Three of the child specs hold
-  different positions on whether per-maid amounts and staff names may appear, and none carries the
-  named approval company policy asks for. The spec applies the strictest meanwhile.
+- The report shows an individual maid's name, pay, balance, deduction limit and every extra payment
+  she received, so it is restricted to Police & Control and Payroll. The name column is ruled in by
+  Police & Control; three child specs carry an older rule against it and need a one-line amendment
+  each. What is still unsettled is narrower - whether a per-maid loan BALANCE may be shown as an
+  amount rather than a status word. The spec applies the stricter reading meanwhile.
 
 One of these is already closed by the merge rather than opened by it: check 6 establishes that
 HOUSEMAID_MANAGER_NOTES.EXPENSE_ID points at the expense-request id space, which answers an open item

@@ -522,26 +522,34 @@ badge and the visible row count are the same number.
 notes on most rules, maids on two and groups on a third. At one row per note the question disappears:
 there is one unit, and it is the note.
 
-### 4.3 The maid's name — asked for, drawn, and NOT approved
+### 4.3 The maid's name — ruled in, 2026-09-15
 
-🔴 **Police & Control asked on 2026-09-15 for the maid's name beside her id. Every child spec in this
-family forbids it**, in those words: *"Id only. Never a name"* (Check 3 §4), *"the maid's name is in
-no column and no export"* (Checks 1 and 6), *"No maid names, contact details, bank or WPS data"*
-(Check 2), and the sibling GCC spec's D7 — *"used only to label a case file for the person working
-it — never a report column, never in an export."*
+**The report carries the maid's name beside her id.** Ruled by the spec owner on 2026-09-15. The
+action on a red row is to open that maid's file, and an id alone makes the officer look her up before
+she can start.
 
-**The mockup draws the column so the request can be seen and ruled on, and carries a banner saying it
-is unapproved.** The names on it are placeholders against masked ids; no real person is named.
+**What the child specs actually say, since three of them say the opposite and the contradiction has to
+be resolved rather than left standing:**
 
-**The build must not ship it until OX11 is answered.** This is not a spec preference — company policy
-asks for a named, pre-approved purpose from Chady, and OX11 already records that no such approval
-exists for the money columns this page carries. **The requester's instruction is not that approval**,
-which is the same line Check 2's own spec draws about itself.
+| Check | Its own rule | Effect of this ruling |
+| --- | --- | --- |
+| 1 · Salary Components | *"The report shows individual pay components **for named maids**"* — an access rule, restricting the report and its export to P&C and Payroll | **Consistent.** It assumes an identified maid and controls who may see her |
+| 2 · Salary Raises | *"No maid names, contact details, bank or WPS data"* | 🔴 **Superseded.** Its §4 needs amending |
+| 3 · Expense → Loan | *"Id only. Never a name"* | 🔴 **Superseded.** Its §4 column table needs amending |
+| 4 · Loan Repayment | silent | unaffected |
+| 5 · With Client | silent | unaffected |
+| 6 · Manager Notes | *"The maid's name is in no column and no export"* | 🔴 **Superseded.** Its §4 export line needs amending |
 
-**There is a pre-approved alternative and the build should offer it first.** GCC's D7 already sanctions
-the name *in the case file the officer opens* — the drill-down — rather than in a shared report column.
-That satisfies the reason the name was asked for (identifying the maid whose file you are about to
-open) without putting a name on a surface that is exported, screenshotted and forwarded.
+🔴 **Three child specs now contradict this page, and a correction is not done until it is written into
+the file that caused it.** Checks 2, 3 and 6 carry a rule this ruling overrides. Until their §4
+sections are amended, a builder reading a child spec alone will strip the column back out. **That is
+three one-line edits and it is the only open work this ruling creates.**
+
+**What the ruling does not change.** The name travels with the same restriction the rest of the row
+already has: **this page and its export are limited to Police & Control and Payroll** (Check 1's own
+access rule, and §4's). Client names, phone numbers, email addresses, bank and WPS data stay out, and
+**verifier quotes are still redacted at the model** — a name in a column the officer needs is a
+different thing from a name buried in a quote nobody chose to display.
 
 **Rows.** Red, yellow or grey only. **Green rows are not displayed** — cleared cases live in the counts.
 Every row carries the flag word beside its colour and the specific state in small text under it. Tables
@@ -615,7 +623,7 @@ Owners as recorded.
 | **OX8** | 5 | 🔴 **Check 5's own author recommends against building it as a dashboard, and that has not been ruled on.** Two findings, AED 3,500, in a population of 5,558; its v1/v2 flagship finding — a maid "298 days with a client" — **was a maid who had worked there ten months and was replaced the day before**, manufactured by the check's own source table. A weekly one-line alert delivers the same value | Abdullah Mahdi | **Yes — for Check 5's section only** |
 | **OX9** | 2, 3, 4, 6 | **The verifier pattern is not uniform.** Check 2 runs a reader **and** a verifier that marks its homework on six checks. Checks 3, 4 and 6 run a single reader and so have **no V2 control** — the incomplete quote, the one failure no arithmetic can see, and the exact mistake made by hand during Check 2's own build. Does the pair become the house pattern? | Abdullah Mahdi | No — but it decides what a verdict is worth |
 | **OX10** | 3, 6 | **Live scope cross-references to the visa page.** Check 3 excludes *GCC Expenses* (GCC Payments Checker owns it) and *Overstay fee Loan* (**Change of Status — Part 3 of DNA-9829**). Neither document states the dependency where a builder of the other would see it | Abdullah Mahdi | No — but it is how a gap appears with nobody's fingerprints |
-| **OX11** | 1, 2, 6 | 🔴 **NOW ALSO THE MAID'S NAME. Police & Control asked on 2026-09-15 for the name beside the id; all four child specs that rule on it forbid it outright.** The mockup draws it behind an unapproved banner (§4.3) and the build must not ship it until this item is answered; a pre-approved alternative — the name in the drill-down, not the report column — already exists in GCC's D7. **The checks also disagree on whether this page may show an individual maid's money, and none has the approval policy asks for.** Check 1 rules the loan shown as a **status word, not an amount**. Check 2 rules the opposite — *ship it open and flagged* — while recording that **no named pre-approval from Chady exists and a requestor's ruling is not that approval**. Check 6 adds a third surface: **staff names inside verifier quotes** (*"approved by Nadine"*, *"requested by Alaa"*), redacted at the model only. §4 applies the stricter rule | Abdullah Mahdi / Chady | **Yes — for the per-maid money columns** |
+| **OX11** | 1, 2, 6 | ✅ **The maid's name is RULED IN, 2026-09-15 (§4.3)** — three child specs (2, 3, 6) carry a rule that now needs amending, which is the only work that ruling creates. **What remains open is narrower: the per-maid money columns.** Check 1 rules the loan shown as a **status word, not an amount**, until a per-maid balance has a named pre-approved purpose; Check 2 rules the opposite for salaries — *ship it open and flagged* — while recording that **no named pre-approval from Chady exists**. §4 applies the stricter rule to the loan balance meanwhile. Check 1 rules the loan shown as a **status word, not an amount**. Check 2 rules the opposite — *ship it open and flagged* — while recording that **no named pre-approval from Chady exists and a requestor's ruling is not that approval**. Check 6 adds a third surface: **staff names inside verifier quotes** (*"approved by Nadine"*, *"requested by Alaa"*), redacted at the model only. §4 applies the stricter rule | Abdullah Mahdi / Chady | **Yes — for the per-maid money columns** |
 | **OX12** | all | **This umbrella has not been gated.** Its figures are copied from the child specs — three of which were never gated. The merge itself is unverified | Abdullah Mahdi | Before hand-over |
 | **OX13** | 6 → GCC | ✅ **RESOLVED BY THE MERGE. `HOUSEMAID_MANAGER_NOTES.EXPENSE_ID` points at `EXPENSES_REQUESTS.ID`** — populated on **11,819 of 16,831** additions and joined that way throughout Check 6. The sibling GCC spec carries this as an open item (its O15: *"what id space does it belong to?"*) after finding that **zero rows resolve to a `TRANSACTIONS.ID`** — correct, and now explained: it is the expense-**request** id space, not the transaction one. **Close GCC's O15 and correct its wording** from *"cannot reference a GCC charge and the join fails silently"* to *"references an expense request, which a GCC charge is not"* | Abdullah Mahdi | No — a correction, not a blocker |
 | **OX14** | 2 vs 6 | 🔴 **Two checks read `HOUSEMAID_MANAGERACTIONLOGS` for the same `Maid Incentive Experiment` rows and key on different date columns.** Check 6 uses **`CREATION_DATE`** and states why: **`ACTION_DATE` is caller-supplied and never re-stamped on update.** **Check 2 uses `ACTION_DATE`** for its ±90-day window on categories 6 and 7 — 14 raises, AED 7,650/month. If Check 6 is right, Check 2's window is keyed on a date that may not be when anything happened. The two specs also describe the same `AMOUNT` column differently — Check 2 records it as *100% NULL*, Check 6 that the exposed `AMOUNT` maps to `DEDUCTION_AMOUNT` and the real `INCENTIVE_AMOUNT` is **not exposed at all** (I4). **Same table, same rows, two readings** | Snowflake team | **Yes — for Check 2's categories 6 and 7** |
