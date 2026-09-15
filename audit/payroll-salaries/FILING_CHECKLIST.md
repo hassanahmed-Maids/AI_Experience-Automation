@@ -21,18 +21,21 @@ the merged spec. A builder who opens a child spec on its own now learns three th
 it has been filed, it is a **Part of one request rather than a ticket of its own**, and which of its
 open items is the blocking one. Check 5 additionally carries the warning that its section is contested.
 
-## ⬜ ONE THING LEFT, AND IT MATTERS
+## ✅ COMPLETE — attachments landed 2026-09-15
 
-**Attach `SPEC_housemaid_payroll_salaries_v2.md` to DNA-9879 by hand.** The Jira API available here
-cannot upload files. The ticket body is a summary; **every formula, tie-out identity, trap and
-verifier prompt lives in the 344 KB spec**, and the take should not start without it. The comment on
-the ticket says so in those words.
+| Attachment | Size | State |
+| --- | --- | --- |
+| `Housemaid Payroll Checks (5).html` | 92,860 b | ✅ current |
+| `Housemaid Payroll Salaries v2 (3).md` | 343,860 b | ⚠️ **one revision behind** — see below |
 
-**Also worth doing before anyone picks it up:** confirm the mockup link opens for someone other than
-you. On DNA-9829 the assignee could not open it and had to ask Abdullah, who had already shared it
-with everyone at maids.cc.
+⚠️ **The attached spec predates the ON JIRA stamps.** The current file is 346,099 b; the attached copy
+is the version from just before the six child specs were stamped with this ticket's key and an
+`ON JIRA` status. **The build content is identical** — every rule, formula, tie-out, trap and prompt is
+the same. What the attached copy lacks is the traceability metadata in each child spec's front matter.
+Re-attach only if that matters; nothing in the build depends on it.
 
----
+Also worth knowing: the attachment filenames carry the browser's download suffixes rather than the
+canonical `SPEC_housemaid_payroll_salaries_v2.md`. Rename on the ticket if that bothers anyone.
 
 ## Two things that did not go as drafted
 
