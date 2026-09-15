@@ -4,8 +4,8 @@
 Underpayment findings are byproducts and live in remediation lists, not here.
 
 **⚠️ WITHDRAWN: the ~AED 103,100 headline (2026-09-09).** Recomputed from the rows 2026-09-15 →
-**AED 59,254 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
-Against AED 7,197,642 examined — **0.82%**. Full arithmetic below.
+**AED 56,204 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
+Against AED 7,197,642 examined — **0.78%**. Full arithmetic below.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
 **3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
@@ -22,18 +22,18 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | ⚪ **RETRACTED — "airfare duplicates via the unguarded manual route"** | *was 49,500* | — | **Reconciled 2026-09-14 and it does not survive.** A3c carried no `AMOUNT > 0` filter, so it paired a real payment against a **zero-amount** predecessor. Split by whether money moved on both sides: **26 notes / AED 46,000 had a zero-amount prior note — there was never a first payment**; only **4 notes / AED 5,500** are two real payments, and those four are a top-up, a dispute settlement, an exception release and a salary advance, each separately authorised through the expense route and *booked under the airfare head*. As a duplicate-payment finding: **zero**. 26 + 4 = 30 and 46,000 + 5,500 = 51,500 reconciles A3c's 29 / 49,500 inside rounding |
 | 🔴 **Bonus over the referral entitlement** | **11,500** *(as of 2026-09-15)* | not deserved | **16 maids, re-measured 2026-09-15 (O12b).** Seven over by 1,000, nine by 500 — every one paid exactly double her entitlement. ⚠️ Was 15 maids / 10,500 on 2026-09-08: the window is ROLLING, so this row drifts with the date. **9 of its notes (AED 6,500, 8 maids) also appear in the control row "paid before the bonus was requested"** — different tables, so no double-count, but the same maids |
 | Anti-attrition paid before any enrolment existed | **9,019** *(re-measured 2026-09-15, unchanged)* | not deserved | **42 notes** on `CREATION_DATE`. ⚠️ FINDINGS-RUN first read 11,145/51 — **that was a DEFINITION I changed, not drift**: I added maids with NO enrolment record to maids paid BEFORE enrolment. Those 9 notes are a separate population (below) |
-| ⚠️ **Selection-lag payments to already-ineligible maids** | **3,050 — NO QUERY ON RECORD** | off-rule | 11 notes. 🔴 **FINDINGS-RUN could not re-measure it: no query exists anywhere in `queries/`.** Re-derive or retire |
+| ⚪ **RETRACTED — "selection-lag payments" was a DOUBLE COUNT** | *was 3,050* | — | **Recovered from `runs/2026-09-12month-audit-run.md` 2026-09-15.** MV-as-of-payment splits into "MV well before payment" (11 notes / 2,476) and "switched within 2 days — selection lag" (11 / 3,050). **2,476 + 3,050 = 5,526 — exactly the MV row above.** The run report states it plainly: *"It is not a separate finding — it is corroboration."* A subset of one row was listed as a second row |
 | ⚪ **RETRACTED — "airfare, the automatic guard itself failed"** | *was 3,000* | — | Same reconciliation. Every `automatic → automatic` pair inside 5 months has no money on one side or both; the single one with a real second payment (AED 1,500) had a zero-amount predecessor, so it is the same artefact |
 | Anti-attrition to MV maids against a CC-only rule | **5,526** *(as of 2026-09-15)* | off-rule | **20 notes** — one aged off the window (was 5,726 / 21). | **21 notes — revised up 131% (S5).** The original 11 notes / AED 2,476 resolved contract type from `HOUSEMAIDS_INFO_REVISION`, an Envers audit table. `HOUSEMAID_TYPE_LOGS` is the purpose-built timeline with closed intervals, and it finds nearly twice as many |
 | Note exceeds its approved expense request | 1,304 | off-rule | 4 notes of 11,819 linked |
-| ⚠️ **Anti-attrition same-day excess over entitlement** | **838 — UNVERIFIED** | paid twice | 17 groups. 🔴 **The entitlement basis was never recorded.** A reconstruction (SUM(day) − MAX(note)) returns **463**. Re-derive or retire — do not file at 838 |
+| Anti-attrition same-day excess over entitlement | **838** *(basis recovered 2026-09-15)* | paid twice | 17 groups. Basis is **F12**: each maid's entitlement proxied by the largest whole-entitlement note (100–500) she received **across the year**, not on the day. My re-measure used per-day and read 463 — wrong proxy, not a changed number |
 | Forgive Deduction: 15–21 days forgiven in a single month | **2,492** | off-rule | 3 maid-months, 55 notes. One note is one day, so 21 notes means two thirds of a month was unpaid then written back. **Both hard ceilings held** — no maid-month exceeded the days in the month or a month's salary |
 | ⚪ **RETRACTED — "raffle prizes to maids terminated before the draw"** | **0** | — | **RFC1: all 15 were re-hired.** Every one of the 15 notes shows status activity *after* the termination date — **1,039 status changes across the 13 maids** — and all 15 resolve to `WITH_CLIENT` on the draw date. `HOUSEMAIDS_INFO.DATE_OF_TERMINATION` is current state and is **not cleared on re-hire**, so a returning maid reads as "terminated 558 days ago" forever. The prizes went to maids actively placed with a client |
 | Prorated salary paid to maids outside the eligibility window | **2,976** | not deserved | 25 notes — 18 whose salary start predates the note by a median 650 days, 7 whose salary start is *after* it. **Resolved as-of the note date** (PS1c), down from 78 on a current-state read |
 | Airfare paid above its nationality tier | **500** | off-rule | 1 Kenyan note at 2,000 against a 1,500 tier — **the only one in 1,518** |
 | 🔴 **Anti-attrition paid to a maid in a NO-SHOW or terminated state** | **13,257** | not deserved | **110 notes (S4).** 68 `NO_SHOW_WENT_OUT_DID_NOT_RETURN` (8,147) · 21 `NO_SHOW_LEFT_CLIENT_HOME` (3,672) · 13 `NO_SHOW_FOR_TERMINATION` (748) · 6 `NO_SHOW` (419) · 2 `EMPLOYEMENT_TERMINATED` (271). The code filters `status not in rejectedStatuses` **at selection**, then pays two hops later — the same select-once flaw behind the AED 3,050 selection-lag finding, measured properly for the first time. A retention incentive to a maid who has absconded |
 | 🔴 **Accommodation Relocation paid to a live-in maid** | **3,900** | not deserved | **5 notes — revised down from 6 / AED 4,700 (S5).** `HOUSEMAID_TYPE_LOGS` carries `CC Live In` / `CC Live Out` / `MV` directly, so the rule is testable in one column instead of two. The `LIVE_OUT`-flag version was close but not exact |
-| ⚠️ **Live-out transport allowance paid to a live-in maid** | **392 — UNVERIFIED** | not deserved | 3 notes. 🔴 **The expense-head filter is not recorded.** Without it the same test returns **AED 4,237 across 47 notes**. Recover the head string before filing. | The other **317 of 320 clear** — AED 71,457 — and 36 of them resolve to a different flag than today, so the clear is earned rather than an artifact |
+| Live-out transport allowance paid to a live-in maid | **392** *(filter recovered 2026-09-15)* | not deserved | 3 notes. Head is `EXPENSES_REQUESTS.EXPENSE_TYPE = 'Live-out Transportation Assistance'`, live-out read from `HOUSEMAIDS_INFO_REVISION.LIVE_OUT` as-of. ⚠️ **Inconsistent with the relocation row, which uses `HOUSEMAID_TYPE_LOGS`** — two as-of sources for one concept | The other **317 of 320 clear** — AED 71,457 — and 36 of them resolve to a different flag than today, so the clear is earned rather than an artifact |
 
 
 
@@ -53,14 +53,14 @@ every row named so the arithmetic can be checked.
 | 4 | Anti-attrition to MV maids against a CC-only rule *(as of 2026-09-15)* | 5,526 | off-rule | L4 · 20 notes |
 | 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes |
 | 6 | Accommodation Relocation paid to a live-in maid | 3,900 | not deserved | S5 · 5 notes |
-| 7 | Selection-lag payments to already-ineligible maids | 3,050 | off-rule | 11 notes |
+
 | 8 | Prorated salary paid outside the eligibility window | 2,976 | not deserved | PS1c · 25 notes |
 | 9 | Forgive Deduction: 15-21 days forgiven in a single month | 2,492 | off-rule | FD2 · 3 maid-months |
 | 10 | Note exceeds its approved expense request | 1,304 | off-rule | O1 · 4 notes |
 | 11 | Anti-attrition same-day excess over entitlement | 838 | paid twice | F10 · 17 groups |
 | 12 | Airfare paid above its nationality tier | 500 | off-rule | A1 · 1 note |
 | 13 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | TF13 · 3 notes |
-| | **SUM OF THE SURVIVING ROWS** | **59,254** | | 13 rows |
+| | **SUM OF THE SURVIVING ROWS** | **56,204** | | 12 rows |
 
 ### Control violated — a rule broken, the money may still be owed. **DO NOT ADD TO THE ABOVE.**
 
@@ -83,7 +83,8 @@ carry **zero** of the money; their no-invoice twins carry all of it.
 | = Surviving money-lost total, as the rows stood on 2026-09-14 | 58,454 |
 | + Bonus over-entitlement re-measured 2026-09-15 (10,500 → 11,500) | +1,000 |
 | − L4 re-measured 2026-09-15 (5,726 → 5,526), one note aged off the window | −200 |
-| **= Surviving money-lost total** | **59,254** |
+| − L7 selection-lag: a SUBSET of the MV row, listed twice | −3,050 |
+| **= Surviving money-lost total** | **56,204** |
 
 110,954 − 52,500 = 58,454, and +1,000 of window drift gives **59,454**. The retraction step **reconciles exactly**, which is the check that the retraction removed
 what it claimed to and nothing else.
@@ -117,8 +118,10 @@ merely its subject.
 enrolment record at all.** Arguably a stronger finding than paying early — but it is a CANDIDATE,
 because the exercise above showed I do not know what F5 intended to exclude.
 
-🔴 **Three rows — AED 4,280 — are UNVERIFIED and must not be filed**: L7 has no query, L11's
-entitlement basis was never recorded, L13's expense-head filter was never recorded.
+✅ **ALL THREE UNVERIFIED ROWS RESOLVED 2026-09-15 — none was actually lost, I had not looked hard
+enough.** L11's basis is F12 (entitlement = largest whole-entitlement note across the YEAR, not the
+day). L13's filter is `EXPENSE_TYPE = 'Live-out Transportation Assistance'` + `HOUSEMAIDS_INFO_REVISION.LIVE_OUT`.
+And **L7 was never a finding at all — it is a SUBSET of the MV row, double-counted. −AED 3,050.**
 
 ### Three honest caveats on this number
 

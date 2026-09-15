@@ -93,6 +93,24 @@ WITH n AS (
           AND (t.NEXT_CHANGE_DATE IS NULL
                OR t.NEXT_CHANGE_DATE::DATE >= DATEADD('day', -730, a.note_day))
     GROUP BY 1, 2, 3
+), aa_ent AS (
+    -- F12's entitlement proxy: the largest WHOLE-entitlement note the maid got across the year
+    SELECT HOUSEMAID_ID, MAX(AMOUNT) AS entitlement
+    FROM n
+    WHERE payment_type = 'Anti-attrition Incentive'
+      AND AMOUNT IN (100,150,200,250,300,350,400,450,500)
+    GROUP BY 1
+), lota AS (
+    SELECT t.note_id, t.HOUSEMAID_ID, t.AMOUNT, r.LIVE_OUT AS live_out_when_paid
+    FROM (SELECT n.* FROM n
+          JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
+          WHERE n.payment_type = 'Taxi Reimbursement'
+            AND x.EXPENSE_TYPE = 'Live-out Transportation Assistance') t
+    LEFT JOIN (SELECT ID AS maid_id, LIVE_OUT, LAST_MODIFICATION_DATE::DATE AS changed_on
+               FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION
+               WHERE LIVE_OUT IS NOT NULL AND LAST_MODIFICATION_DATE IS NOT NULL) r
+           ON r.maid_id = t.HOUSEMAID_ID AND r.changed_on <= t.note_day
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY t.note_id ORDER BY r.changed_on DESC) = 1
 ), sday AS (
     SELECT HOUSEMAID_ID, note_day, COUNT(*) AS notes,
            SUM(AMOUNT) AS day_total, MAX(AMOUNT) AS largest
@@ -155,8 +173,12 @@ SELECT 'L6', 'Accommodation Relocation paid to a live-in maid',
 FROM n JOIN ty ON ty.note_id = n.note_id
 WHERE n.payment_type = 'Accommodation Relocation' AND ty.type_when_paid = 'CC Live In'
 UNION ALL
-SELECT 'L7', 'Selection-lag payments to already-ineligible maids',
-       NULL, 3050, NULL, NULL, NULL, 'NO QUERY ON RECORD - cannot be re-measured'
+-- L7 · ⚪ RETRACTED 2026-09-15 — DOUBLE COUNT, not a missing query. Recovered from
+--    runs/2026-09-12month-audit-run.md: MV-as-of-payment splits 11 notes / 2,476 "MV well before
+--    payment" + 11 / 3,050 "switched within 2 days". 2,476 + 3,050 = 5,526 = L4 exactly. The run
+--    report says it outright: "It is not a separate finding - it is corroboration."
+SELECT 'L7', 'RETRACTED - selection-lag was a SUBSET of L4, counted twice',
+       0, 0, 0, NULL, NULL, 'retracted 2026-09-15 - double count'
 UNION ALL
 SELECT 'L8', 'Prorated salary paid outside the eligibility window',
        ROUND(SUM(AMOUNT)), 2976, ROUND(SUM(AMOUNT)) - 2976,
@@ -175,10 +197,15 @@ SELECT 'L10', 'Note exceeds its approved expense request',
        COUNT(*), COUNT(DISTINCT HOUSEMAID_ID), 'measured'
 FROM j WHERE CURRENCY_NAME = 'AED' AND AMOUNT > req_amount + 0.01
 UNION ALL
+-- L11 · CORRECTED 2026-09-15. Basis recovered from F12: the entitlement is the largest whole-
+--    entitlement note (100-500) the maid received ACROSS THE YEAR, not the largest on the day.
+--    The per-day proxy read 463 against 838 - a wrong proxy, not a changed number.
 SELECT 'L11', 'Anti-attrition same-day excess over entitlement',
-       ROUND(SUM(day_total - largest)), 838, ROUND(SUM(day_total - largest)) - 838,
-       SUM(notes), COUNT(DISTINCT HOUSEMAID_ID), 'RECONSTRUCTED - entitlement basis not on record'
-FROM sday WHERE largest IN (100,150,200,250,300,350,400,450,500)
+       ROUND(SUM(GREATEST(s.day_total - e.entitlement, 0))), 838,
+       ROUND(SUM(GREATEST(s.day_total - e.entitlement, 0))) - 838,
+       SUM(s.notes), COUNT(DISTINCT s.HOUSEMAID_ID), 'measured'
+FROM sday s JOIN aa_ent e ON e.HOUSEMAID_ID = s.HOUSEMAID_ID
+WHERE s.day_total > e.entitlement + 0.5
 UNION ALL
 SELECT 'L12', 'Airfare paid above its nationality tier',
        ROUND(SUM(a.AMOUNT - t.tier)), 500, ROUND(SUM(a.AMOUNT - t.tier)) - 500,
@@ -186,11 +213,14 @@ SELECT 'L12', 'Airfare paid above its nationality tier',
 FROM air a JOIN airtier t ON t.nationality = a.nationality
 WHERE a.AMOUNT > t.tier
 UNION ALL
+-- L13 · CORRECTED 2026-09-15. TF13's filter recovered: the expense HEAD is
+--    'Live-out Transportation Assistance' and live-out is read from HOUSEMAIDS_INFO_REVISION.LIVE_OUT
+--    as-of, NOT from HOUSEMAID_TYPE_LOGS. Without the head it read 4,237 across 47 notes.
+--    ⚠️ Inconsistent with L6, which uses TYPE_LOGS for the same live-in/live-out concept - see O-LIVE.
 SELECT 'L13', 'Live-out transport allowance paid to a live-in maid',
-       ROUND(SUM(n.AMOUNT)), 392, ROUND(SUM(n.AMOUNT)) - 392,
-       COUNT(*), COUNT(DISTINCT n.HOUSEMAID_ID), 'RECONSTRUCTED - head filter not reproduced, reads HIGH'
-FROM n JOIN ty ON ty.note_id = n.note_id
-WHERE n.payment_type = 'Taxi Reimbursement' AND ty.type_when_paid = 'CC Live In'
+       ROUND(SUM(l.AMOUNT)), 392, ROUND(SUM(l.AMOUNT)) - 392,
+       COUNT(*), COUNT(DISTINCT l.HOUSEMAID_ID), 'measured'
+FROM lota l WHERE l.live_out_when_paid = 0
 
 ORDER BY ledger_aed DESC;
 
