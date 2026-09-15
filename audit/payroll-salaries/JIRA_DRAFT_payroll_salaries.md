@@ -7,6 +7,7 @@
 | **Project** | DNA |
 | **Issue type** | **New Request** — file it as Abdullah filed DNA-9829; the DNA Intake Bot re-types it (Analytic Engineer Task) and splits the AI-Analyst and BI workstreams itself |
 | **Summary** | Housemaid Payroll and Salaries - six payroll-money audits on one Sub Dashboard - full build spec |
+| **Sub Dashboard for** | Police & Control department. No parent dashboard |
 | **Reporter** | Abdullah Mahdi, Police & Control |
 | **Priority** | Not Urgent *(same as DNA-9829)* |
 | **Links** | **Relates to** DNA-9829 — sibling page, same house template, two live scope cross-references |
@@ -31,10 +32,9 @@ Report mockup: [Housemaid Payroll Checks](https://claude.ai/artifact/Y3NbLkqBagb
 
 WHAT WE ARE REQUESTING
 
-**A Sub Dashboard**, not a standalone report. One scrolling page, six sections, sitting under the
-Police & Control dashboard family alongside the Housemaid Visa Process page from DNA-9829. It uses
-the same stylesheet and the same tile / switch / table anatomy as that page, so the two read as one
-system. *(Confirm the parent it should hang under — we have assumed the same parent as DNA-9829.)*
+**A Sub Dashboard for the Police & Control department.** Not a standalone report, and it hangs under
+no parent dashboard. One scrolling page, six sections. It uses the same stylesheet and the same tile /
+switch / table anatomy as the Housemaid Visa Process page from DNA-9829, so the two read as one system.
 
 The six checks, in the order money moves through her pay:
 

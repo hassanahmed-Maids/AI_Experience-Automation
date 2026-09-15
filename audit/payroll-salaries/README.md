@@ -12,7 +12,7 @@ Process consolidation (DNA-9829).
 | --- | --- | --- |
 | `SPEC_housemaid_payroll_salaries_v2.md` | **The build document.** Part 0 is the shared frame; Parts 1–6 are the six child specs reproduced in full and unedited, prompts included | The data team. **This is the file to attach to the Jira ticket** |
 | `JIRA_DRAFT_payroll_salaries.md` | The Jira request, drafted in DNA-9829's shape. Fields at the top, description body below, ready to paste | Whoever files it. **Not filed yet** |
-| `FILING_CHECKLIST.md` | What is ready, the one answer still needed, how to file, and what to expect back | Whoever files it — **read this first** |
+| `FILING_CHECKLIST.md` | The filing record for DNA-9879, what is still outstanding, and what to expect back | **Read this first** |
 | `Housemaid_Payroll_Checks.html` | The mockup as a **standalone** file — full document wrapper, opens from disk, no server needed | Anyone who wants it offline or by email |
 | `payroll-controls.html` | The same page as an **artifact fragment** (no doctype/head/body — the artifact host supplies those). This is the file that publishes to the URL above | Only for regenerating the artifact |
 
@@ -77,7 +77,9 @@ change what a number means:
 
 ## Status
 
-**Ready to file, pending one answer** — which dashboard the Sub Dashboard hangs under. See
+✅ **FILED as [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879)** on 2026-09-15, linked
+to DNA-9829, Abdullah mentioned. **One step outstanding: attach the spec to the ticket by hand** — the
+API route used to file it cannot upload files, and the take should not start without it. See
 `FILING_CHECKLIST.md`.
 
 The maid's name is **ruled in** by the spec owner (2026-09-15) and the three child specs that carried
