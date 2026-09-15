@@ -4,8 +4,8 @@
 Underpayment findings are byproducts and live in remediation lists, not here.
 
 **⚠️ WITHDRAWN: the ~AED 103,100 headline (2026-09-09).** Recomputed from the rows 2026-09-15 →
-**AED 44,560 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
-Against AED 7,197,642 examined — **0.62%**. Full arithmetic below.
+**AED 35,541 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
+Against AED 7,197,642 examined — **0.49%**. Full arithmetic below.
 
 🔴 **B3b limb (i) ANSWERED 2026-09-15 — the ERP's proration is correct and is not to be questioned.**
 Row 1 was AED 13,257 on the theory that an absconded maid forfeits the whole month. She does not:
@@ -26,7 +26,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | ⚪ **RETRACTED to candidate — "bonus at referral rates, no referral, over a year in"** | *was 143,965* | — | BN3 classified the population from the narrative the code actually writes, and it does not hold together. The claim rested on *median 765 days into service* and *avg 878*. The unclassified-no-referral group is **148 notes, AED 100,310, avg 678, median 290 days** — under a year, and priced between the signing rate (500) and the referral rate (866). It is not one population and it is not characterised as the row said. Replaced by the two rows below |
 | ⚪ **RETRACTED — "airfare duplicates via the unguarded manual route"** | *was 49,500* | — | **Reconciled 2026-09-14 and it does not survive.** A3c carried no `AMOUNT > 0` filter, so it paired a real payment against a **zero-amount** predecessor. Split by whether money moved on both sides: **26 notes / AED 46,000 had a zero-amount prior note — there was never a first payment**; only **4 notes / AED 5,500** are two real payments, and those four are a top-up, a dispute settlement, an exception release and a salary advance, each separately authorised through the expense route and *booked under the airfare head*. As a duplicate-payment finding: **zero**. 26 + 4 = 30 and 46,000 + 5,500 = 51,500 reconciles A3c's 29 / 49,500 inside rounding |
 | 🔴 **Bonus over the referral entitlement** | **11,500** *(as of 2026-09-15)* | not deserved | **16 maids, re-measured 2026-09-15 (O12b).** Seven over by 1,000, nine by 500 — every one paid exactly double her entitlement. ⚠️ Was 15 maids / 10,500 on 2026-09-08: the window is ROLLING, so this row drifts with the date. **9 of its notes (AED 6,500, 8 maids) also appear in the control row "paid before the bonus was requested"** — different tables, so no double-count, but the same maids |
-| Anti-attrition paid before any enrolment existed | **9,019** *(re-measured 2026-09-15, unchanged)* | not deserved | **42 notes** on `CREATION_DATE`. ⚠️ FINDINGS-RUN first read 11,145/51 — **that was a DEFINITION I changed, not drift**: I added maids with NO enrolment record to maids paid BEFORE enrolment. Those 9 notes are a separate population (below) |
+| ⚪ **RETRACTED to candidate — "anti-attrition paid before any enrolment existed"** | *was 9,019* | — | 🔴 **UNFALSIFIABLE FROM THE WAREHOUSE, 2026-09-15 (B3f).** The job selects on `EXISTS` against the enrolment row, so a maid **cannot** be paid without one. A note predating her earliest surviving row therefore means her original row is **gone** — and `evidence-antiattrition-actionlog-conv46015.md` §1 records `deleteEntity` as a base-controller delete with **no soft-delete flag and no history snapshot**. "Never enrolled when paid" and "enrolled, unenrolled, re-enrolled" produce **identical data**; nothing in the warehouse separates them. That also explains the 8x concentration among amount-changed maids better than any alternative: a tier change done as unenrol-then-re-enrol. ⚠️ **Three discriminators failed before this was understood** — expense head (same head for all 9,143 notes; §3 had already said the manual route lands under the same addition reason), requester pool (7 of the same 26), and approval (**100% approved on BOTH sides** — the note only exists once the expense todo is `confirmed`, so approval is the creation mechanism, not evidence of human authorisation). Same shape as the airfare retraction: an observation with an innocent explanation that cannot be ruled out. Restore only if the code confirms enrolment rows cannot be deleted. Original basis: **42 notes** on `CREATION_DATE`. ⚠️ FINDINGS-RUN first read 11,145/51 — **that was a DEFINITION I changed, not drift**: I added maids with NO enrolment record to maids paid BEFORE enrolment. Those 9 notes are a separate population (below) |
 | ⚪ **RETRACTED — "selection-lag payments" was a DOUBLE COUNT** | *was 3,050* | — | **Recovered from `runs/2026-09-12month-audit-run.md` 2026-09-15.** MV-as-of-payment splits into "MV well before payment" (11 notes / 2,476) and "switched within 2 days — selection lag" (11 / 3,050). **2,476 + 3,050 = 5,526 — exactly the MV row above.** The run report states it plainly: *"It is not a separate finding — it is corroboration."* A subset of one row was listed as a second row |
 | ⚪ **RETRACTED — "airfare, the automatic guard itself failed"** | *was 3,000* | — | Same reconciliation. Every `automatic → automatic` pair inside 5 months has no money on one side or both; the single one with a real second payment (AED 1,500) had a zero-amount predecessor, so it is the same artefact |
 | Anti-attrition to MV maids against a CC-only rule | **5,526** *(as of 2026-09-15)* | off-rule | **20 notes** — one aged off the window (was 5,726 / 21). | **21 notes — revised up 131% (S5).** The original 11 notes / AED 2,476 resolved contract type from `HOUSEMAIDS_INFO_REVISION`, an Envers audit table. `HOUSEMAID_TYPE_LOGS` is the purpose-built timeline with closed intervals, and it finds nearly twice as many |
@@ -54,7 +54,6 @@ every row named so the arithmetic can be checked.
 |---:|---|---:|---|---|
 | 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | **1,613** | not deserved | S4 → **re-scoped 2026-09-15**, 3 maids of the original 110 notes. AED 2,566 / 42 notes not estimable |
 | 2 | Bonus over the referral entitlement *(as of 2026-09-15)* | 11,500 | not deserved | O12b · 16 maids |
-| 3 | Anti-attrition paid before any enrolment existed | 9,019 ⚠️ | not deserved | F5 · 42 notes · **may be mis-named — see B3f** |
 | 4 | Anti-attrition to MV maids against a CC-only rule *(as of 2026-09-15)* | 5,526 | off-rule | L4 · 20 notes |
 | 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes |
 | 6 | Accommodation Relocation paid to a live-in maid | 3,900 | not deserved | S5 · 5 notes |
@@ -65,7 +64,7 @@ every row named so the arithmetic can be checked.
 | 11 | Anti-attrition same-day excess over entitlement | 838 | paid twice | F10 · 17 groups |
 | 12 | Airfare paid above its nationality tier | 500 | off-rule | A1 · 1 note |
 | 13 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | TF13 · 3 notes |
-| | **SUM OF THE SURVIVING ROWS** | **44,560** | | 12 rows |
+| | **SUM OF THE SURVIVING ROWS** | **35,541** | | 11 rows |
 
 ### Control violated — a rule broken, the money may still be owed. **DO NOT ADD TO THE ABOVE.**
 
@@ -91,7 +90,8 @@ carry **zero** of the money; their no-invoice twins carry all of it.
 | − L7 selection-lag: a SUBSET of the MV row, listed twice | −3,050 |
 | = Surviving money-lost total, as the rows stood on 2026-09-15 | 56,204 |
 | − Row 1 re-scoped: B3b (i) answered, the ERP's proration is correct (13,257 → 1,613) | −11,644 |
-| **= Surviving money-lost total** | **44,560** |
+| − Row 3 retracted to candidate: unfalsifiable, deleted enrolments leave no trace (B3f) | −9,019 |
+| **= Surviving money-lost total** | **35,541** |
 
 110,954 − 52,500 = 58,454, and +1,000 of window drift gives **59,454**. The retraction step **reconciles exactly**, which is the check that the retraction removed
 what it claimed to and nothing else.
