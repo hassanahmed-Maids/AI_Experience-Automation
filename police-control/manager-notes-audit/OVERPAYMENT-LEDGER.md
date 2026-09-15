@@ -3,8 +3,9 @@
 **What the audit exists to find: money that left without justification.**
 Underpayment findings are byproducts and live in remediation lists, not here.
 
-**Confirmed 2026-09-09 — ~AED 103,100.**
-Against AED 7,197,642 examined.
+**⚠️ WITHDRAWN: the ~AED 103,100 headline (2026-09-09).** Recomputed from the rows 2026-09-15 →
+**AED 58,454 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
+Against AED 7,197,642 examined — **0.81%**. Full arithmetic below.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
 **3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
@@ -34,6 +35,83 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | 🔴 **Accommodation Relocation paid to a live-in maid** | **3,900** | not deserved | **5 notes — revised down from 6 / AED 4,700 (S5).** `HOUSEMAID_TYPE_LOGS` carries `CC Live In` / `CC Live Out` / `MV` directly, so the rule is testable in one column instead of two. The `LIVE_OUT`-flag version was close but not exact |
 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | 3 notes. The other **317 of 320 clear** — AED 71,457 — and 36 of them resolve to a different flag than today, so the clear is earned rather than an artifact |
 
+
+
+## 💷 LEDGER TOTAL — RECOMPUTED FROM THE ROWS, 2026-09-15
+
+The old headline (~AED 103,100) is **withdrawn**. It is not reproducible from the rows as they now
+stand, and two of its largest components have been retracted. This is rebuilt by addition, with
+every row named so the arithmetic can be checked.
+
+### Money lost
+
+| # | Finding | AED | Archetype | Source |
+|---:|---|---:|---|---|
+| 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | 13,257 | not deserved | S4 · 110 notes |
+| 2 | Bonus over the referral entitlement | 10,500 | not deserved | O8 · 15 maids |
+| 3 | Anti-attrition paid before any enrolment existed | 9,019 | not deserved | F5 · 42 notes |
+| 4 | Anti-attrition to MV maids against a CC-only rule | 5,726 | off-rule | S5 · 21 notes |
+| 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes |
+| 6 | Accommodation Relocation paid to a live-in maid | 3,900 | not deserved | S5 · 5 notes |
+| 7 | Selection-lag payments to already-ineligible maids | 3,050 | off-rule | 11 notes |
+| 8 | Prorated salary paid outside the eligibility window | 2,976 | not deserved | PS1c · 25 notes |
+| 9 | Forgive Deduction: 15-21 days forgiven in a single month | 2,492 | off-rule | FD2 · 3 maid-months |
+| 10 | Note exceeds its approved expense request | 1,304 | off-rule | O1 · 4 notes |
+| 11 | Anti-attrition same-day excess over entitlement | 838 | paid twice | F10 · 17 groups |
+| 12 | Airfare paid above its nationality tier | 500 | off-rule | A1 · 1 note |
+| 13 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | TF13 · 3 notes |
+| | **SUM OF THE SURVIVING ROWS** | **58,454** | | 13 rows |
+
+### Control violated — a rule broken, the money may still be owed. **DO NOT ADD TO THE ABOVE.**
+
+| Finding | AED |
+|---|---:|
+| Bonus paid before the bonus was requested | 9,500 |
+| A deprecated, config-disabled bonus path is still paying | 7,126 |
+| **Subtotal** | **16,626** |
+
+Plus the invoice-gate finding, which carries no amount: the three heads that require an invoice
+carry **zero** of the money; their no-invoice twins carry all of it.
+
+### The arithmetic against the old figure
+
+| | AED |
+|---|---:|
+| Old column sum (pre-retraction) | 110,954 |
+| − Airfare duplicates, retracted 2026-09-14 | −49,500 |
+| − Airfare automatic-guard failure, retracted 2026-09-14 | −3,000 |
+| **= Surviving money-lost total** | **58,454** |
+
+110,954 − 52,500 = 58,454. **It reconciles exactly**, which is the check that the retraction removed
+what it claimed to and nothing else.
+
+### Three honest caveats on this number
+
+1. **The ~AED 1,400 bonus de-duplication is unresolved.** The old note said two bonus findings
+   overlapped by 3 notes across 2 maids. One of the two candidates for that pair is the **retracted**
+   AED 143,965 row — if that was the overlap, it is already gone and no adjustment is due. If it was
+   with the control-table row, it never touched this subtotal anyway. **No de-duplication has been
+   applied here.** Re-run O12 before treating 58,454 as final; the true figure is 57,054–58,454.
+2. **Airfare-to-MV is carried at AED 4,500 (AF2).** A re-measure on 2026-09-14 — 12-month window,
+   automatic path only, fan-out diagnostic clean — gave **3 notes / AED 6,000**. Consistent, but the
+   two definitions are not reconciled. Carried at the lower, older figure deliberately.
+3. **Counts, not money, are unverified on F5 / F10 / O1** after the `AMOUNT > 0` pass. The amounts
+   stand for the reasons given in that section; the note counts (42, 17 groups, 4 of 11,819) do not.
+
+### Retracted over the audit's life
+
+| | AED |
+|---|---:|
+| Bonus at referral rates, no referral → candidate | 143,965 |
+| Airfare duplicates via the unguarded manual route | 49,500 |
+| Airfare, the automatic guard itself failed | 3,000 |
+| Raffle prizes to terminated maids | 0 |
+| Advances with no loan booked | 0 |
+| **Total withdrawn** | **196,465** |
+
+**AED 196,465 has been withdrawn against AED 58,454 that survives.** Three and a bit dirhams
+retracted for every dirham standing. That ratio is the most important number on this page: it is
+what the verification discipline costs, and what it is worth.
 
 ## ✅ THE `AMOUNT > 0` PASS — 2026-09-15
 
