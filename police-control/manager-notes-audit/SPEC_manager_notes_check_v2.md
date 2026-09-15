@@ -6,7 +6,7 @@
 | **Spec version** | v2 |
 | **Date** | 2026-09-15 |
 | **Supersedes** | `SPEC_manager_notes_check_v1.md` (same day — v1's C1, C3 and C4 carried rules that later measurement disproved) and `SPEC_manager_notes_audit_v1/v2/v3.md` / `_DEV.md`, which are investigation documents, not build specs |
-| **Status** | Draft — awaiting requestor approval |
+| **Status** | 🟢 **Ready to build — no blocking open items.** Two rule decisions and one coverage boundary closed the three that remained; one measurement (O-C2) is queued before *publication*, not before build |
 | **Evidence** | `OVERPAYMENT-LEDGER.md` · `queries/FINDINGS-RUN.sql` · `queries/absconded-payment-date.sql` · `queries/anti-attrition-abscondment-cases.sql` · `runs/2026-09-12month-audit-run.md` |
 
 ---
@@ -56,6 +56,19 @@ are per-maid because recovery is held per maid. Here there is nothing to allocat
 
 **Population in scope.** `NOTE_TYPE = 'ADDITION'`, `AMOUNT > 0`, inside the window the user picks.
 In the twelve months to 2026-09-15: **16,831 notes, AED 6,851,419** across 24 types.
+
+🔴 **What the build covers, stated so the gap cannot be mistaken for a clean result.** The eleven
+checks score **AED 30,441 of red across the AED 6,851,419 examined**. Three payment types carry money
+that **no check tests at all**, because no rule exists yet to test against — not because they passed:
+
+| Type | AED | Why untested | Owner |
+| --- | ---: | --- | --- |
+| `Maids.at other expenses` | 51,260 | No entitlement rule exists. Seven departments raise it, at two distinct tariffs | George Abboud (K1) |
+| Office work | 13,140 | Unknown whether she must be assigned on the day she is paid | George Abboud (L2) |
+| Airfare — "renewal bonus on switch to MV" | ~32,500 | May be a different entitlement booked under the airfare head. **Excluded and named**, never scored against the airfare rule | George Abboud (A8) |
+
+**These do not block the build.** They are a coverage boundary, and the page must show them as
+**grey — "no rule exists to test this"** — never as green. A type with no rule is not a clean type.
 
 **Refresh expectation.** 🔴 **Live. There is no fixed window** — the dashboard reads current data in
 whatever window the user selects. §3's *Check design* rule exists entirely because of this.
@@ -208,8 +221,10 @@ different days and the maid's state can differ on them.
 🔴 **The choice is decided by the rule, never by convenience:**
 
 - a rule about **entitlement** ("was she owed this?") reads `ENTITLEMENT_DAY`;
-- a rule about **whether money should have left** reads `AS_OF_PAYMENT`, **and** additionally requires
-  `D14.IS_TRANSFERRED = 'YES'` — a note on a payslip that never transferred is not money lost;
+- a rule about **whether money should have left** reads `AS_OF_PAYMENT`;
+- 🔴 **`D14.IS_TRANSFERRED = 'YES'` is required by EVERY money check, not just the payment-date ones.**
+  A note on a payslip that never transferred is not money lost, whichever check fired. This is a
+  population filter on the money table, applied once, above all eleven checks;
 - `AS_OF(note)` is the fallback only where the note date *is* the governed event.
 
 **What getting this wrong cost.** C1 read status at the note date and had no transfer test. Of its 110
@@ -244,7 +259,7 @@ window and is date-stamped for that reason. **Live total: AED 30,441 across 11 c
 | **C9** | Note exceeds its approved request | off-rule | `AED` and `AMOUNT > req_amount + 0.01` | **1,304** | 4 |
 | **C10** | Anti-attrition same-day excess | paid twice | same-day total > entitlement, **entitlement proxied as the largest whole-entitlement note (100–500) across the year** (I4) | **838** | 17 groups |
 | **C11** | Airfare above its nationality tier | off-rule | `AMOUNT > MODE(AMOUNT)` for that nationality | **500** | 1 |
-| **C4** | Anti-attrition to an MV maid against a CC-only rule | off-rule | `AS_OF` type = `MV` **at the first day of the pay period the note covers** | **426** | 2 |
+| **C4** | Anti-attrition she had not earned as CC | off-rule | **She was not CC throughout the pay period the note pays for**: `AS_OF` type = `MV` at the first day of that period, **OR** a full whole-entitlement amount (100–500) paid for a period she was CC for only part of. One rule, both notes — maid 104507 (MV at period start) and maid 38994 (CC 12 of 31 days, paid a full month) | **426** | 2 |
 | **C12** | Live-out transport to a live-in maid | not deserved | head `Live-out Transportation Assistance` **and** `D7.LIVE_OUT = 0` as-of | **392** | 3 |
 | | **TOTAL** | | | **30,441** | **11 checks** |
 
@@ -467,15 +482,15 @@ on the last day of a month, against **90%** in that population.
 | --- | --- | --- | --- |
 | **B3** | ✅ **CLOSED ON EVERY LIMB 2026-09-15** — (a) MV switch within 2 days is fine; (b) the ERP's proration is correct and not to be questioned; (c) the long-MV population is one note / AED 126; (d) `CREATION_DATE` is trustworthy and maid 73378 was genuinely enrolled 13 days after absconding; (e) the `NO_SHOW` policy question closed and **not raised with management**; (f) C3 unfalsifiable and retired; (g) row 4 retracted on a base-rate test. **Nothing from anti-attrition goes to management** | — | **Closed** |
 | **O-AF** | ✅ **CLOSED 2026-09-15** — the rival airfare figure of AED 6,000 was a **5-month** lookback (Guard 1's duplicate window) against C5's **24-month** entitlement window. Run together: RED(24m) ⊆ RED(5m), 3 of 19. Disjoint sets, different questions; the 5m test reintroduces the confound C5 exists to defeat. **C5 stands at 4,500**; the 16 notes / AED 30,000 in the gap are the conservative floor's known cost and stay candidates | Audit | **Closed** |
-| **O-INSTANT** | 🔴 **Only C1 has been re-examined against the `AS_OF_PAYMENT` rule.** C4, C6, C7, C11 and C12 still read at the note date. Some are right to — C6's live-in status is an entitlement question — but none has been checked, and choosing the instant wrongly is an 88%-scale error. **This is the highest-value remaining work in the spec** | Audit | **Yes before build** |
-| **O-C4** | 🔴 **C4's AED 426 still needs splitting.** Maid 104507 (126) is a true MV case. Maid 38994 (300) switched **mid-month** and was paid a full month three days later — a **proration** failure belonging to C10, not C4. ~AED 184 of it is unearned | Audit | Yes for C4 |
-| **O-C2** | 🔴 **C2 is AED 11,500 — 38% of the whole total — and is the one check never re-tested with the instruments that reshaped everything else**: payment date, transfer confirmation, base rate. It also carries the known 9-note / AED 6,500 overlap with a control row | Audit | **Yes before publication** |
-| **K1** | **What is `Maids.at other expenses` for, and who qualifies?** AED 51,260, 273 notes, clean on authorisation and **completely untested on entitlement because no rule exists to test against**. Seven departments raise it. Two distinct tariffs sit under it — PRO Services at ~AED 90 a note, Delighters L1 at ~AED 423 | George Abboud | **Yes for that type** |
-| **L2** | **Office work — must she be assigned on the day she is paid?** Decides AED 13,140. Only 15 of 92 notes were assigned when paid; 62 were with a client | George Abboud | Yes for that type |
+| **O-INSTANT** | ✅ **RESOLVED BY INSPECTION 2026-09-15 — not a blocker.** Each check was read against its own rule to decide its instant: C1 money-leaving → `AS_OF_PAYMENT`; C4 entitlement accruing over a period → pay-period start; **C6 and C12** (was she live-in when the allowance was granted) and **C7** (salary start vs note) are entitlement tests where **the note date IS the governed event** — correct as written; **C11 uses no instant at all**, being a pure amount-vs-tier comparison. C2, C5, C8, C9, C10 were already keyed to their own events. **The one dimension that applies to every check is the transfer filter, now hoisted above all eleven** (§3) | Audit | **No** |
+| **O-C4** | ✅ **RESOLVED BY RULE 2026-09-15 — not a blocker.** The 426 does not split across two checks; it needed one rule that covers both notes, and now has one: *she was not CC throughout the period the note pays for*. Maid 104507 was MV at the period's start; maid 38994 was CC for 12 of 31 days and paid a **full** whole-entitlement month. No orphaned note, no check invented for a single row | Audit | **No** |
+| **O-C2** | 🟡 **ONE MEASUREMENT OUTSTANDING — queued, not blocking.** C2 is AED 11,500, **38% of the total**, and the only check never re-tested with the transfer filter or the payment date; it also carries a known 9-note / AED 6,500 overlap with the control row *paid before the bonus was requested*. The query is written and ready to run; the build proceeds on 11,500 and the figure is date-stamped like every other rolling-window row. **If any of it sits on payslips that never transferred, C2 falls and the total falls with it** | Audit | **No — run before publication, not before build** |
+| **K1** | **What is `Maids.at other expenses` for, and who qualifies?** AED 51,260, 273 notes, clean on authorisation and **completely untested on entitlement because no rule exists to test against**. Seven departments raise it. Two distinct tariffs sit under it — PRO Services at ~AED 90 a note, Delighters L1 at ~AED 423 | George Abboud | **No for the build** — blocks *coverage* of Maids.at, not delivery |
+| **L2** | **Office work — must she be assigned on the day she is paid?** Decides AED 13,140. Only 15 of 92 notes were assigned when paid; 62 were with a client | George Abboud | **No for the build** — blocks *coverage* of office work |
 | **C5q** | **What are the rejection reasons for a bonus request?** The target set is bonuses that met a rejection condition and were paid anyway | George Abboud | No |
 | **X1** | **Which payment types may each contract type receive?** CC live-in, CC live-out, MV, Freedom Operator, Walk-in. Two rows confirmed (airfare CC-only, relocation CC-live-out). **Paying against a rule that never applied is undetectable without the list** | George Abboud | No |
-| **A7** | **Airfare tenure — 22 months or 2 years?** The narratives use both, interchangeably, in the same week. The code gives a third number: ≥16 months since the last ticket. Three thresholds, one rule | George Abboud / ERP | Yes for airfare |
-| **A8** | **Is "renewal bonus upon the switch to MV" the same entitlement as the airfare ticket?** ~18 notes / ~AED 32,500 booked under the airfare head with that narrative. If different, every airfare rule tested against them tests the wrong thing | George Abboud | Yes for airfare |
+| **A7** | **Airfare tenure — 22 months or 2 years?** The narratives use both, interchangeably, in the same week. The code gives a third number: ≥16 months since the last ticket. Three thresholds, one rule | George Abboud / ERP | **No for the build** — C5 and C11 ship on the code-verified thresholds |
+| **A8** | **Is "renewal bonus upon the switch to MV" the same entitlement as the airfare ticket?** ~18 notes / ~AED 32,500 booked under the airfare head with that narrative. If different, every airfare rule tested against them tests the wrong thing | George Abboud | **No for the build** — the ~18 notes are excluded and named, not silently scored |
 | **O-DEL** | 🔴 **The delete-guard gap** (§3 control findings). `deleteEntity` enforces none of the incentive guards and leaves no trace. A **dev/security item**, free-standing — it depends on no ruling and no other finding. ⚠️ Residual: whether `magnamedia-core` applies framework-level Envers to `MaidManagerActionLog` is not readable from the housemaid-management repo. If it does, the deletions are recoverable and this downgrades | ERP | No |
 | **O-MV** | **782 notes carry a string the code says is written to a payroll log and a to-do, not to a manager note.** Either something copies it across or there is another writer. `AccountantToDoService.createAccountantTodoForTerminatedProratedMVMaids` | ERP | No |
 | **O-LIVE** | **Two as-of sources for live-in/live-out**, used by two different checks: `HOUSEMAID_TYPE_LOGS.TO_TYPE` (C6) and `HOUSEMAIDS_INFO_REVISION.LIVE_OUT` (C12). Reconcile, then pick one | Snowflake team | No |
