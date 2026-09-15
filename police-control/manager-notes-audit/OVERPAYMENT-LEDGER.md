@@ -4,8 +4,8 @@
 Underpayment findings are byproducts and live in remediation lists, not here.
 
 **⚠️ WITHDRAWN: the ~AED 103,100 headline (2026-09-09).** Recomputed from the rows 2026-09-15 →
-**AED 35,541 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
-Against AED 7,197,642 examined — **0.49%**. Full arithmetic below.
+**AED 30,441 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
+Against AED 7,197,642 examined — **0.42%**. Full arithmetic below.
 
 🔴 **B3b limb (i) ANSWERED 2026-09-15 — the ERP's proration is correct and is not to be questioned.**
 Row 1 was AED 13,257 on the theory that an absconded maid forfeits the whole month. She does not:
@@ -29,7 +29,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | ⚪ **RETRACTED to candidate — "anti-attrition paid before any enrolment existed"** | *was 9,019* | — | 🔴 **UNFALSIFIABLE FROM THE WAREHOUSE, 2026-09-15 (B3f).** The job selects on `EXISTS` against the enrolment row, so a maid **cannot** be paid without one. A note predating her earliest surviving row therefore means her original row is **gone** — and `evidence-antiattrition-actionlog-conv46015.md` §1 records `deleteEntity` as a base-controller delete with **no soft-delete flag and no history snapshot**. "Never enrolled when paid" and "enrolled, unenrolled, re-enrolled" produce **identical data**; nothing in the warehouse separates them. That also explains the 8x concentration among amount-changed maids better than any alternative: a tier change done as unenrol-then-re-enrol. ⚠️ **Three discriminators failed before this was understood** — expense head (same head for all 9,143 notes; §3 had already said the manual route lands under the same addition reason), requester pool (7 of the same 26), and approval (**100% approved on BOTH sides** — the note only exists once the expense todo is `confirmed`, so approval is the creation mechanism, not evidence of human authorisation). Same shape as the airfare retraction: an observation with an innocent explanation that cannot be ruled out. ✅ **CONFIRMED BY THE CODE 2026-09-15 (conv 46470): the retraction is right and will not be restored.** The only way to remove an enrolment is the generic CRUD `deleteEntity`; it is a hard delete with **no `@Audited`, no soft-delete flag, no history table and no audit-log write**. Amount/tier edits are in-place updates that do not move `creationDate` (independently confirming B3d from source), and **no readable path can back-date it**. The code LLM's words: the delete-then-recreate hypothesis is *"fully consistent with the code"*. **The 42 notes convert into the control finding below.** Original basis: **42 notes** on `CREATION_DATE`. ⚠️ FINDINGS-RUN first read 11,145/51 — **that was a DEFINITION I changed, not drift**: I added maids with NO enrolment record to maids paid BEFORE enrolment. Those 9 notes are a separate population (below) |
 | ⚪ **RETRACTED — "selection-lag payments" was a DOUBLE COUNT** | *was 3,050* | — | **Recovered from `runs/2026-09-12month-audit-run.md` 2026-09-15.** MV-as-of-payment splits into "MV well before payment" (11 notes / 2,476) and "switched within 2 days — selection lag" (11 / 3,050). **2,476 + 3,050 = 5,526 — exactly the MV row above.** The run report states it plainly: *"It is not a separate finding — it is corroboration."* A subset of one row was listed as a second row |
 | ⚪ **RETRACTED — "airfare, the automatic guard itself failed"** | *was 3,000* | — | Same reconciliation. Every `automatic → automatic` pair inside 5 months has no money on one side or both; the single one with a real second payment (AED 1,500) had a zero-amount predecessor, so it is the same artefact |
-| Anti-attrition to MV maids against a CC-only rule | **5,526** *(as of 2026-09-15)* | off-rule | **20 notes** — one aged off the window (was 5,726 / 21). | **21 notes — revised up 131% (S5).** The original 11 notes / AED 2,476 resolved contract type from `HOUSEMAIDS_INFO_REVISION`, an Envers audit table. `HOUSEMAID_TYPE_LOGS` is the purpose-built timeline with closed intervals, and it finds nearly twice as many |
+| ⚪ **RETRACTED to AED 426 — "anti-attrition to MV maids against a CC-only rule"** | **426** *(was 5,526)* | off-rule | 🔴 **RETRACTED 2026-09-15 (B3g), and the base rate settles it.** **18 of the 20 notes went to maids who switched to MV on the LAST DAY of a month** (AED 5,100), each paid a **full whole-entitlement amount** (200/300/350/400) within 0-18 days of switching. The base rate of month-end MV switching across the window is **10.6%** (1,349 of 12,741); this row is **90%** — an **8.5x enrichment**, P(>=18 of 20) ≈ **4.4e-16**. So these are not MV maids caught by a broken rule; they are maids paid the incentive for a month they spent **entirely as CC**, in arrears, after converting at the month boundary. That is the shape B3b limb (i) already settled — *she keeps what she earned* — and the 0-18 day spread is B3a's selection lag with a longer lag than the arbitrary 2-day line. **Only 2 notes survive**: maid **104507** (AED 126, MV 84 days before the note, and one of only two who did not switch at a month boundary) and maid **38994** (AED 300, switched mid-month 2025-10-13, paid full three days later, so ~AED 184 of it is unearned). ⚠️ **Residual**: no column says which payroll month a note pays for — the `PAID_ON_PAYROLL_MONTH` ingestion gap — so assigning these to the CC month is an inference from the selection rule (the job excludes MV maids, so a paid MV maid must have been selected while still CC), not a value read from data. Original basis: **20 notes** — one aged off the window (was 5,726 / 21). | **21 notes — revised up 131% (S5).** The original 11 notes / AED 2,476 resolved contract type from `HOUSEMAIDS_INFO_REVISION`, an Envers audit table. `HOUSEMAID_TYPE_LOGS` is the purpose-built timeline with closed intervals, and it finds nearly twice as many |
 | Note exceeds its approved expense request | 1,304 | off-rule | 4 notes of 11,819 linked |
 | Anti-attrition same-day excess over entitlement | **838** *(basis recovered 2026-09-15)* | paid twice | 17 groups. Basis is **F12**: each maid's entitlement proxied by the largest whole-entitlement note (100–500) she received **across the year**, not on the day. My re-measure used per-day and read 463 — wrong proxy, not a changed number |
 | Forgive Deduction: 15–21 days forgiven in a single month | **2,492** | off-rule | 3 maid-months, 55 notes. One note is one day, so 21 notes means two thirds of a month was unpaid then written back. **Both hard ceilings held** — no maid-month exceeded the days in the month or a month's salary |
@@ -54,7 +54,7 @@ every row named so the arithmetic can be checked.
 |---:|---|---:|---|---|
 | 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | **1,613** | not deserved | S4 → **re-scoped 2026-09-15**, 3 maids of the original 110 notes. AED 2,566 / 42 notes not estimable |
 | 2 | Bonus over the referral entitlement *(as of 2026-09-15)* | 11,500 | not deserved | O12b · 16 maids |
-| 4 | Anti-attrition to MV maids against a CC-only rule *(as of 2026-09-15)* | 5,526 ⚠️ | off-rule | L4 · 20 notes · **may collapse to 426 — see B3g** |
+| 4 | Anti-attrition to MV maids against a CC-only rule | **426** | off-rule | L4 → **B3g re-scoped 2026-09-15**, 2 notes of the original 20 |
 | 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes |
 | 6 | Accommodation Relocation paid to a live-in maid | 3,900 | not deserved | S5 · 5 notes |
 
@@ -64,7 +64,7 @@ every row named so the arithmetic can be checked.
 | 11 | Anti-attrition same-day excess over entitlement | 838 | paid twice | F10 · 17 groups |
 | 12 | Airfare paid above its nationality tier | 500 | off-rule | A1 · 1 note |
 | 13 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | TF13 · 3 notes |
-| | **SUM OF THE SURVIVING ROWS** | **35,541** | | 11 rows |
+| | **SUM OF THE SURVIVING ROWS** | **30,441** | | 11 rows |
 
 ### Control violated — a rule broken, the money may still be owed. **DO NOT ADD TO THE ABOVE.**
 
@@ -94,7 +94,8 @@ carry **zero** of the money; their no-invoice twins carry all of it.
 | = Surviving money-lost total, as the rows stood on 2026-09-15 | 56,204 |
 | − Row 1 re-scoped: B3b (i) answered, the ERP's proration is correct (13,257 → 1,613) | −11,644 |
 | − Row 3 retracted to candidate: unfalsifiable, deleted enrolments leave no trace (B3f) | −9,019 |
-| **= Surviving money-lost total** | **35,541** |
+| − Row 4 re-scoped: 18 of 20 were month-end CC→MV conversions paid in arrears (B3g) | −5,100 |
+| **= Surviving money-lost total** | **30,441** |
 
 110,954 − 52,500 = 58,454, and +1,000 of window drift gives **59,454**. The retraction step **reconciles exactly**, which is the check that the retraction removed
 what it claimed to and nothing else.
