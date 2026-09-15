@@ -1,30 +1,34 @@
 # Spec — Police and Control Housemaid Payroll and Salaries
 
-**Part 0 — The page and the shared frame.** Parts 1–5 are the five child specs, reproduced in full and unedited, prompts included.
+**Part 0 — The page and the shared frame.** Parts 1–6 are the six child specs, reproduced in full and unedited, prompts included.
 
 | | |
 | --- | --- |
 | **Requested by** | Abdullah Mahdi, Police & Control |
-| **Spec version** | v1 |
+| **Spec version** | v2 |
 | **Date** | 2026-09-15 |
 | **UI mockup** | Housemaid Payroll Checks — https://claude.ai/artifact/Y3NbLkqBagbjeVpqagTvpp |
-| **Status** | Draft. The `spec-auditor` gate has **not** been run on this document. Each of the five checks it merges carries its own gate state, in §6. |
-| **Merges** | SPEC_cc_salary_components_v8 · SPEC_maids_salary_check_v5 · SPEC_housemaid_loans_check_v2 · SPEC_loan_repayment_check_v2 · SPEC_with_client_no_contract_v3 |
-| **Reserved** | **Part 6 — Manager Notes.** Named by the requestor on 2026-09-15 as belonging to this family; the child spec has not been supplied. The slot is reserved rather than left implicit so its absence is visible on the page |
+| **Status** | Draft. The `spec-auditor` gate has **not** been run on this document. Each of the six checks it merges carries its own gate state, in §6. |
+| **Merges** | SPEC_cc_salary_components_v8 · SPEC_maids_salary_check_v5 · SPEC_housemaid_loans_check_v2 · SPEC_loan_repayment_check_v2 · SPEC_with_client_no_contract_v3 · **SPEC_manager_notes_check_v2** |
 | **Sibling page** | `SPEC_housemaid_visa_process_v3.md` — the seven visa-money audits, DNA-9829. Two live scope cross-references between the two documents; see OX10 |
 | **Changelog** | [spec_history/housemaid_payroll_salaries.md](spec_history/housemaid_payroll_salaries.md) |
 
+**What changed in v2.** Manager Notes joins as Part 6, and it is not an append — it is the only check
+on the page that is **ready to build with no blocking open items**, it brings the page's first
+`route` and `department` dimensions, and it **settles one open question and opens three more** that
+only exist because six checks now sit on one page. Those are OX13, OX14, OX15 and OX16 in §5.
+
 **What this document is.** One page audits the money that moves through a housemaid's pay: what her
 salary is made of, what changed it, what the company spent on her that should have been charged
-back, whether that debt was ever taken out of her pay, and whether we are paying her at all while
-nobody is billing for her. This spec is the build document for that page. Part 0 states the frame
-the five checks share and describes the page as built. **Parts 1–5 are the five child specs in
-full**, every data point, rule, metric, worked example, open item and verifier prompt, exactly as
-they stand on disk. Where Part 0 and a Part disagree, the Part is right and Part 0 carries the
-defect, except for section 4, where Part 0 describes the page and overrides the Parts' own UI
-sections.
+back, whether that debt was ever taken out of her pay, whether we are paying her at all while nobody
+is billing for her, and whether every extra line added to her payslip was one she was owed. This
+spec is the build document for that page. Part 0 states the frame the six checks share and describes
+the page as built. **Parts 1–6 are the six child specs in full**, every data point, rule, metric,
+worked example, open item and verifier prompt, exactly as they stand on disk. Where Part 0 and a Part
+disagree, the Part is right and Part 0 carries the defect, except for section 4, where Part 0
+describes the page and overrides the Parts' own UI sections.
 
-**Plain terms:** five audits, one screen, one rulebook. This file is the rulebook. The five files it
+**Plain terms:** six audits, one screen, one rulebook. This file is the rulebook. The six files it
 names are the fine print.
 
 ---
@@ -35,43 +39,51 @@ names are the fine print.
 wage declared to MOHRE, the accommodation amount — is set by her nationality and her living
 arrangement. It may only rise by a route the company has defined. Money the company spends on her
 behalf is supposed to land on her balance as a loan and come back out of her salary over the
-following months. And on the MV side the whole payroll is funded by a client who has agreed a
-worker salary in a contract. This page proves, at each of those points, that the money that left
-was the money that should have left, and that the money owed back came back.
+following months. Anything added to her payslip beyond her salary should trace to a rule that
+entitled her to that amount on that day. And on the MV side the whole payroll is funded by a client
+who has agreed a worker salary in a contract. This page proves, at each of those points, that the
+money that left was the money that should have left, and that the money owed back came back.
 
-**The failure it catches.** Four shapes, and they are not the same kind of money:
+**The failure it catches.** Five shapes, and they are not the same kind of money:
 
 | Shape | Plain terms | Which checks |
 | --- | --- | --- |
-| **Paid too much** | We pay her more than the rule, the authorisation, or the client's agreed salary | Salary Components · Salary Raises (CC and MV) |
+| **Paid too much** | We pay her more than the rule, the authorisation, the entitlement, or the client's agreed salary | Salary Components · Salary Raises · **Manager Notes** |
 | **Not collected** | We spent money on her and never charged it to her, or charged it and never took it | Expense → Loan · Loan Repayment |
 | **Paid short** | She is paid less than the rule requires, or her record is unfinished | Salary Components · Salary Raises (MV, R5) |
 | **Nobody billed** | We pay her every month and no contract covers her | With Client No Contract · Salary Raises (MV, R6) |
+| **Control bypassed** | A rule was broken or an authorisation path skipped — **the money may still have been owed** | **Manager Notes** |
 
-🔴 **The first two are company losses. The third is not** — it is entitlement not yet paid to
-staff, and it is the largest number on the page. **The four are never added together**, and §4 gives
-the page no total for exactly that reason. See OX6.
+🔴 **The first two are company losses. The last three are not.** *Paid short* is entitlement not yet
+paid to staff and is the largest number on the page. *Control bypassed* is a process failure on money
+that was probably correct — Manager Notes carries **AED 16,626** of it and its own spec forbids adding
+it to the money. **The five are never added together**, and §4 gives the page no total for exactly
+that reason. See OX6.
 
-**Reader and action.** Police & Control opens the page monthly, after payroll lock. A **red** row is
-a finding to act on: correct the component in her ERP profile, produce the approval that justifies
-the raise, raise the loan, take the deduction, or tag the contract. A **yellow** row needs a person
-or time before it is a finding: a component below the rule, a mismatch inside its settling window, a
-case the check cannot read. Cleared cases are not shown as rows; they are in the counts.
+**Reader and action.** Police & Control opens the page monthly, after payroll lock — except Manager
+Notes, which is read live in whatever window the user picks. A **red** row is a finding to act on:
+correct the component, produce the approval, raise the loan, take the deduction, tag the contract, or
+decide whether an addition was owed and recover it. A **yellow** row needs a person or time before it
+is a finding. A **grey** row is money **nobody has a rule for yet** — never a pass. Cleared cases are
+not shown as rows; they are in the counts.
 
 **Population in scope.** Housemaids only — CC (`Normal`, `FREEDOM_OPERATOR`, `WALKIN`) and MV
-(`MAID_VISA`). Office staff, Dubai expat staff and part-time cleaners are excluded everywhere.
-Each check's own population and window is its own and is stated in §1.1. **The page never sums
-money across checks**, because the units are months, cases, maids and expense items, and the
-windows run from one snapshot to nine months.
+(`MAID_VISA`). Office staff, Dubai expat staff and part-time cleaners are excluded everywhere, and
+n8n-sent and notifier templates are never in scope. Each check's own population and window is stated
+in §1.1. **The page never sums money across checks**, because the units are months, cases, maids,
+expense items and payslip lines, and the windows run from one live query to nine months.
 
-**Grain.** Differs by check and is stated per check in §1.1. A count on the page always says its
-unit: a maid, a maid-month, an expense item, a raise.
+**Grain.** Differs by check and is stated per check in §1.1. **Manager Notes is per NOTE, not per
+maid** — every addition is its own payment event with its own rule and its own date, and there is
+nothing to allocate. A count on the page always says its unit.
 
 **Refresh expectation.** Monthly, after payroll lock, on demand. **Ad hoc only: no scheduled
-unattended run.** Loan Repayment additionally runs on the latest closed month *only* and must not be
-trended or backfilled — its ledger cannot reconstruct a past month (Part 4 §6).
+unattended run.** Two exceptions in opposite directions: **Loan Repayment runs on the latest closed
+month only** and must not be trended or backfilled — its ledger cannot reconstruct a past month
+(Part 4 §6); **Manager Notes is live**, reading current data in whatever window the user selects,
+which is what forces its check-design rule in §3.
 
-### 1.1 The five checks, in the order money moves through her pay
+### 1.1 The six checks, in the order money moves through her pay
 
 | Step | Check | Roadmap | Authority spec | Window measured | One row is | AI verifier |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -80,17 +92,17 @@ trended or backfilled — its ledger cannot reconstruct a past month (Part 4 §6
 | 3 | Expense → Loan Charged | #45, Payroll | `SPEC_housemaid_loans_check_v2.md` | 1 Jan – 10 Sep 2026; month parameter, earliest Jan 2026 | one expense item | Yes — the fault read (M6) |
 | 4 | Loan Repayment | — | `SPEC_loan_repayment_check_v2.md` | **latest closed month only**; August 2026 measured | one maid per payroll month | Yes |
 | 5 | With Client, No Contract | — | `SPEC_with_client_no_contract_v3.md` | one snapshot, stamped to the minute | one maid, one snapshot | **No** |
-| *6* | *Manager Notes* | — | *not supplied* | — | — | — |
+| 6 | **Manager Notes** | — | `SPEC_manager_notes_check_v2.md` | **live, user-chosen**; 12 months to 2026-09-15 measured | **one note** | Yes — V1, on every red note |
 
 The order is the order money moves: what her pay is made of → what changed it → what she was charged
-→ what was taken back → whether anyone is paying for her at all.
+→ what was taken back → whether anyone is paying for her → what else was added to her payslip.
 
-**Two checks in this list are contested and the page must not hide it.** Check 5's own author
-recommends against building it as a dashboard at all (Part 5 §6: two findings, AED 3,500, in a
-population of 5,558, where the median untagged maid is re-tagged within a day). Check 2's scope was
-cut on 2026-09-10 so that it looks **only at raises made in the audited month** — which leaves every
-unexplained raise granted before the check starts running examined by nothing. Both are OX8 and
-OX7 in §5.
+**Three things about this list the page must not flatten.** Check 6 is the **only one ready to build**
+(§6) and the only one that is genuinely live. Check 5's own author **recommends against building it as
+a dashboard at all** (Part 5 §6: two findings, AED 3,500, in a population of 5,558 where the median
+untagged maid is re-tagged within a day). And Check 2's scope was cut on 2026-09-10 so that it looks
+**only at raises made in the audited month**, which leaves every unexplained raise granted before the
+check starts running examined by nothing. These are OX8 and OX7 in §5.
 
 ---
 
@@ -100,60 +112,65 @@ OX7 in §5.
 
 Every table below was read live under `MONEY_CONTROL_ROLE` on the date its child spec states.
 Column-level detail, grain and the verification counts are in each child spec's §2; this table says
-which tables each check reads, so the build team can see the shared footprint — and so the places
-two checks read the same table for different purposes are visible.
+which tables each check reads, so the build team can see the shared footprint — and so the places two
+checks read the same table for different purposes are visible.
 
-| Table | Components | Raises | Expense→Loan | Repayment | With Client |
-| --- | --- | --- | --- | --- | --- |
-| `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO` | ✓ the whole population and both audited components | ✓ population, type, hire date | ✓ type and termination status | ✓ accommodation, deduction cap, salary start | ✓ status and type |
-| `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` | ✓ **row presence** — the new-maid grace (M4) | ✓ salary paid (M1a) | | ✓ **`IS_TRANSFERRED='YES'`** — the population rule | ✓ transferred exposure (M7) |
-| `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO_REVISION` | ✓ component history, drill-down, as-of rebuild | ✓ **every salary change and who made it** | | | |
-| `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_OUTSTANDING_BALANCE_DETAILS` | | | ✓ the ledger clause on R1, and R2's match | ✓ **what she still owes** | |
-| `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TYPE_LOGS` | | ✓ the MV→CC route, 24 continuous months | | | |
-| `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGERACTIONLOGS` | | ✓ categories 6 and 7 — the only maid-side source with note text | | | |
-| `…HOUSEMAID_MANAGEMENT_SILVER.RETRACTION_CASES_TOOL_CALLS` | | ✓ category 5, retention raise given | | | |
-| `…HOUSEMAID_MANAGEMENT_SILVER.RESIGNATION_TO_DOS` | | ✓ background only, carries no amount | | | |
-| `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TAGS_LOGS` | | | | | ✓ **cleaner tag — read `IS_ACTIVE`, never the flattened string** |
-| `…HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_STATUS_LOGS` | | | | | ✓ where she came from (M6) |
-| `…HOUSEMAID_MANAGEMENT_SILVER.WPS_RECORDS` | ✓ corroboration only — 93.7% vs `PRIMARY_SALARY + HOLIDAY` | | | | |
-| `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` | | | ✓ **the expense and its typed loan amount** | | |
-| `BA_VIEWS.MONEY_CONTROL_SILVER.TRANSACTIONS` | | | ✓ the complete money record; the EID leg | | |
-| `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION` | | | ✓ code settings and `LOAN_TYPE` | | |
-| `BA_VIEWS.SALES_SILVER.CONTRACTS` | | ✓ which contract was in force | | | ✓ **is anyone billed for her** |
-| `BA_VIEWS.SALES_SILVER.CONTRACTS_HISTORY` | | ✓ **the agreed worker salary as of the month (D18)** | | | |
-| `BA_VIEWS.SALES_SILVER.CONTRACTS_PAYMENTS_TERMS` | | ✓ when the terms changed — not what the salary is | | | |
-| `BA_VIEWS.MONEY_COLLECTION_SILVER.PAYMENTS_LOGS` | | ✓ corroboration before escalating; the cancelled-contract test | | | |
-| `BA_VIEWS.CLIENT_MANAGEMENT_SILVER.CONTRACTS_WITH_PRE_COLLECTED_SALARIES` | | ✓ why M10 exists — 88% of MV contracts | | | |
-| `BA_VIEWS.CLIENT_MANAGEMENT_SILVER.CLIENT_REPLACEMENTS` | | | | | ✓ **provisional only — 4.4% date agreement** |
-| `BA_VIEWS.CLIENT_MANAGEMENT_SILVER.COMPLAINTS` + `COMPLAINT_COMMENTS` | | ✓ verifier text | ✓ verifier text | ✓ verifier text | |
-| `BA_VIEWS.CORE_SILVER.PICKLISTS_ITEMS_TAGS` | | ✓ the salary ladder (D5) and renewal raise (D6) | | | |
-| `BA_VIEWS.CORE_SILVER.USERS_INFO` | | ✓ who granted the raise | | | |
-| `BA_VIEWS.VISA_SILVER.RENEW_VISA_REQUESTS` | | ✓ the renewal route, `RVISA_ISSUANCE_DATE` | | | |
-| `BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS` | ✓ corroboration only — 92.2% vs `PRIMARY_SALARY + HOLIDAY` | | | | |
-| **A hardcoded rate table** (not Snowflake) | ✓ **the standard itself** — 14 CC rules transcribed by hand from ERP on 2026-09-10 | | | | |
-| **A daily snapshot table** (to be created) | | | | | ✓ **the clock; does not exist yet** |
+| Table | Components | Raises | Expense→Loan | Repayment | With Client | Manager Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAIDS_INFO` | ✓ population and both audited components | ✓ population, type, hire date | ✓ type and termination status | ✓ accommodation, deduction cap, salary start | ✓ status and type | ✓ maid master · ⚠ current state only |
+| `…HOUSEMAID_PAYROLL_HISTORY` | ✓ **row presence** — the new-maid grace (M4) | ✓ salary paid (M1a) | | ✓ **`IS_TRANSFERRED='YES'`** — the population rule | ✓ transferred exposure (M7) | ✓ **`PAID_ON_DATE_FORMATTED`** — the day money moved (D14) |
+| `…HOUSEMAIDS_INFO_REVISION` | ✓ component history, as-of rebuild | ✓ **every salary change and who made it** | | | | ✓ point-in-time `LIVE_OUT` (D7) |
+| `…HOUSEMAID_OUTSTANDING_BALANCE_DETAILS` | | | ✓ the ledger clause on R1, and R2's match | ✓ **what she still owes** | | |
+| `…HOUSEMAID_TYPE_LOGS` | | ✓ the MV→CC route, 24 continuous months | | | | ✓ **contract type as of** (D4) |
+| `…HOUSEMAID_STATUS_LOGS` | | | | | ✓ where she came from (M6) | ✓ **status as of** (D5) — the authority, never the payslip |
+| `…HOUSEMAID_MANAGER_NOTES` | | | | | | ✓ **the addition itself — the whole population** (D1) |
+| `…HOUSEMAID_MANAGERACTIONLOGS` | | ✓ categories 6 and 7, via `ACTION_DATE` | | | | ✓ anti-attrition enrolment, via **`CREATION_DATE`** (D10) — see OX14 |
+| `…RETRACTION_CASES_TOOL_CALLS` | | ✓ category 5, retention raise given | | | | |
+| `…RESIGNATION_TO_DOS` | | ✓ background only, carries no amount | | | | |
+| `…HOUSEMAID_TAGS_LOGS` | | | | | ✓ **cleaner tag — `IS_ACTIVE`, never the flattened string** | |
+| `…HOUSEMAID_REFERRALS` | | | | | | ✓ the authorised referral amount (D8) |
+| `…MAIDS_REFERRALS_BONUSES` | | | | | | ✓ paid amount only — ⚠ **circular as a price source** (D9) |
+| `…WPS_RECORDS` | ✓ corroboration only — 93.7% | | | | | |
+| `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` | | | ✓ **the expense and its typed loan amount** | | | ✓ **the authorising request** (D2) — see OX13 |
+| `…MONEY_CONTROL_SILVER.TRANSACTIONS` | | | ✓ the complete money record; the EID leg | | | |
+| `…MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION` | | | ✓ code settings and `LOAN_TYPE` | | | ✓ head config (D3) — ⚠ not unique on `EXPENSE_TYPE` |
+| `BA_VIEWS.SALES_SILVER.CONTRACTS` | | ✓ which contract was in force | | | ✓ **is anyone billed for her** | |
+| `…SALES_SILVER.CONTRACTS_HISTORY` | | ✓ **the agreed worker salary as of the month (D18)** | | | | |
+| `…SALES_SILVER.CONTRACTS_PAYMENTS_TERMS` | | ✓ when the terms changed — not what the salary is | | | | |
+| `BA_VIEWS.MONEY_COLLECTION_SILVER.PAYMENTS_LOGS` | | ✓ corroboration; the cancelled-contract test | | | | |
+| `BA_VIEWS.CLIENT_MANAGEMENT_SILVER.CONTRACTS_WITH_PRE_COLLECTED_SALARIES` | | ✓ why M10 exists — 88% of MV contracts | | | | |
+| `…CLIENT_MANAGEMENT_SILVER.CLIENT_REPLACEMENTS` | | | | | ✓ **provisional only — 4.4% date agreement** | |
+| `…CLIENT_MANAGEMENT_SILVER.COMPLAINTS` + `COMPLAINT_COMMENTS` | | ✓ verifier text | ✓ verifier text | ✓ verifier text | | ✓ verifier text, secondary to `NOTE_REASON` |
+| `BA_VIEWS.CORE_SILVER.PICKLISTS_ITEMS_TAGS` | | ✓ the salary ladder and renewal raise | | | | |
+| `BA_VIEWS.CORE_SILVER.USERS_INFO` | | ✓ who granted the raise | | | | ✓ **name → email bridge** (D11) |
+| `BA_VIEWS.CORE_SILVER.OFFICE_STAFF` | | | | | | ✓ **department — email only, no name or id** (D12) |
+| `BA_VIEWS.CORE_SILVER.OFFICE_STAFF_CHANGES` | | | | | | ✓ department as of the note — **joins by NAME**, history starts 2025-06-15 (D13) |
+| `BA_VIEWS.VISA_SILVER.RENEW_VISA_REQUESTS` | | ✓ the renewal route | | | | |
+| `BA_VIEWS.VISA_SILVER.INITIAL_VISA_REQUESTS` | ✓ corroboration only — 92.2% | | | | | |
+| **A hardcoded rate table** (not Snowflake) | ✓ **the standard itself** — 14 CC rules transcribed by hand | | | | | |
+| **A daily snapshot table** (to be created) | | | | | ✓ **the clock; does not exist yet** | |
 
-🔴 **Two of the five checks do not run on Snowflake alone.** Check 1's standard is a **hand-transcribed
+🔴 **Two of the six checks do not run on Snowflake alone.** Check 1's standard is a **hand-transcribed
 constant**, not a query — six ERP rules changed on 2026-08-17 and one on 2026-09-08, and a stale
 constant fails silently. Check 5's central metric, *how long has she been this way*, **cannot be
-answered by any table that exists today** and needs a daily snapshot table built before it is
-correct. Neither is an ingestion request; both are build obligations. They are the two places this
-page is not self-verifying.
+answered by any table that exists today** and needs a daily snapshot table built before it is correct.
+Neither is an ingestion request; both are build obligations. They are the two places this page is not
+self-verifying.
 
 ### 2.2 Approved KPI definitions reused
 
 **None is reused as a metric.** `BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER` holds 1,066
-approved SQL definitions across 971 `SEMANTIC_ID`s. Two touch this money and each is a cross-check,
+approved SQL definitions across 971 `SEMANTIC_ID`s. Three touch this money and each is a cross-check,
 never the number on the page:
 
 | Entry | Used by | How |
 | --- | --- | --- |
-| `BI_PAYROLL_CC_MAID_SALARY_RAISES_BY_REASON` — Payroll KPI 3.4c, DNA-6364 | Raises | **Control total only.** Its reasons map onto categories 1, 2, 3 and 5 and disagree by up to 3×. It carries a literal `'Total salary raises'` row, so adding across reasons gives exactly twice the truth (326 against 163 for 2026-08). **Ruled 2026-09-10: register §3B as a NEW approved P&C definition rather than reuse 3.4c**, because 3.4c's `fill_information_completed` gate lives in model SQL `BA_VIEWS` does not expose. Until that entry lands the two are never added together. The unreconciled gap is **20 rows and AED 33,950** |
-| `client-management-dashboard__family-management-families-without-a-maid` over `BI_CLIENTS_WITHOUT_MAIDS` | With Client | The **client-side mirror** of the same broken link, at a 3-day allowance against this check's 7. Different population, different question. Noted so nobody is surprised the two halves carry different allowances; **the maid-side allowance is 7 days, settled by Abdullah Mahdi and not open** |
+| `BI_PAYROLL_CC_MAID_SALARY_RAISES_BY_REASON` — Payroll KPI 3.4c, DNA-6364 | Raises | **Control total only.** Its reasons map onto categories 1, 2, 3 and 5 and disagree by up to 3×. It carries a literal `'Total salary raises'` row, so adding across reasons gives exactly twice the truth (326 against 163 for 2026-08). **Ruled 2026-09-10: register §3B as a NEW approved P&C definition** rather than reuse 3.4c, whose `fill_information_completed` gate lives in model SQL `BA_VIEWS` does not expose. Unreconciled gap: **20 rows and AED 33,950** |
+| `client-management-dashboard__family-management-families-without-a-maid` | With Client | The **client-side mirror** of the same broken link, at a 3-day allowance against this check's 7. Different population, different question. **The maid-side allowance is 7 days, settled and not open** |
+| The undeducted-loan KPI (CC 80.2% / MV 95.2%) | Manager Notes | Used **only to contradict a wrong reading of a loan field.** It defines none of the money |
 
-Nothing defines salary-component compliance, the entitlement walk, the loan rules or anything on the
-MV side. **Every metric in Parts 1–5 is a new Police & Control definition and should be added to the
-Data Catalog.**
+**Every metric in Parts 1–6 is a new Police & Control definition and should be added to the Data
+Catalog.**
 
 *Method note for anyone rechecking `INSIGHTS_DASHBOARD_CONTAINER`: the approved SQL is nested inside
 the `TOOLTIP_INFO` VARIANT under `tabs[].fields[]` where `type = 'sql'` — **not** under a `sql` key,
@@ -162,59 +179,71 @@ confident zero.*
 
 ### 2.3 New data ingestion request — NOT yet in Snowflake
 
-Two items, plus two build obligations that are not ingestion and must not be filed as such.
+Six items. **One is blocking** and it is the highest-value ask in the family.
 
 | # | Data point | Source | Needed by | Blocks |
 | --- | --- | --- | --- | --- |
-| N1 | Delighter to-do completed tasks | ERP — Housemaid Management: `mmdb.delightertodos`, `mmdb.delightertodo_completedtasks` (`RAISE_OFFERING_FINAL_DECISION`, `CHECK_MAID_INSISTING_TO_RESIGN`) | Raises | The structured approval for a retention raise and the only place its approved amount sits beside its decision. KPI 3.4c already reads these; they are not in `BA_VIEWS`. History from 2024-01-01 |
-| N2 | The CPT's own worker-salary field | ERP — `CONTRACTS_PAYMENTS_TERMS` carries `WEEKLY_AMOUNT`, `VISA_FEES`, `ADDITIONAL_DISCOUNT` and no salary; `PAYMENT_TERM_CONFIG_FORMS` is metadata with no amounts | Raises (MV) | Nothing today. D18 is used instead and agrees with the CPT's timing on every hand-checked case. Ingesting it would let the rule **read the agreement directly rather than infer it from revision history** |
-| — | *Written salary-raise approvals in To-dos* | ERP — To-dos; **`UNVERIFIED` — Ask the Code not run** | Raises | Nothing. Lower priority than in v1: complaints already carry the authorisation |
+| **I3** | 🔴 **`PAID_ON_PAYROLL_MONTH` and `PAID`** | ERP — `payrollmanagernotes` | Manager Notes | **Yes.** Nothing in the warehouse says which payroll month a note pays for. The ERP writes these columns; they are simply not ingested. Without them the payslip is **guessed by month**, and the documented fallback needs a payroll-lock window whose column `LAST_PAYROLL_LOCK_DATE` **has no non-null values at all**. It has now bitten three separate findings |
+| I1 | `CREATOR` (`BIGINT` → `USERS.ID`) | ERP — `payrollmanagernotes` | Manager Notes | **There is no author column for a manager note anywhere in the warehouse**, so **58% of the money is unattributable to a person.** `MANAGER` is unmapped in the JPA entity and 100% null; `REQUESTED_BY` is the *expense record's* requester carried through the join. ⚠️ **Ingesting the column alone is not sufficient** — `creator` is null inside background tasks and scheduled jobs, which is where most of this money is written. `RafflePerformerJob` already stamps `erp_user` when creator would be null, so the ask is *"do what the raffle job does"*, not a design |
+| I2 | `FROM_MANAGER_ID` | ERP — `payrollmanagernotes` | Manager Notes | The owning-manager picklist. Airfare hardcodes `managers/jad`; five of six other automated paths set nothing |
+| I4 | `INCENTIVE_AMOUNT` | ERP — `maidmanageractionlogs` | Manager Notes | The maid's enrolled anti-attrition tier. Not exposed, so C1 and C10 must **proxy** it as the largest whole-entitlement note she received across the window — NULL where she was never paid a whole month, which is **42 of 110 notes / AED 2,566** on C1's population alone |
+| N1 | Delighter to-do completed tasks | ERP — `mmdb.delightertodos`, `…_completedtasks` | Raises | The structured approval for a retention raise and the only place its approved amount sits beside its decision. KPI 3.4c already reads these; they are not in `BA_VIEWS` |
+| N2 | The CPT's own worker-salary field | ERP — `CONTRACTS_PAYMENTS_TERMS` carries no salary column | Raises (MV) | Nothing today. D18 is used instead and agrees with the CPT's timing on every hand-checked case. Ingesting it would let the rule **read the agreement directly rather than infer it** |
 
-**Not ingestion requests, and they must not be filed as such:**
-
-- **Check 1's rate table** is a hand transcription of the ERP salary-rule screen, not a feed.
-  Re-transcribe quarterly and whenever the M0c tripwire alarms. There is no ERP call in the running
-  check and nothing to ingest.
-- **Check 5's daily snapshot table** is a table this build creates and writes, one row per maid per
-  day. It is not sourced from anywhere; it accrues. Until it holds 8 days, Check 5's clock is
-  reconstructed and **known-imperfect**, with four measured error modes (Part 5 §3).
+**Not ingestion requests, and they must not be filed as such:** Check 1's hand-transcribed rate table
+(re-transcribe quarterly, tripwire in M0c) and Check 5's daily snapshot table, which this build creates
+and writes and which **accrues** rather than being sourced.
 
 **Join keys.** All maid-keyed joins are NUMBER to NUMBER, no conversion:
 `HOUSEMAIDS_INFO.ID` = `HOUSEMAID_PAYROLL_HISTORY.HOUSEMAID_ID` = `HOUSEMAIDS_INFO_REVISION.ID`
-= `HOUSEMAID_TYPE_LOGS.HOUSEMAID_ID` = `HOUSEMAID_OUTSTANDING_BALANCE_DETAILS.HOUSEMAID_ID`
-= `COMPLAINTS.HOUSEMAID_ID` = `HOUSEMAID_MANAGERACTIONLOGS.HOUSEMAID_ID`
+= `HOUSEMAID_TYPE_LOGS.HOUSEMAID_ID` = `HOUSEMAID_STATUS_LOGS.HOUSEMAID_ID`
+= `HOUSEMAID_OUTSTANDING_BALANCE_DETAILS.HOUSEMAID_ID` = `COMPLAINTS.HOUSEMAID_ID`
+= `HOUSEMAID_MANAGERACTIONLOGS.HOUSEMAID_ID` = `HOUSEMAID_MANAGER_NOTES.HOUSEMAID_ID`
 = `RETRACTION_CASES_TOOL_CALLS.MAID_ID` = `RENEW_VISA_REQUESTS.OWNER_ID` = `CONTRACTS.HOUSEMAID_ID`.
 Inside the complaint pair, `COMPLAINT_COMMENTS.COMPLAINT_ID` = `COMPLAINTS.ID` — **the comments table
 has no maid id of its own.** On the expense side, `EXPENSES_REQUESTS.RELATED_TO_ID` → `HOUSEMAIDS_INFO.ID`
 with `RELATED_TO_TYPE='MAID'`, and `TRANSACTIONS.EXPENSE_ID` → **`EXPENSES_CONFIGURATION.ID`, not a
-request id**. `CONTRACTS_HISTORY.CONTRACT_ID` and `CONTRACTS_PAYMENTS_TERMS.CONTRACT_ID` → `CONTRACTS.ID`.
+request id**. `HOUSEMAID_MANAGER_NOTES.EXPENSE_ID` → **`EXPENSES_REQUESTS.ID`** (OX13).
+`CONTRACTS_HISTORY.CONTRACT_ID` and `CONTRACTS_PAYMENTS_TERMS.CONTRACT_ID` → `CONTRACTS.ID`.
+
+**As-of joins are interval containment and must be half-open:**
+`day >= CHANGE_DATE::DATE AND (NEXT_CHANGE_DATE IS NULL OR day < NEXT_CHANGE_DATE::DATE)`.
+**Written as `BETWEEN`, the change day is counted twice.** `HOUSEMAIDS_INFO_REVISION` is Envers and has
+**no closing edge**, so it needs *latest revision at or before the day* via
+`QUALIFY ROW_NUMBER() … ORDER BY changed_on DESC = 1`, not containment.
 
 🔴 **There is no key joining an expense to a loan.** `HOUSEMAID_OUTSTANDING_BALANCE_DETAILS` carries
 no expense or transaction reference at all. Check 3 therefore matches on **maid + loan type + exact
 amount within ±45 days**, and that limitation is stated on every run. It is the single largest
-structural weakness in this family: two of the five checks reason about a debt they cannot key to
-the cost that created it.
+structural weakness in this family: two of the six checks reason about a debt they cannot key to the
+cost that created it.
 
-### 2.4 Hygiene rules that travel across the five checks
+### 2.4 Hygiene rules that travel across the six checks
 
 Each was found in one check and applies wherever the same table is read.
 
 | Rule | Found in | Plain terms |
 | --- | --- | --- |
-| **`IS_TRANSFERRED` is TEXT with the vocabulary `'YES'`/`'NO'`, never a boolean.** `= TRUE` returns zero rows, raises no error, and reads exactly like *nobody was paid* | Components, Repayment, With Client | The flag is a word, not a tick |
-| **And it may mean *authorised*, not *paid*** — see OX1. A payroll row can carry a non-zero `NET_SALARY` and never have been transferred: 44 of 51 in one earlier population, which overstated the money eightfold | With Client, Repayment | Three checks rest on this one flag |
+| **`IS_TRANSFERRED` is TEXT `'YES'`/`'NO'`, never a boolean.** `= TRUE` returns zero rows, raises no error, and reads exactly like *nobody was paid* | Components, Repayment, With Client | The flag is a word, not a tick |
+| 🔴 **And nobody agrees what it means.** Repayment treats `'YES'` as *we paid her*; its own verifier found a case where staff say we had not. **Manager Notes measured it across all 24 payment types and concluded it tracks TERMINATION, not payment** — `MV Prorated Salary` runs at **59.9% not transferred** against **0.5–3.7% everywhere else**, and that type pays terminated maids. Reading it as *the money never left* would have removed **AED 506,309** that was almost certainly settled. **It is an amber flag, never a filter** — see OX1 | **all four that read it** | One column, three readings, one measurement |
 | **The loan ledger is snapshot history.** The same loan is returned up to three times — same maid, same amount, different `STATUS` and `REPAID_AMOUNT` — and **`BALANCE_DATE` is identical across the copies**, so ordering by date picks one at random. Summing raw overstates by 12–22%. **Collapse to one row per `ID`, keeping the greatest `REPAID_AMOUNT`** | Expense→Loan, Repayment, GCC (sibling page) | Same loan, several rows — and the tie-break is not the date |
 | **`REMAINING_AMOUNT` is 0 on every one of all 81,579 rows, including unpaid loans.** Outstanding is `AMOUNT − REPAID_AMOUNT − WAIVED_AMOUNT` | Expense→Loan, Repayment | The column exists and is empty |
-| **`HOUSEMAID_PAYROLL_HISTORY` is not one row per maid per month.** For 2026-08: 22 CC maids hold 66 rows, 15 with differing amounts; 7 MV maids hold 14 rows, 1 differing; 8 maids carry duplicate August rows in a separate read. **Deduplicate, and state which value you took** — Check 2 takes `MAX` as the conservative choice for an overpayment check and emits the maid as a data-quality row | Raises, With Client | Dedupe, and say how |
-| **Read `COMPLAINT_COMMENTS.TEXT`, never `ORIGINAL_TEXT`** (raw HTML), and **never `COMPLAINTS.GPT_SUMMARY`** (ERP's own compression, blank on most rows) | Raises, Expense→Loan, Repayment | A verdict built on a summary is not a read |
-| **`BASIC_SALARY_MODIFIED`, `LIVE_OUT_MODIFIED` and `IS_TAG_DELETED` have three states — `'00'`, `'01'` and NULL.** Always test `= '01'`. `<> '00'` happens to work only because `NULL <> '00'` is NULL, so **never wrap them in `COALESCE` or use `IS DISTINCT FROM`** or 1.1 million NULL rows arrive as salary changes | Raises | Three states, not two |
-| **Three vocabularies that look like one.** `HOUSEMAID_TYPE_LOGS.FROM_TYPE`/`TO_TYPE` is `MV`/`CC Live In`/`CC Live Out`; `HOUSEMAIDS_INFO.HOUSEMAID_TYPE` is `MAID_VISA`/`Normal`/`FREEDOM_OPERATOR`/`WALKIN`; `CONTRACTS.CONTRACT_TYPE` is `CC`/`MV`. **They share no values.** `FROM_TYPE='MAID_VISA'` matches zero rows, raises nothing, and silently switches a route off | Raises, Components, With Client | The same idea spelled three ways |
-| **`HOUSEMAID_TYPE` is current state and maids switch between CC and MV.** Re-querying the same month a day later returned CC 458 / MV 849 where an earlier run gave 457 / 850. **Quote a figure with the date it was read, never as a standing fact** | Repayment | The answer moves while you read it |
-| **Salary and money columns are FLOAT. Round both sides to 2 dp before comparing.** Every value today is a whole number; one fractional entry would create a permanent silent red | Components, Raises | Compare rounded, not raw |
-| **Current-state tables carry no snapshot column, so a past run cannot be rebuilt from them.** A corrected component vanishes from next month's run indistinguishably from a maid who left. **Persist every run's output with its `AS_OF_DATE`** | Components, With Client | Yesterday's report cannot be re-derived |
-| **`EXCLUDED_FROM_PAYROLL` is TEXT `'00'`/`'01'` on 1,532 maids — carry it as a column. `IS_DELETED` is true for 1 maid of 123,237**, so gating on it removes nothing: keep it for form, never rely on it | Raises | A gate that filters nothing |
-| **`HOUSEMAIDS_INFO.LAST_PAYROLL_LOCK_DATE` is 100% NULL.** Do not build on it | Components | The column exists and is empty |
-| 🔴 **A tie-out that balances is not proof it is right.** Measure every addend with **its own positive predicate**, *and* measure the **residue** — the count matching no bucket — and require it to be zero. Check 1 carries this scar twice: v7 moved 106 maids between two buckets while the identity summed correctly, and the first v8 draft left **27 maids in no bucket at all** while both identities still balanced | Components (M10) | Addends agreeing proves nothing about who was left out |
+| **`HOUSEMAID_PAYROLL_HISTORY` is not one row per maid per month.** For 2026-08: 22 CC maids hold 66 rows, 15 with differing amounts; 7 MV maids hold 14 rows. **Deduplicate, and state which value you took** | Raises, With Client | Dedupe, and say how |
+| 🔴 **And its `STATUS` column disagrees with the status log**, showing `WITH_CLIENT` where `HOUSEMAID_STATUS_LOGS` says `NO_SHOW_LEFT_CLIENT_HOME`. It is a snapshot of unknown timing. **Read status from the log, never from the payslip** | Manager Notes | Two answers, one is authoritative |
+| **`HOUSEMAIDS_INFO.LAST_PAYROLL_LOCK_DATE` is 100% NULL.** Do not build on it — and note a documented fallback in Manager Notes needed exactly this column and could not use it | Components, Manager Notes | The column exists and is empty |
+| **Read `COMPLAINT_COMMENTS.TEXT`, never `ORIGINAL_TEXT`** (raw HTML), and **never `COMPLAINTS.GPT_SUMMARY`** (ERP's own compression, blank on most rows) | Raises, Expense→Loan, Repayment, Manager Notes | A verdict built on a summary is not a read |
+| **`BASIC_SALARY_MODIFIED`, `LIVE_OUT_MODIFIED` and `IS_TAG_DELETED` have three states — `'00'`, `'01'` and NULL.** Always test `= '01'`; **never wrap them in `COALESCE` or use `IS DISTINCT FROM`** or 1.1 million NULL rows arrive as salary changes | Raises | Three states, not two |
+| **Vocabularies that look like one.** `HOUSEMAID_TYPE_LOGS.TO_TYPE` is `MV`/`CC Live In`/`CC Live Out`; `HOUSEMAIDS_INFO.HOUSEMAID_TYPE` is `MAID_VISA`/`Normal`/`FREEDOM_OPERATOR`/`WALKIN`; `CONTRACTS.CONTRACT_TYPE` is `CC`/`MV`. **They share no values.** 🔴 A `LIKE '%MAID_VISA%'` against the type log **matched nothing and silently suppressed a real signal** | Raises, Components, With Client, Manager Notes | The same idea spelled three ways |
+| **`HOUSEMAID_TYPE` is current state and maids switch.** Re-querying the same month a day later returned CC 458 / MV 849 where an earlier run gave 457 / 850. **Quote a figure with the date it was read** | Repayment | The answer moves while you read it |
+| 🔴 **Current-state columns are not history, and one of them is never cleared.** `HOUSEMAIDS_INFO.DATE_OF_TERMINATION` **is not reset on re-hire**, so a returning maid reads as *terminated 558 days ago* forever. It voided a AED 3,000 finding | Manager Notes | Today's row does not describe a past day |
+| **Salary and money columns are FLOAT. Round both sides to 2 dp before comparing** | Components, Raises | Compare rounded, not raw |
+| **Current-state tables carry no snapshot column, so a past run cannot be rebuilt.** **Persist every run's output with its `AS_OF_DATE`** | Components, With Client | Yesterday's report cannot be re-derived |
+| 🔴 **`AMOUNT > 0` is mandatory everywhere, and a zero-amount note is a CANCELLATION.** Narratives read *"postponed"*, *"confirmed NOT to release"*, *"Duplicated"*, *"paid manually"*. **A check may use another note's amount; it may never use another note's existence unless that note has `AMOUNT > 0`.** Pairing on existence produced **26 false pairs worth AED 46,000** and one retracted finding of **AED 49,500** | Manager Notes | A cancelled payment is not a payment |
+| 🔴 **Absence is not zero.** Scoring *no entitlement record* as *entitlement of 0* turned one check from 16 maids / AED 11,500 into 40 maids / **~AED 58,000**. Scope with an **INNER join to the population that has the thing being compared** | Manager Notes | No record means untestable, not owed nothing |
+| **`EXCLUDED_FROM_PAYROLL` is TEXT `'00'`/`'01'` on 1,532 maids — carry it as a column. `IS_DELETED` is true for 1 maid of 123,237**, so gating on it removes nothing | Raises | A gate that filters nothing |
+| **Name-keyed joins need normalising on case AND internal whitespace** — `"Georgina  Wakim"` carries a double space — and text identity columns are `''` not NULL on absence, so `IS NOT NULL` clears a note nobody approved. Use `NULLIF(TRIM(x),'')`. **43% of approvals that exist carry a bare first name**, which resolves to a person only when unique | Manager Notes | An empty string is not a null |
+| 🔴 **A tie-out that balances is not proof it is right.** Measure every bucket with **its own positive predicate**, *and* measure the **residue** — the count matching no bucket — and require it to be zero. Check 1 carries this scar twice: a balancing identity once hid 106 maids in the wrong bucket, and a later draft left **27 maids in no bucket at all** while both identities still summed | Components | Addends agreeing proves nothing about who was left out |
+| 🔴 **A retracted check keeps its number and stays visible at zero.** A silently removed row is indistinguishable from a dropped one, and that is how an old AED 103,100 headline drifted | Manager Notes | Retired, not deleted |
 | **All amounts are AED and no source carries a currency column**, so there is nothing to filter on **and nothing would reveal a non-AED row if one appeared** | all | No FX, and no warning either |
 
 ---
@@ -223,254 +252,325 @@ Each was found in one check and applies wherever the same table is read.
 
 **Shared conventions.** Currency is AED throughout; no check converts. Amounts are held to two
 decimals, rounded at row level and **never on a total**. A NULL money column reads as zero except
-where a child spec says a NULL is a data-quality row rather than a pass — Check 1's blank components
-and Check 2's NULL `TOTAL_SALARY` are both explicitly **never Clear**. Division by zero displays a
-dash, never 0%. Every metric id on the page is the child spec's own id; the definitions are in Parts
-1–5 below, and the ids do not share a namespace across checks — Check 1's M4 and Check 4's M4 are
-different metrics.
+where a child spec says a NULL is a data-quality row rather than a pass. Division by zero displays a
+dash, never 0%. Every metric id on the page is the child spec's own id; **the ids do not share a
+namespace across checks** — Check 1's M4, Check 4's M4 and Check 6's C4 are unrelated.
 
 **Flags, the same four on every table:**
 
 | Flag | Means | On the page |
 | --- | --- | --- |
-| **Red** | A definite finding: money out above the rule, or money in that never came back | Row shown, red stripe, under *Paid too much* or *Not collected* |
-| **Yellow** | Needs a person or time: below the rule, inside a settling window, unreadable, undecided | Row shown, yellow stripe, under *Needs review* |
-| **Green** | Cleared one way or another | **Not shown as a row**; counted in the tab labels and tiles |
-| **Grey** | Excused or unjudgeable — no recovery route yet, components not set up, clock unavailable | **Yellow on the page**, with the specific state in small text under the flag word |
+| **Red** | A definite finding: money out above the rule, money in that never came back, or an addition nothing entitles her to | Row shown, red stripe, under *Paid too much*, *Not collected* or *Nobody billed* |
+| **Yellow** | Needs a person or time: below the rule, inside a settling window, explained but not authorised, a payment date that cannot be established | Row shown, yellow stripe, under *Needs review* |
+| **Grey** | 🔴 **No rule exists to test this**, money paid outside payroll, components not yet set up, or a clock that is unavailable | Row shown, grey stripe, under *Needs review* — **never green** |
+| **Green** | Cleared: every applicable test ran and passed | **Not shown as a row**; counted in the tab labels and tiles |
 
-Where a child spec used grey, blue or a finer state, those rows are **yellow** on the page and the
-child spec's own state survives as the small text. **Every flag carries its word, never colour
-alone** — a requirement of all five child specs and not negotiable at build.
+🔴 **Grey is not a pass, and the page must never let it read as one.** Manager Notes leaves
+**~AED 962,000 across four payment types untested** — not because they passed, but because no
+entitlement rule exists to test them against. **A type with no rule is not a clean type.** The same
+applies to Check 1's 76 excused maids and Check 5's unavailable clock.
 
 **Tie-outs are build-time assertions, not page furniture.** Every check has at least one identity and
-they are computed on every run; **a failed identity blocks that check's section rather than printing
-a number nobody can trust.** They are not displayed. The identities are in each child spec; the ones
-that span checks are OX2 and OX5 below.
+they are computed on every run; **a failed identity blocks that check's section** rather than printing
+a number nobody can trust. They are not displayed. Two identities bind across checks:
+**no check counts a subset of another** — a AED 3,050 row sat on a ledger for a week before it was
+found to be a subset of another check — and **no figure is a sum of tests**, which caught four
+separate near-misses, one of them 58%.
 
-### 3.1 The AI verifier, where a check has one
+### 🔴 3.1 Which instant a check reads — and why it is not a detail
 
-Three of the five checks read free text to decide whether a human already explained a case: **Salary
-Raises**, **Expense → Loan** and **Loan Repayment**. **Salary Components has none by design** — its
-rule is arithmetic against a published rate, and there is nothing a note could say that changes
-whether 1,000 equals 600. **With Client, No Contract has none** — its question is a clock, not a
-reason. All three that have one use the house contract; only their category lists differ, and those
-lists and the verbatim prompts live in the child specs.
+**One check defined a single as-of instant and applied it everywhere. That was wrong, and it cost 88%
+of its own money.** A note is written at month end; payroll pays one to three days later. Those are
+different days and the maid's state can differ on them.
+
+| Instant | Definition |
+| --- | --- |
+| **`AS_OF(event)`** | State at the governed event's own date, by interval containment or latest-revision. **Never today's value** |
+| **`AS_OF_PAYMENT`** | State on the day money actually moved — `HOUSEMAID_PAYROLL_HISTORY.PAID_ON_DATE_FORMATTED` |
+| **`ENTITLEMENT_DAY`** | The day the rule's entitlement arose — the renewal, the enrolment, the first day of the pay period |
+
+**The choice is decided by the rule, never by convenience:** a rule about **entitlement** ("was she
+owed this?") reads `ENTITLEMENT_DAY`; a rule about **whether money should have left** reads
+`AS_OF_PAYMENT`; `AS_OF(event)` is correct only where the event's own date *is* the governed event.
+
+**What getting it wrong cost, measured:** one check read status at the note date. Of its 110 notes,
+**63 went to maids who were back at work on the day payroll ran** — a `NO_SHOW` flag at month end that
+reads `WITH_CLIENT` by the 3rd is a transient operational state, not abscondment. The check read
+AED 13,257; it is **AED 1,613**.
+
+**This rule is not Manager Notes' alone.** Check 2 already reads the contract's agreed salary *as of
+the month* rather than current state, after the current-state column produced two of four reds and
+five of six ambers as pure artefact. Check 3 reads the maid's type as of the charge date. **Any check
+that compares a person's state to a payment must name which of the three instants it uses.**
+
+### 🔴 3.2 What a live, user-chosen window forbids
+
+Manager Notes reads current data in whatever window the user picks, which makes three things
+impossible and the build must respect them:
+
+1. **Lookbacks ignore the display window.** *"No second airfare within 5 months"* looks 5 months back
+   from **the note**, even when the user is viewing one month. A check that sees only the displayed
+   rows reports a clean month that is not clean.
+2. **Anything expressed as a share of the window is not a check.** Requester concentration, producer
+   share, "% of notes" — investigative tools, not dashboard rules.
+3. **Base rates cannot live in the UI.** They are how a finding is *validated* before it becomes a
+   check — a 10.6% month-end conversion rate retracted AED 5,100 — but a rate computed over the
+   displayed window is not a rate.
+
+**The testable surface is therefore one payment event, given a verdict on its own terms, with whatever
+lookback its own rule needs.**
+
+### 3.3 The AI verifier, where a check has one
+
+Four of the six checks read free text to decide whether a human already explained a case: **Salary
+Raises**, **Expense → Loan**, **Loan Repayment** and **Manager Notes**. **Salary Components has none
+by design** — its rule is arithmetic against a published rate, and no note changes whether 1,000
+equals 600. **With Client, No Contract has none** — its question is a clock, not a reason. All four
+use the house contract; only their category lists differ, and those lists and the verbatim prompts
+live in the child specs.
 
 - **Six verdicts, never renamed or extended:** `JUSTIFIED` · `PLAUSIBLE` · `AMBIGUOUS` ·
   `NOT_RELATED` · `UNRESOLVED` · `NO_TEXT`. `NOT_READ` is a **run state, not a verdict** — model
-  error, timeout, unparseable output, budget exhausted, missing maid id. It **stays red and is
-  counted apart from `NOT_RELATED`**, so the report can never say a case was read when nobody read
-  it.
-- **Only `JUSTIFIED` ever clears**, and only on the narrow ground the child spec states. Explaining
-  the case without authorising it is `PLAUSIBLE` and stays red or goes to the officer.
+  error, timeout, unparseable output, budget exhausted. It **stays red and is counted apart from
+  `NOT_RELATED`**, so the report can never say a case was read when nobody read it.
+- **Only `JUSTIFIED` ever clears**, and only on the narrow ground the child spec states. Explaining a
+  case without authorising it is `PLAUSIBLE` and stays red or goes to the officer.
 - **The verifier never computes an amount and never clears arithmetic.** Its whole output is a
-  verdict, a category, a fault and a quote, so **an agent error can misjudge one case and can never
-  move a total.**
-- **`category_id` is null, and MUST be null, for `NOT_RELATED`, `NO_TEXT` and `UNRESOLVED`.** The
-  open category is for a reason the model **found** that the list lacks a name for, never for the
-  absence of one.
-- **Four mechanical rules.** A verdict with no quote and no `source_id` is not a verdict.
-  **Redaction happens at the model** — names, phone numbers, emails, URLs and conversation ids become
-  placeholders before the quote leaves it, and the report never re-fetches raw text for display.
-  `threads_read` is compared against what was supplied; **lower means rejected and re-run**, never
-  accepted. Verdicts are pinned to `(case id, hash of the exact text set read)` so a case never moves
-  flag with no data change.
+  verdict, a category and a quote, so **an agent error can misjudge one case and can never move a
+  total.**
+- **`category_id` is null, and MUST be null, for `NOT_RELATED`, `NO_TEXT` and `UNRESOLVED`.** The open
+  category is for a reason the model **found** that the list lacks a name for, never for the absence
+  of one.
+- **Four mechanical rules.** A verdict with no quote and no `source_id` is not a verdict. **Redaction
+  happens at the model** — names, phone numbers, emails, URLs and ids become placeholders before the
+  quote leaves it, and the report never re-fetches raw text for display. `threads_read` is compared
+  against what was supplied; **lower means rejected and re-run**. Verdicts are pinned to
+  `(case id, hash of the exact text set read)` so a case never moves flag with no data change.
 - **One case per call. Never batch** — an angry thread primes the next one.
-- **`claude-sonnet-5`, temperature 0, and the same prompt every run.** A prompt that drifts between
-  months makes two months of verdicts incomparable.
+- **`claude-sonnet-5`, temperature 0, and the same prompt every run.**
 
-🔴 **The verifier pattern is not uniform across this family, and that is an open question, not a
-detail.** Check 2 runs **two** agents: a reader, then a **verifier that marks the reader's homework**
-against six checks (V1 quote exists · V2 quote is complete · V3 supports this category · V4
-authorises this amount · V5 is redacted · V6 everything was read). It never overwrites the reader —
-a disagreement goes to the officer with both verdicts and the failed check named, and a majority is
-never taken, because two models agreeing is not evidence. **Checks 3 and 4 run a single reader and
-therefore have no V2 control at all** — and V2, the incomplete quote, is precisely the failure
-arithmetic cannot see. See OX9.
+**Evidence coverage is not uniform, and the page should not pretend it is.** Check 6's primary source
+is `HOUSEMAID_MANAGER_NOTES.NOTE_REASON`, which is **unusually rich** — airfare narratives routinely
+carry the whole decision (*"Postponed till she completes 22 months"*, *"Approved by Medhat to release
+earlier todo/657202"*). The sibling GCC check's coverage is thin by contrast: only 2 of 14 shortfall
+maids had a manager note in the window at all. **A `NO_TEXT` verdict means something different on
+those two checks**, and the reader needs to know which they are looking at.
 
-**Plain terms:** the robot reads what people wrote and says whether it explains the case. On one
-check a second robot marks the first one's answer. On the other two, nobody does.
+🔴 **The verifier pattern is still not uniform.** Check 2 runs **two** agents: a reader, then a
+verifier that marks the reader's homework against six checks (V1 quote exists · V2 quote is complete ·
+V3 supports this category · V4 authorises this amount · V5 is redacted · V6 everything was read). It
+never overwrites the reader — a disagreement goes to the officer with both verdicts and the failed
+check named, and a majority is never taken. **Checks 3, 4 and 6 run a single reader and therefore have
+no V2 control** — and V2, the incomplete quote, is precisely the failure arithmetic cannot see. See
+OX9.
 
 ---
 
 ## 4. Finalised UI Report
 
-Mockup: https://claude.ai/artifact/Y3NbLkqBagbjeVpqagTvpp
+Mockup: **Housemaid Payroll Checks** — https://claude.ai/artifact/Y3NbLkqBagbjeVpqagTvpp
 
 **This section describes the page as built and it overrides the §4 of every child spec where they
 differ.** It follows the Visa Controls page (DNA-9829) as the house dashboard template — same
-stylesheet, same tile / switch / table anatomy, same red-or-yellow row rule — so the two pages read
-as one system.
+stylesheet, same tile / switch / table anatomy, same red-or-yellow row rule — so the two pages read as
+one system.
 
 ⚠ **What in the mockup is measured and what is not.** Every **KPI tile figure, switch count and
 narrative note is the measured number** from the child spec named on the tile. The **table rows are
-illustrative**: where a child spec worked a real case the row carries its real ids and figures — MV
-maids 17342, 34661, 138580, 124413 and 137946; expenses 164134, 170990, 153038 and 165310; loan
-cases 34516 and 137541; maids 111839, 37350 and 91278 — and every other row is a representative case
-of a shape the spec measured, with an id in range. **No table row is a query output.** Check 1's
-child spec masks every maid id in its own examples, so all five of its rows are representative.
+illustrative**: where a child spec worked a real case the row carries its real ids and figures, and
+every other row is a representative case of a shape the spec measured, with an id in range. **No table
+row is a query output.**
 
-**Layout.** Title bar with the as-of date → one sticky **date window** control → five reports
-stacked on one scrolling page, in the §1.1 order, separated by a rule. No tabs across checks. Each
-report is: heading → four KPI tiles → a three-way switch → one exception table per switch position.
+**Layout.** Title bar with the as-of date → one sticky **date window** control → six reports stacked on
+one scrolling page, in the §1.1 order, separated by a rule. No tabs across checks. Each report is:
+heading → four KPI tiles → a switch → one exception table per switch position.
 
-**Date window.** Presets This month · Last month · Last quarter · Last 12 months (default) · Custom
-range, which reveals a From–To pair of date fields. There is no other filter and no export control
-on the page.
-
-⚠ **Two checks do not honour the date window and the page must say so on their heading.** **Loan
-Repayment runs on the latest closed month only** — its ledger records how much of a loan was repaid
-but **not when**, so every past month looks better than it was and the improvement depends only on
-how long ago it was (Part 4 §6: the population climbs 551 → 4,802 monotonically over twelve months,
-which is that erasure, not a trend). **With Client, No Contract is a snapshot to the minute** — its
-untagged layer read 47, 52 then 45 within twenty minutes. Both carry *fixed window* beside the
-heading; the control greys for them rather than silently returning a wrong answer.
+**Date window, and the three behaviours behind it.** Presets This month · Last month · Last quarter ·
+Last 12 months (default) · Custom range. **Only Manager Notes is genuinely driven by it** — it reads
+live data in whatever window is selected. Checks 1, 2 and 3 are keyed to a snapshot or a payroll month.
+**Checks 4 and 5 cannot honour it at all** and carry *fixed window* beside the heading, the control
+greying for them rather than silently returning a wrong answer: Loan Repayment's ledger records how
+much of a loan was repaid but **not when**, so every past month looks better than it was; With Client's
+untagged layer read 47, 52 then 45 within twenty minutes.
 
 **KPI tiles**, four per check, each carrying the metric id from its child spec and a one-line unit
 statement. Labels are the words on the screen:
 
 | Check | Tile 1 (red) | Tile 2 | Tile 3 | Tile 4 |
 | --- | --- | --- | --- | --- |
-| Salary Components | Paid above the rule — the company's loss · M7 | Paid below the rule, or blank — a compliance queue · M8 | Share of CC maids off their own rule · M3 | Excused — components not set up, never paid · M4 |
+| Salary Components | Paid above the rule — the company's loss · M7 | Paid below the rule, or blank — owed to staff · M8 | Share of CC maids off their own rule · M3 | Excused — components not set up, never paid · M4 |
 | Salary Raises | CC raises with nothing authorising them · R1 + R2 | MV — we pay her more than her client agreed · R4 | CC paid above her group's standard · A1 | Coverage — the share this check can judge · M6 |
 | Expense → Loan | Expense paid, no loan raised and none on her ledger · R1 | Loan typed on the expense, never posted · R2 | Awaiting the fault read · M4 | Exception rate, and its denominator · M3 |
-| Loan Repayment | Owed, we paid her, nothing deducted · M4 | Collectable this month, after both caps · M5 | Cleared by an exclusion · (d) (e) (f) | Median owed per finding — read this before the count |
+| Loan Repayment | Owed, we paid her, nothing deducted · M4 | Collectable this month, after both caps · M5 | Cleared by an exclusion · (d) (e) (f) | Median owed per finding — read before the count |
 | With Client | With a client, no contract, past 7 days · M5 | Watch — 7 days or fewer · M3 − M5 | Untagged share, and the median age · M3 | Cleaners parked in `WITH_CLIENT` — not this check's |
+| **Manager Notes** | **Additions nothing entitled her to · 11 checks** | **Money examined, and what no rule covers** | **Control broken, money may be owed — never in the total** | **Red rate, and its denominator** |
 
-🔴 **There is no page total and there will not be one.** The five checks measure **money leaving
-above the rule**, **money never collected**, **entitlement not yet paid to staff**, and **pay with
-nobody billed**. A single "at risk" figure would add a company loss to a staff underpayment and
+🔴 **There is no page total and there will not be one.** The six checks measure **money leaving above
+the rule**, **money never collected**, **entitlement not yet paid to staff**, **pay with nobody
+billed**, and **a control broken on money that was probably correct**. A single "at risk" figure would
+add a AED 375,856 staff underpayment to a AED 15,342 overpayment and a AED 16,626 process failure and
 report the sum as exposure. Each tile states its own unit and window; nothing sums across sections.
-See OX6.
 
-**The switch, the same four names on every table**, each with its count. **The four positions are the
-four failure shapes in §1, one to one** — so a row's position on the page is the kind of money it is,
-not merely its colour. A check shows only the positions that apply to it:
+**The switch, the same five names on every table**, each with its count. **The five positions are the
+five failure shapes in §1, one to one** — so a row's position is the kind of money it is, not merely
+its colour. A check shows only the positions that apply to it:
 
 | Position | Holds | Checks |
 | --- | --- | --- |
-| **Paid too much** | red rows: we pay more than the rule, the authorisation or the client's agreed salary | Components · Raises |
+| **Paid too much** | red rows: we pay more than the rule, the authorisation, the entitlement or the client's agreed salary | Components · Raises · Manager Notes |
 | **Not collected** | red rows: money we spent on her that never came back | Expense → Loan · Loan Repayment |
 | **Nobody billed** | red rows: we pay her every month and no contract covers her | With Client · Raises (MV, R6) |
-| **Needs review** | every yellow row: below the rule, held, excused, unreadable, or awaiting a verdict | all five |
+| **Control bypassed** | a rule was broken or an authorisation skipped — **money may still have been owed, and it is never added to the money** | Manager Notes |
+| **Needs review** | every yellow and grey row: below the rule, held, excused, unreadable, awaiting a verdict, or **no rule exists to test it** | all six |
 
-**Why four and not the visa page's three.** That page audits fees that should come back, so two red
-buckets cover it. This page also carries a shape that page does not have — **pay that is correct in
-every amount and funded by nobody** — and it is not a *paid too much* (the amount is right) nor a
-*not collected* (there is nothing to collect from her). Folding it into either would misname 60
-maids at AED 75,350 a month on the MV side alone.
+**Why five and not the visa page's three.** That page audits fees that should come back, so two red
+buckets cover it. This page carries two shapes it does not have — **pay that is correct in every amount
+and funded by nobody**, and **a control broken on money that was probably owed**. Folding the first
+into either red bucket would misname 60 maids at AED 75,350 a month; folding the second in would put
+AED 16,626 of process failures into a loss total that its own spec forbids.
 
-**Rows.** Red or yellow only. **Green rows are not displayed** — cleared cases live in the counts.
-Every row carries the flag word beside its colour and the specific state in small text under it.
-Tables end on their last data row: **no totals row, no tie-out strip, no source line, no footnote.**
+**Rows.** Red, yellow or grey only. **Green rows are not displayed** — cleared cases live in the counts.
+Every row carries the flag word beside its colour and the specific state in small text under it. Tables
+end on their last data row: **no totals row, no tie-out strip, no source line, no footnote.**
 
-**Columns.** Every table carries a **Verdict** column (the house verdict, or a dash where the check
-has no verifier) and a **Reason** column, in that order, at the right. Amounts right-aligned, two
-decimals, thousands separators, currency stated once in the header. Default sort is worst first by
-the amount column marked ↓.
+**Columns.** Every table carries a **Verdict** column (the house verdict, or a dash where the check has
+no verifier) and a **Reason** column, in that order, at the right. Manager Notes additionally carries
+**Payment date**, **Route** (`expense` / `direct`), **Transferred** and **Department that raised it**.
+Amounts right-aligned, two decimals, thousands separators, currency stated once in the header. Default
+sort is worst first by the amount column marked ↓.
+
+🔴 **Manager Notes' four extra columns are not decoration.** *Payment date* and *Transferred* are what
+separate a payment from a note about a payment, and adding them moved its largest check by **88%**.
+*Route* shows that **5,345 notes / AED 3,976,776 — 58% of the money — carry no expense request at all**,
+and therefore none of the authorisation controls that live on it. *Department* is what turns *"this type
+has no rule"* into *"this team has no rule"*, which is the actionable form; **every department cell
+carries its resolution tier**, because before 2025-06-15 there is no history and the value is today's.
 
 ⚠ **Two columns are deliberately absent.** There is **no reviewed/unreviewed filter and no status
-column**, because nothing in §2 stores a review state and no check writes anything back. Each run is
-a fresh read, so a case already actioned reappears until the underlying fact changes. That is
-intended: the page follows the money, not the worklist. **Check 3's child spec assumes an officer can
-mark a row cleared (its O10) — that turns the deliverable from a dashboard into an application and
-is not built here.**
+column**, because nothing stores a review state and no check writes anything back. Each run is a fresh
+read, so a case already actioned reappears until the underlying fact changes. That is intended.
+**Check 3's child spec assumes an officer can mark a row cleared (its O10) — that turns the deliverable
+from a dashboard into an application and is not built here.**
 
-**Identity.** Maids appear as `Maid #<id>`, never by name. Contract, expense, transaction, complaint
-and loan ids are shown for drill-down. **No description or note text is printed** except a verifier's
-redacted quote.
+🔴 **The page carries two standing caveats, on the page and not in a footnote:**
+1. *"Payments made outside payroll are not visible to this check. Where a note says 'paid manually',
+   the money moved and the amount here is zero."*
+2. *"Which payslip paid a note is derived, not recorded. Rows where it cannot be established are
+   flagged amber and excluded from the money."*
 
-🔴 **Access, and it is not the same rule as the visa page.** This page shows **an individual maid's
-pay components, her salary, her outstanding balance and her deduction limit**. The visa page shows
-fees against a maid id. **Restrict this page and any export to Police & Control and Payroll.** Read
-access to the warehouse does not authorise display. Two unresolved rulings sit under that line and
-are OX11: Check 1 says show the loan as a **status word, not an amount**, until a per-maid balance
-has a named pre-approved purpose; Check 2 was ruled **open and flagged** with real ids against
-individual salaries, explicitly **without** the named pre-approval company policy asks for. **One
-page cannot carry two access rules and the stricter one governs until Chady rules.**
+**Identity.** Maids appear as `Maid #<id>`, never by name. Contract, expense, transaction, note,
+complaint and loan ids are shown for drill-down. **No description or note text is printed** except a
+verifier's redacted quote. **Staff names appear only as the department attribution, never as an
+accusation column.**
 
-**Provenance.** The title bar carries the as-of date. Per-check source lines are not on the page; the
-sources are §2.1 of this document. **Check 1's tile additionally carries the date its rate table was
-last transcribed from ERP** — the one figure on the page that goes stale without any data changing.
+🔴 **Access, and it is not the same rule as the visa page.** This page shows **an individual maid's pay
+components, her salary, her outstanding balance, her deduction limit and every extra payment she
+received**. **Restrict this page and any export to Police & Control and Payroll.** Read access to the
+warehouse does not authorise display. Two unresolved rulings sit under that line and are OX11: Check 1
+says show the loan as a **status word, not an amount**, until a per-maid balance has a named
+pre-approved purpose; Check 2 was ruled **open and flagged** with real ids against individual salaries,
+explicitly **without** the named pre-approval company policy asks for. **One page cannot carry two
+access rules and the stricter one governs until Chady rules.**
+
+**Provenance.** The title bar carries the as-of date; the sources are §2.1 of this document. **Check 1's
+tile additionally carries the date its rate table was last transcribed from ERP** — the one figure on
+the page that goes stale without any data changing.
 
 ---
 
 ## 5. Open Items
 
-Consolidated from the five child specs, plus the items this merge produces. Items prefixed **OX**
-exist **only because the checks were put on one page** — none of them is visible from inside a single
-child spec. Owners as recorded.
+Consolidated from the six child specs, plus the items this merge produces. Items prefixed **OX** exist
+**only because the checks were put on one page** — none is visible from inside a single child spec.
+Owners as recorded.
 
 ### The items the merge produced
 
 | # | Checks | Item | Owner | Blocking? |
 | --- | --- | --- | --- | --- |
-| **OX1** | 1, 4, 5 | 🔴 **`IS_TRANSFERRED` decides the population of three checks and may not mean "paid".** Check 1 excuses a maid with **no payroll row**; Check 4 requires `IS_TRANSFERRED='YES'`; Check 5 sums transferred pay. Check 4's own verifier found case 137541, where the flag reads `'YES'` for August and staff wrote on 21 August that *"the maid did not receive any salary yet from the company… This is going to be receive by the maid on September 1."* If the flag means **authorised** rather than paid, all three populations are wrong in the same direction. **One answer settles three checks** | Abdullah Mahdi / Payroll | **Yes — the population rule of three checks** |
-| **OX2** | 3, 4 | 🔴 **The three checks that read the loan ledger dedupe it three different ways.** The sibling GCC spec keeps one row per `ID` with the **greatest `REPAID_AMOUNT`**; Check 3 says `SELECT DISTINCT ID` with no tie-break; Check 4 states no rule at all. `BALANCE_DATE` is **identical across the copies**, so any date tie-break picks at random and can report a fully repaid loan as never repaid. §2.4 now states one rule for the page. **Confirm it, and correct the child specs** | Snowflake team | **Yes — before first run** |
-| **OX3** | 3, 4 | 🔴 **Checks 3 and 4 are the two halves of one pipeline and the same ledger defect breaks both.** A waiver granted in a complaint thread never reaches `WAIVED_AMOUNT` — case 34516, waived April 2026, still showing open in August. Check 3 reports *"no loan was raised"* for a debt somebody decided not to raise; Check 4 sends Payroll after a debt that no longer exists. **How many of Check 4's 1,214 findings are already-waived debts is unmeasured.** Already with the dev team as **PAY-4416**, closed *"Not a Defect"* on the theory that a scheduled job runs every couple of days | Abdullah Mahdi / ERP | **Yes — false findings sent to Payroll** |
-| **OX4** | 1, 2, 3, 4 | 🔴 **Terminated maids are excluded by three checks and deliberately kept by the fourth, both on the requestor's own ruling.** Check 1 excludes `EMPLOYEMENT_TERMINATED` (19,530) while noting **211 drew a July 2026 payroll**; Check 3 excludes them by ruling; Check 4 excludes them (5,479 carry balances payroll can no longer reach). **Check 2 keeps them on purpose** — *status is a column, never a filter*, because filtering makes the check gameable, and **63 terminated maids were paid in August**. These are opposite answers to one question. Which governs the page? | Abdullah Mahdi | **Yes — the population rule of four checks** |
-| **OX5** | 1 → 4 | 🔴 **Check 1's output is Check 4's input, and Check 1 says that input is wrong.** Check 4's exclusion (e) computes a wage floor of `0.85 × (PRIMARY_SALARY + HOLIDAY)` — **the same MOHRE wage Check 1 audits.** Check 1 finds **1,365 CC maids below their rule and 250 with a blank wage**, 21% of the CC population. A wage that is too low makes the floor too low and clears **fewer** maids than it should; a blank wage makes the floor incomputable, which is exactly why Check 4 clears 5 maids as *"no primary salary to compute one from"*. **Nobody has sized the effect, and it runs in the direction that makes Check 4 too harsh** | Snowflake team | No — direction known, size unknown |
-| **OX6** | all | 🔴 **The money on this page is four different kinds and must never be added.** Components red **AED 15,342/mo** is money leaving now. Components amber **AED 375,856/mo** is entitlement **owed to staff**, not a company loss. Raises A1 **AED 202,019/mo** is visible-not-recoverable. Raises CC **AED 2,150–5,400/mo** and MV **AED 500/mo** are forward exposure. Expense→Loan **AED 137,510.33** (1 Jan–10 Sep) is cost never charged to anyone. Repayment **AED 142,414** (Aug) is debt raised and not taken. §4 gives the page no total. **Anyone who asks for one is asking for a number that means nothing** | Abdullah Mahdi | No — recorded so the request is refused with a reason |
-| **OX7** | 2 | 🔴 **The largest number in this family has no check and no owner: 828 maids paid long after their contract ended — AED 33,733,598 to date and AED 1,063,646 a month still running.** Measured inside Check 2 and recorded there as *"needs an owner outside this spec"*. Maids marked **visa unsuccessful (639)** and **rejected (189)** have been paid an average of 36.1 and 21.5 months past their last contract's end, longest 68 months. The control that makes it a finding: **terminated maids in the same table stop at 1.4 months**, so payroll can stop and does not for these two statuses. Zero of the 828 hold another contract; only 35 carry `EXCLUDED_FROM_PAYROLL`. **Not verified by reading cases** — pure warehouse arithmetic. Either it becomes a sixth check on this page or it is referred out to a named owner | Abdullah Mahdi | **Yes — it is two orders of magnitude above everything on the page** |
-| **OX8** | 5 | 🔴 **Check 5's own author recommends against building it as a dashboard, and that recommendation has not been ruled on.** Two findings, AED 3,500, in a population of 5,558, where the median untagged maid is re-tagged within one day; its flagship finding in v1 and v2 — a maid "298 days with a client" — **was a maid who had worked there ten months and was replaced the day before**, manufactured by the check's own source table. A weekly one-line alert delivers the same value. It is on this page because it was in the family the requestor named. **The ruling to build it as a section rather than an alert is Abdullah Mahdi's and has not been given** | Abdullah Mahdi | **Yes — for Check 5's section only** |
-| **OX9** | 2, 3, 4 | **The verifier pattern is not uniform.** Check 2 runs a reader **and** a verifier that marks its homework on six checks, never auto-resolving a disagreement. Checks 3 and 4 run a single reader and so have **no V2 control** — the incomplete quote, the one failure no arithmetic can see, and the exact mistake that was made by hand during Check 2's own build. Does the reader/verifier pair become the house pattern for every check with a verifier, or stay with Check 2? | Abdullah Mahdi | No — but it decides what a verdict is worth |
-| **OX10** | 3 | **Two live scope cross-references to the visa page.** Check 3 excludes *GCC Expenses* because the **GCC Payments Checker** owns it, and *Overstay fee Loan* because **Change of Status** does — and Change of Status is **Part 3 of `SPEC_housemaid_visa_process_v3.md`**. A change to either page's scope silently opens or closes a gap in the other. Neither document currently states the dependency in a place a builder of the other would see | Abdullah Mahdi | No — but it is how a gap appears with nobody's fingerprints |
-| **OX11** | 1, 2 | 🔴 **The two checks disagree on whether this page may show an individual maid's money, and neither has the approval company policy asks for.** Check 1 rules the loan shown as a **status word, not an amount**, until a per-maid balance has a named, pre-approved purpose. Check 2 rules the opposite — *ship it open and flagged*, real maid ids against individual salaries — while recording that **no named pre-approval from Chady exists and that a requestor's ruling is not that approval**. §4 applies the stricter rule until this is settled | Abdullah Mahdi / Chady | **Yes — for the per-maid money columns** |
-| **OX12** | all | **This umbrella has not been gated.** Its figures are copied from the child specs — three of which were themselves never gated. The merge itself is unverified | Abdullah Mahdi | Before hand-over |
+| **OX1** | 1, 4, 5, 6 | 🔴 **Four checks depend on `IS_TRANSFERRED` or its neighbours, and there are now three incompatible readings of what "paid" means.** Check 1 excuses a maid with **no payroll row**; Check 4 requires **`IS_TRANSFERRED='YES'`**; Check 5 sums transferred pay; **Check 6 uses `PAID_ON_DATE_FORMATTED`, the day money actually moved.** Check 4's verifier found a case where the flag says paid and staff wrote she had not. **Check 6 then measured the column across all 24 payment types and found it tracks TERMINATION, not payment** — 59.9% non-transfer on the type that pays terminated maids, 0.5–3.7% everywhere else — and demoted it from a filter to an amber flag after it failed its own first test. **That measurement is the best evidence on the page and it contradicts how two other checks use the column.** One answer settles four checks | Abdullah Mahdi / Payroll / ERP | **Yes — the population rule of four checks** |
+| **OX2** | 3, 4 | 🔴 **The checks that read the loan ledger dedupe it three different ways.** GCC keeps one row per `ID` with the **greatest `REPAID_AMOUNT`**; Check 3 says `SELECT DISTINCT ID` with no tie-break; Check 4 states no rule. `BALANCE_DATE` is **identical across the copies**, so any date tie-break is random and can report a fully repaid loan as never repaid. §2.4 states one rule for the page. **Confirm it, and correct the child specs** | Snowflake team | **Yes — before first run** |
+| **OX3** | 3, 4 | 🔴 **Checks 3 and 4 are two halves of one pipeline and the same defect breaks both.** A waiver granted in a complaint thread never reaches `WAIVED_AMOUNT` — case 34516, waived April 2026, still open in August. Check 3 reports *"no loan raised"* for a debt somebody forgave; Check 4 sends Payroll after a debt that no longer exists. **How many of its 1,214 findings are already-waived is unmeasured.** With the dev team as **PAY-4416**, closed *"Not a Defect"* | Abdullah Mahdi / ERP | **Yes — false findings sent to Payroll** |
+| **OX4** | 1, 2, 3, 4 | 🔴 **Terminated maids are excluded by three checks and deliberately kept by the fourth**, both on the requestor's own ruling. Check 1 excludes 19,530 while noting **211 drew a July payroll**; Checks 3 and 4 exclude them. **Check 2 keeps them on purpose** — *status is a column, never a filter* — and **63 were paid in August**. ⚠️ **Check 6 sharpens this rather than settling it:** its whole C1 population is maids who had *gone*, and `DATE_OF_TERMINATION` **is never cleared on re-hire**, so "terminated" is not even a stable fact. Which reading governs the page? | Abdullah Mahdi | **Yes — the population rule of four checks** |
+| **OX5** | 1 → 4 | 🔴 **Check 1's output is Check 4's input, and Check 1 says that input is wrong.** Check 4's exclusion (e) computes a wage floor of `0.85 × (PRIMARY_SALARY + HOLIDAY)` — **the same MOHRE wage Check 1 audits.** Check 1 finds **1,365 CC maids below their rule and 250 with a blank wage**, 21% of the CC population. A wage too low makes the floor too low and clears **fewer** maids than it should. **Unsized, and it runs in the direction that makes Check 4 too harsh** | Snowflake team | No — direction known, size unknown |
+| **OX6** | all | 🔴 **The money on this page is five different kinds and must never be added.** Components red **AED 15,342/mo** is money leaving now; Components amber **AED 375,856/mo** is **owed to staff**; Raises A1 **AED 202,019/mo** is visible-not-recoverable; Raises **AED 2,150–5,400/mo** and MV **AED 500/mo** are forward exposure; Expense→Loan **AED 137,510.33** is cost charged to nobody; Repayment **AED 142,414** is debt not taken; Manager Notes **AED 30,441** is additions not deserved, beside **AED 16,626** of control findings its own spec forbids adding. §4 gives the page no total | Abdullah Mahdi | No — recorded so the request is refused with a reason |
+| **OX7** | 2 | 🔴 **The largest number in this family has no check and no owner: 828 maids paid long after their contract ended — AED 33,733,598 to date and AED 1,063,646 a month still running.** Measured inside Check 2 and recorded as *"needs an owner outside this spec"*. Visa-unsuccessful (639) and rejected (189) maids paid an average of 36.1 and 21.5 months past their last contract's end, longest 68 months. **Terminated maids in the same table stop at 1.4 months**, so payroll can stop and does not. **Not verified by reading cases.** Sixth check here, or referred out? | Abdullah Mahdi | **Yes — two orders of magnitude above everything on the page** |
+| **OX8** | 5 | 🔴 **Check 5's own author recommends against building it as a dashboard, and that has not been ruled on.** Two findings, AED 3,500, in a population of 5,558; its v1/v2 flagship finding — a maid "298 days with a client" — **was a maid who had worked there ten months and was replaced the day before**, manufactured by the check's own source table. A weekly one-line alert delivers the same value | Abdullah Mahdi | **Yes — for Check 5's section only** |
+| **OX9** | 2, 3, 4, 6 | **The verifier pattern is not uniform.** Check 2 runs a reader **and** a verifier that marks its homework on six checks. Checks 3, 4 and 6 run a single reader and so have **no V2 control** — the incomplete quote, the one failure no arithmetic can see, and the exact mistake made by hand during Check 2's own build. Does the pair become the house pattern? | Abdullah Mahdi | No — but it decides what a verdict is worth |
+| **OX10** | 3, 6 | **Live scope cross-references to the visa page.** Check 3 excludes *GCC Expenses* (GCC Payments Checker owns it) and *Overstay fee Loan* (**Change of Status — Part 3 of DNA-9829**). Neither document states the dependency where a builder of the other would see it | Abdullah Mahdi | No — but it is how a gap appears with nobody's fingerprints |
+| **OX11** | 1, 2, 6 | 🔴 **The checks disagree on whether this page may show an individual maid's money, and none has the approval policy asks for.** Check 1 rules the loan shown as a **status word, not an amount**. Check 2 rules the opposite — *ship it open and flagged* — while recording that **no named pre-approval from Chady exists and a requestor's ruling is not that approval**. Check 6 adds a third surface: **staff names inside verifier quotes** (*"approved by Nadine"*, *"requested by Alaa"*), redacted at the model only. §4 applies the stricter rule | Abdullah Mahdi / Chady | **Yes — for the per-maid money columns** |
+| **OX12** | all | **This umbrella has not been gated.** Its figures are copied from the child specs — three of which were never gated. The merge itself is unverified | Abdullah Mahdi | Before hand-over |
+| **OX13** | 6 → GCC | ✅ **RESOLVED BY THE MERGE. `HOUSEMAID_MANAGER_NOTES.EXPENSE_ID` points at `EXPENSES_REQUESTS.ID`** — populated on **11,819 of 16,831** additions and joined that way throughout Check 6. The sibling GCC spec carries this as an open item (its O15: *"what id space does it belong to?"*) after finding that **zero rows resolve to a `TRANSACTIONS.ID`** — correct, and now explained: it is the expense-**request** id space, not the transaction one. **Close GCC's O15 and correct its wording** from *"cannot reference a GCC charge and the join fails silently"* to *"references an expense request, which a GCC charge is not"* | Abdullah Mahdi | No — a correction, not a blocker |
+| **OX14** | 2 vs 6 | 🔴 **Two checks read `HOUSEMAID_MANAGERACTIONLOGS` for the same `Maid Incentive Experiment` rows and key on different date columns.** Check 6 uses **`CREATION_DATE`** and states why: **`ACTION_DATE` is caller-supplied and never re-stamped on update.** **Check 2 uses `ACTION_DATE`** for its ±90-day window on categories 6 and 7 — 14 raises, AED 7,650/month. If Check 6 is right, Check 2's window is keyed on a date that may not be when anything happened. The two specs also describe the same `AMOUNT` column differently — Check 2 records it as *100% NULL*, Check 6 that the exposed `AMOUNT` maps to `DEDUCTION_AMOUNT` and the real `INCENTIVE_AMOUNT` is **not exposed at all** (I4). **Same table, same rows, two readings** | Snowflake team | **Yes — for Check 2's categories 6 and 7** |
+| **OX15** | 4, 6 | 🔴 **Nothing on this page audits whether a deduction was CORRECT.** Check 6 is `ADDITION` only by ruling — *"money taken from a maid is not audited here or anywhere"*. Check 4 audits only the **absence** of a deduction, and its own O16 records that **`DEDUCTIONS` is one lump sum** in which a fine and a loan repayment are indistinguishable, so a maid deducted only for a fine reads as *deducted* and is excluded. **Additions are audited eleven ways; deductions are audited in one direction only, and the amount never.** State it as a coverage boundary or commission the check | Abdullah Mahdi | No — but it is the page's largest silent gap |
+| **OX16** | 2 vs 6 | **The anti-attrition incentive is audited from two sides that do not talk to each other.** Check 2 asks *did the incentive justify her salary raise?* (category 6, conditional money, its O7 ruling to test whether she is still with that client — **232 cases where the condition is no longer true**). Check 6 asks *was she entitled to the incentive payment at all?* (C1 paid to a maid who had gone, C4 not earned as CC, C10 same-day excess). **Neither reads the other's answer**, and a maid can appear in both for the same money | Abdullah Mahdi | No |
 
 ### Carried from the child specs
 
 | # | Check | Item | Owner | Blocking? |
 | --- | --- | --- | --- | --- |
-| O1 | Components | **ERP has no Ghanaian salary rule at all** — rules 95 and 71 exclude them by name and ERP answers `"No Rule is found!"`. The spec prices 26 Ghanaian maids at a ruled 546 / 546 / 1,000, which 24 already match. Confirm, or ask Payroll to add the rule | Abdullah Mahdi / Payroll | **Yes** |
-| O2 | Components | **Only 10.6% of African live-in and 19.4% of African live-out maids are on ERP's own rate of 600.** 1,066 African maids are off it — AED 89,872/mo of variance, AED 75,376 of it underpayment, **995 sitting at exactly 546, AED 54 each**. Either the constant is stale or 600 is not what the business pays. **Nothing in the data can settle it** | Abdullah Mahdi / Payroll | **Yes** |
-| O3 | Components | The **1,365 amber rows, AED 375,856/mo, have no owner and no action.** The 147 Filipina maids with no MOHRE wage at all are AED 220,500 of that and should be worked first | Abdullah Mahdi | **Yes** |
-| O4 | Components | **Re-transcribe the M0b rate table quarterly** and whenever M0c alarms on a previously healthy cohort. Six ERP rules changed 2026-08-17, one on 2026-09-08 | Abdullah Mahdi | No |
-| O5 | Raises | **143 CC increases against KPI 3.4c's 163 for 2026-08** — a gap of 20 rows and AED 33,950, 40% of §3B's own total. Needed for the Data Catalog submission | Snowflake team / Payroll | **Yes** |
-| O6 | Raises | **Categories 8 and 9 are sized from three hand-read cases, not a run.** 140 of 143 raises are unread; the counts for 8, 9 and the confirmed share of category 6's 14 candidates are **provisional until the first agent run** | Abdullah Mahdi | No |
-| O7 | Raises | **Category 6 is conditional money and nothing tests the condition** — *"as long as she is with [client]"*, 14 raises, AED 7,650/mo, 3,761 rows all-time. **RULED 2026-09-10: build it** by comparing the contract at the incentive date against the contract now. Measured: **232 cases** where the condition is no longer true while the money may still run | Snowflake team — build it | No |
-| O8 | Raises | **The retraction table under-records**, so category 5 reads 2 when the threads say more. A control weakness in its own right; category 5's count cannot be trusted as a measure of retention spend | Abdullah Mahdi / Payroll | No |
-| O9 | Raises | A **deterministic regex scrub** over every stored verifier quote — phone shapes, email shapes, `http(s)://`, `CH[0-9a-f]{32}` — plus a lookup against ERP's client and staff names. The model pass alone is not sufficient: complaint 256213 repeats a client phone number four times and complaint 754697 carries **live ERP download links to signed salary documents** | Snowflake team | **Yes — with OX11** |
-| O10 | Expense→Loan | **When the client causes the cost, who pays?** No rule exists. Live as of 2026-09-10: case 2089591 came back `JUSTIFIED` with fault CLIENT and the staff comment itself asks *"please confirm who will shoulder the expense"* | Abdullah Mahdi | **Yes — 1 of the first 15 cases read** |
-| O11 | Expense→Loan | **The fault category list is the wrong shape for R1.** Category 7 fired in 7 of 15 cases with seven unrelated names, and category 4 was misfiled once on a case with no loss. Needs a **per-leg list** and category 4 **gated on an actual loss** | Abdullah Mahdi | No |
-| O12 | Expense→Loan | **A random sample is needed before R1's value is judged.** All 15 cases read were drawn worst-first by amount and **none was the maid's fault** — the population most likely to carry a written approval, so the result is biased by construction | Abdullah Mahdi | No |
-| O13 | Expense→Loan | **A loan posted at a nonsense amount passes every rule, because a loan exists.** Expense 153038 cost AED 1,953.90 and its loan reads AED 10.00. Needs a fourth rule: flag a loan that is a tiny fraction of its cost on a cost-recovery code | Abdullah Mahdi | No |
-| O14 | Expense→Loan | **Standing arrangements re-flag every month** — a monthly carlift subsidy promised *"as long as you are with this client"* is worked twelve times a year. Needs verdict inheritance | Abdullah Mahdi | No |
-| O15 | Repayment | **ACC-60 describes this check's findings as known ERP behaviour** and has no resolution set: a repaid loan leaves the default repayment at 0 and it **stays** 0, so a new loan gets no deduction. Is it still live? **Could be the single largest cause** | Abdullah Mahdi / ERP | **Yes** |
-| O16 | Repayment | **`DEDUCTIONS` is one lump sum** — a fine and a loan repayment are indistinguishable, so a maid deducted only for a fine reads as *deducted* and is excluded. Makes the check too lenient **by an unmeasured amount** | Abdullah Mahdi | No |
-| O17 | Repayment | Should *"deducted less than the limit"* also be a finding, not only *"deducted nothing"*? | Abdullah Mahdi | No |
-| O18 | With Client | **Is M7 pro-rated?** It charges a whole month's salary to a case that may be 8 days old. Fine as an exposure ceiling — say so, or pro-rate it. **Must be settled before build** | Abdullah Mahdi | **Yes** |
-| O19 | With Client | **Does the daily snapshot table get built?** Without it M4 stays provisional and every red case needs a manual contract check | Snowflake team | **Yes** |
-| O20 | With Client | **117 cleaners sit permanently in `WITH_CLIENT`** — every company count of *maids with a client* is overstated by 117, and 5 drew AED 11,165 of transferred August pay while parked with no contract. **Not this check's** | Abdullah Mahdi | No |
-| O21 | With Client | **`LOCATION_CATEGORY` is country of hire, not whereabouts** — 73% of maids provably working in UAE homes read as not in the UAE. **Any check that reads it as location produces confident nonsense; two versions of this spec did** | all builders | No |
-| O22 | With Client | **The maid-to-contract tagging history is not reliable** — 4.4% date agreement across three sources, and they disagree on which maid holds 31% of live contracts. **Every check that reasons about *when* a maid was placed is exposed, including ones already built** | Snowflake team | No |
+| O1 | Components | **ERP has no Ghanaian salary rule at all** — rules 95 and 71 exclude them by name and ERP answers `"No Rule is found!"`. 26 maids priced at a ruled 546 / 546 / 1,000, which 24 already match | Abdullah Mahdi / Payroll | **Yes** |
+| O2 | Components | **Only 10.6% of African live-in and 19.4% of African live-out maids are on ERP's own rate of 600.** 1,066 maids off it — AED 89,872/mo of variance, **995 sitting at exactly 546, AED 54 each**. Either the constant is stale or 600 is not what the business pays. **Nothing in the data can settle it** | Abdullah Mahdi / Payroll | **Yes** |
+| O3 | Components | The **1,365 amber rows, AED 375,856/mo, have no owner and no action.** The 147 Filipina maids with no MOHRE wage are AED 220,500 of it | Abdullah Mahdi | **Yes** |
+| O4 | Components | **Re-transcribe the rate table quarterly** and whenever M0c alarms | Abdullah Mahdi | No |
+| O5 | Raises | **143 CC increases against KPI 3.4c's 163** — 20 rows and AED 33,950, 40% of §3B's own total. Needed for the Data Catalog submission | Snowflake team / Payroll | **Yes** |
+| O6 | Raises | **Categories 8 and 9 are sized from three hand-read cases, not a run.** 140 of 143 raises unread | Abdullah Mahdi | No |
+| O7 | Raises | **Category 6 is conditional money and nothing tests the condition** — **RULED 2026-09-10: build it.** 232 cases where *"as long as she is with [client]"* is no longer true. See OX16 | Snowflake team — build it | No |
+| O8 | Raises | **The retraction table under-records**, so category 5 reads 2 when the threads say more | Abdullah Mahdi / Payroll | No |
+| O9 | Raises, Manager Notes | 🔴 A **deterministic regex scrub** over every stored verifier quote — phone, email, `http(s)://`, `CH[0-9a-f]{32}` — plus a lookup against ERP's client and staff names. The model pass alone is not sufficient: complaint 256213 repeats a client phone number four times and 754697 carries **live ERP download links to signed salary documents**; Check 6's narratives name staff outright | Snowflake team | **Yes — with OX11** |
+| O10 | Expense→Loan | **When the client causes the cost, who pays?** No rule exists. Case 2089591 came back `JUSTIFIED` with fault CLIENT and the staff comment asks *"please confirm who will shoulder the expense"* | Abdullah Mahdi | **Yes — 1 of the first 15 cases read** |
+| O11 | Expense→Loan | **The fault category list is the wrong shape for R1.** Category 7 fired in 7 of 15 cases with seven unrelated names | Abdullah Mahdi | No |
+| O12 | Expense→Loan | **A random sample is needed before R1's value is judged.** All 15 read were worst-first by amount and **none was the maid's fault** | Abdullah Mahdi | No |
+| O13 | Expense→Loan | **A loan posted at a nonsense amount passes every rule, because a loan exists** — expense 153038, cost AED 1,953.90, loan AED 10.00 | Abdullah Mahdi | No |
+| O14 | Expense→Loan | **Standing arrangements re-flag every month.** Needs verdict inheritance | Abdullah Mahdi | No |
+| O15 | Repayment | **ACC-60 describes this check's findings as known ERP behaviour** and has no resolution set. **Could be the single largest cause** | Abdullah Mahdi / ERP | **Yes** |
+| O16 | Repayment | **`DEDUCTIONS` is one lump sum** — a fine and a loan repayment are indistinguishable. Too lenient **by an unmeasured amount**. See OX15 | Abdullah Mahdi | No |
+| O17 | Repayment | Should *"deducted less than the limit"* also be a finding? | Abdullah Mahdi | No |
+| O18 | With Client | **Is M7 pro-rated?** It charges a whole month's salary to a case that may be 8 days old. **Must be settled before build** | Abdullah Mahdi | **Yes** |
+| O19 | With Client | **Does the daily snapshot table get built?** Without it M4 stays provisional | Snowflake team | **Yes** |
+| O20 | With Client | **117 cleaners sit permanently in `WITH_CLIENT`** — every company count of *maids with a client* is overstated by 117 | Abdullah Mahdi | No |
+| O21 | With Client | **`LOCATION_CATEGORY` is country of hire, not whereabouts** — 73% of maids working in UAE homes read as not in the UAE. **Two versions of this spec produced confident nonsense from it** | all builders | No |
+| O22 | With Client | **The maid-to-contract tagging history is not reliable** — 4.4% date agreement across three sources. **Every check that reasons about *when* a maid was placed is exposed** | Snowflake team | No |
+| **C2q** | Manager Notes | 🔴 **What is a `Bonus` note allowed to be, and who prices each kind?** The head carries referral, signing, client-referral, renewal/vacation, ticket allowance, Abu Dhabi Incentive and MMR payments. **Only maid→maid referrals have an authorised-amount source**, so **~AED 865,000 is untestable** and any `paid > authorised` rule fires on everything else by construction. Narratives show retention promises made verbally — real commitments with no structured record | George Abboud | **No for the build** — blocks *coverage* |
+| **K1** | Manager Notes | **What is `Maids.at other expenses` for, and who qualifies?** AED 51,260 across 273 notes, clean on authorisation and **completely untested on entitlement**. Seven departments raise it, at two distinct tariffs | George Abboud | **No for the build** — blocks *coverage* |
+| **L2** | Manager Notes | **Office work — must she be assigned on the day she is paid?** Decides AED 13,140. Only 15 of 92 notes were assigned when paid; 62 were with a client | George Abboud | **No for the build** — blocks *coverage* |
+| **A7 / A8** | Manager Notes | **Airfare tenure — 22 months or 2 years?** Narratives use both; the code gives a third number (≥16 months). And **is "renewal bonus upon switch to MV" the same entitlement as the airfare ticket?** ~18 notes / ~AED 32,500, **excluded and named**, never silently scored | George Abboud / ERP | **No for the build** |
+| **X1** | Manager Notes | **Which payment types may each contract type receive?** Two rows confirmed. **Paying against a rule that never applied is undetectable without the list** | George Abboud | No |
+| **O-TRANSFER** | Manager Notes | 🟡 **What does `IS_TRANSFERRED = 'NO'` mean for a terminated or absconded maid?** Until answered the flag cannot filter money. **This is OX1 seen from inside one check** | Payroll / ERP | No |
+| **O-DEL** | Manager Notes | 🔴 **Anti-attrition enrolment can be deleted without privilege or trace.** `createEntity` and `updateEntity` both enforce the incentive guards; **`deleteEntity` enforces none and carries no `@PreAuthorize`**, and the entity has no Envers, no soft-delete flag and no history table. Enrolling a maid onto a money-bearing programme is position-restricted; **erasing the enrolment is not.** 18 maids / 42 notes. A **dev/security item**, carries no amount | ERP | No |
+| **O-LIVE** | Manager Notes | **Two as-of sources for live-in/live-out**, used by two of its own checks: `HOUSEMAID_TYPE_LOGS.TO_TYPE` (C6) and `HOUSEMAIDS_INFO_REVISION.LIVE_OUT` (C12). Reconcile, then pick one | Snowflake team | No |
+| **O-MAN** | Manager Notes | **Money paid outside payroll is invisible to this check.** ~15 notes say so in free text; **the real population has never been measured.** Out of scope by ruling — but the size is worth knowing **before anyone quotes a total** | Police & Control | No |
+| **O6-TZ** | Components, Manager Notes | Which timezone are `HOUSEMAID_TYPE_LOGS` / `HOUSEMAID_STATUS_LOGS` timestamps written in? A maid whose type changes on the as-of day can fall either side | Snowflake team | No |
 
 ---
 
 ## 6. Gate state and authority, per check
 
-| Check | Child spec | Gate | Report mockup of its own |
+| Check | Child spec | Gate | Ready to build? |
 | --- | --- | --- | --- |
-| Salary Components | v8 · 2026-09-10 | **Ran.** 2 critical, 2 major, 4 minor; every one reproduced against live Snowflake before being accepted, **all eight fixed** | Published |
-| Salary Raises and MV Margin | v5 · 2026-09-10 | **Partial.** D1–D14 re-verified twice by the gate; v5's §3E verifier and the rebuilt category list are **not gated** | Published |
-| Expense → Loan Charged | v2 · 2026-09-11 | **Not run.** Available on request | Published |
-| Loan Repayment | v2 · 2026-09-11 | **Not run** | Published |
-| With Client, No Contract | v3 · 2026-09-09 | **Not run.** v1 and v2 were both withdrawn after their headline findings collapsed — 116 cases → 5 → **2** | Published |
-| *Manager Notes* | *not supplied* | — | — |
+| Salary Components | v8 · 2026-09-10 | **Ran.** 2 critical, 2 major, 4 minor; every one reproduced against live Snowflake before being accepted, **all eight fixed** | No — O1, O2, O3 blocking |
+| Salary Raises and MV Margin | v5 · 2026-09-10 | **Partial.** D1–D14 re-verified twice; v5's §3E verifier and rebuilt category list **not gated** | No — O5 blocking, and OX14 now open |
+| Expense → Loan Charged | v2 · 2026-09-11 | **Not run.** Available on request | No — O10 blocking |
+| Loan Repayment | v2 · 2026-09-11 | **Not run** | No — O15 blocking |
+| With Client, No Contract | v3 · 2026-09-09 | **Not run.** v1 and v2 both withdrawn after their headline findings collapsed — 116 cases → 5 → **2** | No — O18, O19 blocking, and OX8 questions the section |
+| **Manager Notes** | **v2 · 2026-09-15** | **Not run** as a gate — but it supersedes a v1 the same day, having **retracted AED 222,228 across twelve retractions against AED 30,441 standing**, every one found before publication | 🟢 **YES — no blocking open items.** Only I3 is wanted, and the documented fallback runs without it |
 
-**Plain terms:** one of five was properly checked by the adversarial gate. One was checked in part.
-Three were never checked, and one of those three had already published two wrong headline numbers
-before somebody caught it from a single ERP screenshot. **This merged document has never been checked
-at all.**
+**Plain terms:** one of six was properly checked by the adversarial gate. One was checked in part. Four
+were never gated, and one of those had already published two wrong headline numbers before somebody
+caught it from a single ERP screenshot. **This merged document has never been checked at all.**
+
+🟢 **But one check is ready now.** Manager Notes is the only section with no blocking open item, and it
+is the largest by money examined (**AED 6,851,419**) and by number of rules (**eleven**). **It is the
+sensible first delivery**, and the ticket asks for it that way.
 
 ---
 
-## Parts 1–5: the five child specs, in full
+## Parts 1–6: the six child specs, in full
 
-Each Part is the child spec file reproduced unedited on 2026-09-15, headings demoted two levels so
-this document has one outline. Relative links inside a Part point where they always did, from the
-workspace root. **Nothing was summarised, cut or reworded** — where a child spec contradicts Part 0,
-the child spec is the authority and Part 0 carries the defect, except on §4.
+Each Part is the child spec file reproduced unedited on 2026-09-15, headings demoted two levels so this
+document has one outline. Relative links inside a Part point where they always did, from the workspace
+root. **Nothing was summarised, cut or reworded** — where a child spec contradicts Part 0, the child
+spec is the authority and Part 0 carries the defect, except on §4.
 
 | Part | Check | File reproduced |
 | --- | --- | --- |
@@ -479,7 +579,7 @@ the child spec is the authority and Part 0 carries the defect, except on §4.
 | 3 | Expense → Loan Charged · roadmap #45 | `SPEC_housemaid_loans_check_v2.md` |
 | 4 | Loan Repayment | `SPEC_loan_repayment_check_v2.md` |
 | 5 | With Client, No Contract | `SPEC_with_client_no_contract_v3.md` |
-| *6* | *Manager Notes* | *reserved — child spec not supplied* |
+| 6 | **Manager Notes** | `SPEC_manager_notes_check_v2.md` |
 
 
 ---
@@ -3717,20 +3817,552 @@ dashboard the spec above builds it.
 
 ## Part 6 — Manager Notes
 
-**Reserved. The child spec has not been supplied.**
+### Spec — Manager Notes Overpayment Check
 
-Named by the requestor on 2026-09-15 as belonging to this family. The slot is held open rather than
-left implicit so that its absence is visible on the page and in §1.1 rather than discovered later.
+| | |
+| --- | --- |
+| **Requested by** | Police & Control |
+| **Spec version** | v2 |
+| **Date** | 2026-09-15 |
+| **Supersedes** | `SPEC_manager_notes_check_v1.md` (same day — v1's C1, C3 and C4 carried rules that later measurement disproved) and `SPEC_manager_notes_audit_v1/v2/v3.md` / `_DEV.md`, which are investigation documents, not build specs |
+| **Status** | 🟢 **Ready to build — no blocking open items.** Two rule decisions and one coverage boundary closed the three that remained; one measurement (O-C2) is queued before *publication*, not before build |
+| **Evidence** | `OVERPAYMENT-LEDGER.md` · `queries/FINDINGS-RUN.sql` · `queries/absconded-payment-date.sql` · `queries/anti-attrition-abscondment-cases.sql` · `runs/2026-09-12month-audit-run.md` |
 
-When it lands, three things in Part 0 must be revisited rather than assumed:
+---
 
-1. **§2.1** — whether it reads `HOUSEMAID_MANAGER_NOTES`, and if so whether the
-   🔴 `EXPENSE_ID` trap applies. That column is populated on `ADDITION` rows only — 19,575 of them,
-   never on any of the 90,782 `DEDUCTION` rows — and its id space does not overlap
-   `TRANSACTIONS.ID` at all, so a join on it returns an empty set that **reads exactly like
-   *no exception was documented***. It is the single most dangerous join in this family's source
-   footprint and it fails silently.
-2. **§3.1** — whether it carries a verifier, and if so whether it takes the single-reader pattern of
-   Checks 3 and 4 or the reader-plus-verifier pair of Check 2 (OX9).
-3. **§5 OX4 and OX1** — whether its population excludes terminated maids and what it treats as
-   *paid*, so the contradictions already open are not widened by a sixth answer.
+#### 1. Business Logic
+
+**What a manager note is.** A line added to a housemaid's payslip outside her salary — an allowance,
+a bonus, a reimbursement, a correction. Some are typed by a person; most are written by ERP itself.
+**24 payment types, AED 6.85m in a rolling twelve months.**
+
+**The control.** Every addition should be traceable to a rule that entitles that maid to that amount
+on that day. There is no single gate: each payment type has its own rule, some in code, some in
+config, some only in somebody's head.
+
+**Plain terms:** we pay a maid something extra; this checks that she was owed it.
+
+**The failure it catches.** Four shapes, and the spec names them because they need different actions:
+
+| Archetype | Meaning |
+| --- | --- |
+| **not deserved** | She did not meet the condition the payment exists for |
+| **off-rule** | A stated rule was broken — the money may still have been owed |
+| **paid twice** | The same entitlement paid more than once |
+| **control violated** | The authorisation path was bypassed; money may be correct |
+
+**What this check does NOT judge**, each settled by the requestor rather than assumed:
+
+| Excluded | Ruling |
+| --- | --- |
+| **Deductions** | Out. `NOTE_TYPE = 'ADDITION'` only. Money taken *from* a maid is not audited here or anywhere |
+| **Zero-amount notes** | Out. `AMOUNT > 0` is mandatory in **every** check — see §2.5 hygiene 1, which is why |
+| **Money paid outside payroll** | Out of scope. ~15 notes say "paid manually" and were then zeroed. **Every total in this check has that hole in it**, and the page must say so |
+| **Who may edit a note's amount or date** | Out — "we don't care about that cycle" |
+| **Whether zeroing is the sanctioned cancellation** | Out |
+| **ERP re-generating an already-paid addition** | Not ours. Hand the two evidence notes to payroll |
+| **Self-approval** | Out of scope, ruled 2026-09-09 after three rounds of correct method on an excluded number |
+| **The ERP's proration arithmetic** | 🔴 **Out, ruled 2026-09-15.** A maid who leaves mid-month **keeps the prorated part she worked**. The ERP already does this correctly and it is not to be questioned. Only the part paid for days after she left is a finding |
+| **Whether a `NO_SHOW` maid should be on a retention scheme at all** | 🔴 **Closed 2026-09-15, not raised.** `Housemaid.rejectedStatuses` deliberately omits every `NO_SHOW*` value, so paying them is config, not a defect — and 63 of the 108 such notes went to maids **back at work on the day payroll ran** |
+| **n8n-sent and notifier templates** | Never in scope |
+
+**Reader and action.** Police & Control opens the dashboard and picks a window. A red row is one
+note: open it, decide whether the money was owed, recover or excuse it.
+
+**Grain. One row per NOTE**, not per maid. Every note is its own payment event with its own rule and
+its own date, and a maid may hold notes on several types. *(This differs from the GCC checks, which
+are per-maid because recovery is held per maid. Here there is nothing to allocate.)*
+
+**Population in scope.** `NOTE_TYPE = 'ADDITION'`, `AMOUNT > 0`, inside the window the user picks.
+In the twelve months to 2026-09-15: **16,831 notes, AED 6,851,419** across 24 types.
+
+🔴 **What the build covers, stated so the gap cannot be mistaken for a clean result.** The eleven
+checks score **AED 30,441 of red across the AED 6,851,419 examined**. Three payment types carry money
+that **no check tests at all**, because no rule exists yet to test against — not because they passed:
+
+| Type | AED | Why untested | Owner |
+| --- | ---: | --- | --- |
+| `Maids.at other expenses` | 51,260 | No entitlement rule exists. Seven departments raise it, at two distinct tariffs | George Abboud (K1) |
+| Office work | 13,140 | Unknown whether she must be assigned on the day she is paid | George Abboud (L2) |
+| Airfare — "renewal bonus on switch to MV" | ~32,500 | May be a different entitlement booked under the airfare head. **Excluded and named**, never scored against the airfare rule | George Abboud (A8) |
+| `Bonus`, the non-referral part | **~865,000 of 876,316** | 🔴 **`Bonus` is a heterogeneous head.** At least seven purposes sit under it: referral (maid→maid), signing, **referral of a *client***, renewal/vacation bonus on MV switch, **ticket/flight allowance**, **Abu Dhabi Incentive**, MMR cases. **C2 can only ever test the first two** — `HOUSEMAID_REFERRALS` is maid→maid via `REFERRED_MAID_ID`, so for every other purpose the authorised amount is **0 by construction** and any `paid > authorised` rule fires on all of them. No entitlement source exists for client referrals or retention promises | George Abboud (new — C2q) |
+
+**These do not block the build.** They are a coverage boundary, and the page must show them as
+**grey — "no rule exists to test this"** — never as green. A type with no rule is not a clean type.
+
+**Refresh expectation.** 🔴 **Live. There is no fixed window** — the dashboard reads current data in
+whatever window the user selects. §3's *Check design* rule exists entirely because of this.
+
+---
+
+#### 2. Data Points Needed
+
+##### 2.1 Verified — already in Snowflake
+
+| # | Data point | Table | Columns | Verification |
+| --- | --- | --- | --- | --- |
+| D1 | **The addition** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES` | `ID`, `HOUSEMAID_ID`, `EXPENSE_ID`, `NOTE_TYPE`, `REASON`, `NOTE_REASON`, `AMOUNT`, `NOTE_DATE`, `REQUESTED_BY`, `APPROVED_BY`, `MANAGER` | 16,831 additions / AED 6,851,419 in 12 months. `REASON` is the payment type |
+| D2 | The authorising expense request | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS` | `ID`, `EXPENSE_TYPE`, `REQUEST_STATUS`, `AMOUNT`, `CURRENCY_NAME`, `REQUESTED_BY`, `APPROVED_BY`, `BENEFICIARY_NAME`, `EXPENSE_PAYMENT_ID`, `CREATION_DATE`, `REFUNDED`, `REFUND_DATE` | Joins on `D1.EXPENSE_ID`. **11,819 of 16,831 notes carry one. 5,345 carry none** |
+| D3 | Expense head configuration | `BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_CONFIGURATION` | `EXPENSE_TYPE`, `CODE`, `APPROVAL_METHOD`, `LIMIT_FOR_APPROVAL`, `APPROVE_HOLDER`, `REQUIRE_INVOICE`, `ALLOW_TO_ADD_LOAN` | **Not unique on `EXPENSE_TYPE`** — deduplicate or every downstream sum inflates |
+| D4 | **Contract type, as of** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_TYPE_LOGS` | `HOUSEMAID_ID`, `TO_TYPE`, `FROM_TYPE`, `CHANGE_DATE`, `NEXT_CHANGE_DATE` | `TO_TYPE` ∈ {`MV`, `CC Live In`, `CC Live Out`}. 🔴 **`MV`, never `MAID_VISA`** — a `LIKE '%MAID_VISA%'` matched nothing and silently suppressed a real signal. Closed intervals — containment, no window function |
+| D5 | **Status, as of** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_STATUS_LOGS` | `HOUSEMAID_ID`, `TO_STATUS`, `CHANGE_DATE`, `NEXT_CHANGE_DATE` | Same shape as D4. Carries the `NO_SHOW_*` family |
+| D6 | Maid master record | `…HOUSEMAIDS_INFO` | `ID`, `NAME`, `NATIONALITY`, `START_DATE`, `DATE_OF_TERMINATION`, `PRIMARY_SALARY`, `BASIC_SALARY`, `ACCOMMODATION_SALARY` | 🔴 **Current state only.** `DATE_OF_TERMINATION` is **not cleared on re-hire** — it killed a whole finding once |
+| D7 | Point-in-time maid attributes | `…HOUSEMAIDS_INFO_REVISION` | `ID`, `LIVE_OUT`, `START_DATE`, `REPLACEMENT_SALARY_START_DATE`, `LAST_MODIFICATION_DATE` | Envers. **No `NEXT_CHANGE_DATE`** — needs "latest revision at or before the note" |
+| D8 | Referral entitlement | `…HOUSEMAID_REFERRALS` | `HOUSEMAID_ID`, `REFERRED_MAID_ID`, `AMOUNT`, `IS_CANCELLED`, `IS_REQUESTED_BONUS`, `BONUS_REQUEST_DATE` | `HOUSEMAID_ID` is the **referrer**. The authorised amount |
+| D9 | Referral bonuses paid | `…MAIDS_REFERRALS_BONUSES` | `REFERRED_HOUSEMAID_ID`, `BONUS_AMOUNT`, `PAYROLL_NOTE_DATE` | 🔴 **Built from the same `payrollmanagernotes` source** — circular as a price source. Paid amount only |
+| D10 | Anti-attrition enrolment | `…HOUSEMAID_MANAGERACTIONLOGS` | `HOUSEMAID_ID`, `ACTION_TYPE`, `CREATION_DATE`, `ACTION_DATE` | `ACTION_TYPE ILIKE '%Incentive%Experiment%'`. **Use `CREATION_DATE`, not `ACTION_DATE`** — the latter is caller-supplied and never re-stamped on update. ⚠️ `INCENTIVE_AMOUNT` is **not exposed**; this view's `AMOUNT` maps to `DEDUCTION_AMOUNT` (I4) |
+| D11 | Staff identity | `BA_VIEWS.CORE_SILVER.USERS_INFO` | `ID`, `NAME`, `EMAIL`, `IS_ACTIVE` | Name→email bridge. `IS_ACTIVE` is **numeric**, encoding unverified |
+| D12 | Staff department | `BA_VIEWS.CORE_SILVER.OFFICE_STAFF` | `EMAIL`, `DEPARTMENT`, `JOB_TITLE`, `MANAGER_EMAIL` | 767 rows. **No name and no id — email only**, so D11 is mandatory |
+| D13 | Department history | `BA_VIEWS.CORE_SILVER.OFFICE_STAFF_CHANGES` | `EMPLOYEE_NAME`, `EMPLOYEE_EMAIL`, `DEPARTMENT_NAME`, `PREVIOUS_/NEW_DEPARTMENT_NAME`, `CHANGED_AT`, `IS_DEPARTMENT_CHANGE` | **Joins by NAME** — `EMPLOYEE_EMAIL` is null on thousands of rows. History starts **2025-06-15** |
+| **D14** | 🔴 **The payslip — NEW in v2, and mandatory** | `BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_PAYROLL_HISTORY` | `HOUSEMAID_ID`, `PAYROLL_MONTH`, `ADDITIONS`, `PAID_ON_DATE_FORMATTED`, `IS_TRANSFERRED`, `STATUS` | From `mmdb.housemaidpayrolllogs`, one row per maid × payroll month. **`PAID_ON_DATE_FORMATTED` is the day money actually moved**; `IS_TRANSFERRED` says whether it moved at all. Without this the check cannot tell a payment from a note about a payment |
+
+##### 2.2 Approved KPI definitions reused
+
+**One.** The undeducted-loan KPI in `BA_VIEWS.CORE_SILVER.INSIGHTS_DASHBOARD_CONTAINER` (CC 80.2% /
+MV 95.2%) is used **only** to contradict a wrong reading of a loan field; it defines none of the money
+here. Every metric in §3 is a **new Police & Control definition** and should be added to the Data
+Catalog.
+
+##### 2.3 New data ingestion request
+
+| # | Column | Table | Why |
+| --- | --- | --- | --- |
+| I1 | `CREATOR` (`BIGINT` → `USERS.ID`) | `payrollmanagernotes` | **There is no author column for a manager note anywhere in the warehouse.** `MANAGER` maps to `EMPLOYEE_MANAGER_ID`, unmapped in the JPA entity and 100% null. `REQUESTED_BY` is the **expense record's** requester carried through the join, not the note's author |
+| I2 | `FROM_MANAGER_ID` | `payrollmanagernotes` | The owning-manager picklist. Airfare hardcodes `managers/jad`; five of six other automated paths set nothing |
+| **I3** | 🔴 **`PAID_ON_PAYROLL_MONTH` and `PAID`** | `payrollmanagernotes` | **The highest-value ask in this spec — it has now bitten three separate findings.** Nothing in the warehouse says which payroll month a note pays for. `anti_attrition_incentive` **is** one of the must-be-paid reasons, so the ERP writes these columns; they are simply not ingested. Without them the payslip must be guessed by month (§2.5 hygiene 13), and the documented fallback needs the payroll lock window — whose column `LAST_PAYROLL_LOCK_DATE` has **no non-null values** |
+| **I4** | `INCENTIVE_AMOUNT` | `maidmanageractionlogs` | The maid's enrolled anti-attrition tier. Not exposed, so C1 and C10 must **proxy** it as the largest whole-entitlement note (100–500) she received across the window — NULL where she was never paid a whole month, which is **42 of 110 notes / AED 2,566** on C1's population alone |
+
+🔴 **I1 alone is not sufficient, and the request must say so.** `creator` comes from `BaseEntity` and
+is set from the authenticated user, so it is **null inside background tasks and scheduled jobs** —
+which is exactly where most of this money is written. The fix is two-part: ingest the column **and**
+have dev set an author on the automated paths. **`RafflePerformerJob` already does this**, stamping
+`erp_user` when creator would be null — so the ask is "do what the raffle job does", not a design.
+
+##### 2.4 Join keys
+
+| From | To | Key | Note |
+| --- | --- | --- | --- |
+| D1 `EXPENSE_ID` | D2 `ID` | NUMBER = NUMBER | Present on 11,819 of 16,831 |
+| D1 `HOUSEMAID_ID` + the as-of day | D4 / D5 | interval containment | `day >= CHANGE_DATE::DATE AND (NEXT_CHANGE_DATE IS NULL OR day < NEXT_CHANGE_DATE::DATE)`. **Half-open. `BETWEEN` double-counts the change day** |
+| D1 `HOUSEMAID_ID` + the as-of day | D7 | latest ≤ day | Envers has **no closing edge**; `QUALIFY ROW_NUMBER() … ORDER BY changed_on DESC = 1` |
+| **D1 `HOUSEMAID_ID` + payroll month** | **D14** | `HOUSEMAID_ID` + `PAYROLL_MONTH` | **Many notes to one payslip row** — never join before the note-level tests finish or the grain fans. Month resolution: §2.5 hygiene 13 |
+| D1 `REQUESTED_BY` (name) | D11 `NAME` → D12 `EMAIL` | name → email → department | Two hops. Normalise case **and internal whitespace** — `"Georgina  Wakim"` carries a double space |
+| D1 `REQUESTED_BY` (name) | D13 `EMPLOYEE_NAME` | name | For department **as of the note date** |
+
+**As-of and timezone.** `CHANGE_DATE`, `NEXT_CHANGE_DATE` and `CHANGED_AT` are `TIMESTAMP_NTZ`; a
+maid whose type changes on the as-of day can fall either side of a UTC-versus-Gulf shift.
+**Unresolved — O6.**
+
+##### 2.5 Known data hygiene issues — each one measured
+
+1. 🔴 **Zero-amount notes are the single most dangerous artefact in this data, and they have already
+   produced one retracted finding of AED 49,500.** A note at amount 0 is how the business **cancels**
+   an addition — the narratives say "postponed", "RBs confirmed NOT to release", "Duplicated", "paid
+   manually". A test that treats *the existence* of a prior note as evidence of a prior **payment**
+   pairs a real payment against a cancellation and calls it a duplicate. **`AMOUNT > 0` is mandatory
+   in every check.** The general rule: *a check may use another note's **amount**; it may never use
+   another note's **existence** unless that note has `AMOUNT > 0`.*
+2. **`MANAGER` is dead** — `FIXED(38,0)`, no non-null values, because `EMPLOYEE_MANAGER_ID` is
+   unmapped in the current JPA entity. Never join on it.
+3. **`REQUESTED_BY` and `APPROVED_BY` are TEXT names, not ids**, and arrive **from the expense side**.
+   They are `''` not NULL on absence — `IS NOT NULL` clears a note nobody approved. Use
+   `NULLIF(TRIM(x),'')`.
+4. **43% of approvals that exist carry a bare first name.** A first name resolves to a person only
+   when unique among staff; otherwise BLOCKED, never guessed.
+5. **`NOTE_DATE` carries a time, and what that time means varies by producer.** Airfare is 100%
+   exactly midnight because the code writes a **date**; MV Prorated Salary spans 09:00–21:00 because
+   it writes a **timestamp**. 🔴 **The hour is therefore not a mechanism detector** — a conclusion
+   reached the wrong way once already. And `NOTE_DATE = LAST_DAY(NOTE_DATE)` is **false for every
+   row**; cast to `::DATE` before any date equality.
+6. **Batch run days are observed, never assumed.** The anti-attrition batch ran **2026-09-01** — the
+   largest in the series, 918 notes — so August's notes carry September dates. Any "last calendar day
+   of the month" rule misfiles all of them.
+7. **`EXPENSES_CONFIGURATION.LIMIT_FOR_APPROVAL` is a threshold above which approval is required, not
+   a ceiling.** Read as a ceiling it turned 217 compliant notes into an AED 20,532 finding.
+8. **`EXPENSE_REQUEST_TASK_NAME` is a workflow state, not a category.** Reading it as a category
+   produced a "no defects across 944 notes" clearance that meant nothing.
+9. **`HOUSEMAIDS_INFO.DATE_OF_TERMINATION` is not cleared on re-hire.** A returning maid reads as
+   "terminated 558 days ago" forever. It voided a AED 3,000 raffle finding.
+10. **`PURPOSE_ID` does not exist in the warehouse.** It appears in this project's own ingestion wish
+    list and was once cited as if it were schema.
+11. **Expense-linked notes fan out.** `EXPENSES_CONFIGURATION` is not unique on `EXPENSE_TYPE`;
+    deduplicate with `QUALIFY ROW_NUMBER() … ORDER BY CODE = 1`.
+12. **Two as-of sources exist for live-in/live-out and they are not interchangeable.** The relocation
+    check uses `HOUSEMAID_TYPE_LOGS.TO_TYPE`; the transport check uses
+    `HOUSEMAIDS_INFO_REVISION.LIVE_OUT`. **Unreconciled — O-LIVE.**
+13. 🔴 **NEW — resolving which payslip paid a note, without I3.** Branch 1 (`PAID_ON_PAYROLL_MONTH`)
+    is unavailable; the documented branch 2 needs a lock window that does not exist. So the payslip is
+    found on `DATE_TRUNC('month', NOTE_DATE)`, and where that row has no paid date, the **prior**
+    month is tried. **That fallback must only ever point forward** — `PAID_ON_DATE_FORMATTED >=
+    NOTE_DATE`. Without the guard it returns payslips that paid *before* the note existed; it produced
+    **five negative note-to-payment intervals** on C1's population. A note with no resolvable payslip
+    is **AMBER, "payment date cannot be established"** — never assumed paid.
+14. 🔴 **NEW — `HOUSEMAID_PAYROLL_HISTORY.STATUS` disagrees with D5 on many rows**, showing
+    `WITH_CLIENT` where the status log says `NO_SHOW_LEFT_CLIENT_HOME`. It is a snapshot of unknown
+    timing. **Read status from D5, never from the payslip.**
+15. 🔴 **NEW — MV conversions cluster hard at month end, and that is not the base rate.** Month-end
+    switching is **10.6%** of all CC→MV changes (1,349 of 12,741). Any check that reads type as of a
+    date shortly *after* a month boundary will over-fire on maids converting in the ordinary course.
+    C4 fired at **90%** month-end before it was corrected.
+16. 🔴 **NEW — `IS_TRANSFERRED` is not a payment test.** Non-transfer rates by type: `MV Prorated
+    Salary` **59.9%**, Bonus 3.7%, Maids.at 2.8%, Medical 2.3%, relocation 1.4%, Forgive Deduction 1.4%,
+    prorated 1.1%, airfare 0.8%, anti-attrition 0.5%, and **0.0% on seven types**. The outlier is the
+    terminated-maid type, so the column tracks **termination**, not non-payment. Reading it as "the
+    money never left" would have removed AED 506,309 that was almost certainly settled.
+
+---
+
+#### 3. Metric Calculations
+
+##### 🔴 Check design — what a live, user-chosen window forces
+
+The dashboard reads current data in whatever window the user picks. **Any rule expressed as an
+aggregate over that window silently changes answer as the window moves.** Three binding consequences:
+
+1. **Lookbacks ignore the display window.** "No second airfare within 5 months" looks 5 months back
+   from **the note**, even when the user is viewing one month. A check that sees only the displayed
+   rows reports a clean month that is not clean.
+2. **Anything expressed as a share of the window is not a check.** Requester concentration, producer
+   share, "% of notes" — investigative tools, not dashboard rules.
+3. **Base rates and chance baselines cannot live in the UI.** They are how a *finding* is validated
+   before it becomes a check — the 10.6% month-end rate retracted AED 5,100 — but a rate computed
+   over the displayed window is not a rate.
+
+**The testable surface is therefore: one addition, `AMOUNT > 0`, given a verdict on its own terms,
+with whatever lookback its own rule needs.**
+
+##### 🔴 Which instant a check reads — the v2 correction
+
+**v1 defined one as-of instant and applied it everywhere. That was wrong, and it cost 88% of the
+largest check.** A note is written at month end; payroll pays one to three days later. Those are
+different days and the maid's state can differ on them.
+
+| Instant | Definition |
+| --- | --- |
+| **`AS_OF(note)`** | State at `NOTE_DATE::DATE`, by interval containment (D4/D5) or latest-revision (D7). **Never today's value.** |
+| **`AS_OF_PAYMENT(note)`** | State at `D14.PAID_ON_DATE_FORMATTED` for the payslip that paid the note (§2.5 hygiene 13). |
+| **`ENTITLEMENT_DAY(note)`** | The day the rule's entitlement arose — the renewal, the enrolment, the first day of the pay period. Type- and rule-specific. |
+
+🔴 **The choice is decided by the rule, never by convenience:**
+
+- a rule about **entitlement** ("was she owed this?") reads `ENTITLEMENT_DAY`;
+- a rule about **whether money should have left** reads `AS_OF_PAYMENT`;
+- 🟡 **`D14.IS_TRANSFERRED` is an AMBER FLAG, not a filter — demoted 2026-09-15 after it failed its
+  own first test.** It was briefly specified as a hard population filter above all eleven checks. The
+  sweep across all 24 payment types shows **`MV Prorated Salary` at 59.9% not transferred** (471 notes,
+  AED 506,309) against **0.5–3.7% everywhere else** — and that type pays **terminated** maids, whose
+  payslips do not transfer through normal payroll and who the ledger already clears as entitled. So
+  `IS_TRANSFERRED = 'NO'` **does not reliably mean the money did not move**; for terminated and
+  absconded maids it may mean settled outside the normal transfer — which is exactly C1's population.
+  Until **O-TRANSFER** establishes what it means for a terminated maid, a non-transferred note is
+  flagged amber and named, never silently removed from the money;
+- `AS_OF(note)` is the fallback only where the note date *is* the governed event.
+
+**What getting this wrong cost.** C1 read status at the note date and had no transfer test. Of its 110
+notes: **63 (AED 7,844) went to maids who were back at work on the day payroll ran**, and **13 (AED
+1,097) sat on payslips that never transferred**. The check read **13,257**; it is **1,613**.
+
+##### Shared definitions
+
+**`ROUTE`** — `expense` if `D1.EXPENSE_ID` resolves to a D2 row, else `direct`. **5,345 notes / AED
+3,976,776 — 58% of the money — are `direct`**: no expense request, and therefore none of the
+authorisation controls that live on it (approval threshold, invoice, requester, approver).
+⚠️ `route` is **not** a control test: on the anti-attrition population **100% of notes on both sides
+of every cut were approved**, because the note only comes into existence once its expense todo is
+`confirmed`. Approval there is the creation mechanism, not evidence a human authorised anything.
+
+**`SCORED`** — a note is scored only where its rule's mechanism existed. Checks with an era gate name
+their own date; a gate is **observed from the data**, never hardcoded as policy.
+
+##### The checks
+
+Each is one note, one verdict. Figures are as of **2026-09-15**; every one is a snapshot of a rolling
+window and is date-stamped for that reason. **Live total: AED 30,441 across 11 checks.**
+
+| # | Check | Archetype | Rule | AED | Notes |
+| --- | --- | --- | --- | ---: | ---: |
+| **C2** | Bonus over the referral entitlement | not deserved | 🔴 **INNER join to maids holding a referral entitlement**, then maid-level `SUM(bonus) > SUM(D8.AMOUNT where not cancelled and requested)`. **Absence of a referral record is NOT an entitlement of zero** — scoring it that way returns 40 maids / ~AED 58,000, because `REASON = 'Bonus'` carries seven purposes and D8 prices two | **11,500** | 16 maids |
+| **C5** | Airfare to an MV maid | off-rule | **no CC interval anywhere in the 24-month entitlement window.** The window is the renewal cadence, not Guard 1's 5-month duplicate window — see §6 O-AF | **4,500** | 3 |
+| **C6** | Accommodation Relocation to a live-in maid | not deserved | `AS_OF` type = `CC Live In` | **3,900** | 5 |
+| **C7** | Prorated salary outside the eligibility window | not deserved | salary start not within 0–40 days before the note | **2,976** | 25 |
+| **C8** | Forgive Deduction — 15+ days in one month | off-rule | maid-month with ≥15 notes | **2,492** | 55 |
+| **C1** | Anti-attrition to a maid who had gone | not deserved | `AS_OF_PAYMENT` status ∈ {`NO_SHOW`, `NO_SHOW_WENT_OUT_DID_NOT_RETURN`, `NO_SHOW_LEFT_CLIENT_HOME`, `NO_SHOW_FOR_TERMINATION`, `EMPLOYEMENT_TERMINATED`} **AND** absent ≥ 10 days at payment, **net of the days she had earned**. ⚠️ The AED 1,613 was measured additionally requiring `D14.IS_TRANSFERRED = 'YES'`; since that column tracks **termination**, not non-payment (hygiene 16), the figure may be **understated** by the 13 notes / AED 1,097 it set aside — pending **O-TRANSFER**. The safe direction | **1,613** | 3 maids |
+| **C9** | Note exceeds its approved request | off-rule | `AED` and `AMOUNT > req_amount + 0.01` | **1,304** | 4 |
+| **C10** | Anti-attrition same-day excess | paid twice | same-day total > entitlement, **entitlement proxied as the largest whole-entitlement note (100–500) across the year** (I4) | **838** | 17 groups |
+| **C11** | Airfare above its nationality tier | off-rule | `AMOUNT > MODE(AMOUNT)` for that nationality | **500** | 1 |
+| **C4** | Anti-attrition she had not earned as CC | off-rule | **She was not CC throughout the pay period the note pays for**: `AS_OF` type = `MV` at the first day of that period, **OR** a full whole-entitlement amount (100–500) paid for a period she was CC for only part of. One rule, both notes — maid 104507 (MV at period start) and maid 38994 (CC 12 of 31 days, paid a full month) | **426** | 2 |
+| **C12** | Live-out transport to a live-in maid | not deserved | head `Live-out Transportation Assistance` **and** `D7.LIVE_OUT = 0` as-of | **392** | 3 |
+| | **TOTAL** | | | **30,441** | **11 checks** |
+
+##### Retired checks — do not implement
+
+| # | Check | Why it is not a check |
+| --- | --- | --- |
+| ~~**C3**~~ | ~~Anti-attrition paid before enrolment existed~~ | ⚪ **Unfalsifiable, retired 2026-09-15 (was AED 9,019 / 42 notes).** The job selects on `EXISTS` against the enrolment row, so a maid **cannot** be paid without one; a note predating her earliest surviving row means the original was **deleted**. `deleteEntity` is an unguarded hard delete with no `@Audited`, no soft-delete flag and no history write, so *"never enrolled"* and *"enrolled, unenrolled, re-enrolled"* are **identical in data**. The 42 notes survive as the **control finding** below, not as money |
+
+##### Era gates
+
+| Check | Gate | Why |
+| --- | --- | --- |
+| C1, C4, C10 | anti-attrition enrolment records begin with the scheme | Before it, absence of enrolment is a missing mechanism |
+| C5, C11 | airfare rule is code-verified from `AddScheduledAnnualVacationService` | CC-only, no airfare within 5 months, ≥16 months since the last ticket |
+| **All** | **department attribution: 2025-06-15** | `OFFICE_STAFF_CHANGES` carries no department change before it. Older notes resolve to *today's* department, which must be labelled as such |
+
+##### Control findings — a rule broken where the money may still be owed. **NEVER added to the money.**
+
+| Finding | AED |
+| --- | ---: |
+| Bonus paid before the bonus was requested | 9,500 |
+| A deprecated, config-disabled bonus path is still paying | 7,126 |
+| 🔴 **Anti-attrition enrolment can be deleted without privilege or trace** | *no amount* |
+| **Subtotal** | **16,626** |
+
+🔴 **The delete-guard gap.** On `/maidNote`, `createEntity` (:116) and `updateEntity` (:147) both
+enforce the incentive type check, `validateIncentiveExperimentPositionAccess` and
+`validateIncentiveAmount`. **`deleteEntity` (:164-166) enforces none of them and carries no
+`@PreAuthorize`.** So enrolling a maid onto a money-bearing programme is position-restricted, changing
+her amount is position-restricted, and **erasing the enrolment entirely is not** — and the entity has
+no Envers, no soft-delete flag and no history table, so the deletion leaves nothing behind. **18 maids
+/ 42 notes** are the population where this demonstrably happened. Carries no amount: the money was
+probably owed. This is a dev item, not a management question.
+
+##### V1 — The AI verifier
+
+Every note reaching a red verdict is **read before it is reported**. The verifier does no arithmetic;
+it decides whether the written record explains the payment.
+
+| Verdict | Means, for this check |
+| --- | --- |
+| `JUSTIFIED` | The text authorises this payment, decidably |
+| `PLAUSIBLE` | The text explains the case but does not authorise the amount |
+| `AMBIGUOUS` | Relevant text, nothing decidable |
+| `NOT_RELATED` | Read in full; nothing addresses this payment |
+| `UNRESOLVED` | Contradicts itself or breaks off |
+| `NO_TEXT` | No note text and no complaint in the window |
+
+**Categories** — `category_id` is null and must be null for `NOT_RELATED`, `NO_TEXT`, `UNRESOLVED`.
+
+| # | Category |
+| --- | --- |
+| 1 | **An exception was approved and written down** — a named person authorised it |
+| 2 | **The entitlement date was moved by request** — postponed or released early |
+| 3 | A dispute or complaint was settled by this payment |
+| 4 | The payment is a top-up to an earlier one, not a second entitlement |
+| 5 | Paid outside payroll and the note is a record, not a payment |
+| 6 | New reason — you name it |
+
+**What a verdict does to a case.**
+
+| Verdict | Effect |
+| --- | --- |
+| `JUSTIFIED`, category 1 or 3 | **Green.** Authorised, or settled a dispute |
+| `JUSTIFIED`, category 4 | **Green**, and links to the earlier note |
+| `JUSTIFIED`, category 2 | **Amber.** The date was moved by a person with no structured record — the payment may be owed, the control was not followed |
+| `JUSTIFIED`, category 5 | **Grey, removed from the money.** The note records a payment made elsewhere |
+| `PLAUSIBLE`, `AMBIGUOUS` | **Amber**, routed for a human read |
+| `NOT_RELATED`, `UNRESOLVED`, `NO_TEXT`, `NOT_READ` | **Stays red** |
+
+🔴 **`HOUSEMAID_MANAGER_NOTES.NOTE_REASON` is the primary evidence and it is unusually rich here.**
+Unlike the GCC checks, where coverage was thin, **airfare narratives routinely carry the whole
+decision**: *"Postponed till she completes 22 months"*, *"Approved by Medhat to release earlier
+todo/657202"*, *"RBs confirmed NOT to release the renewal bonus"*. The verifier reads:
+
+1. **`D1.NOTE_REASON`** for the note being scored — the primary source.
+2. `COMPLAINT_COMMENTS.TEXT` on the maid's complaints, ±90 days. **Never `GPT_SUMMARY`, never
+   `ORIGINAL_TEXT`.**
+
+**The quote is redacted at the model, not at the report.** Narratives name staff (*"approved by
+Nadine"*, *"requested by Alaa"*) and carry todo and complaint ids. Names, phone numbers, emails, URLs
+and ids are replaced with `[placeholder]` before the quote leaves the verifier.
+
+**Two mechanical guardrails.** `threads_read` lower than what was supplied is **rejected and re-run**.
+A read that did not happen is stamped **`NOT_READ`** — a run state, not a seventh verdict — **stays
+red and is counted separately from `NOT_RELATED`.**
+
+##### Tie-out rules
+
+**1 — the money.** Money-lost total = the sum of the eleven checks as **distinct note sets**. **No
+figure here is a sum of tests**; C2 and the control row "paid before the bonus was requested" overlap
+by 9 notes / AED 6,500 across 8 of C2's 16 maids, and sit in different tables for that reason.
+
+**2 — the population.** Every addition is accounted for:
+
+| Step | Notes | AED |
+| --- | ---: | ---: |
+| Additions, `AMOUNT > 0`, in window | 16,831 | 6,851,419 |
+| of which `route = expense` | 11,486 | 2,874,643 |
+| of which `route = direct` | **5,345** | **3,976,776** |
+
+**3 — no check counts a subset of another.** 🔴 **This identity is not decorative.** A "selection-lag"
+row of AED 3,050 sat on the ledger for a week before it was found to be a **subset of C4** — the run
+report had said so in writing at the time. Every check must state the note set it claims, and no two
+may intersect within the money table.
+
+**4 — 🔴 NEW: a retracted check keeps its number and stays visible at zero.** C3 is retired, not
+deleted. A silently removed row is indistinguishable from a dropped one, and that is exactly how the
+old AED 103,100 headline drifted.
+
+---
+
+#### 4. Finalised UI Report
+
+**Layout:** four KPI tiles (money lost · notes red · red rate · money examined) → the four tie-out
+lines → spend by month with the red share overlaid → **where the money goes missing**, by check →
+by payment type → by **department that raised it** → the cases table.
+
+**Columns.** Flag · Note id · Note date · **Payment date** · Payment type · Maid id · Amount · Check
+that fired · Route (`expense` / `direct`) · **Transferred (yes/no)** · Department as of the note ·
+**What the note says (the V1 verdict, quote on hover)**. Amounts right-aligned, 2 dp. **Default sort:
+amount descending.**
+
+🔴 **Payment date and Transferred are not decoration.** They are the two columns that separate a
+payment from a note about a payment, and adding them moved the largest check by 88%. A row where the
+payment date could not be established is **amber with the words "payment date cannot be established"**,
+never silently treated as paid.
+
+**By department — required, not optional.** Seven departments raise Maids.at alone. The department
+column is what turns "this type has no rule" into "this team has no rule", which is the actionable
+form. **Every department cell carries its resolution tier** — read from the log, or assumed from
+today's directory — because before 2025-06-15 there is no history and the value is today's.
+
+**Filters.** Window (user-chosen, default last 12 months) · payment type · check · route · department
+· transferred. **There is no reviewed/unreviewed filter and there will not be one** — nothing stores a
+review state and the check writes nothing back. Each run is a fresh read.
+
+**Flags.** Red = a check fired with nothing written that explains it. Amber = explained but not
+authorised, an entitlement date moved by request, or a payment date that cannot be established. Grey =
+paid outside payroll, or no mechanism existed. Green = no check fired. **Every flag carries its word,
+never colour alone.**
+
+**Drill-down.** The note's full narrative; its expense request with status and approver if any; the
+maid's type and status timeline **around both the note date and the payment date**; other notes to the
+same maid within 5 months **with their amounts**, so a duplicate is visible and a cancellation is not
+mistaken for one.
+
+**Provenance line.** All fourteen source tables and the as-of timestamp, on the page.
+
+**Export.** CSV of row-level detail. **The maid's name is in no column and no export.** Staff names
+appear only as the department attribution, never as an accusation column.
+
+🔴 **The page must carry two standing caveats:**
+1. *"Payments made outside payroll are not visible to this check. Where a note says 'paid manually',
+   the money moved and the amount here is zero."*
+2. *"Which payslip paid a note is derived, not recorded. Rows where it cannot be established are
+   flagged amber and excluded from the money."*
+
+---
+
+#### 5. Worked Examples
+
+##### A — clean, no action
+An anti-attrition note of AED 200. `AS_OF_PAYMENT` status is `WITH_CLIENT`, type is `CC Live In`, an
+enrolment record exists dated before the note, the payslip transferred, and the amount matches her
+enrolled tier. No check fires → **Green.**
+
+##### B — the exception this check exists for
+An anti-attrition note of AED 200 to maid 73378. She absconded 2025-09-24; the payslip paid on
+2025-11-03, **40 days later**, and transferred. She was enrolled 2025-10-07 — *thirteen days after she
+had already gone*. C1 fires → **Red.** She received AED 600 across three months this way. **The whole
+check is three maids and AED 1,613**, and that is the honest size of it.
+
+##### C — the instant is the whole answer *(replaces v1's example C)*
+An anti-attrition note to a maid whose status on the **note date** is
+`NO_SHOW_WENT_OUT_DID_NOT_RETURN`. On that reading, **110 notes / AED 13,257** fire. Read as of the
+day payroll actually paid, she is `WITH_CLIENT` — she was back at work within three days. **63 of the
+110 notes are this case.** A `NO_SHOW` flag at month end that reads `WITH_CLIENT` by the 3rd is a
+transient operational state, not abscondment. → **Green, no money.**
+
+##### D — the cancellation that looks like a duplicate
+A maid has an airfare note at AED 0 on 2026-05-02 with narrative *"…/ postponed, didn't accumulate 22
+months under CC"*, and a real AED 2,000 airfare note on 2026-06-14. A check that pairs on **existence**
+calls the second a duplicate inside the 5-month guard. **It is not: the first is a cancellation and no
+money moved.** This exact shape produced **26 false pairs worth AED 46,000**, since retracted. `AMOUNT
+> 0` removes it structurally.
+
+##### E — the verifier changes the flag, not the arithmetic
+An airfare note of AED 2,000 fires C5 — she was MV in the entitlement window. V1 reads the narrative
+and finds *"CC converted to MV, approved by switch to MV team to pay the maid renewal airfare ticket,
+todo;559648"*. **The amount does not move.** The flag does: red → **green**, verdict `JUSTIFIED`,
+category 1, with the note quoted and its id on the row.
+
+##### F — explained but not authorised
+An airfare note whose narrative reads *"…/ DM requested to release now before completing 22 months
+under CC"*. The payment was decided by a person, but **no structured field records the override, no
+approver column exists, and `AuditorAction` does not fire on ordinary edits**. Verdict `JUSTIFIED`,
+**category 2 → Amber.** The money is probably owed; the control was not followed, and that is a
+different report to a different owner.
+
+##### G — out of scope, counted and visible
+An airfare note at AED 0 whose narrative reads *"…/ 2000 dhs paid manually"*. The maid was paid AED
+2,000 outside payroll. **This check scores it as zero and always will.** It appears grey on the page
+with the standing caveat, because silent exclusion is how a hole becomes a lie.
+
+##### H — the arrears month that is not a violation *(new in v2)*
+An anti-attrition note of AED 400 to a maid whose `AS_OF` type is `MV`, against a CC-only rule. She
+switched to MV on **2026-03-31 — the last day of the month** — and the note is dated 2026-04-18, a
+full whole-month amount for a month she spent **entirely as CC**. C4 does not fire: it reads type at
+the first day of the pay period, and on 1 March she was CC. **18 of C4's original 20 notes were this
+case, AED 5,100.** The month-end pattern is real, not a base rate: **10.6%** of CC→MV switches happen
+on the last day of a month, against **90%** in that population.
+
+---
+
+#### 6. Open Items
+
+| # | Item | Owner | Blocking? |
+| --- | --- | --- | --- |
+| **B3** | ✅ **CLOSED ON EVERY LIMB 2026-09-15** — (a) MV switch within 2 days is fine; (b) the ERP's proration is correct and not to be questioned; (c) the long-MV population is one note / AED 126; (d) `CREATION_DATE` is trustworthy and maid 73378 was genuinely enrolled 13 days after absconding; (e) the `NO_SHOW` policy question closed and **not raised with management**; (f) C3 unfalsifiable and retired; (g) row 4 retracted on a base-rate test. **Nothing from anti-attrition goes to management** | — | **Closed** |
+| **O-AF** | ✅ **CLOSED 2026-09-15** — the rival airfare figure of AED 6,000 was a **5-month** lookback (Guard 1's duplicate window) against C5's **24-month** entitlement window. Run together: RED(24m) ⊆ RED(5m), 3 of 19. Disjoint sets, different questions; the 5m test reintroduces the confound C5 exists to defeat. **C5 stands at 4,500**; the 16 notes / AED 30,000 in the gap are the conservative floor's known cost and stay candidates | Audit | **Closed** |
+| **O-INSTANT** | ✅ **RESOLVED BY INSPECTION 2026-09-15 — not a blocker.** Each check was read against its own rule to decide its instant: C1 money-leaving → `AS_OF_PAYMENT`; C4 entitlement accruing over a period → pay-period start; **C6 and C12** (was she live-in when the allowance was granted) and **C7** (salary start vs note) are entitlement tests where **the note date IS the governed event** — correct as written; **C11 uses no instant at all**, being a pure amount-vs-tier comparison. C2, C5, C8, C9, C10 were already keyed to their own events. **The one dimension that applies to every check is the transfer filter, now hoisted above all eleven** (§3) | Audit | **No** |
+| **O-C4** | ✅ **RESOLVED BY RULE 2026-09-15 — not a blocker.** The 426 does not split across two checks; it needed one rule that covers both notes, and now has one: *she was not CC throughout the period the note pays for*. Maid 104507 was MV at the period's start; maid 38994 was CC for 12 of 31 days and paid a **full** whole-entitlement month. No orphaned note, no check invented for a single row | Audit | **No** |
+| **O-TRANSFER** | 🟡 **What does `IS_TRANSFERRED = 'NO'` mean for a terminated or absconded maid?** The sweep shows the column tracks termination, not non-payment — `MV Prorated Salary` runs at 59.9% against 0.5-3.7% elsewhere. Until this is answered the flag cannot filter money. **C1 is unaffected in its core** (its eight surviving notes are all `YES`) but may be **understated** by the 13 notes / AED 1,097 it set aside — the safe direction | Payroll / ERP | **No** |
+| **O-C2** | ✅ **CLOSED 2026-09-15 — C2 re-derived independently and confirmed at AED 11,500 / 16 maids.** The first attempt was a mis-scoped rule that returned 40 maids / ~AED 58,000 because it treated *absence* of a referral record as an entitlement of zero; `REASON = 'Bonus'` carries seven purposes and `HOUSEMAID_REFERRALS` prices two. Scoped by an **INNER join to maids holding an entitlement**, it reproduces the ledger to the dirham — seven over by 1,000, nine by 500. **Transfer exposure zero**, so O-TRANSFER cannot move it. ⚠️ Two corrections: the old basis line *"every one paid exactly double"* is **wrong** (12 of 16 at 2.0x, three at 3.0x, one at 1.5x), and the control-row overlap is **8 of 16 maids / AED 6,000** — half this check's money tells a second story about the same people | Audit | **Closed** |
+| **C2q** | 🔴 **NEW — what is a `Bonus` note allowed to be, and who prices each kind?** The head carries referral, signing, client-referral, renewal/vacation, ticket allowance, Abu Dhabi Incentive and MMR payments. **Only maid→maid referrals have an authorised-amount source.** Narratives show retention promises made verbally (*"maid was promised AED 1000 if she finds a new employer"*, *"promised by RBs"*, *"approved by the sup"*) — real commitments with no structured record. **AED ~865,000 is untestable until each kind has a price** | George Abboud | **No for the build** — blocks *coverage* of the bonus head || **K1** | **What is `Maids.at other expenses` for, and who qualifies?** AED 51,260, 273 notes, clean on authorisation and **completely untested on entitlement because no rule exists to test against**. Seven departments raise it. Two distinct tariffs sit under it — PRO Services at ~AED 90 a note, Delighters L1 at ~AED 423 | George Abboud | **No for the build** — blocks *coverage* of Maids.at, not delivery |
+| **L2** | **Office work — must she be assigned on the day she is paid?** Decides AED 13,140. Only 15 of 92 notes were assigned when paid; 62 were with a client | George Abboud | **No for the build** — blocks *coverage* of office work |
+| **C5q** | **What are the rejection reasons for a bonus request?** The target set is bonuses that met a rejection condition and were paid anyway | George Abboud | No |
+| **X1** | **Which payment types may each contract type receive?** CC live-in, CC live-out, MV, Freedom Operator, Walk-in. Two rows confirmed (airfare CC-only, relocation CC-live-out). **Paying against a rule that never applied is undetectable without the list** | George Abboud | No |
+| **A7** | **Airfare tenure — 22 months or 2 years?** The narratives use both, interchangeably, in the same week. The code gives a third number: ≥16 months since the last ticket. Three thresholds, one rule | George Abboud / ERP | **No for the build** — C5 and C11 ship on the code-verified thresholds |
+| **A8** | **Is "renewal bonus upon the switch to MV" the same entitlement as the airfare ticket?** ~18 notes / ~AED 32,500 booked under the airfare head with that narrative. If different, every airfare rule tested against them tests the wrong thing | George Abboud | **No for the build** — the ~18 notes are excluded and named, not silently scored |
+| **O-DEL** | 🔴 **The delete-guard gap** (§3 control findings). `deleteEntity` enforces none of the incentive guards and leaves no trace. A **dev/security item**, free-standing — it depends on no ruling and no other finding. ⚠️ Residual: whether `magnamedia-core` applies framework-level Envers to `MaidManagerActionLog` is not readable from the housemaid-management repo. If it does, the deletions are recoverable and this downgrades | ERP | No |
+| **O-MV** | **782 notes carry a string the code says is written to a payroll log and a to-do, not to a manager note.** Either something copies it across or there is another writer. `AccountantToDoService.createAccountantTodoForTerminatedProratedMVMaids` | ERP | No |
+| **O-LIVE** | **Two as-of sources for live-in/live-out**, used by two different checks: `HOUSEMAID_TYPE_LOGS.TO_TYPE` (C6) and `HOUSEMAIDS_INFO_REVISION.LIVE_OUT` (C12). Reconcile, then pick one | Snowflake team | No |
+| **O6** | Which timezone are `HOUSEMAID_TYPE_LOGS` / `HOUSEMAID_STATUS_LOGS` timestamps written in? A maid whose type changes on the as-of day can fall either side | Snowflake team | No |
+| **I1–I4** | **The ingestion request in §2.3.** I3 (`PAID_ON_PAYROLL_MONTH`) is the highest-value one — it has now bitten three separate findings. Without I1 there is no author column and 58% of the money is unattributable to a person; `RafflePerformerJob` already shows the pattern | Data team / ERP | **I3 yes** |
+| **O-MAN** | **Money paid outside payroll is invisible to this check.** ~15 notes say so in free text; the real population has never been measured. Out of scope by ruling — **but the size is worth knowing before anyone quotes a total** | Police & Control | No |
+| **O-ERP** | **ERP re-generates additions it has already paid.** Two notes record it on the secondary payroll run; both were caught and zeroed by a person. Not ours — hand it to payroll | Payroll | No |
+
+---
+
+#### Appendix — what this spec supersedes, and what changed
+
+`SPEC_manager_notes_audit_v1/v2/v3.md` are investigation documents — 1,600+ lines each, written while
+the data was still being learned. They are kept for their evidence and are **not build specs**.
+
+##### v1 → v2, same day
+
+| v1 | v2 |
+| --- | --- |
+| **12 checks, AED 56,204** | **11 checks, AED 30,441.** C1 re-scoped (−11,644), C3 retired (−9,019), C4 retracted (−5,100) |
+| One as-of instant, `NOTE_DATE`, for everything | **Three instants**, and a rule for choosing: entitlement / payment / note. Getting it wrong cost C1 88% |
+| No payslip table | **D14 mandatory.** `PAID_ON_DATE_FORMATTED` gives the day money moved. ⚠️ `IS_TRANSFERRED` looked like the second half of that and is **not** — it tracks termination, so it is an amber flag, never a filter (hygiene 16, O-TRANSFER) |
+| C3 a live check at AED 9,019 | **Retired — unfalsifiable.** Converted into the delete-guard control finding |
+| C4 keyed on "more than 2 days before the note" | **Keyed on the pay period.** The 2-day line was arbitrary; 18 of 20 were month-end conversions paid in arrears |
+| Airfare carried at 4,500 with a rival 6,000 unreconciled | **Reconciled and closed.** Different windows, disjoint sets — not rival estimates |
+
+##### Method rules this audit paid to learn
+
+1. **A test's window must come from the rule it tests.** Five months was Guard 1's *duplicate* window, used to test the CC *gate*.
+2. **A discriminator that cannot discriminate is not a test.** Expense head, approval rate and the 5-month lookback each returned a predictable answer — two of them predictable from evidence already written down.
+3. **Resolve as of the event the rule governs**, not the date on the row. This moved C1, C4 and the airfare reconciliation.
+4. **Validate a pattern against its base rate before retracting or asserting on it.** 10.6% vs 90% retracted AED 5,100; had the base rate been 85%, the pattern would have meant nothing.
+5. **A retracted row keeps its number and stays visible at zero.**
+6. **No figure is a sum of tests.** Four separate near-misses, one of them 58%.
+7. **Absence is not zero.** Scoring "no entitlement record" as "entitlement of 0" turned C2 from 16 maids / AED 11,500 into 40 maids / ~AED 58,000. Scope with an INNER join to the population that has the thing being compared.
+8. **Never generalise a filter from one check's population.** `IS_TRANSFERRED` was hoisted above all eleven checks on C1's evidence and overturned by the next query, which showed it tracks termination. One population is not a base rate.
+9. **Put a column in every query whose only job is to contradict you.** `entitlement_basis` caught a mis-scoped rule before it became a finding; `paid_over_authorised_ratio` killed the ledger's "exactly double" claim. Both cost nothing.
+
+##### Over the audit's life
+
+**AED 222,228 has been withdrawn across twelve retractions, against AED 30,441 standing — more than
+seven dirhams retracted for every dirham that survived.** That ratio is the strongest evidence the
+method works: every one of those retractions was found by this audit, before publication, not after.
