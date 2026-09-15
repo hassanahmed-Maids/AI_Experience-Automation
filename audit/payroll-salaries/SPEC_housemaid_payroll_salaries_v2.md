@@ -1,6 +1,6 @@
 # Spec — Police and Control Housemaid Payroll and Salaries
 
-**Part 0 — The page and the shared frame.** Parts 1–6 are the six child specs, reproduced in full and unedited, prompts included.
+**Part 0 — The page and the shared frame.** Parts 1–6 are the six child specs, reproduced in full, prompts included — unedited but for three name-column lines superseded by §4.3, struck through and marked in place.
 
 | | |
 | --- | --- |
@@ -540,10 +540,10 @@ be resolved rather than left standing:**
 | 5 · With Client | silent | unaffected |
 | 6 · Manager Notes | *"The maid's name is in no column and no export"* | 🔴 **Superseded.** Its §4 export line needs amending |
 
-🔴 **Three child specs now contradict this page, and a correction is not done until it is written into
-the file that caused it.** Checks 2, 3 and 6 carry a rule this ruling overrides. Until their §4
-sections are amended, a builder reading a child spec alone will strip the column back out. **That is
-three one-line edits and it is the only open work this ruling creates.**
+✅ **Done, 2026-09-15.** A correction is not done until it is written into the file that caused it, so
+Checks 2, 3 and 6 have been amended at source — each old rule struck through and marked in place, so a
+builder reading a child spec alone sees both the original and the ruling that replaced it rather than
+stripping the column back out.
 
 **What the ruling does not change.** The name travels with the same restriction the rest of the row
 already has: **this page and its export are limited to Police & Control and Payroll** (Check 1's own
@@ -692,8 +692,10 @@ sensible first delivery**, and the ticket asks for it that way.
 
 ## Parts 1–6: the six child specs, in full
 
-Each Part is the child spec file reproduced unedited on 2026-09-15, headings demoted two levels so this
-document has one outline. Relative links inside a Part point where they always did, from the workspace
+Each Part is the child spec file reproduced on 2026-09-15, headings demoted two levels so this document
+has one outline. **The only edits are the three name-column lines that §4.3's ruling supersedes** — in
+Checks 2, 3 and 6 — each left in place, struck through, and marked `⟪AMENDED⟫` so the original rule and
+the ruling that replaced it are both readable. Nothing else was summarised, cut or reworded. Relative links inside a Part point where they always did, from the workspace
 root. **Nothing was summarised, cut or reworded** — where a child spec contradicts Part 0, the child
 spec is the authority and Part 0 carries the defect, except on §4.
 
@@ -705,6 +707,9 @@ spec is the authority and Part 0 carries the defect, except on §4.
 | 4 | Loan Repayment | `SPEC_loan_repayment_check_v2.md` |
 | 5 | With Client, No Contract | `SPEC_with_client_no_contract_v3.md` |
 | 6 | **Manager Notes** | `SPEC_manager_notes_check_v2.md` |
+
+
+---
 
 
 ---
@@ -2345,7 +2350,7 @@ contract, its CPT rows, and the payment log lines that billed the client.
 **Conditional formatting.** The rule drives the row's coloured edge; every flag carries a text label
 and an icon so the row survives printing and colour-vision deficiency.
 
-**Personal data.** No maid names, contact details, bank or WPS data. No client names, phone numbers
+**Personal data.** ~~No maid names,~~ ⟪**AMENDED 2026-09-15 by the spec owner — the maid's name is shown beside her id. See the parent spec §4.3.**⟫ No contact details, bank or WPS data. No client names, phone numbers
 or email addresses — `CONTRACTS` carries them and they are never selected. Maid id, contract id,
 group, status and amounts only. **Staff names are in scope** on the CC side, because the action on a
 red row is to identify who granted the raise. That asymmetry is deliberate.
@@ -3119,7 +3124,7 @@ verdict legend → provenance. KPI strip and the top of the table visible withou
 | --- | --- | --- | --- |
 | Rule | R1 / R2 / R3 / EID | text | Every row names the rule it broke, in the rule's own words |
 | Expense / txn id | D1.ID or D3.ID | integer | Links to the ERP record |
-| Maid | D1.RELATED_TO_ID | integer | **Id only. Never a name** |
+| Maid | D1.RELATED_TO_ID | integer | ~~**Id only. Never a name**~~ ⟪**AMENDED 2026-09-15 by the spec owner — the maid's name is shown beside her id. See the parent spec §4.3.**⟫ |
 | Type | D6.HOUSEMAID_TYPE | CC / MV / FO | |
 | Expense code | D4.EXPENSE_TYPE | text | |
 | AED at risk | M1 | `#,##0.00`, right-aligned | Currency in the header, not per cell |
@@ -4366,7 +4371,7 @@ mistaken for one.
 
 **Provenance line.** All fourteen source tables and the as-of timestamp, on the page.
 
-**Export.** CSV of row-level detail. **The maid's name is in no column and no export.** Staff names
+**Export.** CSV of row-level detail. ~~**The maid's name is in no column and no export.**~~ ⟪**AMENDED 2026-09-15 by the spec owner — the maid's name is shown beside her id. See the parent spec §4.3.**⟫ Staff names
 appear only as the department attribution, never as an accusation column.
 
 🔴 **The page must carry two standing caveats:**
