@@ -17,6 +17,37 @@ Ordered by money. The first three carry AED 5.01m of the AED 6.79m examined.
 
 ---
 
+---
+
+## SCOPE — SETTLED BY MOE, 2026-09-15
+
+| Question | Answer | Consequence |
+|---|---|---|
+| Payslip additions only, or all money reaching a maid? | **Payslip additions only** *(read from "yes" alongside the six narrowing answers; flagged for correction)* | "Paid manually" money is **out of scope**. Say so when quoting any total — it is a known, accepted hole, not an oversight |
+| Audit deductions? | **No** | `NOTE_TYPE = 'ADDITION'` stands. X2 is closed, not deferred |
+| Fixed window? | **No — the dashboard reads live data in whatever window the user picks** | See *Check design* below. This is the biggest constraint on the spec |
+| Zero-amount notes in scope? | **No** | `AMOUNT > 0` is **mandatory in every check**. This is the exact filter whose absence produced the retracted AED 49,500 artefact — the exclusion is now a rule, not a preference |
+| Who may edit a note's amount/date; should it be logged? | **Out of scope** ("we don't care about that cycle") | The override gap stays recorded as an observation. Not a dashboard check |
+| Is zeroing the sanctioned cancellation? | **Out of scope** ("idk and idc") | Recorded, not pursued |
+| Is secondary-payroll re-generation a known defect? | **Not ours** | Hand the two evidence notes to whoever owns payroll; do not build a check for it |
+
+### 🔴 CHECK DESIGN — what a user-chosen window forces
+
+A window picked at runtime means **any rule expressed as an aggregate over the window silently
+changes answer as the user drags it.** Three consequences, binding on every check in this spec:
+
+1. **Lookbacks ignore the display window.** "No second airfare within 5 months" looks 5 months back
+   from THE NOTE, even when the user is viewing one month. A check that only sees the displayed
+   rows will report a clean month that is not clean.
+2. **Anything expressed as a share of the window is NOT a check.** Requester concentration, producer
+   share, "% of notes" — all move with the slider. Investigative tools, not dashboard rules.
+3. **Base rates and chance baselines cannot live in the UI**, for the same reason.
+
+**The testable surface is therefore: one addition, `AMOUNT > 0`, given a verdict on its own terms,
+with whatever lookback its own rule needs.**
+
+---
+
 ## 1 · Airfare Ticket — AED 2,335,000
 
 | # | Proposed rule | Basis |
@@ -27,6 +58,8 @@ Ordered by money. The first three carry AED 5.01m of the AED 6.79m examined.
 | A4 | 🔴 **A maid who received a company-bought ticket should NOT also receive the cash** | 🟥 — the code performs no such check. ✅ **The rule itself is now code-verified (session 46385)**: `AddScheduledAnnualVacationService`, fired at the `GetFormFromGDRFAStep` (Upload the e-Residency) renewal step — CC only (`!isMaidVisa()`), no airfare within 5 months, and >= 16 months since the last ticket. The ticket-vs-cash question remains open |
 | A5 | 🔴 The **manual expense route** should apply the same 5-month guard as the automatic one | 🟥 — it does not today. ⚠️ **The AED 49,500 attached to this row is RETRACTED (2026-09-14)**: it was a zero-amount pairing artefact. The route genuinely skips the guard, but **no duplicate payment resulted** — the four real second payments were separately authorised top-ups and settlements booked under the airfare head. Still worth confirming as a control question, no longer as a loss |
 | A6 | **Freedom Operator** and **Walk-in** months count as CC months for the tenure clock | 🟥 |
+| A7 | 🔴 **Is the tenure rule 22 months or 2 years?** | 🟥 — the note narratives use **both, interchangeably, in the same week**: "postponed till she completes 22 months" and "postponed till she completes 2 years". The whole airfare eligibility test depends on which |
+| A8 | 🔴 **Is "renewal bonus upon the switch to MV" the SAME entitlement as the airfare ticket?** | 🟥 — at least 18 notes / ~AED 32,500 are booked under the `Airfare Ticket` head but read "Approved renewal bonus upon the switch to MV". If it is a different payment, every airfare rule tested against those rows is testing the wrong thing |
 
 ---
 
@@ -46,7 +79,7 @@ Ordered by money. The first three carry AED 5.01m of the AED 6.79m examined.
 
 | # | Proposed rule | Basis |
 |---|---|---|
-| C1 | There are exactly **three** kinds: referral, signing/joining, and retracting-resignation | 🟩 |
+| C1 | There are exactly **three** kinds: referral, signing/joining, and retracting-resignation | 🟩 — ⚠️ **corrected 2026-09-15: referral and signing are two HALVES OF ONE SCHEME**, not separate kinds. The narratives are "X was referred by Y" (the referrer's bonus) and "Signing bonus for being referred by Y" (the referred maid's), written by two code paths (`HousemaidReferralService` and `PayrollManagerNoteController.syncSigningBonus`) |
 | C2 | Referral pays **AED 1,000 per referral event** — 1,000/0 for CC, 500/500 for MV — when the referred maid completes **30 days with the client** | 🟩 + you, 2026-09-07 |
 | C3 | A referral bonus requires a **referral record for that maid, dated before the payment** | 🟨 |
 | C4 | 🔴 **The retracting-resignation bonus should no longer be paid at all** | 🟥 — it is `@Deprecated`, the job filters it out, the UI hides it, and its config head is **Disabled**. Yet **10 notes / AED 7,126** were paid in twelve months. Is this a live exception or a defect? |
@@ -56,6 +89,13 @@ Ordered by money. The first three carry AED 5.01m of the AED 6.79m examined.
 ---
 
 ## 4 · MV Prorated Salary — AED 788,068
+
+> 🔴 **REWRITTEN 2026-09-15 — the four rules below were drafted against the wrong premise.**
+> This is **not** proration. Code (session 46385) and all 782 narratives agree it is the
+> **last MV salary on a CANCELLED PRE-COLLECTED contract** — "Last MV Salary for a Cancelled
+> Pre-collected Contract from <start> until <end>". It is raised by an **agent** as a
+> `LAST_MV_SALARY_FOR_A_PRE_COLLECTED_CONTRACT` MaidService, then picked up by
+> `LastMvSalaryMaidServiceJob`. D1-D4 need restating in those terms before they can be confirmed.
 
 | # | Proposed rule | Basis |
 |---|---|---|
@@ -167,8 +207,8 @@ Ordered by money. The first three carry AED 5.01m of the AED 6.79m examined.
 | # | Question | Why |
 |---|---|---|
 | X1 | 🔴 **Which payment types may each contract type receive?** CC live-in, CC live-out, MV, Freedom Operator, Walk-in | Two rows confirmed so far (airfare CC-only, relocation CC-live-out). Paying against a rule that never applied is one of the four failure types this audit exists to catch, and we cannot detect it without the list |
-| X2 | 🔴 **Should deductions be audited?** | `NOTE_TYPE = 'ADDITION'` appears in 151 query blocks. **Money taken *from* a maid has never been examined by anything** — and it lands on the person least able to contest it |
-| X3 | Should the audit cover **more than twelve months**? | 70% of all bonus money ever paid sits outside the current window |
+| X2 | ~~Should deductions be audited?~~ | ⚪ **CLOSED 2026-09-15 — no.** Additions only. Recorded so it is not re-opened by a future reader who notices the gap |
+| X3 | ~~Should the audit cover more than twelve months?~~ | ⚪ **CLOSED 2026-09-15 — no fixed window.** The dashboard reads live data in whatever window the user picks. See *Check design* above |
 
 ---
 
