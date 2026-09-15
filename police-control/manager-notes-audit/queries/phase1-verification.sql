@@ -1,4 +1,15 @@
 -- =====================================================================================
+-- ⚠️ AMOUNT > 0 PASS — 2026-09-15. Scope now EXCLUDES zero-amount notes (Moe, 2026-09-15),
+--    and the retracted AED 49,500 airfare finding was caused by exactly that omission.
+--    F5, F10 and F11 ran WITHOUT the filter. The filter has been added; THE RECORDED
+--    RESULTS BELOW PREDATE IT and are note-counts-unverified.
+--    Money impact: NONE. F5's AED 9,019 is a SUM of note amounts, and a zero adds nothing.
+--    🔴 F10 is the DANGEROUS SHAPE: a LAG gap histogram that treats the EXISTENCE of a prior
+--       note as evidence of a prior payment — the identical defect that produced the airfare
+--       artefact. It carried no ledger AED of its own, but re-run it before it ever does.
+-- =====================================================================================
+
+-- =====================================================================================
 -- PHASE 1 VERIFICATION PACK
 -- Four checks that produce REAL findings on granted columns, no new ingestion.
 -- Written 2026-09-08 from the code + data work. Ordered by value.
@@ -445,7 +456,8 @@ SELECT
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), enrol AS (
@@ -518,7 +530,8 @@ ORDER BY ORDINAL_POSITION;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), enrol AS (
@@ -549,7 +562,8 @@ FROM flagged f CROSS JOIN modal m;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), enrol AS (
@@ -600,7 +614,8 @@ FROM b1b;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY, EXPENSE_ID
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), enrol AS (
@@ -633,7 +648,8 @@ ORDER BY notes DESC;
 WITH paid AS (
     SELECT ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), flagged AS (
@@ -672,7 +688,8 @@ ORDER BY notes DESC;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), flagged AS (
@@ -702,7 +719,8 @@ FROM mm;
 WITH paid AS (
     SELECT ID, NOTE_DATE::DATE AS note_day, AMOUNT, REQUESTED_BY
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), flagged AS (
@@ -743,7 +761,8 @@ ORDER BY f.note_day;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), seq AS (
@@ -790,7 +809,8 @@ ORDER BY notes DESC;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), same_day AS (
@@ -837,7 +857,8 @@ ORDER BY notes;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), ent AS (
@@ -883,7 +904,8 @@ ORDER BY maid_days DESC;
 WITH paid AS (
     SELECT ID, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
     FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
-    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Anti-attrition Incentive'
+    WHERE NOTE_TYPE = 'ADDITION' AND AMOUNT > 0    -- added 2026-09-15, see AMOUNT>0 PASS
+      AND REASON = 'Anti-attrition Incentive'
       AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
     QUALIFY ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NOTE_DATE) = 1
 ), ent AS (

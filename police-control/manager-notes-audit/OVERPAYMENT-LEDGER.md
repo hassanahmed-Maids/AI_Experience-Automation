@@ -34,6 +34,46 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 | 🔴 **Accommodation Relocation paid to a live-in maid** | **3,900** | not deserved | **5 notes — revised down from 6 / AED 4,700 (S5).** `HOUSEMAID_TYPE_LOGS` carries `CC Live In` / `CC Live Out` / `MV` directly, so the rule is testable in one column instead of two. The `LIVE_OUT`-flag version was close but not exact |
 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | 3 notes. The other **317 of 320 clear** — AED 71,457 — and 36 of them resolve to a different flag than today, so the clear is earned rather than an artifact |
 
+
+## ✅ THE `AMOUNT > 0` PASS — 2026-09-15
+
+Scope now excludes zero-amount notes, and the retracted AED 49,500 was caused by exactly that
+omission. **Every live finding on this ledger was traced back to the query block that produced it
+and checked.**
+
+| | Findings | Verdict |
+|---|---:|---|
+| Blocks that already carried `AMOUNT > 0` | **13 of 16** | Unaffected: O6, O7, O8, O10, O12, FD2/FD3, PS1b/PS1c, S4, S5, AF2, TF13, A1, retraction-bonus-cases |
+| Blocks that did **not** | **3** | F5 (AED 9,019) · F10/F11 (AED 838) · O1 (AED 1,304). **Patched 2026-09-15** |
+
+### 🟢 No money on this ledger moves. Here is why, per block — not a blanket assurance
+
+- **F5 — anti-attrition paid before enrolment (AED 9,019).** The figure is a **SUM of note
+  amounts**; a zero-amount note contributes 0. The money stands. Only the **note count (42)** could
+  be inflated.
+- **O1 — note exceeds its approved request (AED 1,304).** The test is `note AMOUNT > request
+  AMOUNT`. **A zero-amount note cannot exceed a positive request**, so it can never be flagged. The
+  money stands. Only `linked_notes` (11,819) was inflated.
+- **F10/F11 — same-day excess (AED 838).** The excess is `SUM(amounts on the day) − entitlement`;
+  a zero adds nothing to the sum and is not counted as a full entitlement. The money stands.
+
+### 🔴 One dangerous shape found, and it carried no money — this time
+
+**F10 is a `LAG` gap histogram that treats the EXISTENCE of a prior note as evidence of a prior
+payment.** That is the *identical* defect that produced the retracted AED 49,500: zero amount is
+not the same as no payment. It happens to carry no ledger AED of its own — the AED 838 comes from
+a downstream amount comparison — but its gap buckets and its "176 same-day repeats" are unverified,
+and the next test built on that shape will carry money.
+
+**The rule this establishes, for the spec:** a check may use another note's **amount**; it may not
+use another note's **existence** unless that note has `AMOUNT > 0`.
+
+### Still owed after this pass
+
+1. **Re-run F5, F10, F11 and O1** to confirm the counts. The money is argued above, not measured.
+2. **The ledger total still needs recomputing** — not because of this pass, but because of the two
+   airfare retractions (AED 52,500). Do not quote ~AED 103,100.
+
 ### Control violated — a rule broken, the money may still be owed
 
 | | AED | Basis |

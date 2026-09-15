@@ -1,4 +1,12 @@
 -- =====================================================================================
+-- ⚠️ AMOUNT > 0 PASS — 2026-09-15. O1 ran WITHOUT the filter; it has been added.
+--    Money impact: NONE. O1 flags `note AMOUNT > request AMOUNT`, and a zero-amount note
+--    cannot exceed a positive request — so the AED 1,304 stands. Only `linked_notes`
+--    (11,819) was inflated by zero-amount rows.
+--    O6, O7, O8, O10 and O12 already carried the filter and are unaffected.
+-- =====================================================================================
+
+-- =====================================================================================
 -- THE OVERPAYMENT BATTERY — the audit's actual purpose.
 -- Every test here asks: DID MONEY LEAVE THAT SHOULD NOT HAVE?
 -- Four archetypes, per the audit's own framing:
@@ -24,7 +32,7 @@ SELECT COALESCE(n.REASON, '(none)')                                          AS 
        ROUND(MAX(IFF(x.CURRENCY_NAME = 'AED', n.AMOUNT - x.AMOUNT, 0)))      AS largest_overpayment
 FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES n
 JOIN BA_VIEWS.MONEY_CONTROL_SILVER.EXPENSES_REQUESTS x ON x.ID = n.EXPENSE_ID
-WHERE n.NOTE_TYPE = 'ADDITION'
+WHERE n.NOTE_TYPE = 'ADDITION' AND n.AMOUNT > 0   -- added 2026-09-15, AMOUNT>0 pass
   AND n.NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
 GROUP BY 1
 ORDER BY aed_OVERPAID DESC;
