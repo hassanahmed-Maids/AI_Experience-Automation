@@ -50,21 +50,25 @@ every row named so the arithmetic can be checked.
 
 ### Money lost
 
+**Row numbers are stable IDs, not positions** — #3 and #7 are retracted and keep their numbers so
+every cross-reference in the spec, the queries and the commit history still resolves. Sorted by AED.
+
 | # | Finding | AED | Archetype | Source |
 |---:|---|---:|---|---|
-| 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | **1,613** | not deserved | S4 → **re-scoped 2026-09-15**, 3 maids of the original 110 notes. AED 2,566 / 42 notes not estimable |
 | 2 | Bonus over the referral entitlement *(as of 2026-09-15)* | 11,500 | not deserved | O12b · 16 maids |
-| 4 | Anti-attrition to MV maids against a CC-only rule | **426** | off-rule | L4 → **B3g re-scoped 2026-09-15**, 2 notes of the original 20 |
-| 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes |
+| 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes · MV for the **whole 24-month window**, so **not** exposed to the B3g month-boundary confound. ⚠️ A 2026-09-14 re-measure gave 3 notes / **6,000**; carried at the lower figure, definitions unreconciled |
 | 6 | Accommodation Relocation paid to a live-in maid | 3,900 | not deserved | S5 · 5 notes |
-
 | 8 | Prorated salary paid outside the eligibility window | 2,976 | not deserved | PS1c · 25 notes |
 | 9 | Forgive Deduction: 15-21 days forgiven in a single month | 2,492 | off-rule | FD2 · 3 maid-months |
+| 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | **1,613** | not deserved | S4 → **re-scoped 2026-09-15**, 3 maids of the original 110 notes. Confirmed twice, on note date and on payment date. AED 2,566 / 42 notes not estimable |
 | 10 | Note exceeds its approved expense request | 1,304 | off-rule | O1 · 4 notes |
 | 11 | Anti-attrition same-day excess over entitlement | 838 | paid twice | F10 · 17 groups |
 | 12 | Airfare paid above its nationality tier | 500 | off-rule | A1 · 1 note |
+| 4 | Anti-attrition to MV maids against a CC-only rule | **426** | off-rule | L4 → **B3g re-scoped 2026-09-15**, 2 notes of the original 20 |
 | 13 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | TF13 · 3 notes |
 | | **SUM OF THE SURVIVING ROWS** | **30,441** | | 11 rows |
+| ~~3~~ | ~~Anti-attrition paid before any enrolment existed~~ | *0* | — | **Retracted to candidate (B3f)** — was 9,019 |
+| ~~7~~ | ~~Selection-lag payments to already-ineligible maids~~ | *0* | — | **Retracted** — was 3,050, a subset of #4 listed twice |
 
 ### Control violated — a rule broken, the money may still be owed. **DO NOT ADD TO THE ABOVE.**
 
@@ -97,8 +101,11 @@ carry **zero** of the money; their no-invoice twins carry all of it.
 | − Row 4 re-scoped: 18 of 20 were month-end CC→MV conversions paid in arrears (B3g) | −5,100 |
 | **= Surviving money-lost total** | **30,441** |
 
-110,954 − 52,500 = 58,454, and +1,000 of window drift gives **59,454**. The retraction step **reconciles exactly**, which is the check that the retraction removed
-what it claimed to and nothing else.
+**Both methods agree.** The step chain above lands on 30,441, and adding the eleven surviving rows
+directly also gives 30,441 — the check that each step removed what it claimed to and nothing else.
+110,954 − 52,500 = 58,454; +1,000 − 200 − 3,050 = 56,204; − 11,644 − 9,019 − 5,100 = **30,441**.
+
+⚠️ **Recompute discipline, 2026-09-15.** This pass found two structural defects that moved no money but are exactly how the old 103,100 headline drifted: **#5 (airfare to MV, AED 4,500) was in the total with no row in the detail table above**, and **#7 had been deleted outright**, leaving a silent gap in the numbering. A figure in the total with no basis row beside it is unauditable. Retracted rows now keep their IDs and stay visible at zero.
 
 
 ### FINDINGS-RUN, 2026-09-15 — all 13 rows re-measured, and one lesson about re-measuring
