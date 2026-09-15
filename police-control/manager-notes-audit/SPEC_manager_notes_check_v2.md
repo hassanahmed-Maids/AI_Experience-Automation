@@ -181,15 +181,15 @@ maid whose type changes on the as-of day can fall either side of a UTC-versus-Gu
 14. 🔴 **NEW — `HOUSEMAID_PAYROLL_HISTORY.STATUS` disagrees with D5 on many rows**, showing
     `WITH_CLIENT` where the status log says `NO_SHOW_LEFT_CLIENT_HOME`. It is a snapshot of unknown
     timing. **Read status from D5, never from the payslip.**
+15. 🔴 **NEW — MV conversions cluster hard at month end, and that is not the base rate.** Month-end
+    switching is **10.6%** of all CC→MV changes (1,349 of 12,741). Any check that reads type as of a
+    date shortly *after* a month boundary will over-fire on maids converting in the ordinary course.
+    C4 fired at **90%** month-end before it was corrected.
 16. 🔴 **NEW — `IS_TRANSFERRED` is not a payment test.** Non-transfer rates by type: `MV Prorated
     Salary` **59.9%**, Bonus 3.7%, Maids.at 2.8%, Medical 2.3%, relocation 1.4%, Forgive Deduction 1.4%,
     prorated 1.1%, airfare 0.8%, anti-attrition 0.5%, and **0.0% on seven types**. The outlier is the
     terminated-maid type, so the column tracks **termination**, not non-payment. Reading it as "the
     money never left" would have removed AED 506,309 that was almost certainly settled.
-15. 🔴 **NEW — MV conversions cluster hard at month end, and that is not the base rate.** Month-end
-    switching is **10.6%** of all CC→MV changes (1,349 of 12,741). Any check that reads type as of a
-    date shortly *after* a month boundary will over-fire on maids converting in the ordinary course.
-    C4 fired at **90%** month-end before it was corrected.
 
 ---
 
@@ -267,7 +267,7 @@ window and is date-stamped for that reason. **Live total: AED 30,441 across 11 c
 | **C6** | Accommodation Relocation to a live-in maid | not deserved | `AS_OF` type = `CC Live In` | **3,900** | 5 |
 | **C7** | Prorated salary outside the eligibility window | not deserved | salary start not within 0–40 days before the note | **2,976** | 25 |
 | **C8** | Forgive Deduction — 15+ days in one month | off-rule | maid-month with ≥15 notes | **2,492** | 55 |
-| **C1** | Anti-attrition to a maid who had gone | not deserved | `AS_OF_PAYMENT` status ∈ {`NO_SHOW`, `NO_SHOW_WENT_OUT_DID_NOT_RETURN`, `NO_SHOW_LEFT_CLIENT_HOME`, `NO_SHOW_FOR_TERMINATION`, `EMPLOYEMENT_TERMINATED`} **AND** `D14.IS_TRANSFERRED = 'YES'` **AND** absent ≥ 10 days at payment, **net of the days she had earned** | **1,613** | 3 maids |
+| **C1** | Anti-attrition to a maid who had gone | not deserved | `AS_OF_PAYMENT` status ∈ {`NO_SHOW`, `NO_SHOW_WENT_OUT_DID_NOT_RETURN`, `NO_SHOW_LEFT_CLIENT_HOME`, `NO_SHOW_FOR_TERMINATION`, `EMPLOYEMENT_TERMINATED`} **AND** absent ≥ 10 days at payment, **net of the days she had earned**. ⚠️ The AED 1,613 was measured additionally requiring `D14.IS_TRANSFERRED = 'YES'`; since that column tracks **termination**, not non-payment (hygiene 16), the figure may be **understated** by the 13 notes / AED 1,097 it set aside — pending **O-TRANSFER**. The safe direction | **1,613** | 3 maids |
 | **C9** | Note exceeds its approved request | off-rule | `AED` and `AMOUNT > req_amount + 0.01` | **1,304** | 4 |
 | **C10** | Anti-attrition same-day excess | paid twice | same-day total > entitlement, **entitlement proxied as the largest whole-entitlement note (100–500) across the year** (I4) | **838** | 17 groups |
 | **C11** | Airfare above its nationality tier | off-rule | `AMOUNT > MODE(AMOUNT)` for that nationality | **500** | 1 |
@@ -525,7 +525,7 @@ the data was still being learned. They are kept for their evidence and are **not
 | --- | --- |
 | **12 checks, AED 56,204** | **11 checks, AED 30,441.** C1 re-scoped (−11,644), C3 retired (−9,019), C4 retracted (−5,100) |
 | One as-of instant, `NOTE_DATE`, for everything | **Three instants**, and a rule for choosing: entitlement / payment / note. Getting it wrong cost C1 88% |
-| No payslip table | **D14 mandatory.** `PAID_ON_DATE_FORMATTED` and `IS_TRANSFERRED` separate a payment from a note about one |
+| No payslip table | **D14 mandatory.** `PAID_ON_DATE_FORMATTED` gives the day money moved. ⚠️ `IS_TRANSFERRED` looked like the second half of that and is **not** — it tracks termination, so it is an amber flag, never a filter (hygiene 16, O-TRANSFER) |
 | C3 a live check at AED 9,019 | **Retired — unfalsifiable.** Converted into the delete-guard control finding |
 | C4 keyed on "more than 2 days before the note" | **Keyed on the pay period.** The 2-day line was arbitrary; 18 of 20 were month-end conversions paid in arrears |
 | Airfare carried at 4,500 with a rival 6,000 unreconciled | **Reconciled and closed.** Different windows, disjoint sets — not rival estimates |
@@ -538,6 +538,9 @@ the data was still being learned. They are kept for their evidence and are **not
 4. **Validate a pattern against its base rate before retracting or asserting on it.** 10.6% vs 90% retracted AED 5,100; had the base rate been 85%, the pattern would have meant nothing.
 5. **A retracted row keeps its number and stays visible at zero.**
 6. **No figure is a sum of tests.** Four separate near-misses, one of them 58%.
+7. **Absence is not zero.** Scoring "no entitlement record" as "entitlement of 0" turned C2 from 16 maids / AED 11,500 into 40 maids / ~AED 58,000. Scope with an INNER join to the population that has the thing being compared.
+8. **Never generalise a filter from one check's population.** `IS_TRANSFERRED` was hoisted above all eleven checks on C1's evidence and overturned by the next query, which showed it tracks termination. One population is not a base rate.
+9. **Put a column in every query whose only job is to contradict you.** `entitlement_basis` caught a mis-scoped rule before it became a finding; `paid_over_authorised_ratio` killed the ledger's "exactly double" claim. Both cost nothing.
 
 ### Over the audit's life
 
