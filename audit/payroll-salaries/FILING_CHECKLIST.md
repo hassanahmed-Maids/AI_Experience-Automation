@@ -52,14 +52,22 @@ ticket or six, and says Manager Notes should go first if six. Let the intake ans
 
 ---
 
-## The three questions the ticket asks
+## The ticket carries NO blocking questions — deliberately
 
-1. **Check 5 — section or alert?** Its own author recommends against a dashboard: 2 findings,
-   AED 3,500, in a population of 5,558 where the median untagged maid is re-tagged within a day.
-2. **Who owns the AED 1,063,646 a month?** 828 maids paid past their contract end, AED 33.7m to date.
-   Found inside Check 2, owned by nobody, two orders of magnitude above everything on the page.
-3. **Who holds the scope boundary with DNA-9829?** Check 3 excludes two codes because Change of
-   Status and the GCC checker own them.
+The draft ended by asking the data team three things. **All three are Police & Control rulings, not
+data-team decisions**, and a question put to DNA inside a DNA ticket is precisely what the intake bot
+logs as *blocking* and holds the ticket for. They were removed before the bot picked it up and are
+tracked in the spec's §5 instead:
+
+| Question | Now tracked as | Owner |
+| --- | --- | --- |
+| Check 5 — dashboard section, or a weekly alert? | **OX8** | Abdullah Mahdi |
+| Who owns the AED 1,063,646 a month — 828 maids paid past contract end? | **OX7** | Abdullah Mahdi |
+| Who holds the scope boundary with DNA-9829? | **OX10** | Abdullah Mahdi |
+
+The open items that remain in the ticket are reframed as **context that changes what a number means**,
+stated as owned by P&C and answered on our side. The ticket asks for **one** thing back: an estimate,
+and a view on one ticket or six.
 
 ---
 
