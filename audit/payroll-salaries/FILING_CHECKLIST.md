@@ -14,6 +14,13 @@
 
 ---
 
+## Traceability — every spec now points back at the ticket
+
+All six child specs carry a **Jira** row and an **`ON JIRA`** status in their front matter, and so does
+the merged spec. A builder who opens a child spec on its own now learns three things without asking:
+it has been filed, it is a **Part of one request rather than a ticket of its own**, and which of its
+open items is the blocking one. Check 5 additionally carries the warning that its section is contested.
+
 ## ⬜ ONE THING LEFT, AND IT MATTERS
 
 **Attach `SPEC_housemaid_payroll_salaries_v2.md` to DNA-9879 by hand.** The Jira API available here

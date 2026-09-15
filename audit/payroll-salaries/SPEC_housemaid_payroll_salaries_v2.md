@@ -8,7 +8,8 @@
 | **Spec version** | v2 |
 | **Date** | 2026-09-15 |
 | **UI mockup** | Housemaid Payroll Checks — https://claude.ai/artifact/Y3NbLkqBagbjeVpqagTvpp |
-| **Status** | Draft. The `spec-auditor` gate has **not** been run on this document. Each of the six checks it merges carries its own gate state, in §6. |
+| **Jira** | **[DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879) — filed 2026-09-15.** A Sub Dashboard for the Police & Control department, under the Payroll domain (the field carries no Police & Control option). The six checks are Parts of this one request, **not six tickets** |
+| **Status** | **ON JIRA.** The spec itself is Draft: the `spec-auditor` gate has **not** been run on this document, and each of the six checks carries its own gate state in §6 |
 | **Merges** | SPEC_cc_salary_components_v8 · SPEC_maids_salary_check_v5 · SPEC_housemaid_loans_check_v2 · SPEC_loan_repayment_check_v2 · SPEC_with_client_no_contract_v3 · **SPEC_manager_notes_check_v2** |
 | **Sibling page** | `SPEC_housemaid_visa_process_v3.md` — the seven visa-money audits, DNA-9829. Two live scope cross-references between the two documents; see OX10 |
 | **Changelog** | [spec_history/housemaid_payroll_salaries.md](spec_history/housemaid_payroll_salaries.md) |
@@ -693,9 +694,12 @@ sensible first delivery**, and the ticket asks for it that way.
 ## Parts 1–6: the six child specs, in full
 
 Each Part is the child spec file reproduced on 2026-09-15, headings demoted two levels so this document
-has one outline. **The only edits are the three name-column lines that §4.3's ruling supersedes** — in
-Checks 2, 3 and 6 — each left in place, struck through, and marked `⟪AMENDED⟫` so the original rule and
-the ruling that replaced it are both readable. Nothing else was summarised, cut or reworded. Relative links inside a Part point where they always did, from the workspace
+has one outline. **Two sets of edits, and only two.** The three name-column lines that §4.3's ruling supersedes — in
+Checks 2, 3 and 6 — are left in place, struck through, and marked `⟪AMENDED⟫` so the original rule and
+the ruling that replaced it are both readable. And **every child spec's front matter now carries the
+Jira link and an `ON JIRA` status**, so a builder who opens a child spec alone learns it has been filed
+and is a Part of one request rather than a ticket of its own. Nothing else was summarised, cut or
+reworded. Relative links inside a Part point where they always did, from the workspace
 root. **Nothing was summarised, cut or reworded** — where a child spec contradicts Part 0, the child
 spec is the authority and Part 0 carries the defect, except on §4.
 
@@ -714,6 +718,9 @@ spec is the authority and Part 0 carries the defect, except on §4.
 
 ---
 
+
+---
+
 ## Part 1 — Salary Components (CC)
 
 ### Spec — CC Housemaid Salary Components Check
@@ -724,7 +731,8 @@ spec is the authority and Part 0 carries the defect, except on §4.
 | **Spec version** | v8 |
 | **Date** | 2026-09-10 |
 | **UI mockup** | https://claude.ai/code/artifact/d6a9c064-da23-4fb9-9c39-602a2591fe2e |
-| **Status** | Draft — awaiting requestor approval |
+| **Status** | **ON JIRA — filed 2026-09-15.** The spec itself is still Draft, awaiting requestor approval on O1, O2 and O3 |
+| **Jira** | [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879) — filed 2026-09-15 as **Part 1** of the Housemaid Payroll and Salaries Sub Dashboard. Not a ticket of its own |
 | **Changelog** | [spec_history/cc-salary-components.md](spec_history/cc-salary-components.md) |
 
 ---
@@ -1296,7 +1304,8 @@ live Snowflake before being accepted, and all eight are fixed above.*
 | **Date** | 2026-09-10 |
 | **Road-map** | #19, Payroll |
 | **UI mockup** | https://claude.ai/code/artifact/a314b186-4e25-481b-9f80-35c4587404ce |
-| **Status** | Draft — pending requestor approval |
+| **Status** | **ON JIRA — filed 2026-09-15.** The spec itself is still Draft, pending requestor approval; O5 is the blocking item |
+| **Jira** | [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879) — filed 2026-09-15 as **Part 2** of the Housemaid Payroll and Salaries Sub Dashboard. Not a ticket of its own |
 | **Supersedes** | `SPEC_maids_salary_check_v4.md` |
 | **Changelog** | `spec_history/cc-maids-salary-raise.md` |
 
@@ -2579,7 +2588,8 @@ proration basis is unknown, so her excess if any is hidden. One of the 1,677 in 
 | **Spec version** | v2 — first version built through the P&C spec pipeline |
 | **Date** | 2026-09-10 |
 | **UI mockup** | https://claude.ai/code/artifact/de31f021-fd1f-4009-bcac-1615b2795b43 |
-| **Status** | Draft — nine points approved by the requestor 2026-09-10; `spec-auditor` gate NOT run |
+| **Status** | **ON JIRA — filed 2026-09-15.** Nine points approved by the requestor 2026-09-10; `spec-auditor` gate NOT run; O10 is the blocking item |
+| **Jira** | [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879) — filed 2026-09-15 as **Part 3** of the Housemaid Payroll and Salaries Sub Dashboard. Not a ticket of its own |
 | **Roadmap** | #45, Payroll |
 
 ---
@@ -3259,7 +3269,7 @@ cannot reopen it by accident.
 ### Loan Repayment Check — v2
 
 **Owner:** Abdullah Mahdi, Police & Control
-**Status:** draft — the `spec-auditor` gate has **not** been run
+**Status:** **ON JIRA — filed 2026-09-15** as **Part 4** of the Housemaid Payroll and Salaries Sub Dashboard, [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879). Not a ticket of its own. The spec itself is draft: the `spec-auditor` gate has **not** been run, and O15 is the blocking item
 **Source:** Snowflake only. No spreadsheet, no ERP API call.
 **Measured:** March and August 2026, live read 10 September 2026
 **Replaces:** v1 (payroll workbook) and the CC-only rule in `checks/CC_Loan_Repayment_Check.md`
@@ -3707,6 +3717,7 @@ Measurement detail, queries, funnel counts and the ten verdict files:
 **Report mockup:** https://claude.ai/code/artifact/cb8cd4a3-67dc-4b7f-9d21-8ac720ff0344
 **Changelog:** [spec_history/with-client-no-contract.md](spec_history/with-client-no-contract.md)
 **Data as of:** 2026-09-09 19:38 GST
+**Status:** **ON JIRA — filed 2026-09-15** as **Part 5** of the Housemaid Payroll and Salaries Sub Dashboard, [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879). Not a ticket of its own. ⚠️ **Its section is contested** — this spec recommends a weekly alert over a dashboard (§6), and that ruling is open as OX8 on the merged page. O18 and O19 block the build either way
 
 > **Read this before anything else.** v1 reported 116 red cases and AED 120,274. v2 reported 5
 > and AED 5,970. **Correctly computed, this check finds 2 cases, both 10 days old, AED 3,500.**
@@ -3955,7 +3966,8 @@ dashboard the spec above builds it.
 | **Spec version** | v2 |
 | **Date** | 2026-09-15 |
 | **Supersedes** | `SPEC_manager_notes_check_v1.md` (same day — v1's C1, C3 and C4 carried rules that later measurement disproved) and `SPEC_manager_notes_audit_v1/v2/v3.md` / `_DEV.md`, which are investigation documents, not build specs |
-| **Status** | 🟢 **Ready to build — no blocking open items.** Two rule decisions and one coverage boundary closed the three that remained; one measurement (O-C2) is queued before *publication*, not before build |
+| **Status** | **ON JIRA — filed 2026-09-15**, and 🟢 **ready to build — no blocking open items.** The merged page names it the first delivery. Two rule decisions and one coverage boundary closed the three that remained; one measurement (O-C2) is queued before *publication*, not before build |
+| **Jira** | [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879) — filed 2026-09-15 as **Part 6** of the Housemaid Payroll and Salaries Sub Dashboard. Not a ticket of its own |
 | **Evidence** | `OVERPAYMENT-LEDGER.md` · `queries/FINDINGS-RUN.sql` · `queries/absconded-payment-date.sql` · `queries/anti-attrition-abscondment-cases.sql` · `runs/2026-09-12month-audit-run.md` |
 
 ---

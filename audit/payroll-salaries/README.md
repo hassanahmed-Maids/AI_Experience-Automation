@@ -1,6 +1,7 @@
 # Housemaid Payroll and Salaries — handoff package
 
 **Date:** 2026-09-15 · **Prepared for:** Abdullah Mahdi, Police & Control
+**Jira:** [DNA-9879](https://jira-maids-cc.atlassian.net/browse/DNA-9879) — filed 2026-09-15. All six checks are Parts of this one request, not six tickets.
 **Live mockup:** https://claude.ai/artifact/Y3NbLkqBagbjeVpqagTvpp
 
 Six payroll-money audits consolidated onto one page, in the same structure as the Housemaid Visa
