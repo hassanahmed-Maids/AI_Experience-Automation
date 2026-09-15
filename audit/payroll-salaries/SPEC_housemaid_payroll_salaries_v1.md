@@ -7,7 +7,7 @@
 | **Requested by** | Abdullah Mahdi, Police & Control |
 | **Spec version** | v1 |
 | **Date** | 2026-09-15 |
-| **UI mockup** | https://claude.ai/artifact/Y3NbLkqBagbjeVpqagTvpp |
+| **UI mockup** | Housemaid Payroll Checks — https://claude.ai/artifact/Y3NbLkqBagbjeVpqagTvpp |
 | **Status** | Draft. The `spec-auditor` gate has **not** been run on this document. Each of the five checks it merges carries its own gate state, in §6. |
 | **Merges** | SPEC_cc_salary_components_v8 · SPEC_maids_salary_check_v5 · SPEC_housemaid_loans_check_v2 · SPEC_loan_repayment_check_v2 · SPEC_with_client_no_contract_v3 |
 | **Reserved** | **Part 6 — Manager Notes.** Named by the requestor on 2026-09-15 as belonging to this family; the child spec has not been supplied. The slot is reserved rather than left implicit so its absence is visible on the page |
