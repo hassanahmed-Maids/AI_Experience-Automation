@@ -4,8 +4,8 @@
 Underpayment findings are byproducts and live in remediation lists, not here.
 
 **⚠️ WITHDRAWN: the ~AED 103,100 headline (2026-09-09).** Recomputed from the rows 2026-09-15 →
-**AED 58,454 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
-Against AED 7,197,642 examined — **0.81%**. Full arithmetic below.
+**AED 59,454 money lost**, plus **AED 16,626 control-violated** which must not be added to it.
+Against AED 7,197,642 examined — **0.83%**. Full arithmetic below.
 
 ✅ **De-duplicated.** O12 resolved every bonus note to one verdict: the two bonus findings overlap by
 **3 notes across 2 maids**, so about AED 1,400 of the total is double-counted. Recorded, not chased.
@@ -20,7 +20,7 @@ finding, but not a recovery. Reporting them as one number overstates the loss.
 |---|---:|---|---|
 | ⚪ **RETRACTED to candidate — "bonus at referral rates, no referral, over a year in"** | *was 143,965* | — | BN3 classified the population from the narrative the code actually writes, and it does not hold together. The claim rested on *median 765 days into service* and *avg 878*. The unclassified-no-referral group is **148 notes, AED 100,310, avg 678, median 290 days** — under a year, and priced between the signing rate (500) and the referral rate (866). It is not one population and it is not characterised as the row said. Replaced by the two rows below |
 | ⚪ **RETRACTED — "airfare duplicates via the unguarded manual route"** | *was 49,500* | — | **Reconciled 2026-09-14 and it does not survive.** A3c carried no `AMOUNT > 0` filter, so it paired a real payment against a **zero-amount** predecessor. Split by whether money moved on both sides: **26 notes / AED 46,000 had a zero-amount prior note — there was never a first payment**; only **4 notes / AED 5,500** are two real payments, and those four are a top-up, a dispute settlement, an exception release and a salary advance, each separately authorised through the expense route and *booked under the airfare head*. As a duplicate-payment finding: **zero**. 26 + 4 = 30 and 46,000 + 5,500 = 51,500 reconciles A3c's 29 / 49,500 inside rounding |
-| 🔴 **Bonus over the referral entitlement** | **10,500** | not deserved | 15 maids paid AED 20,000 against 9,500 entitled — **validated by 466 maids matching to the penny** |
+| 🔴 **Bonus over the referral entitlement** | **11,500** *(as of 2026-09-15)* | not deserved | **16 maids, re-measured 2026-09-15 (O12b).** Seven over by 1,000, nine by 500 — every one paid exactly double her entitlement. ⚠️ Was 15 maids / 10,500 on 2026-09-08: the window is ROLLING, so this row drifts with the date. **9 of its notes (AED 6,500, 8 maids) also appear in the control row "paid before the bonus was requested"** — different tables, so no double-count, but the same maids |
 | Anti-attrition paid before any enrolment existed | **9,019** | not deserved | 42 notes, measured on `CREATION_DATE` |
 | Selection-lag payments to already-ineligible maids | 3,050 | off-rule | 11 notes; corroborates the code's select-once flaw |
 | ⚪ **RETRACTED — "airfare, the automatic guard itself failed"** | *was 3,000* | — | Same reconciliation. Every `automatic → automatic` pair inside 5 months has no money on one side or both; the single one with a real second payment (AED 1,500) had a zero-amount predecessor, so it is the same artefact |
@@ -48,7 +48,7 @@ every row named so the arithmetic can be checked.
 | # | Finding | AED | Archetype | Source |
 |---:|---|---:|---|---|
 | 1 | Anti-attrition paid to a maid in a NO-SHOW or terminated state | 13,257 | not deserved | S4 · 110 notes |
-| 2 | Bonus over the referral entitlement | 10,500 | not deserved | O8 · 15 maids |
+| 2 | Bonus over the referral entitlement *(as of 2026-09-15)* | 11,500 | not deserved | O12b · 16 maids |
 | 3 | Anti-attrition paid before any enrolment existed | 9,019 | not deserved | F5 · 42 notes |
 | 4 | Anti-attrition to MV maids against a CC-only rule | 5,726 | off-rule | S5 · 21 notes |
 | 5 | Airfare to MV maids | 4,500 | off-rule | AF2 · 3 notes |
@@ -60,7 +60,7 @@ every row named so the arithmetic can be checked.
 | 11 | Anti-attrition same-day excess over entitlement | 838 | paid twice | F10 · 17 groups |
 | 12 | Airfare paid above its nationality tier | 500 | off-rule | A1 · 1 note |
 | 13 | Live-out transport allowance paid to a live-in maid | 392 | not deserved | TF13 · 3 notes |
-| | **SUM OF THE SURVIVING ROWS** | **58,454** | | 13 rows |
+| | **SUM OF THE SURVIVING ROWS** | **59,454** | | 13 rows |
 
 ### Control violated — a rule broken, the money may still be owed. **DO NOT ADD TO THE ABOVE.**
 
@@ -80,18 +80,26 @@ carry **zero** of the money; their no-invoice twins carry all of it.
 | Old column sum (pre-retraction) | 110,954 |
 | − Airfare duplicates, retracted 2026-09-14 | −49,500 |
 | − Airfare automatic-guard failure, retracted 2026-09-14 | −3,000 |
-| **= Surviving money-lost total** | **58,454** |
+| = Surviving money-lost total, as the rows stood on 2026-09-14 | 58,454 |
+| + Bonus over-entitlement re-measured 2026-09-15 (10,500 → 11,500) | +1,000 |
+| **= Surviving money-lost total** | **59,454** |
 
-110,954 − 52,500 = 58,454. **It reconciles exactly**, which is the check that the retraction removed
+110,954 − 52,500 = 58,454, and +1,000 of window drift gives **59,454**. The retraction step **reconciles exactly**, which is the check that the retraction removed
 what it claimed to and nothing else.
 
 ### Three honest caveats on this number
 
-1. **The ~AED 1,400 bonus de-duplication is unresolved.** The old note said two bonus findings
-   overlapped by 3 notes across 2 maids. One of the two candidates for that pair is the **retracted**
-   AED 143,965 row — if that was the overlap, it is already gone and no adjustment is due. If it was
-   with the control-table row, it never touched this subtotal anyway. **No de-duplication has been
-   applied here.** Re-run O12 before treating 58,454 as final; the true figure is 57,054–58,454.
+1. ✅ **SETTLED 2026-09-15 — no de-duplication is due.** O12b re-ran the test at MAID level, so
+   priority ordering cannot hide anyone. The old AED 1,400 overlap was against the **retracted**
+   AED 143,965 row and died with it. **But the row itself moved: 16 maids / AED 11,500, up from
+   15 / 10,500 a week earlier — the window is rolling.**
+   🔴 **The general lesson, now a rule: every AED figure on this ledger is a SNAPSHOT and must
+   carry an as-of date.** A rolling 12-month window means these rows drift without anyone touching
+   them. This is the same constraint that bans window-aggregate checks from the dashboard.
+   🟡 **A previously untested overlap DOES exist**: 9 notes / AED 6,500 across 8 of the 16 maids also
+   appear in the control row "paid before the bonus was requested". Separate tables, so neither
+   total double-counts — but half these maids are in both findings, and a write-up that tells both
+   stories tells the same maids twice.
 2. **Airfare-to-MV is carried at AED 4,500 (AF2).** A re-measure on 2026-09-14 — 12-month window,
    automatic path only, fan-out diagnostic clean — gave **3 notes / AED 6,000**. Consistent, but the
    two definitions are not reconciled. Carried at the lower, older figure deliberately.

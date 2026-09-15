@@ -625,6 +625,71 @@ ORDER BY verdict;
 --   🟢 BONUS IS CLOSED: AED 642,951 of 849,316 cleared on evidence (75.7%), AED 143,965 RED,
 --   AED 42,900 ambiguous, AED 2,000 blocked.
 
+
+-- O12b. 2026-09-15 — O12 RE-RUN, rebuilt for the current ledger.
+--   WHY: O12 priority-ordered its verdicts, putting "no referral, over a year in" ABOVE "over the
+--   referral entitlement", so 2 over-entitled maids were absorbed upward and category 2 showed 13
+--   where O7 found 15. That difference was the AED 1,400 "overlap". Category 1 is now RETRACTED,
+--   so the overlap died with it. This version drops the priority ordering entirely and tests at
+--   MAID level — `paid > entitled` is a maid-level property and priority could only ever hide it.
+--   It also cross-tabs against the OTHER surviving bonus finding, which nobody had tested.
+--
+--   RESULT 2026-09-15:
+--     16 maids · excess AED 11,500  (7 over by 1,000, 9 by 500 — each paid exactly DOUBLE)
+--     overlap with "paid before the bonus was requested": 9 notes · AED 6,500 · 8 of the 16 maids
+--
+--   🔴 THE FINDING BEHIND THE FINDING: O7 measured 15 maids / AED 10,500 on 2026-09-08. Seven days
+--   later the identical test returns 16 / 11,500. NEITHER IS WRONG — the 12-month window ROLLS, so
+--   the row drifts with the date and nothing was touched. Every AED figure in this audit is a
+--   SNAPSHOT and must carry an as-of date. Same constraint that bans window-aggregate checks from
+--   the dashboard (see RULES-TO-CONFIRM.md, "Check design").
+--
+--   ⚠️ `entitled` inherits O12's definition: HOUSEMAID_REFERRALS.AMOUNT where not cancelled AND
+--   IS_REQUESTED_BONUS = 1. That flag's reliability is itself an open ledger item (the AED 70,895
+--   row). If it is under-set, `entitled` is understated and this excess overstated.
+WITH bonus AS (
+    SELECT ID AS note_id, HOUSEMAID_ID, NOTE_DATE::DATE AS note_day, AMOUNT
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_MANAGER_NOTES
+    WHERE NOTE_TYPE = 'ADDITION' AND REASON = 'Bonus' AND AMOUNT > 0
+      AND NOTE_DATE >= DATEADD('month', -12, CURRENT_DATE())
+      AND NOTE_DATE <= CURRENT_DATE()
+), ref AS (
+    SELECT HOUSEMAID_ID                                  AS referrer_id,
+           COUNT(*)                                      AS referrals,
+           COUNT_IF(COALESCE(IS_CANCELLED, 0) = 1)       AS cancelled,
+           COUNT_IF(COALESCE(IS_REQUESTED_BONUS, 0) = 1) AS bonus_requested,
+           MIN(IFF(COALESCE(IS_REQUESTED_BONUS, 0) = 1, BONUS_REQUEST_DATE::DATE, NULL))
+                                                         AS first_bonus_request,
+           SUM(IFF(COALESCE(IS_CANCELLED, 0) = 0 AND COALESCE(IS_REQUESTED_BONUS, 0) = 1,
+                   AMOUNT, 0))                           AS entitled
+    FROM BA_VIEWS.HOUSEMAID_MANAGEMENT_SILVER.HOUSEMAID_REFERRALS
+    WHERE HOUSEMAID_ID IS NOT NULL
+    GROUP BY 1
+), per_maid AS (
+    SELECT b.HOUSEMAID_ID,
+           COUNT(*)                                      AS bonus_notes,
+           SUM(b.AMOUNT)                                 AS bonus_paid,
+           MAX(r.entitled)                               AS entitled,
+           COUNT_IF(r.bonus_requested > 0 AND r.referrals > r.cancelled
+                    AND b.note_day < r.first_bonus_request)          AS notes_paid_before_requested,
+           SUM(IFF(r.bonus_requested > 0 AND r.referrals > r.cancelled
+                   AND b.note_day < r.first_bonus_request, b.AMOUNT, 0)) AS aed_paid_before_requested
+    FROM bonus b
+    LEFT JOIN ref r ON r.referrer_id = b.HOUSEMAID_ID
+    GROUP BY b.HOUSEMAID_ID
+)
+SELECT HOUSEMAID_ID, entitled, bonus_paid,
+       ROUND(bonus_paid - entitled)                      AS excess_aed,
+       bonus_notes, notes_paid_before_requested, aed_paid_before_requested,
+       IFF(notes_paid_before_requested > 0, 'ALSO in the paid-before-requested finding', '') AS overlap_flag,
+       COUNT(*)                        OVER ()           AS over_entitled_maids_TOTAL,
+       ROUND(SUM(bonus_paid - entitled) OVER ())         AS excess_aed_TOTAL,
+       SUM(notes_paid_before_requested) OVER ()          AS overlapping_notes_TOTAL,
+       ROUND(SUM(aed_paid_before_requested) OVER ())     AS overlapping_aed_TOTAL
+FROM per_maid
+WHERE entitled > 0 AND bonus_paid > entitled + 0.01
+ORDER BY excess_aed DESC;
+
 -- O4b. 🔴 SALARY DISPUTE — AED 385,984, the largest type with no entitlement verdict.
 --   REPLACES the original O4, which had two defects it was written before this session learned
 --   to catch:
