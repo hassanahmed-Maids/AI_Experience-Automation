@@ -85,9 +85,24 @@ WHAT TO BUILD
   never overwrites it. Checks 1 and 5 have no verifier by design: their questions are arithmetic and
   a clock, and no note changes either.
 4. The Sub Dashboard itself: one scrolling page, six sections, four metric tiles and one exception
-  table per check, five tabs per table (Paid too much / Not collected / Nobody billed / Control
-  bypassed / Needs review), rows red, yellow or grey only. Green rows are not displayed; cleared
-  cases live in the counts.
+  table per check, rows red, yellow or grey only. Green rows are not displayed; cleared cases live in
+  the counts. Checks 1 to 5 navigate by outcome - five tabs (Paid too much / Not collected / Nobody
+  billed / Control bypassed / Needs review), each check showing only the ones that apply to it.
+5. Check 6 navigates differently and the mockup shows it working. It audits 24 payment types under
+  eleven rules, and an officer works it by payment type, because that is the unit a rule and an owner
+  attach to. So it carries a tab per payment type with a red-case count on each, plus ONE filter bar
+  - outcome, route, transferred, department - shared by every tab, whose state persists when the
+  officer moves between tabs. Four things about it are requirements rather than styling:
+  - Types with money but no red still get a tab showing a zero. Their money is untested, not clean,
+    and a type that disappears from the tab row reads as a type that passed.
+  - The cross-type check gets its own tab. "Note exceeds its approved request" fires on any type
+    carrying an expense request, so filing it under one type would be a guess printed as a fact.
+  - The tab counts respond to route, transferred and department, but NOT to the outcome filter. A
+    badge answers "how much red is in this type". If it moved with the outcome view, every badge
+    would read zero while the officer was looking at Control bypassed - the signal would vanish
+    exactly when it is needed to decide where to go next.
+  - An empty table says so in words: "an empty result is not a clean result". A filter combination
+    with no rows looks identical to a type with nothing wrong in it.
 
 THE ONE THING WE MOST NEED YOU NOT TO GET WRONG
 
@@ -96,6 +111,14 @@ untested - not because they passed, but because no entitlement rule exists to te
 largest is the Bonus head, which carries at least seven different purposes and has an authorised
 amount for only two of them. Those rows must render grey and say "no rule exists to test this". A
 type with no rule is not a clean type, and a page that shows it as clean is worse than no page.
+
+ONE THING IN CHECK 6 WE HAVE NOT RECONCILED, AND DO NOT WANT RECONCILED QUIETLY
+
+Its own check table counts notes on most rules, maids on two of them and groups on a third, against a
+stated grain of one row per note. So the case counts are not all counts of the same thing. The mockup
+prints the spec's numbers as they stand and names the mismatch on the page. Please do the same rather
+than picking a unit and making the columns agree - if it needs settling, it is a spec decision and
+Police & Control will make it.
 
 WHAT WE ARE NOT ASKING FOR
 
