@@ -117,11 +117,17 @@ payable. The recency pattern favours the latter. Unresolved.
 | Verdict | Notes | AED |
 |---|---:|---:|
 | B — was CC when the entitlement was plausibly created (CONFOUND) | 18 | 32,500 |
-| **A — MV throughout the 5 months before the note: REAL gate breach** | **3** | **6,000** |
+| ⚪ **A — MV throughout the 5 months before the note** ~~REAL gate breach~~ **WITHDRAWN, same confound** | **3** | *0* |
 
-86% confound — the same proportion that collapsed 137,500 -> 4,500. The ledger carries airfare MV
-at **AED 4,500**; this is consistent with it and slightly above. **Reconcile the two definitions
-before changing the figure — do not overwrite.** All three breaches fall on **2026-09-01**: one
+🔴 **WITHDRAWN 2026-09-15 — group A is confounded too, and the instruction below was followed.**
+Reconciled against AF2 on the same data: the 5-month lookback used here is **Guard 1's duplicate
+window, not the entitlement window**. The gate `!housemaid.isMaidVisa()` is evaluated when the
+entitlement is created at renewal; the note is dated `payrollDueDate` months later. All three
+group-A notes carry a **CC interval inside the prior 24 months** (maid 34326 switched type
+2026-03-31 for a note dated 2026-09-01), so they are the *same* confound as group B with a
+shorter lookback — not a real gate breach. Calling 86% of the group confound and then treating
+the remainder as clean was the error. **AF2's 24-month test is the correct instrument; the
+ledger stays at AED 4,500 and this 6,000 is retired.** All three breaches fall on **2026-09-01**: one
 cluster, not a drift. Interval fan-out diagnostic returned 0, so the counts are sound.
 
 ## ✅ RESOLVED FROM THE ACTUAL STRINGS (ask-the-code session 46385)
