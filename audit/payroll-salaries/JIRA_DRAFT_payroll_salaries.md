@@ -9,7 +9,7 @@
 | --- | --- |
 | **Project** | DNA |
 | **Issue type** | **New Request** — file it as Abdullah filed DNA-9829; the DNA Intake Bot re-types it (Analytic Engineer Task) and splits the AI-Analyst and BI workstreams itself |
-| **Summary** | Housemaid Payroll and Salaries - six payroll-money audits on one Sub Dashboard - full build spec |
+| **Summary** | Housemaid Payroll and Salaries - payroll-money audits on one Sub Dashboard - full build spec |
 | **Sub Dashboard for** | Police & Control department. No parent dashboard |
 | **Reporter** | Hassan Okasha (filed). Abdullah Mahdi named as requester in the body — the Reporter field is not on the DNA create screen |
 | **Priority** | Not Urgent ✅ |
@@ -40,3 +40,14 @@ gate-state paragraph is marked *"for your planning only"*.
 
 **The ticket now asks for exactly one thing back:** an estimate, and a view on whether the six models
 are one ticket or six.
+
+**3. All measured figures removed from the ticket.** Ruled 2026-09-15. Every population, amount, rate
+and case count is out of the description, the summary and the comment; each now lives only in the
+attached spec, beside the rule that produced it. The ticket says so in a standing line — *"a number
+quoted away from its rule is how a wrong figure gets repeated"* — and tells the data team to size the
+work from the spec rather than the page.
+
+**What was kept, and why.** Design counts that specify the deliverable — four metric tiles per check,
+the five outcome positions, six fixed verdicts, one row per maid per day, one row per case — are not
+measurements and removing them would leave the build ambiguous. If the intent was to strip those too,
+say so and they go.
