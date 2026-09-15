@@ -405,6 +405,8 @@ statement. Labels are the words on the screen:
 | With Client | With a client, no contract, past 7 days · M5 | Watch — 7 days or fewer · M3 − M5 | Untagged share, and the median age · M3 | Cleaners parked in `WITH_CLIENT` — not this check's |
 | **Manager Notes** | **Additions nothing entitled her to · 11 checks** | **Money examined, and what no rule covers** | **Control broken, money may be owed — never in the total** | **Red rate, and its denominator** |
 
+**Check 6's tiles sit above a tab row rather than a switch — see §4.1.**
+
 🔴 **There is no page total and there will not be one.** The six checks measure **money leaving above
 the rule**, **money never collected**, **entitlement not yet paid to staff**, **pay with nobody
 billed**, and **a control broken on money that was probably correct**. A single "at risk" figure would
@@ -428,6 +430,47 @@ buckets cover it. This page carries two shapes it does not have — **pay that i
 and funded by nobody**, and **a control broken on money that was probably owed**. Folding the first
 into either red bucket would misname 60 maids at AED 75,350 a month; folding the second in would put
 AED 16,626 of process failures into a loss total that its own spec forbids.
+
+### 4.1 Manager Notes reads by payment type, not by outcome — the one section with a different anatomy
+
+🔴 **Check 6 does not use the switch above. It uses a tab per payment type, plus one filter bar.**
+The other five checks each audit **one homogeneous population** against one rule family, so a switch on
+the outcome is the whole navigation they need. Check 6 audits **24 payment types under eleven separate
+rules**, each type with its own entitlement source, its own owner and in several cases **no rule at
+all** — and an officer works it *by payment type*, because that is the unit a rule and an owner attach
+to. A single outcome switch would bury eleven rules in one list.
+
+**The anatomy, and each part earns its place:**
+
+1. **A tab per payment type**, ordered by red weight, plus an **All types** tab. Types with money but
+   no red — Maids.at other expenses, Office work — **still get a tab showing a zero**, because their
+   money is untested rather than clean, and a type that disappears reads as a type that passed.
+   **Cross-type · C9** is its own tab: *note exceeds its approved request* fires on any type carrying
+   an expense request, so it has no home of its own and must not be silently filed under one.
+2. **A red-case count on every tab.** It is **live** — it recomputes under the filter bar, so the
+   badge always describes what the officer would actually find inside. The badges sum to the
+   All-types badge, and that identity is a build-time assertion like any other: **134 today**
+   (55 + 25 + 22 + 16 + 5 + 4 + 4 + 3, with two types at zero).
+3. **One filter bar, shared by every tab.** Outcome (All rows / Paid too much / Control bypassed /
+   Needs review) · Route · Transferred · Department, plus Reset. **Filter state persists across tab
+   switches** — an officer filtering to `direct` route keeps that filter while moving between types,
+   which is the whole point of a unified bar rather than per-tab controls.
+4. **The outcome filter preserves the page's own vocabulary.** Its positions are the §4 switch
+   positions that apply to this check, so the five failure shapes still name the same things here as
+   everywhere else. Check 6 has not been given a private language.
+
+🔴 **Two rules about the counts, and both are load-bearing.**
+**The tab badges respond to Route, Transferred and Department, but NOT to the outcome filter.** A badge
+is *how much red is in this type*; if it moved with the outcome view, every badge would read zero while
+the officer was looking at *Control bypassed*, and the signal would vanish exactly when it is needed to
+decide where to go next. **And an empty table says so in words** — *"An empty result is not a clean
+result"* — because a filter combination with no rows looks identical to a type with nothing wrong in
+it.
+
+⚠️ **The Cases column mixes units, and that is the child spec's own inconsistency, surfaced rather than
+smoothed.** Its check table counts **notes** on most rules, **maids** on C1 and C2, and **groups** on
+C10, against a stated grain of one row per note. The page prints the spec's numbers and names the
+mismatch in the section footer; **it is not for the build to silently reconcile.**
 
 **Rows.** Red, yellow or grey only. **Green rows are not displayed** — cleared cases live in the counts.
 Every row carries the flag word beside its colour and the specific state in small text under it. Tables

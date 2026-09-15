@@ -117,6 +117,22 @@ td .sub2{display:block;font-size:10.5px;color:var(--muted);font-family:"IBM Plex
 .report-head{gap:0 4px;flex-wrap:wrap}
 .reserved{margin-top:10px;background:var(--surface);border:1px dashed var(--hair-2);border-radius:5px;padding:12px 14px;font-size:12.5px;color:var(--ink-2)}
 .reserved b{color:var(--ink)}
+.typetabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.typetabs button{appearance:none;border:1px solid var(--hair-2);background:var(--surface);color:var(--ink-2);font:inherit;font-size:12.5px;padding:6px 11px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.typetabs button:hover{background:var(--surface-2);color:var(--ink)}
+.typetabs button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.typetabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.typetabs .n{font-family:"IBM Plex Mono",monospace;font-size:11px;min-width:16px;text-align:center;padding:1px 6px;border-radius:999px;background:rgba(208,59,59,.14);color:var(--crit-text)}
+.typetabs .n.zero{background:var(--row-grey);color:var(--muted)}
+.typetabs button[aria-pressed="true"] .n{background:rgba(255,255,255,.24);color:#fff}
+.mnbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:10px;padding:9px 11px;background:var(--surface);border:1px solid var(--hair);border-radius:5px}
+.mnbar .seg{margin-top:0}
+.fsel{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.fsel select{font:inherit;font-size:12.5px;font-family:"IBM Plex Mono",monospace;color:var(--ink);background:var(--surface);border:1px solid var(--hair-2);border-radius:5px;padding:4px 7px}
+.fsel select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.mnreset{appearance:none;border:1px solid var(--hair-2);background:transparent;color:var(--ink-2);font:inherit;font-size:12px;padding:5px 10px;border-radius:5px;cursor:pointer;margin-left:auto}
+.mnreset:hover{background:var(--surface-2);color:var(--ink)}
+.mnempty{padding:14px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--hair)}
 .foot{font-size:11.5px;color:var(--muted);padding:8px 14px;border-top:1px solid var(--hair)}
 .twocol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
 .twocol .card{margin-top:0}
@@ -369,52 +385,65 @@ img{max-width:100%}
     <div class="tile neutral"><div class="lbl">Red rate, and its denominator <span class="id">—</span></div><div class="val">0.44%</div><div class="sub">AED 30,441 of AED 6,851,419 · 58% of the money carries no expense request</div></div>
   </div>
 
-  <div class="seg" role="group"><button aria-pressed="true" data-sub="mn-0">Paid too much<span class="n">11</span></button><button aria-pressed="false" data-sub="mn-1">Control bypassed<span class="n">3</span></button><button aria-pressed="false" data-sub="mn-2">Needs review<span class="n">4</span></button></div>
-
-  <div class="sub active" id="mn-0">
-  <div class="card"><div class="card-head"><h3 style="margin:0">The eleven checks — one note, one verdict</h3><span class="cnt">AED 30,441.00</span></div><div class="tbl-wrap"><table>
-      <thead><tr><th>Flag</th><th>Check</th><th>Payment type</th><th>Note date</th><th>Payment date</th><th>Route</th><th>Transferred</th><th>Department</th><th class="num sorted">AED</th><th class="num">Notes</th><th>Verdict</th><th>Reason</th></tr></thead>
-      <tbody>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C2</td><td>Bonus</td><td>2026-06-30</td><td>2026-07-03</td><td>expense</td><td>Yes</td><td>Delighters</td><td class="num">11,500.00</td><td class="num">16 maids</td><td><span class="v">NOT_RELATED</span></td><td class="wrap">Paid over the referral entitlement. Scoped by an <b>INNER join to maids who hold one</b> — treating absence as an entitlement of zero returned 40 maids / ~AED 58,000</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C5</td><td>Airfare</td><td>2026-04-30</td><td>2026-05-02</td><td>expense</td><td>Yes</td><td>PRO Services</td><td class="num">4,500.00</td><td class="num">3</td><td><span class="v">AMBIGUOUS</span></td><td class="wrap">No CC interval anywhere in the 24-month entitlement window. A rival AED 6,000 reading used the <b>5-month duplicate</b> window — different question</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C6</td><td>Accommodation Relocation</td><td>2026-05-31</td><td>2026-06-02</td><td>expense</td><td>Yes</td><td>Maid Management</td><td class="num">3,900.00</td><td class="num">5</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Paid to a maid who was <span class="mono">CC Live In</span> as of the note; the allowance exists for live-out</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C7</td><td>Prorated Salary</td><td>2026-07-31</td><td>2026-08-03</td><td>direct</td><td>Yes</td><td>Payroll</td><td class="num">2,976.00</td><td class="num">25</td><td><span class="v">NOT_RELATED</span></td><td class="wrap">Salary start outside the 0–40 days before the note</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C8</td><td>Forgive Deduction</td><td>2026-08-31</td><td>2026-09-02</td><td>direct</td><td>Yes</td><td>Payroll</td><td class="num">2,492.00</td><td class="num">55</td><td><span class="v">AMBIGUOUS</span></td><td class="wrap">Fifteen or more forgiveness notes on one maid in one month</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C1</td><td>Anti-attrition incentive</td><td>2025-10-31</td><td>2025-11-03</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">1,613.00</td><td class="num">3 maids</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Absent 10+ days at payment, net of days earned. Maid 73378 absconded 2025-09-24 and was <b>enrolled thirteen days after</b></td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C9</td><td>various</td><td>2026-03-31</td><td>2026-04-02</td><td>expense</td><td>Yes</td><td>Maids.at</td><td class="num">1,304.00</td><td class="num">4</td><td><span class="v">PLAUSIBLE</span></td><td class="wrap">Note exceeds the amount on its own approved request</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">paid twice</span></td><td class="mono">C10</td><td>Anti-attrition incentive</td><td>2026-02-28</td><td>2026-03-02</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">838.00</td><td class="num">17 groups</td><td><span class="v">AMBIGUOUS</span></td><td class="wrap">Same-day total above her entitlement, which is <b>proxied</b> — the enrolled tier is not exposed (I4)</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C11</td><td>Airfare</td><td>2026-01-31</td><td>2026-02-03</td><td>expense</td><td>Yes</td><td>PRO Services</td><td class="num">500.00</td><td class="num">1</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Above the modal amount for that nationality tier</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C4</td><td>Anti-attrition incentive</td><td>2026-04-18</td><td>2026-04-21</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">426.00</td><td class="num">2</td><td><span class="v">NOT_RELATED</span></td><td class="wrap">Not CC throughout the period the note pays for. <b>18 of the original 20 were month-end conversions paid in arrears</b>, AED 5,100 retracted</td></tr>
-<tr class="r-red"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C12</td><td>Live-out Transportation</td><td>2026-06-30</td><td>2026-07-02</td><td>expense</td><td>Yes</td><td>Delighters</td><td class="num">392.00</td><td class="num">3</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Paid to a maid whose <span class="mono">LIVE_OUT</span> was 0 as of the note</td></tr>
-<tr class="r-red"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">retired, kept at zero</span></td><td class="mono">C3</td><td>Anti-attrition incentive</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Retention</td><td class="num">0.00</td><td class="num">0</td><td><span class="v x">—</span></td><td class="wrap"><b>Retired — unfalsifiable</b>, was AED 9,019 / 42 notes. Deletion is unguarded and untraced, so "never enrolled" and "enrolled then unenrolled" are identical in data</td></tr>
-      </tbody>
-    </table></div><div class="foot"><b>C1 is what reading the wrong instant costs.</b> Read at the note date it was AED 13,257; read on the day payroll actually paid, <b>63 of its 110 notes went to maids who were back at work</b> — a NO_SHOW flag at month end that reads WITH_CLIENT by the 3rd is a transient state, not abscondment. <b>C4 is what skipping a base rate costs:</b> 10.6% of CC→MV switches fall on a month's last day, which retracted AED 5,100. Over this audit's life <b>AED 222,228 has been withdrawn across twelve retractions against AED 30,441 standing</b> — seven dirhams retracted for every one that survived, every one found before publication.</div></div>
+  <h3>Payment type — the count is red cases under the filters below</h3>
+  <div class="typetabs" id="mn-tabs" role="group" aria-label="Payment type">
+    <button type="button" data-type="all" aria-pressed="true">All types <span class="n">134</span></button>
+    <button type="button" data-type="forgive" aria-pressed="false">Forgive Deduction <span class="n">55</span></button>
+    <button type="button" data-type="prorated" aria-pressed="false">MV Prorated Salary <span class="n">25</span></button>
+    <button type="button" data-type="antiattrition" aria-pressed="false">Anti-attrition incentive <span class="n">22</span></button>
+    <button type="button" data-type="bonus" aria-pressed="false">Bonus <span class="n">16</span></button>
+    <button type="button" data-type="relocation" aria-pressed="false">Accommodation Relocation <span class="n">5</span></button>
+    <button type="button" data-type="airfare" aria-pressed="false">Airfare <span class="n">4</span></button>
+    <button type="button" data-type="cross" aria-pressed="false">Cross-type · C9 <span class="n">4</span></button>
+    <button type="button" data-type="transport" aria-pressed="false">Live-out Transport <span class="n">3</span></button>
+    <button type="button" data-type="maidsat" aria-pressed="false">Maids.at other expenses <span class="n zero">0</span></button>
+    <button type="button" data-type="office" aria-pressed="false">Office work <span class="n zero">0</span></button>
   </div>
 
-  <div class="sub" id="mn-1">
-  <div class="card"><div class="card-head"><h3 style="margin:0">A rule broken where the money may still have been owed</h3><span class="cnt">AED 16,626.00 · never added to the money</span></div><div class="tbl-wrap"><table>
-      <thead><tr><th>Flag</th><th>Finding</th><th>Archetype</th><th>Payment type</th><th>Route</th><th>Department</th><th class="num sorted">AED</th><th>Verdict</th><th>Reason</th></tr></thead>
-      <tbody>
-<tr class="r-amber"><td><span class="flag amber"><i></i>Yellow</span><span class="sub2">control violated</span></td><td class="wrap">Bonus paid before the bonus was requested</td><td>control violated</td><td>Bonus</td><td>expense</td><td>Delighters</td><td class="num">9,500.00</td><td><span class="v x">—</span></td><td class="wrap">Overlaps C2 by <b>9 notes / AED 6,500 across 8 of its 16 maids</b> — half that check's money tells a second story about the same people, which is why the two sit in different tables and are never added</td></tr>
-<tr class="r-amber"><td><span class="flag amber"><i></i>Yellow</span><span class="sub2">control violated</span></td><td class="wrap">A deprecated, config-disabled bonus path is still paying</td><td>control violated</td><td>Bonus</td><td>direct</td><td>—</td><td class="num">7,126.00</td><td><span class="v x">—</span></td><td class="wrap">The path was switched off in configuration and money is still leaving through it</td></tr>
-<tr class="r-amber"><td><span class="flag amber"><i></i>Yellow</span><span class="sub2">control violated · no amount</span></td><td class="wrap">Anti-attrition enrolment can be deleted without privilege or trace</td><td>control violated</td><td>Anti-attrition incentive</td><td>—</td><td>Retention</td><td class="num">—</td><td><span class="v x">—</span></td><td class="wrap"><b>Enrolling a maid onto a money-bearing programme is position-restricted; changing her amount is position-restricted; erasing the enrolment entirely is not.</b> <span class="mono">deleteEntity</span> enforces none of the incentive guards and carries no <span class="mono">@PreAuthorize</span>, and the entity has no audit history, so the deletion leaves nothing behind. 18 maids / 42 notes. Carries no amount — the money was probably owed. A dev item, not a management question</td></tr>
-      </tbody>
-    </table></div></div>
+  <div class="mnbar">
+    <span class="range-lbl">Outcome</span>
+    <div class="seg" data-filter="outcome" role="group" aria-label="Outcome">
+      <button type="button" data-val="all" aria-pressed="true">All rows</button>
+      <button type="button" data-val="paid" aria-pressed="false">Paid too much</button>
+      <button type="button" data-val="control" aria-pressed="false">Control bypassed</button>
+      <button type="button" data-val="review" aria-pressed="false">Needs review</button>
+    </div>
+    <label class="fsel">Route <select id="mn-route"><option value="all">all</option><option value="expense">expense</option><option value="direct">direct</option></select></label>
+    <label class="fsel">Transferred <select id="mn-transferred"><option value="all">all</option><option value="yes">yes</option><option value="no">no</option></select></label>
+    <label class="fsel">Department <select id="mn-dept"><option value="all">all</option><option value="Delighters">Delighters</option><option value="PRO Services">PRO Services</option><option value="Maid Management">Maid Management</option><option value="Payroll">Payroll</option><option value="Retention">Retention</option><option value="Maids.at">Maids.at</option></select></label>
+    <button type="button" class="mnreset" id="mn-reset">Reset filters</button>
   </div>
 
-  <div class="sub" id="mn-2">
-  <div class="card"><div class="card-head"><h3 style="margin:0">No rule exists to test this money</h3><span class="cnt">~AED 962,000 · grey, never green</span></div><div class="tbl-wrap"><table>
-      <thead><tr><th>Flag</th><th>Payment type</th><th class="num sorted">AED</th><th class="num">Notes</th><th>Owner</th><th>Verdict</th><th>Why it is untested</th></tr></thead>
+  <div class="card">
+    <div class="card-head"><h3 style="margin:0" id="mn-title">All types — every row</h3><span class="cnt" id="mn-count">19 rows · AED 30,441.00 red</span></div>
+    <div class="tbl-wrap"><table id="mn-table">
+      <thead><tr><th>Flag</th><th>Check</th><th>Payment type</th><th>Note date</th><th>Payment date</th><th>Route</th><th>Transferred</th><th>Department</th><th class="num sorted">AED</th><th class="num">Cases</th><th>Verdict</th><th>Reason</th></tr></thead>
       <tbody>
-<tr class="r-amber"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">no rule exists</span></td><td>Bonus — the non-referral part</td><td class="num">~865,000</td><td class="num">—</td><td>George Abboud</td><td><span class="v x">—</span></td><td class="wrap"><b>A heterogeneous head.</b> At least seven purposes sit under it — referral, signing, <i>client</i> referral, renewal on MV switch, ticket allowance, Abu Dhabi Incentive, MMR. Only maid→maid referrals have an authorised-amount source, so for every other purpose the authorised amount is <b>0 by construction</b> and any <span class="mono">paid &gt; authorised</span> rule fires on all of them. Narratives show verbal retention promises with no structured record</td></tr>
-<tr class="r-amber"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">no rule exists</span></td><td>Maids.at other expenses</td><td class="num">51,260</td><td class="num">273</td><td>George Abboud</td><td><span class="v x">—</span></td><td class="wrap">Clean on authorisation and <b>completely untested on entitlement</b>. Seven departments raise it, at two distinct tariffs — PRO Services ~AED 90 a note, Delighters L1 ~AED 423. This is what the department column is for: it turns "this type has no rule" into "this team has no rule"</td></tr>
-<tr class="r-amber"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">no rule exists</span></td><td>Airfare — "renewal bonus on switch to MV"</td><td class="num">~32,500</td><td class="num">~18</td><td>George Abboud</td><td><span class="v x">—</span></td><td class="wrap">May be a different entitlement booked under the airfare head. <b>Excluded and named</b>, never scored against the airfare rule — testing it there would test the wrong thing</td></tr>
-<tr class="r-amber"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">no rule exists</span></td><td>Office work</td><td class="num">13,140</td><td class="num">92</td><td>George Abboud</td><td><span class="v x">—</span></td><td class="wrap">Unknown whether she must be assigned on the day she is paid. Only 15 of 92 notes were assigned when paid; 62 were with a client</td></tr>
+<tr class="r-red" data-type="bonus" data-outcome="paid" data-route="expense" data-transferred="yes" data-dept="Delighters" data-red="16" data-aed="11500"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C2</td><td>Bonus</td><td>2026-06-30</td><td>2026-07-03</td><td>expense</td><td>Yes</td><td>Delighters</td><td class="num">11,500.00</td><td class="num">16</td><td><span class="v">NOT_RELATED</span></td><td class="wrap">Paid over the referral entitlement. Scoped by an <b>INNER join to maids who hold one</b> — treating absence as an entitlement of zero returned 40 maids / ~AED 58,000</td></tr>
+<tr class="r-red" data-type="airfare" data-outcome="paid" data-route="expense" data-transferred="yes" data-dept="PRO Services" data-red="3" data-aed="4500"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C5</td><td>Airfare</td><td>2026-04-30</td><td>2026-05-02</td><td>expense</td><td>Yes</td><td>PRO Services</td><td class="num">4,500.00</td><td class="num">3</td><td><span class="v">AMBIGUOUS</span></td><td class="wrap">No CC interval anywhere in the 24-month entitlement window. A rival AED 6,000 reading used the <b>5-month duplicate</b> window — different question</td></tr>
+<tr class="r-red" data-type="relocation" data-outcome="paid" data-route="expense" data-transferred="yes" data-dept="Maid Management" data-red="5" data-aed="3900"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C6</td><td>Accommodation Relocation</td><td>2026-05-31</td><td>2026-06-02</td><td>expense</td><td>Yes</td><td>Maid Management</td><td class="num">3,900.00</td><td class="num">5</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Paid to a maid who was <span class="mono">CC Live In</span> as of the note; the allowance exists for live-out</td></tr>
+<tr class="r-red" data-type="prorated" data-outcome="paid" data-route="direct" data-transferred="yes" data-dept="Payroll" data-red="25" data-aed="2976"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C7</td><td>MV Prorated Salary</td><td>2026-07-31</td><td>2026-08-03</td><td>direct</td><td>Yes</td><td>Payroll</td><td class="num">2,976.00</td><td class="num">25</td><td><span class="v">NOT_RELATED</span></td><td class="wrap">Salary start outside the 0–40 days before the note</td></tr>
+<tr class="r-red" data-type="forgive" data-outcome="paid" data-route="direct" data-transferred="yes" data-dept="Payroll" data-red="55" data-aed="2492"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C8</td><td>Forgive Deduction</td><td>2026-08-31</td><td>2026-09-02</td><td>direct</td><td>Yes</td><td>Payroll</td><td class="num">2,492.00</td><td class="num">55</td><td><span class="v">AMBIGUOUS</span></td><td class="wrap">Fifteen or more forgiveness notes on one maid in one month</td></tr>
+<tr class="r-red" data-type="antiattrition" data-outcome="paid" data-route="direct" data-transferred="yes" data-dept="Retention" data-red="3" data-aed="1613"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C1</td><td>Anti-attrition incentive</td><td>2025-10-31</td><td>2025-11-03</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">1,613.00</td><td class="num">3</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Absent 10+ days at payment, net of days earned. Maid 73378 absconded 2025-09-24 and was <b>enrolled thirteen days after</b></td></tr>
+<tr class="r-red" data-type="cross" data-outcome="paid" data-route="expense" data-transferred="yes" data-dept="Maids.at" data-red="4" data-aed="1304"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C9</td><td><span class="pill grey">cross-type</span></td><td>2026-03-31</td><td>2026-04-02</td><td>expense</td><td>Yes</td><td>Maids.at</td><td class="num">1,304.00</td><td class="num">4</td><td><span class="v">PLAUSIBLE</span></td><td class="wrap">Note exceeds the amount on its own approved request. <b>Fires on any type that carries an expense request</b>, so it has no home tab of its own</td></tr>
+<tr class="r-red" data-type="antiattrition" data-outcome="paid" data-route="direct" data-transferred="yes" data-dept="Retention" data-red="17" data-aed="838"><td><span class="flag red"><i></i>Red</span><span class="sub2">paid twice</span></td><td class="mono">C10</td><td>Anti-attrition incentive</td><td>2026-02-28</td><td>2026-03-02</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">838.00</td><td class="num">17</td><td><span class="v">AMBIGUOUS</span></td><td class="wrap">Same-day total above her entitlement, which is <b>proxied</b> — the enrolled tier is not exposed (I4)</td></tr>
+<tr class="r-red" data-type="airfare" data-outcome="paid" data-route="expense" data-transferred="yes" data-dept="PRO Services" data-red="1" data-aed="500"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C11</td><td>Airfare</td><td>2026-01-31</td><td>2026-02-03</td><td>expense</td><td>Yes</td><td>PRO Services</td><td class="num">500.00</td><td class="num">1</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Above the modal amount for that nationality tier</td></tr>
+<tr class="r-red" data-type="antiattrition" data-outcome="paid" data-route="direct" data-transferred="yes" data-dept="Retention" data-red="2" data-aed="426"><td><span class="flag red"><i></i>Red</span><span class="sub2">off-rule</span></td><td class="mono">C4</td><td>Anti-attrition incentive</td><td>2026-04-18</td><td>2026-04-21</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">426.00</td><td class="num">2</td><td><span class="v">NOT_RELATED</span></td><td class="wrap">Not CC throughout the period the note pays for. <b>18 of the original 20 were month-end conversions paid in arrears</b>, AED 5,100 retracted</td></tr>
+<tr class="r-red" data-type="transport" data-outcome="paid" data-route="expense" data-transferred="yes" data-dept="Delighters" data-red="3" data-aed="392"><td><span class="flag red"><i></i>Red</span><span class="sub2">not deserved</span></td><td class="mono">C12</td><td>Live-out Transportation</td><td>2026-06-30</td><td>2026-07-02</td><td>expense</td><td>Yes</td><td>Delighters</td><td class="num">392.00</td><td class="num">3</td><td><span class="v">NO_TEXT</span></td><td class="wrap">Paid to a maid whose <span class="mono">LIVE_OUT</span> was 0 as of the note</td></tr>
+<tr class="r-amber" data-type="bonus" data-outcome="control" data-route="expense" data-transferred="yes" data-dept="Delighters" data-red="0" data-aed="9500"><td><span class="flag amber"><i></i>Yellow</span><span class="sub2">control violated</span></td><td class="mono">—</td><td>Bonus</td><td>—</td><td>—</td><td>expense</td><td>Yes</td><td>Delighters</td><td class="num">9,500.00</td><td class="num">9</td><td><span class="v x">—</span></td><td class="wrap">Bonus paid before the bonus was requested. Overlaps C2 by <b>9 notes across 8 of its 16 maids</b> — half that check's money tells a second story about the same people, which is why the two are never added</td></tr>
+<tr class="r-amber" data-type="bonus" data-outcome="control" data-route="direct" data-transferred="yes" data-dept="—" data-red="0" data-aed="7126"><td><span class="flag amber"><i></i>Yellow</span><span class="sub2">control violated</span></td><td class="mono">—</td><td>Bonus</td><td>—</td><td>—</td><td>direct</td><td>Yes</td><td>—</td><td class="num">7,126.00</td><td class="num">—</td><td><span class="v x">—</span></td><td class="wrap">A deprecated, config-disabled bonus path is still paying — switched off in configuration and money is still leaving through it</td></tr>
+<tr class="r-amber" data-type="antiattrition" data-outcome="control" data-route="direct" data-transferred="yes" data-dept="Retention" data-red="0" data-aed="0"><td><span class="flag amber"><i></i>Yellow</span><span class="sub2">control violated · no amount</span></td><td class="mono">—</td><td>Anti-attrition incentive</td><td>—</td><td>—</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">—</td><td class="num">18</td><td><span class="v x">—</span></td><td class="wrap"><b>Enrolment can be deleted without privilege or trace.</b> Enrolling a maid onto a money-bearing programme is position-restricted; changing her amount is position-restricted; <b>erasing the enrolment is not</b>. No audit history, so the deletion leaves nothing behind. Carries no amount — the money was probably owed. A dev item</td></tr>
+<tr class="r-amber" data-type="bonus" data-outcome="review" data-route="direct" data-transferred="yes" data-dept="—" data-red="0" data-aed="865000"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">no rule exists</span></td><td class="mono">—</td><td>Bonus — non-referral</td><td>—</td><td>—</td><td>direct</td><td>Yes</td><td>—</td><td class="num">~865,000</td><td class="num">—</td><td><span class="v x">—</span></td><td class="wrap"><b>A heterogeneous head.</b> At least seven purposes sit under it — referral, signing, <i>client</i> referral, renewal on MV switch, ticket allowance, Abu Dhabi Incentive, MMR. Only maid→maid referrals have an authorised-amount source, so for every other purpose the authorised amount is <b>0 by construction</b> and any <span class="mono">paid &gt; authorised</span> rule fires on all of them</td></tr>
+<tr class="r-amber" data-type="maidsat" data-outcome="review" data-route="expense" data-transferred="yes" data-dept="Maids.at" data-red="0" data-aed="51260"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">no rule exists</span></td><td class="mono">—</td><td>Maids.at other expenses</td><td>—</td><td>—</td><td>expense</td><td>Yes</td><td>Maids.at</td><td class="num">51,260.00</td><td class="num">273</td><td><span class="v x">—</span></td><td class="wrap">Clean on authorisation and <b>completely untested on entitlement</b>. Seven departments raise it, at two distinct tariffs — PRO Services ~AED 90 a note, Delighters L1 ~AED 423. This is what the department filter is for: it turns "this type has no rule" into "this team has no rule"</td></tr>
+<tr class="r-amber" data-type="airfare" data-outcome="review" data-route="expense" data-transferred="yes" data-dept="PRO Services" data-red="0" data-aed="32500"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">excluded and named</span></td><td class="mono">—</td><td>Airfare — MV renewal bonus</td><td>—</td><td>—</td><td>expense</td><td>Yes</td><td>PRO Services</td><td class="num">~32,500</td><td class="num">~18</td><td><span class="v x">—</span></td><td class="wrap">May be a different entitlement booked under the airfare head. <b>Excluded and named</b>, never scored against the airfare rule — testing it there would test the wrong thing</td></tr>
+<tr class="r-amber" data-type="office" data-outcome="review" data-route="direct" data-transferred="yes" data-dept="—" data-red="0" data-aed="13140"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">no rule exists</span></td><td class="mono">—</td><td>Office work</td><td>—</td><td>—</td><td>direct</td><td>Yes</td><td>—</td><td class="num">13,140.00</td><td class="num">92</td><td><span class="v x">—</span></td><td class="wrap">Unknown whether she must be assigned on the day she is paid. Only 15 of 92 notes were assigned when paid; 62 were with a client</td></tr>
+<tr class="r-amber" data-type="antiattrition" data-outcome="review" data-route="direct" data-transferred="yes" data-dept="Retention" data-red="0" data-aed="0"><td><span class="flag grey"><i></i>Grey</span><span class="sub2">retired, kept at zero</span></td><td class="mono">C3</td><td>Anti-attrition incentive</td><td>—</td><td>—</td><td>direct</td><td>Yes</td><td>Retention</td><td class="num">0.00</td><td class="num">0</td><td><span class="v x">—</span></td><td class="wrap"><b>Retired — unfalsifiable</b>, was AED 9,019 / 42 notes. Deletion is unguarded and untraced, so "never enrolled" and "enrolled then unenrolled" are identical in data. <b>A retracted check keeps its number and stays visible at zero</b></td></tr>
       </tbody>
-    </table></div><div class="foot"><b>A type with no rule is not a clean type.</b> These four are grey because no entitlement rule exists to test them against — not because they passed. Two standing caveats also apply to every figure in this section: payments made outside payroll are invisible to this check, and which payslip paid a note is <b>derived, not recorded</b> — rows where it cannot be established are amber and excluded from the money.</div></div>
+    </table></div>
+    <div class="mnempty" id="mn-empty" hidden>No rows match these filters. <b>An empty result is not a clean result</b> — widen the filters before reading it as one.</div>
+    <div class="foot"><b>C1 is what reading the wrong instant costs.</b> Read at the note date it was AED 13,257; read on the day payroll actually paid, <b>63 of its 110 notes went to maids who were back at work</b>. <b>C4 is what skipping a base rate costs:</b> 10.6% of CC→MV switches fall on a month's last day, which retracted AED 5,100. Over this audit's life <b>AED 222,228 has been withdrawn across twelve retractions against AED 30,441 standing</b>. ⚠ The Cases column mixes units — the spec's own check table counts notes on most rules, maids on C1 and C2, and groups on C10, against a stated grain of one row per note.</div>
   </div>
 </div>
-
 </div>
 
 <script>
@@ -425,7 +454,7 @@ img{max-width:100%}
   var pb=document.querySelectorAll('.presets button');
   var D=document.getElementById('dates');
   pb.forEach(function(b){b.addEventListener('click',function(){pb.forEach(function(o){o.setAttribute('aria-pressed','false');});b.setAttribute('aria-pressed','true');var k=b.getAttribute('data-preset');if(k==='custom'){D.hidden=false;F.focus();return;}D.hidden=true;var r=P[k];F.value=iso(r[0]);T.value=iso(r[1]);});});
-  document.querySelectorAll('.seg').forEach(function(seg){
+  document.querySelectorAll('.seg:not([data-filter])').forEach(function(seg){
     var btns=seg.querySelectorAll('button');
     btns.forEach(function(b){b.addEventListener('click',function(){
       btns.forEach(function(o){o.setAttribute('aria-pressed','false');});
@@ -434,6 +463,67 @@ img{max-width:100%}
       panel.querySelectorAll(':scope > .sub').forEach(function(s){s.classList.toggle('active', s.id===b.getAttribute('data-sub'));});
     });});
   });
+})();
+</script>
+
+<script>
+(function(){
+  var panel=document.getElementById('p-notes'); if(!panel) return;
+  var rows=Array.prototype.slice.call(panel.querySelectorAll('#mn-table tbody tr'));
+  var tabs=Array.prototype.slice.call(panel.querySelectorAll('#mn-tabs button'));
+  var outBtns=Array.prototype.slice.call(panel.querySelectorAll('.seg[data-filter="outcome"] button'));
+  var route=document.getElementById('mn-route'), tr=document.getElementById('mn-transferred'), dept=document.getElementById('mn-dept');
+  var countEl=document.getElementById('mn-count'), titleEl=document.getElementById('mn-title'), emptyEl=document.getElementById('mn-empty');
+  var state={type:'all',outcome:'all'};
+  function fmt(n){return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  // the shared filters, applied to every tab alike; the type tab and the outcome view are separate layers
+  function sharedOk(r){
+    return (route.value==='all'||r.dataset.route===route.value)
+        && (tr.value==='all'||r.dataset.transferred===tr.value)
+        && (dept.value==='all'||r.dataset.dept===dept.value);
+  }
+  function apply(){
+    var shown=0, red=0;
+    rows.forEach(function(r){
+      var ok=sharedOk(r)
+        && (state.type==='all'||r.dataset.type===state.type)
+        && (state.outcome==='all'||r.dataset.outcome===state.outcome);
+      r.hidden=!ok;
+      if(ok){ shown++; if(r.dataset.outcome==='paid') red+=parseFloat(r.dataset.aed||0); }
+    });
+    // badges count red CASES for their type under the shared filters only, so they stay a
+    // stable "how much red is in here" signal whichever outcome you are viewing
+    tabs.forEach(function(b){
+      var t=b.dataset.type, n=0;
+      rows.forEach(function(r){
+        if(!sharedOk(r)) return;
+        if(t!=='all'&&r.dataset.type!==t) return;
+        if(r.dataset.outcome!=='paid') return;
+        n+=parseInt(r.dataset.red||0,10);
+      });
+      var el=b.querySelector('.n'); el.textContent=n; el.classList.toggle('zero',n===0);
+    });
+    var label=state.type==='all'?'All types':tabs.filter(function(b){return b.dataset.type===state.type;})[0].firstChild.textContent.trim();
+    var view=state.outcome==='all'?'every row':outBtns.filter(function(b){return b.dataset.val===state.outcome;})[0].textContent;
+    titleEl.textContent=label+' — '+view;
+    countEl.textContent=shown+(shown===1?' row':' rows')+' · AED '+fmt(red)+' red';
+    emptyEl.hidden=shown!==0;
+  }
+  tabs.forEach(function(b){b.addEventListener('click',function(){
+    tabs.forEach(function(o){o.setAttribute('aria-pressed','false');});
+    b.setAttribute('aria-pressed','true'); state.type=b.dataset.type; apply();
+  });});
+  outBtns.forEach(function(b){b.addEventListener('click',function(){
+    outBtns.forEach(function(o){o.setAttribute('aria-pressed','false');});
+    b.setAttribute('aria-pressed','true'); state.outcome=b.dataset.val; apply();
+  });});
+  [route,tr,dept].forEach(function(s){s.addEventListener('change',apply);});
+  document.getElementById('mn-reset').addEventListener('click',function(){
+    route.value='all'; tr.value='all'; dept.value='all';
+    outBtns.forEach(function(o){o.setAttribute('aria-pressed',o.dataset.val==='all'?'true':'false');});
+    state.outcome='all'; apply();
+  });
+  apply();
 })();
 </script>
 </body>
