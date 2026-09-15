@@ -116,12 +116,27 @@ SELECT 'L2', 'Bonus over the referral entitlement',
 FROM bonuspaid bp JOIN refent e ON e.referrer_id = bp.HOUSEMAID_ID
 WHERE e.entitled > 0 AND bp.bonus_paid > e.entitled + 0.01
 UNION ALL
+-- 🔴 CORRECTED 2026-09-15. The first version read `first_created IS NULL OR note_day <
+--    first_created`, which folded maids with NO enrolment record in with maids paid BEFORE
+--    enrolment. It returned 11,145/51 against F5's 9,019/42 and I reported the AED 2,126
+--    difference as a LIVE, ACCELERATING defect. It was a definition I changed, not drift:
+--    the monthly split is 42 paid-before + 9 no-enrolment, and pct_failing is FALLING
+--    (2.05% Oct-2025 -> 0.22% Sep-2026). Same failure mode as the retracted AED 49,500.
+--    A re-measurement must reproduce the original's DEFINITION, not merely its subject.
+--    The 9 no-enrolment notes are a separate CANDIDATE, tested as L3b below.
 SELECT 'L3', 'Anti-attrition paid before any enrolment existed',
        ROUND(SUM(n.AMOUNT)), 9019, ROUND(SUM(n.AMOUNT)) - 9019,
        COUNT(*), COUNT(DISTINCT n.HOUSEMAID_ID), 'measured'
-FROM n LEFT JOIN enrol e ON e.HOUSEMAID_ID = n.HOUSEMAID_ID
+FROM n JOIN enrol e ON e.HOUSEMAID_ID = n.HOUSEMAID_ID
 WHERE n.payment_type = 'Anti-attrition Incentive'
-  AND (e.first_created IS NULL OR n.note_day < e.first_created)
+  AND n.note_day < e.first_created
+UNION ALL
+-- L3b · CANDIDATE, not a ledger row: no enrolment record AT ALL. Split out of L3 above.
+SELECT 'L3b', 'CANDIDATE - anti-attrition with NO enrolment record at all',
+       ROUND(SUM(n.AMOUNT)), NULL, NULL,
+       COUNT(*), COUNT(DISTINCT n.HOUSEMAID_ID), 'candidate - not on the ledger'
+FROM n LEFT JOIN enrol e ON e.HOUSEMAID_ID = n.HOUSEMAID_ID
+WHERE n.payment_type = 'Anti-attrition Incentive' AND e.first_created IS NULL
 UNION ALL
 SELECT 'L4', 'Anti-attrition to MV maids against a CC-only rule',
        ROUND(SUM(n.AMOUNT)), 5726, ROUND(SUM(n.AMOUNT)) - 5726,
@@ -179,4 +194,8 @@ WHERE n.payment_type = 'Taxi Reimbursement' AND ty.type_when_paid = 'CC Live In'
 
 ORDER BY ledger_aed DESC;
 
--- RESULT: (paste here when run)
+-- RESULT 2026-09-15 — 9 rows drift ZERO, 1 row drift -200 (L4, one note aged off the window).
+--   L7 unmeasurable (no query exists). L11 and L13 are reconstructions that DISAGREE with the
+--   originals (463 vs 838; 4,237 vs 392) — their definitions were never recorded.
+--   L3 corrected above after its first reading produced a false +2,126.
+--   LEDGER AFTER THIS RUN: AED 59,254 money lost.
