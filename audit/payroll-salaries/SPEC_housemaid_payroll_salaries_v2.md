@@ -399,13 +399,39 @@ statement. Labels are the words on the screen:
 | Check | Tile 1 (red) | Tile 2 | Tile 3 | Tile 4 |
 | --- | --- | --- | --- | --- |
 | Salary Components | Paid above the rule — the company's loss · M7 | Paid below the rule, or blank — owed to staff · M8 | Share of CC maids off their own rule · M3 | Excused — components not set up, never paid · M4 |
-| Salary Raises | CC raises with nothing authorising them · R1 + R2 | MV — we pay her more than her client agreed · R4 | CC paid above her group's standard · A1 | Coverage — the share this check can judge · M6 |
-| Expense → Loan | Expense paid, no loan raised and none on her ledger · R1 | Loan typed on the expense, never posted · R2 | Awaiting the fault read · M4 | Exception rate, and its denominator · M3 |
-| Loan Repayment | Owed, we paid her, nothing deducted · M4 | Collectable this month, after both caps · M5 | Cleared by an exclusion · (d) (e) (f) | Median owed per finding — read before the count |
+| Salary Raises | CC raises with nothing authorising them · R1 + R2 | MV — we pay her more than her client agreed · R4 | CC paid above her group's standard, **and the rest of the review queue** · A1 | Coverage — the share this check can judge · M6 |
+| Expense → Loan | Expense paid, no loan raised and none on her ledger · R1 | Loan typed on the expense, never posted · R2 | **Awaiting the fault read — a human decides these · M4 · M1** | Exception rate, and its denominator · M3 |
+| Loan Repayment | Owed, we paid her, nothing deducted · M4 | Collectable this month, after both caps · M5 | **Needs a human before Payroll is sent · verifier** | Median owed per finding — read before the count |
 | With Client | With a client, no contract, past 7 days · M5 | Watch — 7 days or fewer · M3 − M5 | Untagged share, and the median age · M3 | Cleaners parked in `WITH_CLIENT` — not this check's |
 | **Manager Notes** | **Additions nothing entitled her to · 11 checks** | **Money examined, and what no rule covers** | **Control broken, money may be owed — never in the total** | **Red rate, and its denominator** |
 
 **Check 6's tiles sit above a tab row rather than a switch — see §4.1.**
+
+🔴 **The yellow tile carries money, not a count — it is the size of the review queue.**
+A tile that reads *146 cases* tells an officer how many rows to open and nothing about whether it is
+worth opening them. The yellow tile therefore leads with **the AED of the cases that are neither red
+nor green** — the money a human still has to rule on — with the case count in its sub-line. Five of
+the six are priced from their own child spec:
+
+| Check | Review-queue money | What it is |
+| --- | --- | --- |
+| Salary Components | **AED 375,856.00 / mo** | 1,365 maids below the rule — owed to staff, not a company loss |
+| Salary Raises | **AED 202,019.00 / mo** | 657 above the standard, plus 5 held mismatches at AED 1,644/mo. **774 further rows carry no comparable figure** and the tile says so |
+| Expense → Loan | **AED 28,125.56** | M1 for August, and M4 puts **every one of the 146 exceptions** in the read queue — nothing is actioned until fault is decided |
+| Loan Repayment | **AED 11,386.00** | the two of the first ten read that did not stand. **1,204 of 1,214 findings are unread and their amount is not established** |
+| With Client | **not priced** | 43 watch maids. **M7 sums transferred pay over red cases only**, so this layer has no measured exposure — see below |
+| Manager Notes | **AED 16,626.00** | control findings, beside ~AED 962,000 that no rule can test (its own grey tile) |
+
+⚠️ **Two of those cells are admissions, and the tile must print them rather than fill the gap with a
+count.** Check 5's watch layer is **unpriced by construction** — `M7` is defined over red cases only,
+so the spec has never costed the population it asks an officer to watch. Check 4's queue is **10 of
+1,214 read**, so AED 11,386 is what is established, not what is there. **A yellow tile showing a tidy
+number for either would be inventing the answer**, which is the same failure as showing grey as green.
+
+🔴 **Check 4's yellow tile changed meaning, not just units.** It used to read *cleared by an exclusion
+— 125 cases*, which belongs nearer green than yellow: a maid cleared by the wage floor is **a correct
+zero, not a missed deduction**, and putting her in the review queue invites a review that should not
+happen. The yellow tile now holds what actually needs a human — the verifier's unresolved output.
 
 🔴 **There is no page total and there will not be one.** The six checks measure **money leaving above
 the rule**, **money never collected**, **entitlement not yet paid to staff**, **pay with nobody
