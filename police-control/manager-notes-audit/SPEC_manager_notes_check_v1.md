@@ -173,9 +173,20 @@ with whatever lookback its own rule needs.**
 
 ### Shared definitions
 
-**`AS_OF(note)`** — every attribute is read at `NOTE_DATE::DATE` by interval containment (D4/D5) or
-latest-revision (D7). **Never today's value.** Reading current state instead of as-of state moved six
-findings in this audit, one of them by 97%.
+**`AS_OF(note)`** — read at `NOTE_DATE::DATE` by interval containment (D4/D5) or latest-revision (D7).
+**Never today's value.** Reading current state instead of as-of state moved six findings, one by 97%.
+
+🔴 **`AS_OF_PAYMENT(note)` — NEW 2026-09-15, and it is not the same instant.** The note is written at
+month-end; payroll pays 1-3 days later. Resolve the payslip via D2 (`HOUSEMAID_PAYROLL_HISTORY`, maid ×
+payroll month) and read state at `PAID_ON_DATE_FORMATTED`. **Which instant a check uses is decided by
+the rule it tests, never by convenience:**
+- a rule about **entitlement** (was this owed?) reads as of the event that grants it — the renewal, the
+  enrolment, the start of the pay period;
+- a rule about **whether money should have left** reads `AS_OF_PAYMENT`, and additionally requires
+  `D2.IS_TRANSFERRED = 'YES'` — a note on a payslip that never transferred is not money lost.
+
+Getting this wrong moved C1 by **88%** (13,257 → 1,613): 63 of its 110 notes went to maids who were
+back at work on the day payroll ran, and 13 more sat on payslips that never transferred.
 
 **`ROUTE`** — `expense` if `D1.EXPENSE_ID` resolves to a D2 row, else `direct`. **5,345 notes / AED
 3,976,776 — 58% of the money — are `direct`**: no expense request, and therefore none of the
@@ -187,14 +198,14 @@ their own date; a gate is **observed from the data**, never hardcoded as policy.
 ### The checks
 
 Each is one note, one verdict. Figures are as of **2026-09-15**; every one is a snapshot of a rolling
-window and is date-stamped for that reason.
+window and is date-stamped for that reason. **Live total: AED 30,441 across 11 checks** (C3 retired).
 
 | # | Check | Archetype | Rule | AED | Notes |
 | --- | --- | --- | --- | ---: | ---: |
-| **C1** | Anti-attrition to a maid in a NO-SHOW or terminated state | not deserved | `AS_OF` status ∈ {`NO_SHOW`, `NO_SHOW_WENT_OUT_DID_NOT_RETURN`, `NO_SHOW_LEFT_CLIENT_HOME`, `NO_SHOW_FOR_TERMINATION`, `EMPLOYEMENT_TERMINATED`} | **13,257** | 110 |
+| **C1** | Anti-attrition to a maid in a NO-SHOW or terminated state | not deserved | 🔴 **REWRITTEN 2026-09-15.** `AS_OF_PAYMENT` status ∈ {`NO_SHOW`, `NO_SHOW_WENT_OUT_DID_NOT_RETURN`, `NO_SHOW_LEFT_CLIENT_HOME`, `NO_SHOW_FOR_TERMINATION`, `EMPLOYEMENT_TERMINATED`} **AND** `D2.IS_TRANSFERRED = 'YES'` **AND** absent ≥ 10 days at payment, **net of the days she had earned**. Was `AS_OF`-note-date with no transfer test — that read 13,257 | **1,613** | 3 maids |
 | **C2** | Bonus over the referral entitlement | not deserved | maid-level `SUM(bonus) > SUM(D8.AMOUNT where not cancelled and requested)` | **11,500** | 16 maids |
-| **C3** | Anti-attrition paid before enrolment existed | not deserved | `note_day < MIN(D10.CREATION_DATE)` | **9,019** | 42 |
-| **C4** | Anti-attrition to an MV maid against a CC-only rule | off-rule | `AS_OF` type = `MV` **AND the MV change took effect more than 2 days before the note** | **see note** | |
+| ~~**C3**~~ | ~~Anti-attrition paid before enrolment existed~~ | — | ⚪ **RETIRED 2026-09-15 (B3f) — do not implement.** Unfalsifiable: the job selects on `EXISTS` against the enrolment row, so a note predating the earliest surviving row means the original was **deleted**, and `deleteEntity` is an unguarded hard delete with no Envers, no soft-delete flag and no history. "Never enrolled" and "enrolled, unenrolled, re-enrolled" are identical in data | *0* | *was 42* |
+| **C4** | Anti-attrition to an MV maid against a CC-only rule | off-rule | 🔴 **REWRITTEN 2026-09-15 (B3g).** `AS_OF` type = `MV` **at the FIRST DAY of the pay period the note covers** — not "more than 2 days before the note", which was an arbitrary line. 18 of 20 notes were maids who converted **on the last day of a month** (base rate 10.6%, observed 90%, p≈4.4e-16) and were paid in arrears for a month spent entirely as CC. ⚠️ The 426 still needs splitting: maid 104507 (126) is a true MV case; maid 38994 (300) switched mid-month and was paid a full month, which is a **proration** failure belonging to C10, not here | **426** | 2 |
 | **C5** | Airfare to an MV maid | off-rule | no CC interval in the 24-month entitlement window | **4,500** | 3 |
 | **C6** | Accommodation Relocation to a live-in maid | not deserved | `AS_OF` type = `CC Live In` | **3,900** | 5 |
 | **C7** | Prorated salary outside the eligibility window | not deserved | salary start not within 0–40 days before the note | **2,976** | 25 |
@@ -231,7 +242,7 @@ put to management alongside B3.**
 
 | Check | Gate | Why |
 | --- | --- | --- |
-| C1, C3, C4, C10 | anti-attrition enrolment records begin with the scheme | Before it, absence of enrolment is a missing mechanism |
+| C1, C4, C10 | anti-attrition enrolment records begin with the scheme | Before it, absence of enrolment is a missing mechanism |
 | C5, C11 | airfare rule is code-verified from `AddScheduledAnnualVacationService` | CC-only, no airfare within 5 months, ≥16 months since the last ticket |
 | **All** | **department attribution: 2025-06-15** | `OFFICE_STAFF_CHANGES` carries no department change before it. Older notes resolve to *today's* department, which must be labelled as such |
 
